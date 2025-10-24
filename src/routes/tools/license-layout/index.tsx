@@ -42,8 +42,8 @@ function LicenseLayoutPage() {
   const [presetId, setPresetId] = useState<PresetId>('license')
   const [customWidthMm, setCustomWidthMm] = useState(85.6)
   const [customHeightMm, setCustomHeightMm] = useState(54)
-  const [pageMarginMm, setPageMarginMm] = useState(10)
-  const [cardGapMm, setCardGapMm] = useState(8)
+  const [pageMarginMm, setPageMarginMm] = useState(25)
+  const [cardGapMm, setCardGapMm] = useState(16)
   const [images, setImages] = useState<UploadedImage[]>([])
 
   const currentPreset = documentPresets.find((preset) => preset.id === presetId)
@@ -124,8 +124,8 @@ function LicenseLayoutPage() {
     setPresetId('license')
     setCustomWidthMm(85.6)
     setCustomHeightMm(54)
-    setPageMarginMm(10)
-    setCardGapMm(8)
+    setPageMarginMm(25)
+    setCardGapMm(16)
     setImages([])
   }
 
