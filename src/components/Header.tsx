@@ -31,8 +31,12 @@ export default function Header() {
             <Link to="/" className="flex items-center gap-3">
               <BrandBadge />
               <div className="leading-tight">
-                <span className="block text-base font-semibold tracking-wide">かんちゅツールズ</span>
-                <span className="block text-xs text-cyan-200">Daily helpers crafted by tainakanchu</span>
+                <span className="block text-base font-semibold tracking-wide">
+                  かんちゅツールズ
+                </span>
+                <span className="block text-xs text-cyan-200">
+                  Daily helpers crafted by tainakanchu
+                </span>
               </div>
             </Link>
           </div>
@@ -118,7 +122,9 @@ export default function Header() {
           </div>
 
           <div className="mt-6 space-y-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Tools</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
+              Tools
+            </p>
 
             <div className="space-y-2">
               {tools.map((tool) => (
@@ -136,8 +142,12 @@ export default function Header() {
                     <tool.icon size={18} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white">{tool.title}</p>
-                    <p className="mt-1 text-xs text-gray-400">{tool.description}</p>
+                    <p className="text-sm font-medium text-white">
+                      {tool.title}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {tool.description}
+                    </p>
                   </div>
                 </Link>
               ))}
@@ -157,7 +167,8 @@ export default function Header() {
 }
 
 function BrandBadge({ size = 'md' }: { size?: 'md' | 'sm' }) {
-  const dimension = size === 'sm' ? 'h-9 w-9 rounded-2xl' : 'h-10 w-10 rounded-3xl'
+  const dimension =
+    size === 'sm' ? 'h-9 w-9 rounded-2xl' : 'h-10 w-10 rounded-3xl'
   const iconSize = size === 'sm' ? 18 : 20
   const [failedToLoad, setFailedToLoad] = useState(false)
   const avatarSrc = '/assets/tainakanchu-avatar.png'

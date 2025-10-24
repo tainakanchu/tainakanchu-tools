@@ -53,11 +53,11 @@ function LicenseLayoutPage() {
     widthMm:
       presetId === 'custom'
         ? clampDimension(customWidthMm, 30, 210)
-        : currentPreset?.widthMm ?? 85.6,
+        : (currentPreset?.widthMm ?? 85.6),
     heightMm:
       presetId === 'custom'
         ? clampDimension(customHeightMm, 30, 297)
-        : currentPreset?.heightMm ?? 54,
+        : (currentPreset?.heightMm ?? 54),
   }
 
   const a4Style = useMemo(
@@ -148,7 +148,9 @@ function LicenseLayoutPage() {
         </header>
 
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-gray-800">ドキュメント設定</h2>
+          <h2 className="text-lg font-medium text-gray-800">
+            ドキュメント設定
+          </h2>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">種類</span>
             <select
@@ -167,26 +169,34 @@ function LicenseLayoutPage() {
           {presetId === 'custom' ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">幅 (mm)</span>
+                <span className="text-sm font-medium text-gray-700">
+                  幅 (mm)
+                </span>
                 <input
                   type="number"
                   min={30}
                   max={210}
                   step={0.1}
                   value={customWidthMm}
-                  onChange={(event) => setCustomWidthMm(Number(event.target.value))}
+                  onChange={(event) =>
+                    setCustomWidthMm(Number(event.target.value))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">高さ (mm)</span>
+                <span className="text-sm font-medium text-gray-700">
+                  高さ (mm)
+                </span>
                 <input
                   type="number"
                   min={30}
                   max={297}
                   step={0.1}
                   value={customHeightMm}
-                  onChange={(event) => setCustomHeightMm(Number(event.target.value))}
+                  onChange={(event) =>
+                    setCustomHeightMm(Number(event.target.value))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
                 />
               </label>
@@ -202,19 +212,25 @@ function LicenseLayoutPage() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-medium text-gray-700">余白 (mm)</span>
+              <span className="text-sm font-medium text-gray-700">
+                余白 (mm)
+              </span>
               <input
                 type="number"
                 min={0}
                 max={30}
                 step={1}
                 value={pageMarginMm}
-                onChange={(event) => setPageMarginMm(Number(event.target.value))}
+                onChange={(event) =>
+                  setPageMarginMm(Number(event.target.value))
+                }
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium text-gray-700">カード間隔 (mm)</span>
+              <span className="text-sm font-medium text-gray-700">
+                カード間隔 (mm)
+              </span>
               <input
                 type="number"
                 min={0}
@@ -239,7 +255,9 @@ function LicenseLayoutPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-medium text-gray-800">画像アップロード</h2>
+          <h2 className="text-lg font-medium text-gray-800">
+            画像アップロード
+          </h2>
           <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600 transition hover:border-cyan-400 hover:bg-cyan-50">
             <input
               type="file"
@@ -248,7 +266,9 @@ function LicenseLayoutPage() {
               onChange={handleFilesSelected}
               className="hidden"
             />
-            <span className="font-medium text-gray-800">画像を選択（最大2枚）</span>
+            <span className="font-medium text-gray-800">
+              画像を選択（最大2枚）
+            </span>
             <span className="mt-1 text-xs text-gray-500">
               PNG / JPG / HEIC などに対応しています
             </span>
@@ -313,7 +333,9 @@ function LicenseLayoutPage() {
 
       <section className="flex-1 print:w-full print:px-0 print:py-0">
         <div className="space-y-4 print:hidden">
-          <h2 className="text-lg font-medium text-gray-800">レイアウトプレビュー</h2>
+          <h2 className="text-lg font-medium text-gray-800">
+            レイアウトプレビュー
+          </h2>
           <p className="text-sm text-gray-600">
             下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
           </p>
@@ -330,7 +352,9 @@ function LicenseLayoutPage() {
               >
                 {images.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500 print:border-0 print:bg-transparent">
-                    <p>ここに画像が配置されます。左側から画像を選択してください。</p>
+                    <p>
+                      ここに画像が配置されます。左側から画像を選択してください。
+                    </p>
                     <p className="mt-2 text-xs text-gray-400">
                       印刷時は倍率を100%に設定すると実寸になります。
                     </p>
