@@ -18,7 +18,7 @@ function App() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 text-gray-900">
       <section className="space-y-6">
-        <h2 className="text-3xl font-bold">たいなかんちゅーツールズ</h2>
+        <h2 className="text-3xl font-bold">かんちゅツールズ</h2>
         <p className="text-lg text-gray-600">
           個人用の小さなツールを集めたハブページです。用途に合わせてアプリを選んでください。
         </p>

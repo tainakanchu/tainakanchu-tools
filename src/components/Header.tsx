@@ -146,7 +146,7 @@ export default function Header() {
         </nav>
 
         <footer className="border-t border-white/10 px-5 py-4 text-xs text-gray-500">
-          <p className="font-medium text-gray-300">たいなかんちゅー</p>
+          <p className="font-medium text-gray-300">かんちゅ</p>
           <p className="mt-1">
             “Gathering small, handy tools for everyday workflow.”
           </p>
@@ -160,7 +160,7 @@ function BrandBadge({ size = 'md' }: { size?: 'md' | 'sm' }) {
   const dimension = size === 'sm' ? 'h-9 w-9 rounded-2xl' : 'h-10 w-10 rounded-3xl'
   const iconSize = size === 'sm' ? 18 : 20
   const [failedToLoad, setFailedToLoad] = useState(false)
-  const avatarSrc = '/assets/tainakanchu-avatar.jpg'
+  const avatarSrc = '/assets/tainakanchu-avatar.png'
 
   return (
     <span
