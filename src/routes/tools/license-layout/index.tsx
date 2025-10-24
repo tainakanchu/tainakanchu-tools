@@ -44,6 +44,7 @@ function LicenseLayoutPage() {
   const [customHeightMm, setCustomHeightMm] = useState(54)
   const [pageMarginMm, setPageMarginMm] = useState(25)
   const [cardGapMm, setCardGapMm] = useState(16)
+  const [cardCornersRounded, setCardCornersRounded] = useState(true)
   const [images, setImages] = useState<UploadedImage[]>([])
 
   const currentPreset = documentPresets.find((preset) => preset.id === presetId)
@@ -126,6 +127,7 @@ function LicenseLayoutPage() {
     setCustomHeightMm(54)
     setPageMarginMm(25)
     setCardGapMm(16)
+    setCardCornersRounded(true)
     setImages([])
   }
 
@@ -224,6 +226,16 @@ function LicenseLayoutPage() {
               />
             </label>
           </div>
+
+          <label className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={cardCornersRounded}
+              onChange={(event) => setCardCornersRounded(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+            />
+            <span>カードの角を丸くする</span>
+          </label>
         </section>
 
         <section className="space-y-3">
@@ -306,10 +318,10 @@ function LicenseLayoutPage() {
             下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
           </p>
         </div>
-        <div className="mt-4 rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 shadow-inner print:m-0 print:rounded-none print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white shadow-sm print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent print:shadow-none">
+        <div className="mt-4 rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 print:m-0 print:rounded-none print:border-0 print:bg-transparent print:p-0">
+          <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
             <div
-              className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0 print:shadow-none"
+              className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0"
               style={a4Style}
             >
               <div
@@ -333,7 +345,9 @@ function LicenseLayoutPage() {
                       <img
                         src={image.dataUrl}
                         alt={image.name}
-                        className="h-full w-full rounded-xl border border-gray-200 object-contain shadow-sm"
+                        className={`h-full w-full object-contain ${
+                          cardCornersRounded ? 'rounded-xl' : ''
+                        }`}
                         style={{
                           boxSizing: 'border-box',
                         }}
