@@ -59,6 +59,21 @@ export default function Header() {
 
           {/* Demo Links Start */}
 
+          <Link
+            to="/tools/license-layout"
+            onClick={() => setIsOpen(false)}
+            className="block rounded-lg p-3 transition-colors hover:bg-gray-800"
+            activeProps={{
+              className:
+                'block rounded-lg p-3 transition-colors bg-cyan-600 hover:bg-cyan-700',
+            }}
+          >
+            <span className="font-medium">免許証レイアウトメーカー</span>
+            <p className="mt-1 text-sm text-gray-300">
+              免許証画像をA4に原寸配置して印刷・PDF出力するツール
+            </p>
+          </Link>
+
           {/* Demo Links End */}
         </nav>
       </aside>

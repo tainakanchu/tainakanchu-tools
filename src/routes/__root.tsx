@@ -1,25 +1,22 @@
 import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
+import { Suspense, lazy } from 'react'
 
 import Header from '../components/Header'
+
+const Devtools = import.meta.env.DEV
+  ? lazy(() => import('../components/Devtools'))
+  : null
 
 export const Route = createRootRoute({
   component: () => (
     <>
       <Header />
       <Outlet />
-      <TanStackDevtools
-        config={{
-          position: 'bottom-right',
-        }}
-        plugins={[
-          {
-            name: 'Tanstack Router',
-            render: <TanStackRouterDevtoolsPanel />,
-          },
-        ]}
-      />
+      {Devtools ? (
+        <Suspense fallback={null}>
+          <Devtools />
+        </Suspense>
+      ) : null}
     </>
   ),
 })
