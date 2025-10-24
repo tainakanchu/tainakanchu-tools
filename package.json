@@ -1,7 +1,28 @@
 {
   "name": "tainakanchu-tools",
+  "version": "1.0.0",
+  "description": "かんちゅが作る日常の小さな便利ツール集。免許証レイアウトメーカーなど、原寸レイアウトにこだわったユーティリティを公開中。",
+  "author": "tainakanchu (https://x.com/tainakanchu)",
+  "license": "MIT",
   "private": true,
   "type": "module",
+  "homepage": "https://tainakanchu-tools.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tainakanchu/tainakanchu-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tainakanchu/tainakanchu-tools/issues"
+  },
+  "keywords": [
+    "tools",
+    "utilities",
+    "license-layout",
+    "print",
+    "react",
+    "vite",
+    "typescript"
+  ],
   "scripts": {
     "dev": "vite --port 3000",
     "build": "vite build && tsc",
