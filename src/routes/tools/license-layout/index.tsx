@@ -274,6 +274,10 @@ function LicenseLayoutPage() {
             </span>
           </label>
 
+          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-relaxed text-emerald-900">
+            選択した画像データはブラウザ上でのみ扱われ、サーバーには送信されません。
+          </p>
+
           {images.length > 0 ? (
             <ul className="space-y-2">
               {images.map((image, index) => (
