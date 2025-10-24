@@ -64,6 +64,7 @@ function LicenseLayoutPage() {
       width: '210mm',
       height: '297mm',
       padding: `${clampDimension(pageMarginMm, 0, 30)}mm`,
+      boxSizing: 'border-box' as const,
     }),
     [pageMarginMm],
   )
@@ -72,6 +73,7 @@ function LicenseLayoutPage() {
     () => ({
       width: `${contentSize.widthMm}mm`,
       height: `${contentSize.heightMm}mm`,
+      boxSizing: 'border-box' as const,
     }),
     [contentSize.heightMm, contentSize.widthMm],
   )
@@ -134,7 +136,7 @@ function LicenseLayoutPage() {
   ]
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 text-gray-900 md:flex-row">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 text-gray-900 md:flex-row print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
       <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur print:hidden md:sticky md:top-4">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold">免許証レイアウトメーカー</h1>
@@ -297,17 +299,17 @@ function LicenseLayoutPage() {
         </section>
       </aside>
 
-      <section className="flex-1">
+      <section className="flex-1 print:w-full print:px-0 print:py-0">
         <div className="space-y-4 print:hidden">
           <h2 className="text-lg font-medium text-gray-800">レイアウトプレビュー</h2>
           <p className="text-sm text-gray-600">
             下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
           </p>
         </div>
-        <div className="mt-4 rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 shadow-inner">
-          <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white shadow-sm print:border-0 print:shadow-none">
+        <div className="mt-4 rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 shadow-inner print:m-0 print:rounded-none print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+          <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white shadow-sm print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent print:shadow-none">
             <div
-              className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white"
+              className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0 print:shadow-none"
               style={a4Style}
             >
               <div
