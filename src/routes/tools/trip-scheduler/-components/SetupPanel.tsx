@@ -1,4 +1,5 @@
-import { AlertTriangle, PlaneLanding, PlaneTakeoff } from 'lucide-react'
+import { AlertTriangle, PlaneLanding, PlaneTakeoff, Repeat } from 'lucide-react'
+import { cityName } from '../../../../lib/trip-scheduler/cities'
 import { dayDiff, isValidISODate } from '../../../../lib/trip-scheduler/dates'
 import { cardClass, fieldClass, sectionTitleClass } from '../-lib/styles'
 import { CitySelect } from './CitySelect'
@@ -20,6 +21,11 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
     isValidISODate(state.startDate) && isValidISODate(state.endDate)
   const nights = datesValid ? dayDiff(state.startDate, state.endDate) : 0
   const rangeOk = datesValid && nights > 0
+  /** 同じ都市に IN・OUT する往復便(パリIN・パリOUTのような定番パターン) */
+  const roundTripCityId =
+    state.inCityId !== null && state.inCityId === state.outCityId
+      ? state.inCityId
+      : null
 
   return (
     <section className={cardClass}>
@@ -104,6 +110,18 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
           </span>
         </p>
       )}
+
+      {roundTripCityId !== null ? (
+        <p className="mt-2 flex items-start gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          <Repeat size={16} className="mt-0.5 shrink-0 text-gray-400" />
+          <span>
+            {cityName(roundTripCityId)}
+            の往復なので、最初と最後の両方に{cityName(roundTripCityId)}
+            の滞在を置けます(最初に2泊 → 周遊 →
+            最後にもう一度、のような組み方)。
+          </span>
+        </p>
+      ) : null}
     </section>
   )
 }

@@ -78,6 +78,24 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
     [state.stays],
   )
 
+  /**
+   * 同じ都市の何回目の滞在か(パリIN・パリOUTのような再訪を行だけで見分けられるように)。
+   * 直前の滞在と同じ都市なら移動 leg が立たないので「続き」として区別する。
+   */
+  const revisits = useMemo(
+    () =>
+      state.stays.map((stay, index) => {
+        const order = state.stays
+          .slice(0, index + 1)
+          .filter((s) => s.cityId === stay.cityId).length
+        return {
+          order,
+          continued: index > 0 && state.stays[index - 1].cityId === stay.cityId,
+        }
+      }),
+    [state.stays],
+  )
+
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
@@ -87,7 +105,7 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
       <p className="mt-2 text-sm text-gray-600">
         順番は左のハンドル(⠿)を掴んでドラッグ、または▲▼で1つずつ。泊数は −/+
         で1泊ずつ。1泊のときに −
-        を押すと日程から外れて候補に戻ります(取り消しは元に戻すボタンで)。
+        を押すと日程から外れて候補に戻ります(取り消しは元に戻すボタンで)。同じ都市を2回置いた滞在には「再訪」が付きます。
       </p>
 
       {state.stays.length === 0 ? (
@@ -113,6 +131,8 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
                     violations={violationsByStayId.get(stay.id) ?? []}
                     dispatch={dispatch}
                     showInsertBefore={drag.poolInsertIndex === index}
+                    revisitOrder={revisits[index].order}
+                    continuedFromPrevious={revisits[index].continued}
                   />
                   {leg ? (
                     <LegRow

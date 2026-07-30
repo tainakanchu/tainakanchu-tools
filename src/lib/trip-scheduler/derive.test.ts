@@ -114,6 +114,71 @@ describe('deriveTrip: 日付窓', () => {
   })
 })
 
+describe('deriveTrip: 同じ都市が隣り合うとき(再訪で連続した滞在)', () => {
+  const adjacent = makeState({
+    stays: [
+      stay('s1', 'paris', 2),
+      stay('s2', 'paris', 3),
+      stay('s3', 'rome', 2),
+    ],
+  })
+
+  it('隣接する同一都市の間には移動 leg を作らない', () => {
+    const derived = deriveTrip(adjacent)
+    expect(derived.legs.map((l) => l.key)).toEqual(['paris>rome'])
+    expect(derived.metrics.legCount).toBe(1)
+    expect(derived.metrics.packingCount).toBe(1)
+  })
+
+  it('離れた同一都市(パリ IN・パリ OUT)には移動 leg が立つ', () => {
+    const state = makeState({
+      stays: [
+        stay('s1', 'paris', 2),
+        stay('s2', 'rome', 3),
+        stay('s3', 'paris', 3),
+      ],
+    })
+    expect(deriveTrip(state).legs.map((l) => l.key)).toEqual([
+      'paris>rome',
+      'rome>paris',
+    ])
+  })
+
+  it('泊の帳簿はそのまま成立する', () => {
+    const derived = deriveTrip(adjacent)
+    expect(derived.assignedNights).toBe(7)
+    expect(derived.overnightLegNights).toBe(0)
+    expect(derived.unassignedNights).toBe(
+      derived.totalNights - derived.assignedNights - derived.overnightLegNights,
+    )
+  })
+
+  it('日付窓が連続する(前の滞在の出発日 = 次の到着日、移動で削られない)', () => {
+    const [w1, w2, w3] = deriveTrip(adjacent).windows
+    expect(w1.arriveDay).toBe(0)
+    expect(w1.departDay).toBe(2)
+    expect(w2.arriveDay).toBe(2)
+    expect(w2.departDay).toBe(5)
+    expect(w2.arriveDate).toBe(w1.departDate)
+    expect(w3.arriveDay).toBe(5)
+  })
+
+  it('連続に分けても、1つの滞在にまとめたときと日程は変わらない', () => {
+    const merged = makeState({
+      stays: [stay('m1', 'paris', 5), stay('m2', 'rome', 2)],
+    })
+    const split = deriveTrip(adjacent)
+    const whole = deriveTrip(merged)
+    expect(split.metrics.totalEffectiveDays).toBe(
+      whole.metrics.totalEffectiveDays,
+    )
+    expect(split.windows.at(-1)?.departDate).toBe(
+      whole.windows.at(-1)?.departDate,
+    )
+    expect(split.legs[0].dayIndex).toBe(whole.legs[0].dayIndex)
+  })
+})
+
 describe('deriveTrip: 指標', () => {
   it('荷造り回数 = 移動回数、1 泊都市を数える', () => {
     const state = makeState({

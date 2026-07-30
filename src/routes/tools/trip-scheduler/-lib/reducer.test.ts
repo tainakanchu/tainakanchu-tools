@@ -113,14 +113,31 @@ describe('tripReducer / placeFromPoolAt(候補プールからの差し込み)', 
     stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 2)],
   })
 
-  it('落とした位置に挿入し、候補プールからは取り除く', () => {
+  it('落とした位置に挿入する。チップは候補プールに残る', () => {
     const next = tripReducer(base, {
       type: 'placeFromPoolAt',
       cityId: 'vienna',
       toIndex: 1,
     })
     expect(cityIdsOf(next)).toEqual(['paris', 'vienna', 'rome'])
-    expect(next.poolCityIds).toEqual(['prague'])
+    expect(next.poolCityIds).toEqual(['vienna', 'prague'])
+  })
+
+  it('配置済みの都市をもう一度差し込める(再訪の滞在が増える)', () => {
+    const once = tripReducer(base, {
+      type: 'placeFromPoolAt',
+      cityId: 'vienna',
+      toIndex: 1,
+    })
+    const twice = tripReducer(once, {
+      type: 'placeFromPoolAt',
+      cityId: 'vienna',
+      toIndex: 3,
+    })
+    expect(cityIdsOf(twice)).toEqual(['paris', 'vienna', 'rome', 'vienna'])
+    expect(twice.stays.map((s) => s.id)).toHaveLength(4)
+    expect(new Set(twice.stays.map((s) => s.id)).size).toBe(4)
+    expect(twice.poolCityIds).toEqual(['vienna', 'prague'])
   })
 
   it('先頭にも落とせる', () => {
@@ -167,14 +184,14 @@ describe('tripReducer / placeFromPoolAt(候補プールからの差し込み)', 
 })
 
 describe('tripReducer / placeFromPool(ボタンで日程に入れる)', () => {
-  it('末尾に追加する', () => {
+  it('末尾に追加する。チップは候補プールに残る', () => {
     const state = makeState({
       poolCityIds: ['vienna'],
       stays: [stay('s1', 'paris', 3)],
     })
     const next = tripReducer(state, { type: 'placeFromPool', cityId: 'vienna' })
     expect(cityIdsOf(next)).toEqual(['paris', 'vienna'])
-    expect(next.poolCityIds).toEqual([])
+    expect(next.poolCityIds).toEqual(['vienna'])
   })
 
   it('末尾が OUT 都市ならその手前に入れる', () => {
@@ -185,6 +202,17 @@ describe('tripReducer / placeFromPool(ボタンで日程に入れる)', () => {
     })
     const next = tripReducer(state, { type: 'placeFromPool', cityId: 'vienna' })
     expect(cityIdsOf(next)).toEqual(['paris', 'vienna', 'rome'])
+  })
+
+  it('「もう一度入れる」で同じ都市の2つ目の滞在ができる', () => {
+    const state = makeState({
+      poolCityIds: ['vienna'],
+      stays: [stay('s1', 'paris', 3), stay('s2', 'vienna', 2)],
+    })
+    const next = tripReducer(state, { type: 'placeFromPool', cityId: 'vienna' })
+    expect(cityIdsOf(next)).toEqual(['paris', 'vienna', 'vienna'])
+    expect(next.stays.filter((s) => s.cityId === 'vienna')).toHaveLength(2)
+    expect(next.poolCityIds).toEqual(['vienna'])
   })
 })
 
@@ -198,7 +226,16 @@ describe('tripReducer / removeStay', () => {
     expect(next.poolCityIds).toEqual(['rome'])
   })
 
-  it('同じ都市がまだ日程に残っていれば候補プールには戻さない', () => {
+  it('すでに候補プールにある都市は二重に追加しない', () => {
+    const state = makeState({
+      poolCityIds: ['rome'],
+      stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 2)],
+    })
+    const next = tripReducer(state, { type: 'removeStay', stayId: 's2' })
+    expect(next.poolCityIds).toEqual(['rome'])
+  })
+
+  it('同じ都市の滞在が残っていても、候補になければ候補に戻す', () => {
     const state = makeState({
       stays: [
         stay('s1', 'paris', 3),
@@ -208,7 +245,7 @@ describe('tripReducer / removeStay', () => {
     })
     const next = tripReducer(state, { type: 'removeStay', stayId: 's3' })
     expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
-    expect(next.poolCityIds).toEqual([])
+    expect(next.poolCityIds).toEqual(['paris'])
   })
 
   it('存在しない滞在 ID は何もしない', () => {
@@ -277,8 +314,8 @@ describe('tripReducer / moveStay(▲▼で1つずつ)', () => {
   })
 })
 
-describe('tripReducer / IN・OUT 都市', () => {
-  it('IN 都市を選ぶと先頭の滞在として置かれ、候補プールから消える', () => {
+describe('tripReducer / IN・OUT 都市(端で判定する)', () => {
+  it('IN 都市を選ぶと先頭の滞在として置かれる。候補プールのチップは残る', () => {
     const state = makeState({
       poolCityIds: ['paris'],
       stays: [stay('s1', 'rome', 2)],
@@ -286,21 +323,60 @@ describe('tripReducer / IN・OUT 都市', () => {
     const next = tripReducer(state, { type: 'setInCity', cityId: 'paris' })
     expect(next.inCityId).toBe('paris')
     expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
-    expect(next.poolCityIds).toEqual([])
+    expect(next.poolCityIds).toEqual(['paris'])
   })
 
   it('OUT 都市を選ぶと末尾の滞在として置かれる', () => {
     const state = makeState({ stays: [stay('s1', 'paris', 3)] })
     const next = tripReducer(state, { type: 'setOutCity', cityId: 'rome' })
     expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
+    expect(next.stays[1].nights).toBe(DEFAULT_STAY_NIGHTS)
   })
 
-  it('すでに日程に入っている都市を IN にしても並びは変えない', () => {
+  it('先頭がすでに IN 都市なら何も足さない', () => {
+    const state = makeState({
+      stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 2)],
+    })
+    const next = tripReducer(state, { type: 'setInCity', cityId: 'paris' })
+    expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
+  })
+
+  it('末尾がすでに OUT 都市なら何も足さない', () => {
+    const state = makeState({
+      stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 2)],
+    })
+    const next = tripReducer(state, { type: 'setOutCity', cityId: 'rome' })
+    expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
+  })
+
+  it('日程の途中にある都市を IN にすると、先頭にもう1つ立つ', () => {
     const state = makeState({
       stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 2)],
     })
     const next = tripReducer(state, { type: 'setInCity', cityId: 'rome' })
-    expect(cityIdsOf(next)).toEqual(['paris', 'rome'])
+    expect(cityIdsOf(next)).toEqual(['rome', 'paris', 'rome'])
+  })
+
+  it('パリ IN・パリ OUT で、周遊のあとに最後のパリが立つ', () => {
+    const state = makeState({
+      poolCityIds: ['paris', 'rome'],
+      stays: [stay('s1', 'paris', 2), stay('s2', 'rome', 3)],
+      inCityId: 'paris',
+    })
+    const next = tripReducer(state, { type: 'setOutCity', cityId: 'paris' })
+    expect(cityIdsOf(next)).toEqual(['paris', 'rome', 'paris'])
+    expect(next.outCityId).toBe('paris')
+  })
+
+  it('滞在が [パリ] だけなら IN=OUT=パリ でも増えない(1滞在で成立)', () => {
+    const start = makeState({ stays: [] })
+    const withIn = tripReducer(start, { type: 'setInCity', cityId: 'paris' })
+    expect(cityIdsOf(withIn)).toEqual(['paris'])
+    const withOut = tripReducer(withIn, {
+      type: 'setOutCity',
+      cityId: 'paris',
+    })
+    expect(cityIdsOf(withOut)).toEqual(['paris'])
   })
 })
 
@@ -312,11 +388,23 @@ describe('tripReducer / addToPool', () => {
     )
   })
 
-  it('すでに日程に入っている都市は候補に追加しない', () => {
+  it('日程に入っている都市も候補に追加できる(再訪させたいとき用)', () => {
     const state = makeState({ stays: [stay('s1', 'paris', 3)] })
-    expect(tripReducer(state, { type: 'addToPool', cityId: 'paris' })).toBe(
-      state,
-    )
+    const next = tripReducer(state, { type: 'addToPool', cityId: 'paris' })
+    expect(next.poolCityIds).toEqual(['paris'])
+    expect(cityIdsOf(next)).toEqual(['paris'])
+  })
+})
+
+describe('tripReducer / removeFromPool', () => {
+  it('候補から外しても、日程に入れてある滞在はそのまま残る', () => {
+    const state = makeState({
+      poolCityIds: ['paris'],
+      stays: [stay('s1', 'paris', 3)],
+    })
+    const next = tripReducer(state, { type: 'removeFromPool', cityId: 'paris' })
+    expect(next.poolCityIds).toEqual([])
+    expect(cityIdsOf(next)).toEqual(['paris'])
   })
 })
 

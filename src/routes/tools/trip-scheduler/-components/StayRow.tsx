@@ -31,6 +31,10 @@ interface StayRowProps {
   dispatch: TripDispatch
   /** 候補プールからのドラッグで、この行の直前に差し込まれる状態か */
   showInsertBefore: boolean
+  /** 同じ都市の何回目の滞在か(1 = 初回)。2 以上なら「再訪」 */
+  revisitOrder: number
+  /** 直前の滞在が同じ都市か(移動が発生しない続きの滞在) */
+  continuedFromPrevious: boolean
 }
 
 const gripClass =
@@ -49,6 +53,8 @@ export function StayRow({
   violations,
   dispatch,
   showInsertBefore,
+  revisitOrder,
+  continuedFromPrevious,
 }: StayRowProps) {
   const {
     attributes,
@@ -103,6 +109,21 @@ export function StayRow({
               {cityLabel}
             </span>
             <span className="ml-2 text-xs text-gray-500">{city?.country}</span>
+            {continuedFromPrevious ? (
+              <span
+                className="ml-2 inline-block rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+                title="直前の滞在と同じ都市なので、移動なしで続けて泊まります"
+              >
+                続き
+              </span>
+            ) : revisitOrder > 1 ? (
+              <span
+                className="ml-2 inline-block rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700"
+                title={`${cityLabel} は ${revisitOrder} 回目の滞在です`}
+              >
+                再訪
+              </span>
+            ) : null}
           </span>
 
           <span className="ml-auto flex items-center gap-1">

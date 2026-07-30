@@ -30,20 +30,29 @@ export function deriveTrip(state: TripState): DerivedTrip {
   const totalNights = Math.max(0, dayDiff(state.startDate, state.endDate))
   const totalDays = totalNights + 1
 
-  // 隣接する滞在間の移動 leg を解決する
-  const legs: Array<ResolvedLeg> = []
+  /**
+   * 滞在の隙間ごとの移動 leg。index g = stays[g] と stays[g+1] の間。
+   * leg が立たない隙間は undefined で埋めて、滞在との対応をずらさない。
+   *
+   * 同じ都市が隣り合うとき(パリ IN・パリ OUT の再訪などで滞在が連続したとき)は
+   * 移動が発生しないので leg を立てない。連続した1つの滞在として扱う。
+   */
+  const legByGap: Array<ResolvedLeg | undefined> = []
   for (let i = 0; i + 1 < state.stays.length; i++) {
     const from = state.stays[i]
     const to = state.stays[i + 1]
     const fromCity = getCity(from.cityId)
     const toCity = getCity(to.cityId)
-    if (!fromCity || !toCity) continue
+    if (from.cityId === to.cityId || !fromCity || !toCity) {
+      legByGap.push(undefined)
+      continue
+    }
     const options = estimateOptions(fromCity, toCity)
     const key = legKeyOf(from.cityId, to.cityId)
     const selectedMode = state.legModes[key]
     const chosen =
       options.find((o) => o.mode === selectedMode) ?? recommendedOption(options)
-    legs.push({
+    legByGap.push({
       key,
       fromStayId: from.id,
       toStayId: to.id,
@@ -54,14 +63,15 @@ export function deriveTrip(state: TripState): DerivedTrip {
       dayIndex: 0, // 後段の走査で確定する
     })
   }
+  const legs = legByGap.filter((leg): leg is ResolvedLeg => leg !== undefined)
 
   // 夜インデックスを走査して各滞在の日付窓を確定する
   const windows: Array<StayWindow> = []
   let nightCursor = 0
   for (let i = 0; i < state.stays.length; i++) {
     const stay = state.stays[i]
-    const incomingLeg = i > 0 ? legs[i - 1] : undefined
-    const outgoingLeg = i < legs.length ? legs[i] : undefined
+    const incomingLeg = i > 0 ? legByGap[i - 1] : undefined
+    const outgoingLeg = legByGap[i]
 
     // 夜行 leg の泊は前の滞在の後で nightCursor に加算済みなので、
     // 昼行(同日移動)・夜行(翌朝着)どちらも到着日 = nightCursor になる

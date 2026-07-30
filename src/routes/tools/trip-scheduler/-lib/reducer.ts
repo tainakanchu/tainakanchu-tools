@@ -66,7 +66,12 @@ function withoutCity(pool: Array<string>, cityId: string): Array<string> {
   return pool.filter((id) => id !== cityId)
 }
 
-/** 候補プールの都市を滞在リストの指定位置に差し込む(index は前後にはみ出しても丸める) */
+/**
+ * 候補プールの都市を滞在リストの指定位置に差し込む(index は前後にはみ出しても丸める)。
+ *
+ * チップはプールに残したままにする。パリ IN・パリ OUT のように
+ * 同じ都市を何度も置く旅程(最初にパリ2泊 → 周遊 → 最後にパリ3泊)を組めるようにするため。
+ */
 function insertStayAt(
   state: TripState,
   cityId: string,
@@ -75,42 +80,40 @@ function insertStayAt(
   const stays = [...state.stays]
   const at = Math.max(0, Math.min(toIndex, stays.length))
   stays.splice(at, 0, makeStay(cityId, DEFAULT_STAY_NIGHTS))
-  return {
-    ...state,
-    poolCityIds: withoutCity(state.poolCityIds, cityId),
-    stays,
-  }
+  return { ...state, stays }
 }
 
-/** 日程から外した都市は候補プールへ戻す(同じ都市が別の滞在に残っていれば戻さない) */
+/**
+ * 日程から外した都市は候補プールへ戻す(すでにプールにあれば二重には積まない)。
+ * IN/OUT で自動配置された都市はプールを経由していないので、その受け皿になる。
+ */
 function removeStayAt(state: TripState, index: number): TripState {
   const target = state.stays[index]
   const stays = state.stays.filter((_, i) => i !== index)
-  const stillPlaced = stays.some((stay) => stay.cityId === target.cityId)
-  const backToPool =
-    !stillPlaced && !state.poolCityIds.includes(target.cityId)
-      ? [...state.poolCityIds, target.cityId]
-      : state.poolCityIds
-  return { ...state, stays, poolCityIds: backToPool }
+  const poolCityIds = state.poolCityIds.includes(target.cityId)
+    ? state.poolCityIds
+    : [...state.poolCityIds, target.cityId]
+  return { ...state, stays, poolCityIds }
 }
 
 /**
  * IN/OUT 都市は航空券で確定している前提条件なので、選ばれた時点で
- * 最初/最後の滞在として置いておく(未配置のときだけ。既存の並びは壊さない)。
+ * 最初/最後の滞在として置いておく。
+ *
+ * 判定は「配置済みかどうか」ではなく端の状態で行う。パリ IN・パリ OUT のとき、
+ * 先頭のパリがあるからと末尾を諦めてしまうと定番の往復パターンが組めないため。
+ * 端がすでにその都市なら何もしない(滞在1つだけの [パリ] は IN=OUT=パリ で成立する)。
  */
 function anchorCity(
   state: TripState,
   cityId: string,
   position: 'first' | 'last',
 ): TripState {
-  const poolCityIds = withoutCity(state.poolCityIds, cityId)
-  if (state.stays.some((stay) => stay.cityId === cityId)) {
-    return { ...state, poolCityIds }
-  }
+  const edge = position === 'first' ? state.stays[0] : state.stays.at(-1)
+  if (edge?.cityId === cityId) return state
   const stay = makeStay(cityId, DEFAULT_STAY_NIGHTS)
   return {
     ...state,
-    poolCityIds,
     stays:
       position === 'first' ? [stay, ...state.stays] : [...state.stays, stay],
   }
@@ -138,13 +141,13 @@ export function tripReducer(state: TripState, action: TripAction): TripState {
       return anchorCity(next, action.cityId, 'last')
     }
 
+    // 配置済みの都市も候補に置ける(IN/OUT で自動配置された都市を再訪させたいとき用)
     case 'addToPool': {
       if (state.poolCityIds.includes(action.cityId)) return state
-      if (state.stays.some((stay) => stay.cityId === action.cityId))
-        return state
       return { ...state, poolCityIds: [...state.poolCityIds, action.cityId] }
     }
 
+    // 候補から外すだけ。すでに日程に入れてある滞在はそのまま残す
     case 'removeFromPool': {
       if (!state.poolCityIds.includes(action.cityId)) return state
       return {
@@ -164,6 +167,7 @@ export function tripReducer(state: TripState, action: TripAction): TripState {
     }
 
     // ドラッグで落とした位置に入れる。位置を自分で決めているので OUT 都市の忖度はしない
+    // (同じ都市を2回目として差し込むのもここを通る)
     case 'placeFromPoolAt':
       return insertStayAt(state, action.cityId, action.toIndex)
 
