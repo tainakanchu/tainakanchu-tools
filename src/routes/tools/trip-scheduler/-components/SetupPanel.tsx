@@ -1,11 +1,8 @@
 import { AlertTriangle, PlaneLanding, PlaneTakeoff } from 'lucide-react'
-import {
-  dayDiff,
-  formatShortJa,
-  isValidISODate,
-} from '../../../../lib/trip-scheduler/dates'
+import { dayDiff, isValidISODate } from '../../../../lib/trip-scheduler/dates'
 import { cardClass, fieldClass, sectionTitleClass } from '../-lib/styles'
 import { CitySelect } from './CitySelect'
+import { DateLabel } from './DateLabel'
 import type { TripDispatch } from '../-lib/reducer'
 import type { TripState } from '../../../../lib/trip-scheduler/types'
 
@@ -94,7 +91,8 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
             {nights}泊{nights + 1}日
           </span>
           <span className="ml-2 text-cyan-800/80">
-            {formatShortJa(state.startDate)} 〜 {formatShortJa(state.endDate)}
+            <DateLabel iso={state.startDate} /> 〜{' '}
+            <DateLabel iso={state.endDate} />
           </span>
         </p>
       ) : (

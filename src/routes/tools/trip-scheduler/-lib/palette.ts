@@ -45,3 +45,21 @@ export const fallbackCityColor: CityColor = {
   dot: 'bg-gray-400',
   soft: 'bg-gray-50',
 }
+
+/**
+ * 曜日番号 (0 = 日 〜 6 = 土) → 曜日の文字色。
+ * 日本のカレンダー慣習に合わせて土=青・日=赤、平日は色を持たず周囲を継承する。
+ */
+const weekdayToneClasses: Array<string> = [
+  'text-red-600', // 日
+  '',
+  '',
+  '',
+  '',
+  '',
+  'text-blue-600', // 土
+]
+
+export function weekdayToneClass(weekdayIndex: number): string {
+  return weekdayToneClasses[weekdayIndex] ?? ''
+}

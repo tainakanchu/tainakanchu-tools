@@ -8,7 +8,6 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import { formatShortJa } from '../../../../lib/trip-scheduler/dates'
 import { getCity } from '../../../../lib/trip-scheduler/cities'
 import { formatDays } from '../-lib/format'
 import { fallbackCityColor } from '../-lib/palette'
@@ -18,6 +17,7 @@ import {
   sectionTitleClass,
   stepperButtonClass,
 } from '../-lib/styles'
+import { DateLabel } from './DateLabel'
 import { LegRow } from './LegRow'
 import type { CityColor } from '../-lib/palette'
 import type { TripDispatch } from '../-lib/reducer'
@@ -193,9 +193,10 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
 
                     {stayWindow ? (
                       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
-                        <span className="tabular-nums">
-                          {formatShortJa(stayWindow.arriveDate)} →{' '}
-                          {formatShortJa(stayWindow.departDate)}
+                        <span>
+                          <DateLabel iso={stayWindow.arriveDate} />
+                          <span className="mx-1 text-gray-400">→</span>
+                          <DateLabel iso={stayWindow.departDate} />
                         </span>
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                           実質観光 {formatDays(stayWindow.effectiveDays)}日

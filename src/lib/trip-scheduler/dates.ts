@@ -31,8 +31,13 @@ export function addDays(iso: string, days: number): string {
 
 const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'] as const
 
+/** 曜日番号 (0 = 日曜 〜 6 = 土曜)。土日の色分けや「月曜は休館日」判断に使う */
+export function weekdayIndex(iso: string): number {
+  return new Date(parseISODate(iso)).getUTCDay()
+}
+
 export function weekdayJa(iso: string): string {
-  return WEEKDAY_JA[new Date(parseISODate(iso)).getUTCDay()]
+  return WEEKDAY_JA[weekdayIndex(iso)]
 }
 
 /** '6/12(木)' 形式 */

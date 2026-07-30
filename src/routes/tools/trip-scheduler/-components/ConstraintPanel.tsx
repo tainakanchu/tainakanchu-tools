@@ -19,6 +19,7 @@ import {
   sectionTitleClass,
 } from '../-lib/styles'
 import { CitySelect } from './CitySelect'
+import { DateLabel } from './DateLabel'
 import type { TripDispatch } from '../-lib/reducer'
 import type {
   Constraint,
@@ -185,6 +186,10 @@ export function ConstraintPanel({
               aria-label="日付"
               className={`${fieldClass} w-44`}
             />
+            {isValidISODate(date) ? (
+              // 入力欄だけだと曜日が見えないので、選んだ日の曜日をその場で出す
+              <DateLabel iso={date} className="text-xs text-gray-500" />
+            ) : null}
             <span>は</span>
             <CitySelect
               value={cityId}

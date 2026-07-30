@@ -13,13 +13,14 @@ import {
   travelModeLabel,
 } from '../../../../lib/trip-scheduler/travel'
 import { cityName, getCity } from '../../../../lib/trip-scheduler/cities'
-import { addDays, formatShortJa } from '../../../../lib/trip-scheduler/dates'
+import { addDays } from '../../../../lib/trip-scheduler/dates'
 import {
   googleMapsTransitUrl,
   rome2rioUrl,
   skyscannerUrl,
 } from '../../../../lib/trip-scheduler/travelLinks'
 import { formatDays } from '../-lib/format'
+import { DateLabel } from './DateLabel'
 import type { ComponentType } from 'react'
 import type { TripDispatch } from '../-lib/reducer'
 import type {
@@ -84,6 +85,11 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
           className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-left"
           aria-expanded={open}
         >
+          {/* 何曜日に移動するか(週末の混雑・月曜の休館日を避ける判断材料) */}
+          <span className="text-xs text-gray-500">
+            <DateLabel iso={travelDate} />
+            {overnight ? ' 夜発' : ' 移動'}
+          </span>
           <span
             className={`inline-flex items-center gap-1.5 text-sm font-medium ${
               overnight ? 'text-indigo-700' : 'text-gray-700'
@@ -179,7 +185,8 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
                       className={externalLinkClass}
                     >
                       <ExternalLink size={12} className="shrink-0" />
-                      Skyscanner(空路 {formatShortJa(travelDate)}発)
+                      Skyscanner(空路 <DateLabel iso={travelDate} />
+                      発)
                     </a>
                   ) : null}
                   <a

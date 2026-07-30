@@ -17,8 +17,10 @@ export function constraintLabel(constraint: Constraint): string {
           return `${name} にちょうど ${constraint.min} 泊する`
         return `${name} に ${constraint.min}〜${constraint.max} 泊する`
       }
-      if (constraint.min !== null) return `${name} に ${constraint.min} 泊以上する`
-      if (constraint.max !== null) return `${name} は ${constraint.max} 泊までにする`
+      if (constraint.min !== null)
+        return `${name} に ${constraint.min} 泊以上する`
+      if (constraint.max !== null)
+        return `${name} は ${constraint.max} 泊までにする`
       return `${name} の泊数(条件未設定)`
     }
     case 'presenceOnDate':
@@ -82,7 +84,9 @@ function checkOne(
 ): Array<Violation> {
   switch (constraint.kind) {
     case 'stayNights': {
-      const cityStays = state.stays.filter((s) => s.cityId === constraint.cityId)
+      const cityStays = state.stays.filter(
+        (s) => s.cityId === constraint.cityId,
+      )
       if (cityStays.length === 0) return [] // 未配置は mustVisit の守備範囲
       const nights = cityStays.reduce((sum, s) => sum + s.nights, 0)
       const stayIds = cityStays.map((s) => s.id)
@@ -134,7 +138,9 @@ function checkOne(
           day <= w.departDay,
       )
       if (there) return []
-      const actual = windows.filter((w) => w.arriveDay <= day && day <= w.departDay)
+      const actual = windows.filter(
+        (w) => w.arriveDay <= day && day <= w.departDay,
+      )
       const actualLabel =
         actual.length > 0
           ? actual.map((w) => cityName(w.cityId)).join('・')

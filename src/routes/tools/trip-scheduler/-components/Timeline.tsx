@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { CalendarRange, Moon } from 'lucide-react'
-import { formatShortJa } from '../../../../lib/trip-scheduler/dates'
 import { cityName } from '../../../../lib/trip-scheduler/cities'
 import { travelModeLabel } from '../../../../lib/trip-scheduler/travel'
 import { formatDays } from '../-lib/format'
 import { fallbackCityColor } from '../-lib/palette'
 import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { DateLabel } from './DateLabel'
+import { DayStrip } from './DayStrip'
 import type { CityColor } from '../-lib/palette'
 import type {
   DerivedTrip,
@@ -39,8 +40,10 @@ interface TimelineProps {
 }
 
 /**
- * 横一列の可視化(デスクトップのみ)。
+ * 横一列の可視化。
  * 滞在は泊数ぶんの幅、移動は日中を食うぶんのくさび、夜行は幅を取らない月マーカー。
+ * 横棒本体は幅が要るのでデスクトップのみ。日ごとのストリップ(DayStrip)は
+ * 曜日を見るための主役なのでモバイルでも常時表示する。
  */
 export function Timeline({ state, derived, colors }: TimelineProps) {
   const segments = useMemo<Array<Segment>>(() => {
@@ -90,7 +93,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
   }, [state.stays, state.startDate, derived])
 
   return (
-    <section className={`${cardClass} hidden md:block`}>
+    <section className={cardClass}>
       <h2 className={sectionTitleClass}>
         <CalendarRange size={18} className="text-cyan-600" />
         タイムライン
@@ -101,7 +104,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
           滞在を追加するとここに横棒で並びます。
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <div className="min-w-[640px]">
             {/* 日付目盛り(各滞在の到着日) */}
             <div className="flex items-end gap-1">
@@ -116,9 +119,10 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                   }
                 >
                   {segment.kind === 'stay' ? (
-                    <span className="block truncate text-[10px] tabular-nums text-gray-500">
-                      {formatShortJa(segment.arriveDate)}
-                    </span>
+                    <DateLabel
+                      iso={segment.arriveDate}
+                      className="block truncate text-[10px] text-gray-500"
+                    />
                   ) : null}
                 </div>
               ))}
@@ -188,8 +192,8 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
             </div>
 
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-              <span className="tabular-nums">
-                到着 {formatShortJa(state.startDate)}
+              <span>
+                到着 <DateLabel iso={state.startDate} />
               </span>
               <span className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
@@ -201,13 +205,27 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                   夜行
                 </span>
               </span>
-              <span className="tabular-nums">
-                帰国 {formatShortJa(state.endDate)}
+              <span>
+                帰国 <DateLabel iso={state.endDate} />
               </span>
             </div>
           </div>
         </div>
       )}
+
+      {/* 日ごと(曜日つき)。横棒より粒度が細かく、モバイルでもここだけは見える */}
+      <div className="mt-4 md:mt-5 md:border-t md:border-gray-100 md:pt-4">
+        <h3 className="text-xs font-semibold text-gray-500">
+          日ごと(曜日つき)
+        </h3>
+        <div className="mt-2">
+          <DayStrip
+            startDate={state.startDate}
+            derived={derived}
+            colors={colors}
+          />
+        </div>
+      </div>
     </section>
   )
 }
