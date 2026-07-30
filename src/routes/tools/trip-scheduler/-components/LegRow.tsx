@@ -15,6 +15,7 @@ import {
 import { cityName, getCity } from '../../../../lib/trip-scheduler/cities'
 import { addDays } from '../../../../lib/trip-scheduler/dates'
 import {
+  dbTimetableUrl,
   googleFlightsUrl,
   googleMapsTransitUrl,
   kayakUrl,
@@ -82,17 +83,34 @@ export function LegRow({
   const toCity = getCity(leg.toCityId)
   const travelDate = addDays(startDate, leg.dayIndex)
 
-  // 日付を URL に載せられるのは空路の検索サイトだけ。
-  // 3サイトとも「両端に空港があり、日付が正しい」ときだけ URL を作れる(= 揃って出る/揃って消える)。
+  // 空路3サイトは「両端に空港があり、日付が正しい」ときだけ URL を作れる(= 揃って出る/揃って消える)。
   const skyscannerHref =
     fromCity && toCity ? skyscannerUrl(fromCity, toCity, travelDate) : null
   const googleFlightsHref =
     fromCity && toCity ? googleFlightsUrl(fromCity, toCity, travelDate) : null
   const kayakHref =
     fromCity && toCity ? kayakUrl(fromCity, toCity, travelDate) : null
-  const hasDatedLinks = Boolean(
+  const hasFlightLinks = Boolean(
     skyscannerHref || googleFlightsHref || kayakHref,
   )
+
+  // 鉄道は DB(ドイツ鉄道)国際版が日付つきで開ける。
+  // 鉄道候補が出ない区間(海越えなど)では出しても意味がないので隠す。
+  const hasRailOption = leg.options.some(
+    (option) => option.mode === 'train' || option.mode === 'nightTrain',
+  )
+  const dbHref =
+    fromCity && toCity && hasRailOption
+      ? dbTimetableUrl(
+          fromCity,
+          toCity,
+          travelDate,
+          // 夜行は夕方以降の発を見たいので開始時刻をずらす
+          overnight ? '18:00' : '09:00',
+        )
+      : null
+
+  const hasDatedLinks = hasFlightLinks || Boolean(dbHref)
 
   // ドラッグ中は開いていた手段選びも畳む。全ての移動行の高さが揃うので、
   // 並べ替え時の「1つぶん動かす距離」の計算がずれない。
@@ -218,6 +236,18 @@ export function LegRow({
                       )で探す
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-2">
+                      {dbHref ? (
+                        <a
+                          href={dbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={externalLinkClass}
+                          title="DB(ドイツ鉄道)の欧州時刻検索。区間と移動日が入った状態で開くので、あとは検索ボタンを押すだけです"
+                        >
+                          <ExternalLink size={12} className="shrink-0" />
+                          DB 欧州時刻表(鉄道)
+                        </a>
+                      ) : null}
                       {skyscannerHref ? (
                         <a
                           href={skyscannerHref}
@@ -285,7 +315,7 @@ export function LegRow({
 
                 <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                   別タブで開きます。※検索サイトの結果は、ここで表示している目安の所要時間と異なることがあります。
-                  {hasDatedLinks
+                  {hasFlightLinks
                     ? ''
                     : `(${cityName(leg.fromCityId)}・${cityName(leg.toCityId)} のどちらかに空港がないため空路検索は省略)`}
                 </p>
