@@ -1,5 +1,4 @@
-import { Link } from '@tanstack/react-router'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -12,6 +11,12 @@ function App() {
       description:
         '免許証の画像を原寸大でA4に配置して印刷・PDF出力できるレイアウトツール。',
       to: '/tools/license-layout',
+    },
+    {
+      title: '旅程パズル',
+      description:
+        'ヨーロッパ周遊の滞在日数・訪問順・移動手段を、泊数を配り切るパズルとして組み立てる新婚旅行プランナー。',
+      to: '/tools/trip-scheduler',
     },
   ]
 

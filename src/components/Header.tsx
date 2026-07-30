@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Home, Menu, Printer, Sparkles, X } from 'lucide-react'
+import { Home, Map, Menu, Printer, Sparkles, X } from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -11,6 +11,13 @@ export default function Header() {
         title: '免許証レイアウトメーカー',
         description: '免許証画像をA4に原寸配置して印刷・PDF出力するツール',
         icon: Printer,
+      },
+      {
+        to: '/tools/trip-scheduler',
+        title: '旅程パズル',
+        description:
+          'ヨーロッパ周遊の泊数と移動手段をパズルのように決めるツール',
+        icon: Map,
       },
     ],
     [],

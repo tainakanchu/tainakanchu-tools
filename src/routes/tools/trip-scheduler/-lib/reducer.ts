@@ -1,0 +1,295 @@
+import { legKeyOf } from '../../../../lib/trip-scheduler/derive'
+import {
+  createInitialState,
+  newId,
+} from '../../../../lib/trip-scheduler/storage'
+import type {
+  Constraint,
+  ConstraintSeverity,
+  Stay,
+  TravelMode,
+  TripState,
+} from '../../../../lib/trip-scheduler/types'
+
+/** 候補プールから日程に入れるときの初期泊数(2泊 = 丸1日観光できる最小単位) */
+export const DEFAULT_STAY_NIGHTS = 2
+
+/** Undo 履歴の上限 */
+const HISTORY_LIMIT = 50
+
+export type TripAction =
+  | { type: 'setStartDate'; date: string }
+  | { type: 'setEndDate'; date: string }
+  | { type: 'setInCity'; cityId: string | null }
+  | { type: 'setOutCity'; cityId: string | null }
+  | { type: 'addToPool'; cityId: string }
+  | { type: 'removeFromPool'; cityId: string }
+  | { type: 'placeFromPool'; cityId: string }
+  | { type: 'placeFromPoolAt'; cityId: string; toIndex: number }
+  | { type: 'removeStay'; stayId: string }
+  | { type: 'changeNights'; stayId: string; delta: number }
+  | { type: 'moveStay'; stayId: string; delta: number }
+  | { type: 'reorderStay'; stayId: string; toIndex: number }
+  | {
+      type: 'setLegMode'
+      fromCityId: string
+      toCityId: string
+      mode: TravelMode
+    }
+  | { type: 'addConstraint'; constraint: Constraint }
+  | { type: 'setConstraintSeverity'; id: string; severity: ConstraintSeverity }
+  | { type: 'toggleConstraint'; id: string }
+  | { type: 'removeConstraint'; id: string }
+  | { type: 'replaceState'; state: TripState }
+  | { type: 'resetAll'; today: string }
+
+export type HistoryAction = TripAction | { type: 'undo' } | { type: 'redo' }
+
+export interface HistoryState {
+  past: Array<TripState>
+  present: TripState
+  future: Array<TripState>
+}
+
+/** 子コンポーネントには編集アクションだけを渡す(Undo/Redo はページ側の責務) */
+export type TripDispatch = (action: TripAction) => void
+
+export function createHistory(present: TripState): HistoryState {
+  return { past: [], present, future: [] }
+}
+
+function makeStay(cityId: string, nights: number): Stay {
+  return { id: newId('stay'), cityId, nights }
+}
+
+function withoutCity(pool: Array<string>, cityId: string): Array<string> {
+  return pool.filter((id) => id !== cityId)
+}
+
+/**
+ * 候補プールの都市を滞在リストの指定位置に差し込む(index は前後にはみ出しても丸める)。
+ *
+ * チップはプールに残したままにする。パリ IN・パリ OUT のように
+ * 同じ都市を何度も置く旅程(最初にパリ2泊 → 周遊 → 最後にパリ3泊)を組めるようにするため。
+ */
+function insertStayAt(
+  state: TripState,
+  cityId: string,
+  toIndex: number,
+): TripState {
+  const stays = [...state.stays]
+  const at = Math.max(0, Math.min(toIndex, stays.length))
+  stays.splice(at, 0, makeStay(cityId, DEFAULT_STAY_NIGHTS))
+  return { ...state, stays }
+}
+
+/**
+ * 日程から外した都市は候補プールへ戻す(すでにプールにあれば二重には積まない)。
+ * IN/OUT で自動配置された都市はプールを経由していないので、その受け皿になる。
+ */
+function removeStayAt(state: TripState, index: number): TripState {
+  const target = state.stays[index]
+  const stays = state.stays.filter((_, i) => i !== index)
+  const poolCityIds = state.poolCityIds.includes(target.cityId)
+    ? state.poolCityIds
+    : [...state.poolCityIds, target.cityId]
+  return { ...state, stays, poolCityIds }
+}
+
+/**
+ * IN/OUT 都市は航空券で確定している前提条件なので、選ばれた時点で
+ * 最初/最後の滞在として置いておく。
+ *
+ * 判定は「配置済みかどうか」ではなく端の状態で行う。パリ IN・パリ OUT のとき、
+ * 先頭のパリがあるからと末尾を諦めてしまうと定番の往復パターンが組めないため。
+ * 端がすでにその都市なら何もしない(滞在1つだけの [パリ] は IN=OUT=パリ で成立する)。
+ */
+function anchorCity(
+  state: TripState,
+  cityId: string,
+  position: 'first' | 'last',
+): TripState {
+  const edge = position === 'first' ? state.stays[0] : state.stays.at(-1)
+  if (edge?.cityId === cityId) return state
+  const stay = makeStay(cityId, DEFAULT_STAY_NIGHTS)
+  return {
+    ...state,
+    stays:
+      position === 'first' ? [stay, ...state.stays] : [...state.stays, stay],
+  }
+}
+
+export function tripReducer(state: TripState, action: TripAction): TripState {
+  switch (action.type) {
+    case 'setStartDate':
+      if (state.startDate === action.date) return state
+      return { ...state, startDate: action.date }
+
+    case 'setEndDate':
+      if (state.endDate === action.date) return state
+      return { ...state, endDate: action.date }
+
+    case 'setInCity': {
+      const next: TripState = { ...state, inCityId: action.cityId }
+      if (action.cityId === null) return next
+      return anchorCity(next, action.cityId, 'first')
+    }
+
+    case 'setOutCity': {
+      const next: TripState = { ...state, outCityId: action.cityId }
+      if (action.cityId === null) return next
+      return anchorCity(next, action.cityId, 'last')
+    }
+
+    // 配置済みの都市も候補に置ける(IN/OUT で自動配置された都市を再訪させたいとき用)
+    case 'addToPool': {
+      if (state.poolCityIds.includes(action.cityId)) return state
+      return { ...state, poolCityIds: [...state.poolCityIds, action.cityId] }
+    }
+
+    // 候補から外すだけ。すでに日程に入れてある滞在はそのまま残す
+    case 'removeFromPool': {
+      if (!state.poolCityIds.includes(action.cityId)) return state
+      return {
+        ...state,
+        poolCityIds: withoutCity(state.poolCityIds, action.cityId),
+      }
+    }
+
+    case 'placeFromPool': {
+      // 末尾が OUT 都市なら、その手前に入れる(帰国便の発地は動かせないので)
+      const last = state.stays.at(-1)
+      const insertAt =
+        state.outCityId !== null && last?.cityId === state.outCityId
+          ? state.stays.length - 1
+          : state.stays.length
+      return insertStayAt(state, action.cityId, insertAt)
+    }
+
+    // ドラッグで落とした位置に入れる。位置を自分で決めているので OUT 都市の忖度はしない
+    // (同じ都市を2回目として差し込むのもここを通る)
+    case 'placeFromPoolAt':
+      return insertStayAt(state, action.cityId, action.toIndex)
+
+    case 'removeStay': {
+      const index = state.stays.findIndex((stay) => stay.id === action.stayId)
+      if (index === -1) return state
+      return removeStayAt(state, index)
+    }
+
+    case 'changeNights': {
+      const index = state.stays.findIndex((stay) => stay.id === action.stayId)
+      if (index === -1) return state
+      const stay = state.stays[index]
+      const nights = stay.nights + action.delta
+      // 1泊の状態で「−」を押したら日程から外す(確認なし・Undo で戻せる)
+      if (nights < 1) return removeStayAt(state, index)
+      const stays = [...state.stays]
+      stays[index] = { ...stay, nights }
+      return { ...state, stays }
+    }
+
+    case 'moveStay': {
+      const index = state.stays.findIndex((stay) => stay.id === action.stayId)
+      if (index === -1) return state
+      const to = index + action.delta
+      if (to < 0 || to >= state.stays.length) return state
+      const stays = [...state.stays]
+      const [moved] = stays.splice(index, 1)
+      stays.splice(to, 0, moved)
+      return { ...state, stays }
+    }
+
+    /**
+     * ドラッグ&ドロップ用。掴んだ滞在を toIndex の位置へ 1 手で動かす
+     * (▲▼ の moveStay と違い、何行ぶん動いても履歴は 1 手)。
+     */
+    case 'reorderStay': {
+      const from = state.stays.findIndex((stay) => stay.id === action.stayId)
+      if (from === -1) return state
+      const to = Math.max(0, Math.min(action.toIndex, state.stays.length - 1))
+      if (from === to) return state
+      const stays = [...state.stays]
+      const [moved] = stays.splice(from, 1)
+      stays.splice(to, 0, moved)
+      return { ...state, stays }
+    }
+
+    case 'setLegMode': {
+      const key = legKeyOf(action.fromCityId, action.toCityId)
+      if (state.legModes[key] === action.mode) return state
+      return { ...state, legModes: { ...state.legModes, [key]: action.mode } }
+    }
+
+    case 'addConstraint':
+      return {
+        ...state,
+        constraints: [...state.constraints, action.constraint],
+      }
+
+    case 'setConstraintSeverity':
+      return {
+        ...state,
+        constraints: state.constraints.map((c) =>
+          c.id === action.id ? { ...c, severity: action.severity } : c,
+        ),
+      }
+
+    case 'toggleConstraint':
+      return {
+        ...state,
+        constraints: state.constraints.map((c) =>
+          c.id === action.id ? { ...c, enabled: !c.enabled } : c,
+        ),
+      }
+
+    case 'removeConstraint':
+      return {
+        ...state,
+        constraints: state.constraints.filter((c) => c.id !== action.id),
+      }
+
+    case 'replaceState':
+      return action.state
+
+    case 'resetAll':
+      return createInitialState(action.today)
+  }
+}
+
+/**
+ * Undo/Redo 付きのリデューサ。編集で状態が実際に変わったときだけ past に積む
+ * (端で ▲ を押した等の空振りは履歴を汚さない)。
+ */
+export function historyReducer(
+  history: HistoryState,
+  action: HistoryAction,
+): HistoryState {
+  if (action.type === 'undo') {
+    if (history.past.length === 0) return history
+    const previous = history.past[history.past.length - 1]
+    return {
+      past: history.past.slice(0, -1),
+      present: previous,
+      future: [history.present, ...history.future].slice(0, HISTORY_LIMIT),
+    }
+  }
+
+  if (action.type === 'redo') {
+    if (history.future.length === 0) return history
+    const [next, ...rest] = history.future
+    return {
+      past: [...history.past, history.present].slice(-HISTORY_LIMIT),
+      present: next,
+      future: rest,
+    }
+  }
+
+  const present = tripReducer(history.present, action)
+  if (present === history.present) return history
+  return {
+    past: [...history.past, history.present].slice(-HISTORY_LIMIT),
+    present,
+    future: [],
+  }
+}
