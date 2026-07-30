@@ -226,7 +226,13 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
                     ) : null}
                   </div>
                 </li>
-                {leg ? <LegRow leg={leg} dispatch={dispatch} /> : null}
+                {leg ? (
+                  <LegRow
+                    leg={leg}
+                    startDate={state.startDate}
+                    dispatch={dispatch}
+                  />
+                ) : null}
               </Fragment>
             )
           })}

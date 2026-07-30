@@ -12,7 +12,11 @@ export type TravelMode = 'train' | 'flight' | 'bus' | 'nightTrain'
 export interface City {
   id: string
   name: string
+  /** 英語名。外部の移動検索サイト(Rome2Rio / Google Maps)へのリンクに使う */
+  enName: string
   country: string
+  /** 主要空港の IATA コード。空港がない都市は null(= 空路検索リンクを出さない) */
+  iata: string | null
   lat: number
   lng: number
 }
@@ -30,7 +34,12 @@ export type Constraint = {
   enabled: boolean
   severity: ConstraintSeverity
 } & (
-  | { kind: 'stayNights'; cityId: string; min: number | null; max: number | null }
+  | {
+      kind: 'stayNights'
+      cityId: string
+      min: number | null
+      max: number | null
+    }
   | { kind: 'presenceOnDate'; cityId: string; date: string }
   | { kind: 'order'; beforeCityId: string; afterCityId: string }
   | { kind: 'mustVisit'; cityId: string }

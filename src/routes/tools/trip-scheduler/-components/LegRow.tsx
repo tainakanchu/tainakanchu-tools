@@ -3,6 +3,7 @@ import {
   Bus,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   Moon,
   Plane,
   TrainFront,
@@ -11,7 +12,13 @@ import {
   formatMinutes,
   travelModeLabel,
 } from '../../../../lib/trip-scheduler/travel'
-import { cityName } from '../../../../lib/trip-scheduler/cities'
+import { cityName, getCity } from '../../../../lib/trip-scheduler/cities'
+import { addDays, formatShortJa } from '../../../../lib/trip-scheduler/dates'
+import {
+  googleMapsTransitUrl,
+  rome2rioUrl,
+  skyscannerUrl,
+} from '../../../../lib/trip-scheduler/travelLinks'
 import { formatDays } from '../-lib/format'
 import type { ComponentType } from 'react'
 import type { TripDispatch } from '../-lib/reducer'
@@ -35,19 +42,31 @@ function costLabel(option: TravelOption): string {
   return `観光時間を ${formatDays(option.dayCost)}日ぶん消費`
 }
 
+const externalLinkClass =
+  'inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+
 interface LegRowProps {
   leg: ResolvedLeg
+  /** ヨーロッパ到着日。移動日 (leg.dayIndex) から実際の日付を出すのに使う */
+  startDate: string
   dispatch: TripDispatch
 }
 
 /**
  * 滞在と滞在のあいだの「見えないコスト」。
  * door-to-door 時間に応じた面積で見せ、クリックで手段を選び直せる。
+ * 手段を決めたあとは、そのまま外部の検索サイトへ区間・日付つきで飛べる。
  */
-export function LegRow({ leg, dispatch }: LegRowProps) {
+export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
   const [open, setOpen] = useState(false)
   const ChosenIcon = modeIcons[leg.chosen.mode]
   const overnight = leg.chosen.nightCost > 0
+
+  const fromCity = getCity(leg.fromCityId)
+  const toCity = getCity(leg.toCityId)
+  const travelDate = addDays(startDate, leg.dayIndex)
+  const flightUrl =
+    fromCity && toCity ? skyscannerUrl(fromCity, toCity, travelDate) : null
 
   return (
     <li className="relative pl-4">
@@ -145,6 +164,51 @@ export function LegRow({ leg, dispatch }: LegRowProps) {
                 )
               })}
             </div>
+
+            {fromCity && toCity ? (
+              <div className="border-t border-gray-200 pt-3">
+                <p className="text-xs font-medium text-gray-600">
+                  この区間を実際に探す
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {flightUrl ? (
+                    <a
+                      href={flightUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={externalLinkClass}
+                    >
+                      <ExternalLink size={12} className="shrink-0" />
+                      Skyscanner(空路 {formatShortJa(travelDate)}発)
+                    </a>
+                  ) : null}
+                  <a
+                    href={rome2rioUrl(fromCity, toCity)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={externalLinkClass}
+                  >
+                    <ExternalLink size={12} className="shrink-0" />
+                    Rome2Rio(全手段を比較)
+                  </a>
+                  <a
+                    href={googleMapsTransitUrl(fromCity, toCity)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={externalLinkClass}
+                  >
+                    <ExternalLink size={12} className="shrink-0" />
+                    Google マップ(乗換経路)
+                  </a>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+                  別タブで開きます。※検索サイトの結果は、ここで表示している目安の所要時間と異なることがあります。
+                  {flightUrl
+                    ? ''
+                    : `(${cityName(leg.fromCityId)}・${cityName(leg.toCityId)} のどちらかに空港がないため空路検索は省略)`}
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
