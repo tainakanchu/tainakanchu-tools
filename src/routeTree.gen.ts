@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ToolsTripSchedulerIndexRouteImport } from './routes/tools/trip-scheduler/index'
 import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/license-layout/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsTripSchedulerIndexRoute = ToolsTripSchedulerIndexRouteImport.update({
+  id: '/tools/trip-scheduler/',
+  path: '/tools/trip-scheduler/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ToolsLicenseLayoutIndexRoute = ToolsLicenseLayoutIndexRouteImport.update({
@@ -26,27 +32,31 @@ const ToolsLicenseLayoutIndexRoute = ToolsLicenseLayoutIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tools/license-layout'
+  fullPaths: '/' | '/tools/license-layout' | '/tools/trip-scheduler'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tools/license-layout'
-  id: '__root__' | '/' | '/tools/license-layout/'
+  to: '/' | '/tools/license-layout' | '/tools/trip-scheduler'
+  id: '__root__' | '/' | '/tools/license-layout/' | '/tools/trip-scheduler/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ToolsLicenseLayoutIndexRoute: typeof ToolsLicenseLayoutIndexRoute
+  ToolsTripSchedulerIndexRoute: typeof ToolsTripSchedulerIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/trip-scheduler/': {
+      id: '/tools/trip-scheduler/'
+      path: '/tools/trip-scheduler'
+      fullPath: '/tools/trip-scheduler'
+      preLoaderRoute: typeof ToolsTripSchedulerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools/license-layout/': {
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ToolsLicenseLayoutIndexRoute: ToolsLicenseLayoutIndexRoute,
+  ToolsTripSchedulerIndexRoute: ToolsTripSchedulerIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

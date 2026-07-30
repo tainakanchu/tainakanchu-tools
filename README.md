@@ -18,6 +18,16 @@
   - 用紙余白・カード間隔の調整
   - 印刷時は倍率100%で実寸出力
 
+- **旅程パズル**  
+  ヨーロッパ周遊の滞在日数・訪問順・移動手段を、泊数を配り切るパズルとして組み立てる新婚旅行プランナー。  
+  URL: `/tools/trip-scheduler`
+  - 航空券で確定した期間とIN/OUT都市を前提条件として固定
+  - 「残り◯泊」の未割り当てゲージをゼロにするのがゴール
+  - ±ボタンと▲▼だけで泊数と訪問順を微調整（ドラッグ不要）
+  - 移動手段はdoor-to-door時間で比較し、夜行列車の損得も表示
+  - 「必ず行く」「この日はこの都市」などの条件を追加して違反をリアルタイム表示
+  - Undo/Redo・localStorage自動保存・JSONの書き出し / 読み込み
+
 ## 🛠 技術スタック
 
 - Vite + React 19
@@ -58,8 +68,11 @@ pnpm run test
 ```
 src/
 ├─ components/        ヘッダーなどの共通コンポーネント
+├─ lib/               画面から独立した純粋ロジック
+│  └─ trip-scheduler/ 旅程パズルのデータモデル・導出・制約チェック
 ├─ routes/            TanStack Router のファイルベースルート
-│  └─ tools/license-layout/  免許証レイアウトメーカーの実装
+│  ├─ tools/license-layout/  免許証レイアウトメーカーの実装
+│  └─ tools/trip-scheduler/  旅程パズルの実装（`-components` / `-lib` はルート対象外）
 ├─ styles.css         Tailwind CSS ベースのグローバルスタイル
 └─ routeTree.gen.ts   TanStack Router 自動生成ファイル
 ```
