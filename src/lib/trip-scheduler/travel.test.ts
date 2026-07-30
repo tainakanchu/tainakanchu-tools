@@ -84,3 +84,101 @@ describe('estimateOptions', () => {
     expect(options).toEqual(sorted)
   })
 })
+
+describe('landRouteExists', () => {
+  it('同じ陸塊なら陸路が成立する', () => {
+    expect(landRouteExists(city('paris'), city('rome'))).toBe(true)
+    expect(landRouteExists(city('london'), city('edinburgh'))).toBe(true)
+  })
+
+  it('大陸 ↔ グレートブリテン島は海峡トンネルで成立する', () => {
+    expect(landRouteExists(city('paris'), city('london'))).toBe(true)
+    expect(landRouteExists(city('london'), city('brussels'))).toBe(true)
+  })
+
+  it('島を跨ぐ組み合わせは成立しない', () => {
+    expect(landRouteExists(city('dublin'), city('london'))).toBe(false)
+    expect(landRouteExists(city('athens'), city('santorini'))).toBe(false)
+    expect(landRouteExists(city('rome'), city('malta'))).toBe(false)
+    expect(landRouteExists(city('malta'), city('santorini'))).toBe(false)
+  })
+})
+
+describe('海を越える区間の候補', () => {
+  it('アテネ→サントリーニは近距離でも飛行機のみ', () => {
+    const km = greatCircleKm(city('athens'), city('santorini'))
+    expect(km).toBeLessThan(300)
+    const options = estimateOptions(city('athens'), city('santorini'))
+    expect(options.length).toBeGreaterThan(0)
+    expect(options.every((o) => o.mode === 'flight')).toBe(true)
+  })
+
+  it('ローマ→マルタは飛行機のみ', () => {
+    const options = estimateOptions(city('rome'), city('malta'))
+    expect(options.length).toBeGreaterThan(0)
+    expect(options.every((o) => o.mode === 'flight')).toBe(true)
+  })
+
+  it('ダブリン→ロンドンは飛行機のみ', () => {
+    const options = estimateOptions(city('dublin'), city('london'))
+    expect(options.length).toBeGreaterThan(0)
+    expect(options.every((o) => o.mode === 'flight')).toBe(true)
+  })
+
+  it('パリ→ロンドンは海峡トンネルがあるので鉄道が残る', () => {
+    const options = estimateOptions(city('paris'), city('london'))
+    expect(options.some((o) => o.mode === 'train')).toBe(true)
+  })
+
+  it('ボルドー→パリは大陸内なので鉄道が出る', () => {
+    const options = estimateOptions(city('bordeaux'), city('paris'))
+    expect(options.some((o) => o.mode === 'train')).toBe(true)
+    expect(recommendedOption(options).mode).toBe('train')
+  })
+
+  it('海越えの夜行列車は候補に出ない', () => {
+    for (const pair of [
+      ['rome', 'malta'],
+      ['dublin', 'madrid'],
+      ['santorini', 'rome'],
+    ] as const) {
+      const km = greatCircleKm(city(pair[0]), city(pair[1]))
+      // 陸続きなら夜行が出る距離帯であることを確認したうえで、出ないことを見る
+      expect(km, `${pair[0]}→${pair[1]} の距離`).toBeGreaterThanOrEqual(400)
+      expect(km, `${pair[0]}→${pair[1]} の距離`).toBeLessThanOrEqual(1500)
+      const options = estimateOptions(city(pair[0]), city(pair[1]))
+      expect(
+        options.some((o) => o.mode === 'nightTrain'),
+        `${pair[0]}→${pair[1]}`,
+      ).toBe(false)
+    }
+  })
+})
+
+describe('都市カタログの landmass', () => {
+  it('全都市が既知の landmass を持つ', () => {
+    const known: Array<Landmass> = [
+      'continental',
+      'britain',
+      'ireland',
+      'malta',
+      'santorini',
+    ]
+    for (const c of cityCatalog) {
+      expect(known, `${c.id} の landmass`).toContain(c.landmass)
+    }
+  })
+
+  it('島の都市だけが continental 以外になる', () => {
+    const islands = cityCatalog
+      .filter((c) => c.landmass !== 'continental')
+      .map((c) => [c.id, c.landmass])
+    expect(islands).toEqual([
+      ['london', 'britain'],
+      ['edinburgh', 'britain'],
+      ['dublin', 'ireland'],
+      ['santorini', 'santorini'],
+      ['malta', 'malta'],
+    ])
+  })
+})
