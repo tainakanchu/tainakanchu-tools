@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { cityCatalog, getCity } from './cities'
-import { googleMapsTransitUrl, rome2rioUrl, skyscannerUrl } from './travelLinks'
+import {
+  googleFlightsUrl,
+  googleMapsTransitUrl,
+  kayakUrl,
+  rome2rioUrl,
+  skyscannerUrl,
+} from './travelLinks'
 import type { City } from './types'
 
 function city(id: string): City {
@@ -42,6 +48,71 @@ describe('skyscannerUrl', () => {
   it('日付が不正なら null を返す', () => {
     expect(skyscannerUrl(city('paris'), city('rome'), '')).toBeNull()
     expect(skyscannerUrl(city('paris'), city('rome'), '2026-6-16')).toBeNull()
+  })
+})
+
+describe('googleFlightsUrl', () => {
+  it('IATA コードと移動日をプリセットした検索 URL を返す', () => {
+    expect(googleFlightsUrl(city('paris'), city('rome'), '2026-06-16')).toBe(
+      'https://www.google.com/travel/flights?q=Flights%20from%20CDG%20to%20FCO%20on%202026-06-16&hl=ja&curr=JPY',
+    )
+  })
+
+  it('q パラメータに区間と日付が入る', () => {
+    const url = googleFlightsUrl(
+      city('london'),
+      city('barcelona'),
+      '2026-06-01',
+    )
+    if (!url) throw new Error('URL が生成されなかった')
+    const parsed = new URL(url)
+    expect(parsed.searchParams.get('q')).toBe(
+      'Flights from LHR to BCN on 2026-06-01',
+    )
+    expect(parsed.searchParams.get('hl')).toBe('ja')
+    expect(parsed.searchParams.get('curr')).toBe('JPY')
+  })
+
+  it('空港がない都市が含まれると null を返す', () => {
+    expect(
+      googleFlightsUrl(city('bruges'), city('rome'), '2026-06-16'),
+    ).toBeNull()
+    expect(
+      googleFlightsUrl(city('paris'), city('hallstatt'), '2026-06-16'),
+    ).toBeNull()
+  })
+
+  it('日付が不正なら null を返す', () => {
+    expect(googleFlightsUrl(city('paris'), city('rome'), '')).toBeNull()
+    expect(
+      googleFlightsUrl(city('paris'), city('rome'), '2026-6-16'),
+    ).toBeNull()
+  })
+})
+
+describe('kayakUrl', () => {
+  it('IATA コードと移動日をプリセットした片道検索 URL を返す', () => {
+    expect(kayakUrl(city('paris'), city('rome'), '2026-06-16')).toBe(
+      'https://www.kayak.co.jp/flights/CDG-FCO/2026-06-16',
+    )
+  })
+
+  it('IATA コードは大文字で入る', () => {
+    expect(kayakUrl(city('london'), city('barcelona'), '2026-06-01')).toBe(
+      'https://www.kayak.co.jp/flights/LHR-BCN/2026-06-01',
+    )
+  })
+
+  it('空港がない都市が含まれると null を返す', () => {
+    expect(kayakUrl(city('bruges'), city('rome'), '2026-06-16')).toBeNull()
+    expect(
+      kayakUrl(city('interlaken'), city('lucerne'), '2026-06-16'),
+    ).toBeNull()
+  })
+
+  it('日付が不正なら null を返す', () => {
+    expect(kayakUrl(city('paris'), city('rome'), '')).toBeNull()
+    expect(kayakUrl(city('paris'), city('rome'), '2026-6-16')).toBeNull()
   })
 })
 

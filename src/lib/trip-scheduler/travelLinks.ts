@@ -30,6 +30,34 @@ export function skyscannerUrl(
   return `https://www.skyscanner.jp/transport/flights/${origin}/${destination}/${toYYMMDD(dateISO)}/`
 }
 
+/**
+ * Google フライトの片道検索。
+ * 日付をプリセットできるのは空路の検索サイトだけなので、Skyscanner と同じガードをかける。
+ */
+export function googleFlightsUrl(
+  from: City,
+  to: City,
+  dateISO: string,
+): string | null {
+  if (!from.iata || !to.iata) return null
+  if (!isValidISODate(dateISO)) return null
+  const origin = from.iata.toUpperCase()
+  const destination = to.iata.toUpperCase()
+  const q = encodeURIComponent(
+    `Flights from ${origin} to ${destination} on ${dateISO}`,
+  )
+  return `https://www.google.com/travel/flights?q=${q}&hl=ja&curr=JPY`
+}
+
+/** Kayak(日本語版)の片道フライト検索 */
+export function kayakUrl(from: City, to: City, dateISO: string): string | null {
+  if (!from.iata || !to.iata) return null
+  if (!isValidISODate(dateISO)) return null
+  const origin = from.iata.toUpperCase()
+  const destination = to.iata.toUpperCase()
+  return `https://www.kayak.co.jp/flights/${origin}-${destination}/${dateISO}`
+}
+
 /** Rome2Rio の区間比較(鉄道・バス・飛行機をまとめて比較できる) */
 export function rome2rioUrl(from: City, to: City): string {
   const origin = encodeURIComponent(from.enName)

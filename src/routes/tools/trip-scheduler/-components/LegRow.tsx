@@ -15,7 +15,9 @@ import {
 import { cityName, getCity } from '../../../../lib/trip-scheduler/cities'
 import { addDays } from '../../../../lib/trip-scheduler/dates'
 import {
+  googleFlightsUrl,
   googleMapsTransitUrl,
+  kayakUrl,
   rome2rioUrl,
   skyscannerUrl,
 } from '../../../../lib/trip-scheduler/travelLinks'
@@ -45,6 +47,9 @@ function costLabel(option: TravelOption): string {
 
 const externalLinkClass =
   'inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+
+/** リンク群の小見出し(何を基準に探すリンクなのかを一言で) */
+const linkGroupLabelClass = 'text-[11px] leading-relaxed text-gray-500'
 
 interface LegRowProps {
   leg: ResolvedLeg
@@ -76,8 +81,18 @@ export function LegRow({
   const fromCity = getCity(leg.fromCityId)
   const toCity = getCity(leg.toCityId)
   const travelDate = addDays(startDate, leg.dayIndex)
-  const flightUrl =
+
+  // 日付を URL に載せられるのは空路の検索サイトだけ。
+  // 3サイトとも「両端に空港があり、日付が正しい」ときだけ URL を作れる(= 揃って出る/揃って消える)。
+  const skyscannerHref =
     fromCity && toCity ? skyscannerUrl(fromCity, toCity, travelDate) : null
+  const googleFlightsHref =
+    fromCity && toCity ? googleFlightsUrl(fromCity, toCity, travelDate) : null
+  const kayakHref =
+    fromCity && toCity ? kayakUrl(fromCity, toCity, travelDate) : null
+  const hasDatedLinks = Boolean(
+    skyscannerHref || googleFlightsHref || kayakHref,
+  )
 
   // ドラッグ中は開いていた手段選びも畳む。全ての移動行の高さが揃うので、
   // 並べ替え時の「1つぶん動かす距離」の計算がずれない。
@@ -195,42 +210,82 @@ export function LegRow({
                 <p className="text-xs font-medium text-gray-600">
                   この区間を実際に探す
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {flightUrl ? (
+                {hasDatedLinks ? (
+                  <div className="mt-2">
+                    <p className={linkGroupLabelClass}>
+                      移動日(
+                      <DateLabel iso={travelDate} />
+                      )で探す
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {skyscannerHref ? (
+                        <a
+                          href={skyscannerHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={externalLinkClass}
+                        >
+                          <ExternalLink size={12} className="shrink-0" />
+                          Skyscanner(空路)
+                        </a>
+                      ) : null}
+                      {googleFlightsHref ? (
+                        <a
+                          href={googleFlightsHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={externalLinkClass}
+                        >
+                          <ExternalLink size={12} className="shrink-0" />
+                          Google フライト(空路)
+                        </a>
+                      ) : null}
+                      {kayakHref ? (
+                        <a
+                          href={kayakHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={externalLinkClass}
+                        >
+                          <ExternalLink size={12} className="shrink-0" />
+                          Kayak(空路)
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-3">
+                  <p className={linkGroupLabelClass}>
+                    区間を調べる(日付はサイト側で選択)
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
                     <a
-                      href={flightUrl}
+                      href={rome2rioUrl(fromCity, toCity)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={externalLinkClass}
+                      title="Rome2Rio は URL での日付指定に対応していないため、開いた先で移動日を選んでください"
                     >
                       <ExternalLink size={12} className="shrink-0" />
-                      Skyscanner(空路 <DateLabel iso={travelDate} />
-                      発)
+                      Rome2Rio(全手段を比較)
                     </a>
-                  ) : null}
-                  <a
-                    href={rome2rioUrl(fromCity, toCity)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={externalLinkClass}
-                    title="Rome2Rio は URL での日付指定に対応していないため、開いた先で移動日を選んでください"
-                  >
-                    <ExternalLink size={12} className="shrink-0" />
-                    Rome2Rio(全手段を比較・日付はサイト側で選択)
-                  </a>
-                  <a
-                    href={googleMapsTransitUrl(fromCity, toCity)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={externalLinkClass}
-                  >
-                    <ExternalLink size={12} className="shrink-0" />
-                    Google マップ(乗換経路)
-                  </a>
+                    <a
+                      href={googleMapsTransitUrl(fromCity, toCity)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={externalLinkClass}
+                      title="Google マップは URL での日付・時刻指定に対応していないため、時刻指定は開いた先で行ってください"
+                    >
+                      <ExternalLink size={12} className="shrink-0" />
+                      Google マップ(乗換経路)
+                    </a>
+                  </div>
                 </div>
+
                 <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                   別タブで開きます。※検索サイトの結果は、ここで表示している目安の所要時間と異なることがあります。
-                  {flightUrl
+                  {hasDatedLinks
                     ? ''
                     : `(${cityName(leg.fromCityId)}・${cityName(leg.toCityId)} のどちらかに空港がないため空路検索は省略)`}
                 </p>
