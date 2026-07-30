@@ -9,6 +9,17 @@
 
 export type TravelMode = 'train' | 'flight' | 'bus' | 'nightTrain'
 
+/**
+ * 陸続きの塊。海を越える区間に鉄道/バス候補を出さないための分類。
+ * 'continental' = 欧州大陸本土(海底トンネル・橋で繋がる範囲を含む)
+ */
+export type Landmass =
+  | 'continental'
+  | 'britain'
+  | 'ireland'
+  | 'malta'
+  | 'santorini'
+
 export interface City {
   id: string
   name: string
@@ -19,6 +30,8 @@ export interface City {
   iata: string | null
   lat: number
   lng: number
+  /** 属する陸塊。陸路(鉄道/バス/夜行)候補の可否判定に使う */
+  landmass: Landmass
 }
 
 export interface Stay {

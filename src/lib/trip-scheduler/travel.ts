@@ -55,25 +55,40 @@ function makeOption(mode: TravelMode, inVehicleMinutes: number): TravelOption {
 }
 
 /**
+ * 陸路(鉄道 / バス / 夜行列車)が成立する組み合わせか。
+ *
+ * 同じ陸塊なら成立。例外は英仏海峡トンネルで、大陸 ↔ グレートブリテン島は
+ * 鉄道もバス(シャトル経由)も通るため陸路扱いにする。
+ * それ以外(アイルランド・マルタ・サントリーニ絡み)は海越えなので空路のみ。
+ */
+export function landRouteExists(a: City, b: City): boolean {
+  if (a.landmass === b.landmass) return true
+  const pair = [a.landmass, b.landmass]
+  return pair.includes('continental') && pair.includes('britain')
+}
+
+/**
  * 距離帯ごとに現実的な移動手段の候補を生成する。
  * 平均速度は欧州の実勢に寄せた粗い値(高速鉄道160km/h、在来線90km/h、
  * バス75km/h、飛行機700km/h)。
+ * 陸路は landRouteExists が成立する区間だけに出す。
  */
 export function estimateOptions(from: City, to: City): Array<TravelOption> {
   const km = greatCircleKm(from, to)
+  const byLand = landRouteExists(from, to)
   const options: Array<TravelOption> = []
 
-  if (km <= 1100) {
+  if (byLand && km <= 1100) {
     const speed = km >= 200 ? 160 : 90
     options.push(makeOption('train', (km / speed) * 60 + 20))
   }
   if (km >= 300) {
     options.push(makeOption('flight', (km / 700) * 60 + 40))
   }
-  if (km <= 700) {
+  if (byLand && km <= 700) {
     options.push(makeOption('bus', (km / 75) * 60 + 15))
   }
-  if (km >= 400 && km <= 1500) {
+  if (byLand && km >= 400 && km <= 1500) {
     // 夜行列車: 所要は長いが日中を食わず、宿1泊分が移動に置き換わる
     options.push(makeOption('nightTrain', Math.max(600, (km / 90) * 60)))
   }

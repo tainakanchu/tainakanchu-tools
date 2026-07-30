@@ -67,6 +67,7 @@ describe('rome2rioUrl', () => {
       iata: null,
       lat: 46.4908,
       lng: 9.8355,
+      landmass: 'continental',
     }
     expect(rome2rioUrl(from, city('zurich'))).toBe(
       'https://www.rome2rio.com/map/St.%20Moritz/Zurich',
@@ -90,6 +91,7 @@ describe('googleMapsTransitUrl', () => {
       iata: null,
       lat: 46.4908,
       lng: 9.8355,
+      landmass: 'continental',
     }
     const url = new URL(googleMapsTransitUrl(city('zurich'), to))
     expect(url.searchParams.get('origin')).toBe('Zurich')
@@ -118,6 +120,28 @@ describe('都市カタログの外部リンク用フィールド', () => {
       .map((c) => c.iata)
       .filter((code): code is string => code !== null)
     expect(new Set(codes).size).toBe(codes.length)
+  })
+
+  it('id は都市間で重複しない', () => {
+    const ids = cityCatalog.map((c) => c.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('追加した都市(ボルドー / マルタ)も enName・iata・landmass を持つ', () => {
+    expect(city('bordeaux')).toMatchObject({
+      name: 'ボルドー',
+      enName: 'Bordeaux',
+      country: 'フランス',
+      iata: 'BOD',
+      landmass: 'continental',
+    })
+    expect(city('malta')).toMatchObject({
+      name: 'マルタ',
+      enName: 'Malta',
+      country: 'マルタ',
+      iata: 'MLA',
+      landmass: 'malta',
+    })
   })
 
   it('カタログの全区間で Rome2Rio / Google マップのリンクが作れる', () => {

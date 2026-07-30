@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { getCity } from './cities'
+import { cityCatalog, getCity } from './cities'
 import {
   dayCostOf,
   estimateOptions,
   greatCircleKm,
+  landRouteExists,
   recommendedOption,
 } from './travel'
+import type { Landmass } from './types'
 
 function city(id: string) {
   const c = getCity(id)

@@ -15,6 +15,7 @@ export const cityCatalog: Array<City> = [
     iata: 'CDG',
     lat: 48.8566,
     lng: 2.3522,
+    landmass: 'continental',
   },
   {
     id: 'nice',
@@ -24,6 +25,7 @@ export const cityCatalog: Array<City> = [
     iata: 'NCE',
     lat: 43.7102,
     lng: 7.262,
+    landmass: 'continental',
   },
   {
     id: 'lyon',
@@ -33,6 +35,7 @@ export const cityCatalog: Array<City> = [
     iata: 'LYS',
     lat: 45.764,
     lng: 4.8357,
+    landmass: 'continental',
   },
   {
     id: 'marseille',
@@ -42,6 +45,7 @@ export const cityCatalog: Array<City> = [
     iata: 'MRS',
     lat: 43.2965,
     lng: 5.3698,
+    landmass: 'continental',
   },
   {
     id: 'strasbourg',
@@ -51,6 +55,17 @@ export const cityCatalog: Array<City> = [
     iata: 'SXB',
     lat: 48.5734,
     lng: 7.7521,
+    landmass: 'continental',
+  },
+  {
+    id: 'bordeaux',
+    name: 'ボルドー',
+    enName: 'Bordeaux',
+    country: 'フランス',
+    iata: 'BOD',
+    lat: 44.8378,
+    lng: -0.5792,
+    landmass: 'continental',
   },
   // イギリス・アイルランド
   {
@@ -61,6 +76,7 @@ export const cityCatalog: Array<City> = [
     iata: 'LHR',
     lat: 51.5074,
     lng: -0.1278,
+    landmass: 'britain',
   },
   {
     id: 'edinburgh',
@@ -70,6 +86,7 @@ export const cityCatalog: Array<City> = [
     iata: 'EDI',
     lat: 55.9533,
     lng: -3.1883,
+    landmass: 'britain',
   },
   {
     id: 'dublin',
@@ -79,6 +96,7 @@ export const cityCatalog: Array<City> = [
     iata: 'DUB',
     lat: 53.3498,
     lng: -6.2603,
+    landmass: 'ireland',
   },
   // イタリア
   {
@@ -89,6 +107,7 @@ export const cityCatalog: Array<City> = [
     iata: 'FCO',
     lat: 41.9028,
     lng: 12.4964,
+    landmass: 'continental',
   },
   {
     id: 'florence',
@@ -98,6 +117,7 @@ export const cityCatalog: Array<City> = [
     iata: 'FLR',
     lat: 43.7696,
     lng: 11.2558,
+    landmass: 'continental',
   },
   {
     id: 'venice',
@@ -107,6 +127,7 @@ export const cityCatalog: Array<City> = [
     iata: 'VCE',
     lat: 45.4408,
     lng: 12.3155,
+    landmass: 'continental',
   },
   {
     id: 'milan',
@@ -116,6 +137,7 @@ export const cityCatalog: Array<City> = [
     iata: 'MXP',
     lat: 45.4642,
     lng: 9.19,
+    landmass: 'continental',
   },
   {
     id: 'naples',
@@ -125,6 +147,7 @@ export const cityCatalog: Array<City> = [
     iata: 'NAP',
     lat: 40.8518,
     lng: 14.2681,
+    landmass: 'continental',
   },
   // スペイン・ポルトガル
   {
@@ -135,6 +158,7 @@ export const cityCatalog: Array<City> = [
     iata: 'BCN',
     lat: 41.3874,
     lng: 2.1686,
+    landmass: 'continental',
   },
   {
     id: 'madrid',
@@ -144,6 +168,7 @@ export const cityCatalog: Array<City> = [
     iata: 'MAD',
     lat: 40.4168,
     lng: -3.7038,
+    landmass: 'continental',
   },
   {
     id: 'seville',
@@ -153,6 +178,7 @@ export const cityCatalog: Array<City> = [
     iata: 'SVQ',
     lat: 37.3891,
     lng: -5.9845,
+    landmass: 'continental',
   },
   {
     id: 'granada',
@@ -162,6 +188,7 @@ export const cityCatalog: Array<City> = [
     iata: 'GRX',
     lat: 37.1773,
     lng: -3.5986,
+    landmass: 'continental',
   },
   {
     id: 'lisbon',
@@ -171,6 +198,7 @@ export const cityCatalog: Array<City> = [
     iata: 'LIS',
     lat: 38.7223,
     lng: -9.1393,
+    landmass: 'continental',
   },
   {
     id: 'porto',
@@ -180,6 +208,7 @@ export const cityCatalog: Array<City> = [
     iata: 'OPO',
     lat: 41.1579,
     lng: -8.6291,
+    landmass: 'continental',
   },
   // ベネルクス
   {
@@ -190,6 +219,7 @@ export const cityCatalog: Array<City> = [
     iata: 'AMS',
     lat: 52.3676,
     lng: 4.9041,
+    landmass: 'continental',
   },
   {
     id: 'brussels',
@@ -199,6 +229,7 @@ export const cityCatalog: Array<City> = [
     iata: 'BRU',
     lat: 50.8503,
     lng: 4.3517,
+    landmass: 'continental',
   },
   {
     id: 'bruges',
@@ -208,6 +239,7 @@ export const cityCatalog: Array<City> = [
     iata: null,
     lat: 51.2093,
     lng: 3.2247,
+    landmass: 'continental',
   },
   // ドイツ
   {
@@ -218,6 +250,7 @@ export const cityCatalog: Array<City> = [
     iata: 'BER',
     lat: 52.52,
     lng: 13.405,
+    landmass: 'continental',
   },
   {
     id: 'munich',
@@ -227,6 +260,7 @@ export const cityCatalog: Array<City> = [
     iata: 'MUC',
     lat: 48.1351,
     lng: 11.582,
+    landmass: 'continental',
   },
   {
     id: 'frankfurt',
@@ -236,6 +270,7 @@ export const cityCatalog: Array<City> = [
     iata: 'FRA',
     lat: 50.1109,
     lng: 8.6821,
+    landmass: 'continental',
   },
   {
     id: 'cologne',
@@ -245,6 +280,7 @@ export const cityCatalog: Array<City> = [
     iata: 'CGN',
     lat: 50.9375,
     lng: 6.9603,
+    landmass: 'continental',
   },
   // 中欧
   {
@@ -255,6 +291,7 @@ export const cityCatalog: Array<City> = [
     iata: 'VIE',
     lat: 48.2082,
     lng: 16.3738,
+    landmass: 'continental',
   },
   {
     id: 'salzburg',
@@ -264,6 +301,7 @@ export const cityCatalog: Array<City> = [
     iata: 'SZG',
     lat: 47.8095,
     lng: 13.055,
+    landmass: 'continental',
   },
   {
     id: 'hallstatt',
@@ -273,6 +311,7 @@ export const cityCatalog: Array<City> = [
     iata: null,
     lat: 47.5622,
     lng: 13.6493,
+    landmass: 'continental',
   },
   {
     id: 'prague',
@@ -282,6 +321,7 @@ export const cityCatalog: Array<City> = [
     iata: 'PRG',
     lat: 50.0755,
     lng: 14.4378,
+    landmass: 'continental',
   },
   {
     id: 'budapest',
@@ -291,6 +331,7 @@ export const cityCatalog: Array<City> = [
     iata: 'BUD',
     lat: 47.4979,
     lng: 19.0402,
+    landmass: 'continental',
   },
   {
     id: 'krakow',
@@ -300,6 +341,7 @@ export const cityCatalog: Array<City> = [
     iata: 'KRK',
     lat: 50.0647,
     lng: 19.945,
+    landmass: 'continental',
   },
   // スイス
   {
@@ -310,6 +352,7 @@ export const cityCatalog: Array<City> = [
     iata: 'ZRH',
     lat: 47.3769,
     lng: 8.5417,
+    landmass: 'continental',
   },
   {
     id: 'geneva',
@@ -319,6 +362,7 @@ export const cityCatalog: Array<City> = [
     iata: 'GVA',
     lat: 46.2044,
     lng: 6.1432,
+    landmass: 'continental',
   },
   {
     id: 'interlaken',
@@ -328,6 +372,7 @@ export const cityCatalog: Array<City> = [
     iata: null,
     lat: 46.6863,
     lng: 7.8632,
+    landmass: 'continental',
   },
   {
     id: 'lucerne',
@@ -337,6 +382,7 @@ export const cityCatalog: Array<City> = [
     iata: null,
     lat: 47.0502,
     lng: 8.3093,
+    landmass: 'continental',
   },
   // 北欧
   {
@@ -347,6 +393,7 @@ export const cityCatalog: Array<City> = [
     iata: 'CPH',
     lat: 55.6761,
     lng: 12.5683,
+    landmass: 'continental',
   },
   {
     id: 'stockholm',
@@ -356,6 +403,7 @@ export const cityCatalog: Array<City> = [
     iata: 'ARN',
     lat: 59.3293,
     lng: 18.0686,
+    landmass: 'continental',
   },
   {
     id: 'oslo',
@@ -365,6 +413,7 @@ export const cityCatalog: Array<City> = [
     iata: 'OSL',
     lat: 59.9139,
     lng: 10.7522,
+    landmass: 'continental',
   },
   {
     id: 'helsinki',
@@ -374,6 +423,7 @@ export const cityCatalog: Array<City> = [
     iata: 'HEL',
     lat: 60.1699,
     lng: 24.9384,
+    landmass: 'continental',
   },
   // 南東欧・その他
   {
@@ -384,6 +434,7 @@ export const cityCatalog: Array<City> = [
     iata: 'ATH',
     lat: 37.9838,
     lng: 23.7275,
+    landmass: 'continental',
   },
   {
     id: 'santorini',
@@ -393,6 +444,7 @@ export const cityCatalog: Array<City> = [
     iata: 'JTR',
     lat: 36.3932,
     lng: 25.4615,
+    landmass: 'santorini',
   },
   {
     id: 'dubrovnik',
@@ -402,6 +454,7 @@ export const cityCatalog: Array<City> = [
     iata: 'DBV',
     lat: 42.6507,
     lng: 18.0944,
+    landmass: 'continental',
   },
   {
     id: 'ljubljana',
@@ -411,6 +464,17 @@ export const cityCatalog: Array<City> = [
     iata: 'LJU',
     lat: 46.0569,
     lng: 14.5058,
+    landmass: 'continental',
+  },
+  {
+    id: 'malta',
+    name: 'マルタ',
+    enName: 'Malta',
+    country: 'マルタ',
+    iata: 'MLA',
+    lat: 35.8989,
+    lng: 14.5146,
+    landmass: 'malta',
   },
 ]
 
