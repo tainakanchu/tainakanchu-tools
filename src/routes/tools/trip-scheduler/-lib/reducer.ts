@@ -25,9 +25,11 @@ export type TripAction =
   | { type: 'addToPool'; cityId: string }
   | { type: 'removeFromPool'; cityId: string }
   | { type: 'placeFromPool'; cityId: string }
+  | { type: 'placeFromPoolAt'; cityId: string; toIndex: number }
   | { type: 'removeStay'; stayId: string }
   | { type: 'changeNights'; stayId: string; delta: number }
   | { type: 'moveStay'; stayId: string; delta: number }
+  | { type: 'reorderStay'; stayId: string; toIndex: number }
   | {
       type: 'setLegMode'
       fromCityId: string
@@ -62,6 +64,22 @@ function makeStay(cityId: string, nights: number): Stay {
 
 function withoutCity(pool: Array<string>, cityId: string): Array<string> {
   return pool.filter((id) => id !== cityId)
+}
+
+/** 候補プールの都市を滞在リストの指定位置に差し込む(index は前後にはみ出しても丸める) */
+function insertStayAt(
+  state: TripState,
+  cityId: string,
+  toIndex: number,
+): TripState {
+  const stays = [...state.stays]
+  const at = Math.max(0, Math.min(toIndex, stays.length))
+  stays.splice(at, 0, makeStay(cityId, DEFAULT_STAY_NIGHTS))
+  return {
+    ...state,
+    poolCityIds: withoutCity(state.poolCityIds, cityId),
+    stays,
+  }
 }
 
 /** 日程から外した都市は候補プールへ戻す(同じ都市が別の滞在に残っていれば戻さない) */
@@ -136,20 +154,18 @@ export function tripReducer(state: TripState, action: TripAction): TripState {
     }
 
     case 'placeFromPool': {
-      const stays = [...state.stays]
       // 末尾が OUT 都市なら、その手前に入れる(帰国便の発地は動かせないので)
-      const last = stays.at(-1)
+      const last = state.stays.at(-1)
       const insertAt =
         state.outCityId !== null && last?.cityId === state.outCityId
-          ? stays.length - 1
-          : stays.length
-      stays.splice(insertAt, 0, makeStay(action.cityId, DEFAULT_STAY_NIGHTS))
-      return {
-        ...state,
-        poolCityIds: withoutCity(state.poolCityIds, action.cityId),
-        stays,
-      }
+          ? state.stays.length - 1
+          : state.stays.length
+      return insertStayAt(state, action.cityId, insertAt)
     }
+
+    // ドラッグで落とした位置に入れる。位置を自分で決めているので OUT 都市の忖度はしない
+    case 'placeFromPoolAt':
+      return insertStayAt(state, action.cityId, action.toIndex)
 
     case 'removeStay': {
       const index = state.stays.findIndex((stay) => stay.id === action.stayId)
@@ -176,6 +192,21 @@ export function tripReducer(state: TripState, action: TripAction): TripState {
       if (to < 0 || to >= state.stays.length) return state
       const stays = [...state.stays]
       const [moved] = stays.splice(index, 1)
+      stays.splice(to, 0, moved)
+      return { ...state, stays }
+    }
+
+    /**
+     * ドラッグ&ドロップ用。掴んだ滞在を toIndex の位置へ 1 手で動かす
+     * (▲▼ の moveStay と違い、何行ぶん動いても履歴は 1 手)。
+     */
+    case 'reorderStay': {
+      const from = state.stays.findIndex((stay) => stay.id === action.stayId)
+      if (from === -1) return state
+      const to = Math.max(0, Math.min(action.toIndex, state.stays.length - 1))
+      if (from === to) return state
+      const stays = [...state.stays]
+      const [moved] = stays.splice(from, 1)
       stays.splice(to, 0, moved)
       return { ...state, stays }
     }

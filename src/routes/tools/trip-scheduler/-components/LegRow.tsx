@@ -51,6 +51,11 @@ interface LegRowProps {
   /** ヨーロッパ到着日。移動日 (leg.dayIndex) から実際の日付を出すのに使う */
   startDate: string
   dispatch: TripDispatch
+  /**
+   * 滞在をドラッグしている間は畳む。行の高さを一定にすることで
+   * 並べ替え中の当たり判定とプレビューのずれを抑える。
+   */
+  collapsed?: boolean
 }
 
 /**
@@ -58,7 +63,12 @@ interface LegRowProps {
  * door-to-door 時間に応じた面積で見せ、クリックで手段を選び直せる。
  * 手段を決めたあとは、そのまま外部の検索サイトへ区間・日付つきで飛べる。
  */
-export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
+export function LegRow({
+  leg,
+  startDate,
+  dispatch,
+  collapsed = false,
+}: LegRowProps) {
   const [open, setOpen] = useState(false)
   const ChosenIcon = modeIcons[leg.chosen.mode]
   const overnight = leg.chosen.nightCost > 0
@@ -69,8 +79,17 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
   const flightUrl =
     fromCity && toCity ? skyscannerUrl(fromCity, toCity, travelDate) : null
 
+  // ドラッグ中は開いていた手段選びも畳む。全ての移動行の高さが揃うので、
+  // 並べ替え時の「1つぶん動かす距離」の計算がずれない。
+  const expanded = open && !collapsed
+
   return (
-    <li className="relative pl-4">
+    <li
+      className={`relative pl-4 ${
+        collapsed ? 'pointer-events-none opacity-40' : ''
+      }`}
+      aria-hidden={collapsed || undefined}
+    >
       <div className="absolute left-[7px] top-0 h-full w-px bg-gray-200" />
       <div
         className={`ml-4 rounded-xl border px-3 py-2 ${
@@ -83,7 +102,7 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-left"
-          aria-expanded={open}
+          aria-expanded={expanded}
         >
           {/* 何曜日に移動するか(週末の混雑・月曜の休館日を避ける判断材料) */}
           <span className="text-xs text-gray-500">
@@ -104,7 +123,7 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
           <span className="text-xs text-gray-500">{costLabel(leg.chosen)}</span>
           <span className="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700">
             手段を変える
-            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
         </button>
 
@@ -122,7 +141,7 @@ export function LegRow({ leg, startDate, dispatch }: LegRowProps) {
           />
         </div>
 
-        {open ? (
+        {expanded ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-gray-500">
               {cityName(leg.fromCityId)} → {cityName(leg.toCityId)} の移動手段

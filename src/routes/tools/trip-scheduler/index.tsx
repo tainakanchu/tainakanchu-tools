@@ -15,6 +15,7 @@ import { NightsBudget } from './-components/NightsBudget'
 import { SetupPanel } from './-components/SetupPanel'
 import { StayList } from './-components/StayList'
 import { Timeline } from './-components/Timeline'
+import { TripDragArea } from './-components/TripDragArea'
 import { createHistory, historyReducer } from './-lib/reducer'
 import { buildCityColorMap } from './-lib/palette'
 import { todayISO } from './-lib/format'
@@ -114,26 +115,29 @@ function TripSchedulerPage() {
 
         <Timeline state={state} derived={derived} colors={colors} />
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <StayList
-              state={state}
-              derived={derived}
-              colors={colors}
-              dispatch={dispatch}
-            />
+        {/* 滞在リストの並べ替えと、候補プールからの差し込みを同じドラッグ空間で扱う */}
+        <TripDragArea state={state} colors={colors} dispatch={dispatch}>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <StayList
+                state={state}
+                derived={derived}
+                colors={colors}
+                dispatch={dispatch}
+              />
+            </div>
+            <div className="space-y-6">
+              <CityPool state={state} dispatch={dispatch} />
+              <ConstraintPanel
+                state={state}
+                derived={derived}
+                dispatch={dispatch}
+              />
+              <MetricsPanel derived={derived} />
+              <DataPanel state={state} dispatch={dispatch} />
+            </div>
           </div>
-          <div className="space-y-6">
-            <CityPool state={state} dispatch={dispatch} />
-            <ConstraintPanel
-              state={state}
-              derived={derived}
-              dispatch={dispatch}
-            />
-            <MetricsPanel derived={derived} />
-            <DataPanel state={state} dispatch={dispatch} />
-          </div>
-        </div>
+        </TripDragArea>
       </div>
     </main>
   )

@@ -1,8 +1,17 @@
 import { useMemo, useState } from 'react'
-import { CalendarPlus, MapPin, Plus, Search, X } from 'lucide-react'
+import { useDraggable } from '@dnd-kit/core'
+import {
+  CalendarPlus,
+  GripVertical,
+  MapPin,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react'
 import { cityCatalog, getCity } from '../../../../lib/trip-scheduler/cities'
 import { cardClass, fieldClass, sectionTitleClass } from '../-lib/styles'
 import { DEFAULT_STAY_NIGHTS } from '../-lib/reducer'
+import { poolDragId } from '../-lib/dnd'
 import type { TripDispatch } from '../-lib/reducer'
 import type { TripState } from '../../../../lib/trip-scheduler/types'
 
@@ -12,6 +21,70 @@ interface CityPoolProps {
 }
 
 const MAX_SUGGESTIONS = 8
+
+const chipClass =
+  'flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 py-1 pl-1 pr-1 text-sm'
+
+const chipGripClass =
+  'inline-flex h-6 w-5 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-full text-gray-300 transition hover:bg-gray-200 hover:text-gray-600 active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+
+/** ドラッグ中にカーソルへ追従するチップ(操作はできない見た目だけの複製) */
+export function CityChipPreview({ cityId }: { cityId: string }) {
+  const city = getCity(cityId)
+  return (
+    <span className="inline-flex cursor-grabbing items-center gap-1.5 rounded-full border border-cyan-300 bg-white py-1.5 pl-2 pr-3 text-sm shadow-lg ring-2 ring-cyan-200">
+      <GripVertical size={14} className="text-gray-400" />
+      <span className="font-medium text-gray-800">{city?.name ?? cityId}</span>
+      <span className="text-xs text-gray-500">{city?.country}</span>
+    </span>
+  )
+}
+
+interface PoolCityChipProps {
+  cityId: string
+  dispatch: TripDispatch
+}
+
+function PoolCityChip({ cityId, dispatch }: PoolCityChipProps) {
+  const city = getCity(cityId)
+  const cityLabel = city?.name ?? cityId
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: poolDragId(cityId),
+  })
+
+  return (
+    <li className={`${chipClass} ${isDragging ? 'opacity-40' : ''}`}>
+      <button
+        type="button"
+        ref={setNodeRef}
+        className={chipGripClass}
+        aria-label={`${cityLabel} をドラッグして日程に差し込む`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={14} />
+      </button>
+      <span className="font-medium text-gray-800">{cityLabel}</span>
+      <span className="text-xs text-gray-500">{city?.country}</span>
+      <button
+        type="button"
+        onClick={() => dispatch({ type: 'placeFromPool', cityId })}
+        className="ml-1 inline-flex items-center gap-1 rounded-full bg-cyan-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700"
+      >
+        <CalendarPlus size={12} />
+        日程に入れる
+      </button>
+      <button
+        type="button"
+        onClick={() => dispatch({ type: 'removeFromPool', cityId })}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
+        aria-label={`${cityLabel} を候補から削除`}
+      >
+        <X size={14} />
+      </button>
+    </li>
+  )
+}
 
 /** 行きたい都市の置き場。ここから日程に入れて、外したらここに戻ってくる */
 export function CityPool({ state, dispatch }: CityPoolProps) {
@@ -42,8 +115,9 @@ export function CityPool({ state, dispatch }: CityPoolProps) {
         行きたい都市の候補
       </h2>
       <p className="mt-2 text-sm text-gray-600">
-        気になる都市をためておく場所です。日程に入れると{DEFAULT_STAY_NIGHTS}
-        泊から始まり、OUT都市の手前に並びます。順番は滞在リストの▲▼で入れ替えてください。
+        気になる都市をためておく場所です。「日程に入れる」で
+        {DEFAULT_STAY_NIGHTS}
+        泊からOUT都市の手前に並びます。ハンドル(⠿)を掴んで滞在リストの好きな位置へドラッグしても入れられます。
       </p>
 
       <div className="relative mt-4">
@@ -101,36 +175,9 @@ export function CityPool({ state, dispatch }: CityPoolProps) {
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {state.poolCityIds.map((cityId) => {
-              const city = getCity(cityId)
-              return (
-                <li
-                  key={cityId}
-                  className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 py-1 pl-3 pr-1 text-sm"
-                >
-                  <span className="font-medium text-gray-800">
-                    {city?.name ?? cityId}
-                  </span>
-                  <span className="text-xs text-gray-500">{city?.country}</span>
-                  <button
-                    type="button"
-                    onClick={() => dispatch({ type: 'placeFromPool', cityId })}
-                    className="ml-1 inline-flex items-center gap-1 rounded-full bg-cyan-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700"
-                  >
-                    <CalendarPlus size={12} />
-                    日程に入れる
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => dispatch({ type: 'removeFromPool', cityId })}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
-                    aria-label={`${city?.name ?? cityId} を候補から削除`}
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
-              )
-            })}
+            {state.poolCityIds.map((cityId) => (
+              <PoolCityChip key={cityId} cityId={cityId} dispatch={dispatch} />
+            ))}
           </ul>
         )}
       </div>
