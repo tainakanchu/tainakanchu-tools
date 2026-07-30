@@ -31,7 +31,8 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
         往復の航空券が取れている前提で、期間と発着都市を先に固定します。ここを基準に泊数を配っていきます。
       </p>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      {/* 全幅レイアウトでは 4 項目を1行に並べて、前提条件を横一列の帯として見せる */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <label className="space-y-1">
           <span className="text-sm font-medium text-gray-700">
             ヨーロッパ到着日

@@ -92,7 +92,7 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
 
       {state.stays.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-          まだ滞在がありません。右の「行きたい都市の候補」から日程に入れてください。
+          まだ滞在がありません。「行きたい都市の候補」から日程に入れてください。
         </p>
       ) : (
         <ul className="mt-4 space-y-2">
