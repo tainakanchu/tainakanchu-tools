@@ -12,6 +12,7 @@ import { ConstraintPanel } from './-components/ConstraintPanel'
 import { DataPanel } from './-components/DataPanel'
 import { MetricsPanel } from './-components/MetricsPanel'
 import { NightsBudget } from './-components/NightsBudget'
+import { RouteMap } from './-components/RouteMap'
 import { SetupPanel } from './-components/SetupPanel'
 import { StayList } from './-components/StayList'
 import { Timeline } from './-components/Timeline'
@@ -115,7 +116,14 @@ function TripSchedulerPage() {
       <div className="mt-6 space-y-6">
         <SetupPanel state={state} dispatch={dispatch} />
 
-        <Timeline state={state} derived={derived} colors={colors} />
+        {/*
+          タイムラインは横に長いほど読みやすく、ルートマップは正方形寄りが映える。
+          xl 以上でだけ 2:1 の横並びにして、狭い画面では縦に積む。
+        */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <Timeline state={state} derived={derived} colors={colors} />
+          <RouteMap state={state} derived={derived} colors={colors} />
+        </div>
 
         {/* 滞在リストの並べ替えと、候補プールからの差し込みを同じドラッグ空間で扱う */}
         <TripDragArea state={state} colors={colors} dispatch={dispatch}>
