@@ -213,9 +213,10 @@ export function LegRow({
                     target="_blank"
                     rel="noopener noreferrer"
                     className={externalLinkClass}
+                    title="Rome2Rio は URL での日付指定に対応していないため、開いた先で移動日を選んでください"
                   >
                     <ExternalLink size={12} className="shrink-0" />
-                    Rome2Rio(全手段を比較)
+                    Rome2Rio(全手段を比較・日付はサイト側で選択)
                   </a>
                   <a
                     href={googleMapsTransitUrl(fromCity, toCity)}
