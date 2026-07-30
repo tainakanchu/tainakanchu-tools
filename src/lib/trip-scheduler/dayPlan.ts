@@ -46,11 +46,13 @@ export function buildDayPlan(
     cells.push({
       dayIndex,
       date: addDays(startDate, dayIndex),
+      // 同一都市の連続滞在(再訪の「続き」)の境界日は同じ都市が2回引っかかるので重複を除く
       cityIds: derived.windows
         .filter(
           (w: StayWindow) => w.arriveDay <= dayIndex && dayIndex <= w.departDay,
         )
-        .map((w) => w.cityId),
+        .map((w) => w.cityId)
+        .filter((cityId, index, ids) => ids.indexOf(cityId) === index),
       travel: legsToday.length > 0,
       overnight: legsToday.some((leg) => leg.chosen.nightCost > 0),
     })

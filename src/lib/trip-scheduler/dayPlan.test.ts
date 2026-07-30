@@ -45,6 +45,15 @@ describe('buildDayPlan', () => {
     expect(plan[5].cityIds).toEqual(['rome'])
   })
 
+  it('同一都市の連続滞在(再訪の続き)の境界日は都市が重複しない', () => {
+    const plan = planOf(
+      makeState({ stays: [stay('s1', 'paris', 2), stay('s2', 'paris', 3)] }),
+    )
+    // 2 泊 + 3 泊の境界日 (dayIndex 2) は両方の滞在窓に引っかかるが 1 つに畳む
+    expect(plan[2].cityIds).toEqual(['paris'])
+    expect(plan[2].travel).toBe(false)
+  })
+
   it('昼行移動の日は出発都市と到着都市の 2 つを持つ', () => {
     const plan = planOf(
       makeState({ stays: [stay('s1', 'paris', 3), stay('s2', 'rome', 4)] }),

@@ -204,6 +204,8 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                   const style = lineStyleOf(segment.mode)
                   const overnight = segment.mode === 'nightTrain'
                   const length = segmentLength(segment)
+                  const mid = segmentMidpoint(segment)
+                  // 夜行は中点に月を置くので、矢印は重ならない位置までずらす
                   const arrowT = overnight ? 0.76 : 0.56
                   const title = `${cityName(segment.fromCityId)} → ${cityName(
                     segment.toCityId,
@@ -304,20 +306,22 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
               const style = lineStyleByMode[mode]
               return (
                 <li key={mode} className="flex items-center gap-1.5">
-                  <svg width="26" height="8" aria-hidden="true">
+                  <svg width="28" height="14" aria-hidden="true">
                     <line
                       x1="1"
-                      y1="4"
-                      x2="25"
-                      y2="4"
+                      y1="7"
+                      x2="27"
+                      y2="7"
                       stroke={style.stroke}
                       strokeWidth={style.width}
                       strokeDasharray={style.dash}
                       strokeLinecap={style.round ? 'round' : 'butt'}
                     />
+                    {mode === 'nightTrain' ? (
+                      <MoonBadge cx={14} cy={7} r={6} />
+                    ) : null}
                   </svg>
                   {travelModeLabel[mode]}
-                  {mode === 'nightTrain' ? '(🌙)' : ''}
                 </li>
               )
             })}
@@ -332,20 +336,25 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
   )
 }
 
-/** 夜行区間の目印。線の中点に月を置く(lucide の Moon と同じ形) */
-function MoonMarker({ segment }: { segment: RouteSegment }) {
-  const mid = segmentMidpoint(segment)
+/**
+ * 夜行区間の目印。線の中点と凡例で使う。
+ * 月の形はサイト内で見慣れた lucide の Moon と同じパスをそのまま置く。
+ */
+function MoonBadge({ cx, cy, r = 8 }: { cx: number; cy: number; r?: number }) {
+  const glyph = r * 1.5
   return (
     <g>
       <circle
-        cx={mid.x}
-        cy={mid.y}
-        r="8"
-        fill="#312e81"
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill={lineStyleByMode.nightTrain.stroke}
         stroke="#ffffff"
-        strokeWidth="1.5"
+        strokeWidth={r / 5.3}
       />
-      <g transform={`translate(${mid.x - 6}, ${mid.y - 6}) scale(0.5)`}>
+      <g
+        transform={`translate(${cx - glyph / 2}, ${cy - glyph / 2}) scale(${glyph / 24})`}
+      >
         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#ffffff" />
       </g>
     </g>
