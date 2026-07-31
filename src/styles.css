@@ -1,5 +1,31 @@
 @import 'tailwindcss';
 
+@theme {
+  --animate-drum-shake: drum-shake 0.26s ease-in-out infinite;
+  --animate-drum-pop: drum-pop 0.5s cubic-bezier(0.22, 1.61, 0.36, 1) both;
+
+  @keyframes drum-shake {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-3deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(3deg);
+    }
+  }
+
+  @keyframes drum-pop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
 body {
   @apply m-0;
   font-family:

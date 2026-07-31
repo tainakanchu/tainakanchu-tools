@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsTripSchedulerIndexRouteImport } from './routes/tools/trip-scheduler/index'
 import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/license-layout/index'
+import { Route as ToolsDrumRollIndexRouteImport } from './routes/tools/drum-roll/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,33 +29,55 @@ const ToolsLicenseLayoutIndexRoute = ToolsLicenseLayoutIndexRouteImport.update({
   path: '/tools/license-layout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsDrumRollIndexRoute = ToolsDrumRollIndexRouteImport.update({
+  id: '/tools/drum-roll/',
+  path: '/tools/drum-roll/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/tools/drum-roll': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/tools/drum-roll': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/tools/drum-roll/': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tools/license-layout' | '/tools/trip-scheduler'
+  fullPaths:
+    | '/'
+    | '/tools/drum-roll'
+    | '/tools/license-layout'
+    | '/tools/trip-scheduler'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tools/license-layout' | '/tools/trip-scheduler'
-  id: '__root__' | '/' | '/tools/license-layout/' | '/tools/trip-scheduler/'
+  to:
+    | '/'
+    | '/tools/drum-roll'
+    | '/tools/license-layout'
+    | '/tools/trip-scheduler'
+  id:
+    | '__root__'
+    | '/'
+    | '/tools/drum-roll/'
+    | '/tools/license-layout/'
+    | '/tools/trip-scheduler/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ToolsDrumRollIndexRoute: typeof ToolsDrumRollIndexRoute
   ToolsLicenseLayoutIndexRoute: typeof ToolsLicenseLayoutIndexRoute
   ToolsTripSchedulerIndexRoute: typeof ToolsTripSchedulerIndexRoute
 }
@@ -82,11 +105,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsLicenseLayoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools/drum-roll/': {
+      id: '/tools/drum-roll/'
+      path: '/tools/drum-roll'
+      fullPath: '/tools/drum-roll'
+      preLoaderRoute: typeof ToolsDrumRollIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ToolsDrumRollIndexRoute: ToolsDrumRollIndexRoute,
   ToolsLicenseLayoutIndexRoute: ToolsLicenseLayoutIndexRoute,
   ToolsTripSchedulerIndexRoute: ToolsTripSchedulerIndexRoute,
 }
