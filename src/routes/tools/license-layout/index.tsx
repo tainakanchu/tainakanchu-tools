@@ -35,6 +35,9 @@ const documentPresets: Array<{
 ]
 
 export const Route = createFileRoute('/tools/license-layout/')({
+  head: () => ({
+    meta: [{ title: '免許証レイアウトメーカー | かんちゅツールズ' }],
+  }),
   component: LicenseLayoutPage,
 })
 

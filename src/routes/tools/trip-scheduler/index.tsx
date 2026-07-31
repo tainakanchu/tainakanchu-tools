@@ -24,6 +24,9 @@ import { subtleButtonClass } from './-lib/styles'
 import type { HistoryState } from './-lib/reducer'
 
 export const Route = createFileRoute('/tools/trip-scheduler/')({
+  head: () => ({
+    meta: [{ title: '旅程パズル | かんちゅツールズ' }],
+  }),
   component: TripSchedulerPage,
 })
 
