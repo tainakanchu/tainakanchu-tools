@@ -28,6 +28,12 @@ export interface City {
   country: string
   /** 主要空港の IATA コード。空港がない都市は null(= 空路検索リンクを出さない) */
   iata: string | null
+  /**
+   * DB(ドイツ鉄道)国際版の駅検索に渡す文字列。
+   * DB 側のあいまい検索で正しい主要駅に解決されることを実機で確認した値のみ入れる。
+   * 解決されない/鉄道駅がない都市は null(= 鉄道検索リンクを出さない)。
+   */
+  dbStation: string | null
   lat: number
   lng: number
   /** 属する陸塊。陸路(鉄道/バス/夜行)候補の可否判定に使う */
