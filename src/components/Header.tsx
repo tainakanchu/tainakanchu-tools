@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Home, Map, Menu, Printer, Sparkles, X } from 'lucide-react'
+import { Drum, Home, Map, Menu, Printer, Sparkles, X } from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -18,6 +18,12 @@ export default function Header() {
         description:
           'ヨーロッパ周遊の泊数と移動手段をパズルのように決めるツール',
         icon: Map,
+      },
+      {
+        to: '/tools/drum-roll',
+        title: 'ドラムロール',
+        description: '長押しでロール、放すとジャーンと鳴る演出ツール',
+        icon: Drum,
       },
     ],
     [],
@@ -47,34 +53,6 @@ export default function Header() {
               </div>
             </Link>
           </div>
-
-          <nav className="hidden items-center gap-6 text-sm font-medium text-gray-200 md:flex">
-            <Link
-              to="/"
-              className="flex items-center gap-2 rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
-              activeProps={{
-                className:
-                  'flex items-center gap-2 rounded-full bg-cyan-500/20 px-3 py-2 text-cyan-100 hover:bg-cyan-500/30',
-              }}
-            >
-              <Home size={16} />
-              ホーム
-            </Link>
-            {tools.map((tool) => (
-              <Link
-                key={tool.to}
-                to={tool.to}
-                className="flex items-center gap-2 rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
-                activeProps={{
-                  className:
-                    'flex items-center gap-2 rounded-full bg-cyan-500/20 px-3 py-2 text-cyan-100 hover:bg-cyan-500/30',
-                }}
-              >
-                <tool.icon size={16} />
-                {tool.title}
-              </Link>
-            ))}
-          </nav>
 
           <a
             href="https://x.com/tainakanchu"
