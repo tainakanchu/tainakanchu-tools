@@ -141,10 +141,12 @@ function LicenseLayoutPage() {
   ]
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 text-gray-900 md:flex-row print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
-      <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur print:hidden md:sticky md:top-4">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 text-gray-900 md:flex-row print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
+      <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur print:hidden md:w-80 md:shrink-0 md:sticky md:top-4">
         <header className="space-y-2">
-          <h1 className="text-3xl font-semibold">免許証レイアウトメーカー</h1>
+          <h1 className="text-xl font-semibold whitespace-nowrap">
+            免許証レイアウトメーカー
+          </h1>
           <p className="text-sm text-gray-600">
             免許証などカード型の画像をアップロードして、原寸大でA4にレイアウトします。印刷またはPDF出力でそのまま利用できます。
           </p>
@@ -215,7 +217,7 @@ function LicenseLayoutPage() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
                 余白 (mm)
               </span>
               <input
@@ -231,7 +233,7 @@ function LicenseLayoutPage() {
               />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
                 カード間隔 (mm)
               </span>
               <input
@@ -338,7 +340,7 @@ function LicenseLayoutPage() {
         </section>
       </aside>
 
-      <section className="flex-1 print:w-full print:px-0 print:py-0">
+      <section className="min-w-0 flex-1 print:w-full print:px-0 print:py-0">
         <div className="space-y-4 print:hidden">
           <h2 className="text-lg font-medium text-gray-800">
             レイアウトプレビュー
@@ -347,7 +349,7 @@ function LicenseLayoutPage() {
             下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
           </p>
         </div>
-        <div className="mt-4 rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 print:m-0 print:rounded-none print:border-0 print:bg-transparent print:p-0">
+        <div className="mt-4 overflow-x-auto rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 print:m-0 print:overflow-visible print:rounded-none print:border-0 print:bg-transparent print:p-0">
           <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
             <div
               className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0"
