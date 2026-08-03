@@ -1,0 +1,133 @@
+/**
+ * 印刷用のしおり本体。
+ *
+ * 画面には出さず(hidden)、印刷時だけ表示する(print:block)。
+ * 「スマホが壊れても電池が切れても手元に残る」ことが唯一の目的なので、
+ * 装飾は削ぎ落とし、白地に黒文字・最小限の罫線だけで構成する。
+ * 通信も充電も要らない情報源であることを最優先にする。
+ */
+
+import { groupByDay } from '../../../../lib/trip-notes/derive'
+import { formatDateJa, formatStamp } from '../../../../lib/trip-notes/datetime'
+import { todayISO } from '../-lib/format'
+import { KindIcon } from './KindIcon'
+import type { Booking, TripNotesState } from '../../../../lib/trip-notes/types'
+
+interface PrintSheetProps {
+  state: TripNotesState
+  displayTz: string
+}
+
+/** 1件の予約行。時刻・種別・タイトルを1行目、場所と確認番号を2行目に置く */
+function BookingLine({
+  booking,
+  displayTz,
+}: {
+  booking: Booking
+  displayTz: string
+}) {
+  const place = booking.place ?? booking.to ?? booking.from
+
+  return (
+    <div className="break-inside-avoid py-1">
+      <div className="flex items-baseline gap-1.5">
+        <span className="w-12 shrink-0 font-mono text-[10pt] font-semibold">
+          {formatStamp(booking.start, displayTz)}
+        </span>
+        <KindIcon
+          kind={booking.kind}
+          size={11}
+          className="shrink-0 text-black"
+        />
+        <span className="text-[10pt] font-semibold">{booking.title}</span>
+      </div>
+      {place !== undefined || booking.confirmationNumber !== undefined ? (
+        <div className="ml-[3.75rem] text-[9pt] text-gray-800">
+          {place !== undefined ? (
+            <p>
+              {place.name}
+              {place.localName !== undefined ? `(${place.localName})` : ''}
+            </p>
+          ) : null}
+          {booking.confirmationNumber !== undefined ? (
+            <p>
+              確認番号:{' '}
+              <span className="font-mono font-semibold">
+                {booking.confirmationNumber}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function PrintSheet({ state, displayTz }: PrintSheetProps) {
+  // キャンセル済みは紙に残す価値がないので、印刷時だけ取り除く
+  // (画面側のタイムライン表示には影響しない、この関数内だけの絞り込み)。
+  const days = groupByDay(state.bookings, state, displayTz).map((day) => ({
+    ...day,
+    bookings: day.bookings.filter((b) => b.status !== 'cancelled'),
+  }))
+
+  return (
+    <div className="hidden bg-white p-10 text-[10pt] leading-snug text-black print:block">
+      <header className="break-inside-avoid border-b-4 border-black pb-2">
+        <h1 className="text-[16pt] font-bold">
+          {state.tripTitle.length > 0 ? state.tripTitle : '旅のしおり'}
+        </h1>
+        <p className="mt-0.5 text-[10pt] text-gray-700">
+          {formatDateJa(state.startDate)} 〜 {formatDateJa(state.endDate)}
+        </p>
+      </header>
+
+      {days.map((day) => (
+        <section key={day.date} className="break-inside-avoid mt-3">
+          <h2 className="border-b-2 border-black pb-1 text-[12pt] font-bold">
+            {formatDateJa(day.date)}
+          </h2>
+          {day.bookings.length === 0 ? (
+            <p className="mt-1 text-[9pt] text-gray-500">予定なし</p>
+          ) : (
+            <div className="mt-1 divide-y divide-gray-300">
+              {day.bookings.map((booking) => (
+                <BookingLine
+                  key={booking.id}
+                  booking={booking}
+                  displayTz={displayTz}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+
+      <section className="break-inside-avoid mt-4 border-t-4 border-black pt-2">
+        <h2 className="text-[12pt] font-bold">緊急連絡先</h2>
+        {state.emergencyContacts.length === 0 ? (
+          <p className="mt-1 text-[9pt] text-gray-600">
+            緊急連絡先が未登録です。
+          </p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {state.emergencyContacts.map((contact) => (
+              <li key={contact.id} className="break-inside-avoid text-[9pt]">
+                <span className="font-semibold">{contact.label}</span>
+                {': '}
+                <span className="font-mono font-semibold">{contact.value}</span>
+                {contact.note !== undefined && contact.note.length > 0
+                  ? ` (${contact.note})`
+                  : ''}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <footer className="mt-4 text-[8pt] text-gray-500">
+        印刷日: {formatDateJa(todayISO())}
+      </footer>
+    </div>
+  )
+}
