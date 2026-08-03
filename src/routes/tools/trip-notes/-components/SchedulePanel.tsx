@@ -39,6 +39,12 @@ interface SchedulePanelProps {
   focusDate: string | null
   /** ハイライト演出を開始したら呼ぶ(親が focusDate を null に戻す) */
   onFocusHandled: () => void
+  /**
+   * マウントと同時に予約追加フォームを開く。
+   * オンボーディングの「予約を1件登録する」からの遷移で、
+   * 「予約を追加」をもう一度押させないための入口。
+   */
+  openAddOnMount?: boolean
 }
 
 /** モーダルの開閉状態。編集対象は id だけを持ち、毎レンダー最新の Booking を引き直す */
@@ -118,8 +124,12 @@ export function SchedulePanel({
   dispatch,
   focusDate,
   onFocusHandled,
+  openAddOnMount = false,
 }: SchedulePanelProps) {
-  const [modalState, setModalState] = useState<ModalState>({ mode: 'closed' })
+  // 日程タブは表示中しかマウントされないので、開くかどうかは初期値で決めれば足りる
+  const [modalState, setModalState] = useState<ModalState>(() =>
+    openAddOnMount ? { mode: 'add', date: null } : { mode: 'closed' },
+  )
   const [highlightDate, setHighlightDate] = useState<string | null>(null)
   const dayRefs = useRef(new Map<string, HTMLElement>())
 

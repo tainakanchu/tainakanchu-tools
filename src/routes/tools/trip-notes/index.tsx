@@ -85,6 +85,13 @@ function TripNotesPage() {
   const [tab, setTab] = useState<TabId>('progress')
   /** 進捗タブから日程タブの特定の日へ飛ぶための受け渡し */
   const [focusDate, setFocusDate] = useState<string | null>(null)
+  /**
+   * 日程タブをマウントした直後に予約追加フォームまで開くか。
+   * オンボーディングの「予約を1件登録する」だけが true にする。
+   * 日程タブは表示中しかマウントされないので、SchedulePanel 側は
+   * マウント時に一度読むだけでよい。
+   */
+  const [openAddOnSchedule, setOpenAddOnSchedule] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
   /** 共有URLから復元した状態。上書きの確認が済むまでは適用しない */
   const [incomingShare, setIncomingShare] = useState<TripNotesState | null>(
@@ -153,15 +160,38 @@ function TripNotesPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  /** 夜カバレッジ帯や移動の穴から、日程タブの該当日へ飛ばす */
-  const jumpToDate = useCallback((date: string) => {
-    setFocusDate(date)
+  /**
+   * タブの切り替え。
+   * 予約追加フォームの自動オープンはオンボーディングからの1回きりなので、
+   * 通常のタブ移動では必ず解除する(日程タブに戻るたびに開いては邪魔になる)。
+   */
+  const selectTab = useCallback((next: TabId) => {
+    setOpenAddOnSchedule(false)
+    setTab(next)
+  }, [])
+
+  /**
+   * オンボーディングの「予約を1件登録する」。
+   * 日程タブへ移るだけだと「予約を追加」をもう一度押させることになるので、
+   * 遷移と同時にフォームまで開く。
+   */
+  const startAddBooking = useCallback(() => {
+    setOpenAddOnSchedule(true)
     setTab('schedule')
   }, [])
 
+  /** 夜カバレッジ帯や移動の穴から、日程タブの該当日へ飛ばす */
+  const jumpToDate = useCallback(
+    (date: string) => {
+      setFocusDate(date)
+      selectTab('schedule')
+    },
+    [selectTab],
+  )
+
   const jumpToUnverified = useCallback(() => {
-    setTab('schedule')
-  }, [])
+    selectTab('schedule')
+  }, [selectTab])
 
   const isEmpty = state.bookings.length === 0
 
@@ -219,7 +249,7 @@ function TripNotesPage() {
               type="button"
               role="tab"
               aria-selected={tab === item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
                 tab === item.id
                   ? 'bg-cyan-600 text-white shadow-sm'
@@ -245,7 +275,7 @@ function TripNotesPage() {
               state={state}
               displayTz={displayTz}
               dispatch={dispatch}
-              onGoToSchedule={() => setTab('schedule')}
+              onGoToSchedule={() => selectTab('schedule')}
             />
           )}
 
@@ -256,6 +286,7 @@ function TripNotesPage() {
               dispatch={dispatch}
               focusDate={focusDate}
               onFocusHandled={() => setFocusDate(null)}
+              openAddOnMount={openAddOnSchedule}
             />
           )}
 
@@ -264,8 +295,8 @@ function TripNotesPage() {
               <Onboarding
                 state={state}
                 dispatch={dispatch}
-                onAddBooking={() => setTab('schedule')}
-                onOpenSettings={() => setTab('settings')}
+                onAddBooking={startAddBooking}
+                onOpenSettings={() => selectTab('settings')}
               />
             ) : (
               <ProgressPanel
@@ -297,7 +328,7 @@ function TripNotesPage() {
             key={item.id}
             type="button"
             aria-current={tab === item.id ? 'page' : undefined}
-            onClick={() => setTab(item.id)}
+            onClick={() => selectTab(item.id)}
             className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 ${
               tab === item.id ? 'text-cyan-700' : 'text-gray-500'
             }`}
@@ -328,7 +359,7 @@ function TripNotesPage() {
           onApply={() => {
             dispatch({ type: 'replaceState', state: incomingShare })
             setIncomingShare(null)
-            setTab('progress')
+            selectTab('progress')
           }}
         />
       )}
