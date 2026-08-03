@@ -62,6 +62,17 @@ pnpm run format     # Prettier (チェックのみ)
 pnpm run check      # Prettier --write + ESLint --fix まとめ実行
 ```
 
+## ☁️ デプロイ（Cloudflare Workers）
+
+Cloudflare Workers（Static Assets）にホスティングしています。設定は `wrangler.jsonc` を参照してください。
+
+```bash
+pnpm run cf:dev   # ビルド後、wrangler dev でローカル動作確認
+pnpm run deploy   # ビルド後、wrangler deploy で本番へ反映
+```
+
+初回デプロイ前に `wrangler login` で Cloudflare アカウントと連携してください。
+
 ## 🧪 テスト
 
 Vitest を採用しています。
@@ -99,6 +110,7 @@ src/
 1. pnpm install（`--frozen-lockfile`）
 2. `pnpm run build`
 3. `pnpm run typecheck`
+4. `wrangler deploy --dry-run`（Cloudflare Workers 設定の検証。実デプロイは行いません）
 
 ## 🧭 ルーティング
 
