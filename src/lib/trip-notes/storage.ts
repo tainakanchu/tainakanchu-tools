@@ -187,7 +187,7 @@ function parseEvidence(
  * 予約が消えていれば利用者はすぐに気づいて入れ直せるが、
  * 静かにずれた時刻には気づけない。だから「(気づける形で)消える」ほうを選ぶ。
  */
-function parseBooking(raw: unknown): Booking | null {
+export function parseBooking(raw: unknown): Booking | null {
   if (typeof raw !== 'object' || raw === null) return null
   const value = raw as Record<string, unknown>
 
