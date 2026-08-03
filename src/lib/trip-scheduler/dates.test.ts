@@ -8,6 +8,11 @@ import {
   weekdayJa,
 } from './dates'
 
+const isWeekend = (iso: string) => {
+  const index = weekdayIndex(iso)
+  return index === 0 || index === 6
+}
+
 describe('dates', () => {
   it('dayDiff は日数差を返す', () => {
     expect(dayDiff('2026-06-12', '2026-06-26')).toBe(14)
@@ -45,10 +50,6 @@ describe('dates', () => {
   })
 
   it('weekdayIndex で週末と平日を判定できる', () => {
-    const isWeekend = (iso: string) => {
-      const index = weekdayIndex(iso)
-      return index === 0 || index === 6
-    }
     expect(isWeekend('2026-06-20')).toBe(true) // 土
     expect(isWeekend('2026-06-21')).toBe(true) // 日
     expect(isWeekend('2026-06-22')).toBe(false) // 月
