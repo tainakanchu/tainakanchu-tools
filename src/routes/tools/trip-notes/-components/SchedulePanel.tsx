@@ -154,15 +154,8 @@ export function SchedulePanel({
     return () => window.clearTimeout(timer)
   }, [focusDate, onFocusHandled])
 
-  // モーダル表示中は Esc キーで閉じられるようにする
-  useEffect(() => {
-    if (modalState.mode === 'closed') return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeModal()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [modalState.mode])
+  // Esc で閉じる・フォーカスをモーダル内に閉じ込める・閉じたら元の位置に戻す、は
+  // BookingForm 側の useDialogFocus が引き受ける(ここでは二重に登録しない)
 
   function handleDelete(booking: Booking) {
     const ok = window.confirm(

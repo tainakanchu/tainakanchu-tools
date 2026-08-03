@@ -12,7 +12,7 @@
  * 作れてしまうため。
  */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import {
   COMMON_TIMEZONES,
@@ -27,6 +27,7 @@ import {
   BOOKING_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../lib/trip-notes/storage'
+import { useDialogFocus } from '../-lib/focusTrap'
 import {
   fieldClass,
   iconButtonClass,
@@ -225,6 +226,8 @@ export function BookingForm({
     buildInitialForm(booking, initialDate, initialKind, state, displayTz),
   )
   const [error, setError] = useState<string | null>(null)
+  const titleId = useId()
+  const panelRef = useDialogFocus<HTMLDivElement>({ onClose })
 
   // unverified は毎レンダー booking(親から渡される最新の予約)から読む。
   // フォームの入力値はローカル state で保持しているので、「確認済みにする」を
@@ -367,15 +370,17 @@ export function BookingForm({
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="booking-form-title"
-      className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <header className="flex items-center justify-between gap-2">
           <h2
-            id="booking-form-title"
+            id={titleId}
             className="flex items-center gap-2 text-lg font-bold text-gray-900"
           >
             <KindIcon kind={form.kind} size={18} className="text-cyan-600" />

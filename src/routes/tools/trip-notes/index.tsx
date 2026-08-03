@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useReducer,
+  useState,
+} from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   CalendarDays,
@@ -25,6 +32,7 @@ import { ProgressPanel } from './-components/ProgressPanel'
 import { SchedulePanel } from './-components/SchedulePanel'
 import { SettingsPanel } from './-components/SettingsPanel'
 import { createHistory, historyReducer } from './-lib/reducer'
+import { useDialogFocus } from './-lib/focusTrap'
 import { todayISO } from './-lib/format'
 import { primaryButtonClass, subtleButtonClass } from './-lib/styles'
 import type { HistoryState } from './-lib/reducer'
@@ -348,23 +356,23 @@ function ShareImportConfirm({
   onApply,
   onCancel,
 }: ShareImportConfirmProps) {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
+  const titleId = useId()
+  const panelRef = useDialogFocus<HTMLDivElement>({ onClose: onCancel })
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center print:hidden">
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="共有された旅のしおりの読み込み"
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl outline-none"
       >
-        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
+        <h2
+          id={titleId}
+          className="flex items-center gap-2 text-base font-semibold text-gray-900"
+        >
           <Download size={18} className="text-cyan-600" />
           共有された旅のしおりを読み込みますか？
         </h2>

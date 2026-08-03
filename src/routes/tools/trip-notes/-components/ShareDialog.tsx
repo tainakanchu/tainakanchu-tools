@@ -19,6 +19,7 @@ import {
   estimateShareSize,
 } from '../../../../lib/trip-notes/share'
 import { copyText } from '../-lib/format'
+import { useDialogFocus } from '../-lib/focusTrap'
 import {
   fieldClass,
   iconButtonClass,
@@ -43,6 +44,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
 
   const [result, setResult] = useState<ShareResult>({ status: 'loading' })
   const [copied, setCopied] = useState(false)
+  const panelRef = useDialogFocus<HTMLDivElement>({ onClose })
   const shareSupported =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
@@ -88,14 +90,6 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
     }
   }, [state])
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
   const handleCopy = async () => {
     if (result.status !== 'ready') return
     const ok = await copyText(result.url)
@@ -125,10 +119,12 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        tabIndex={-1}
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
       >
         <div className="flex items-center justify-between">
           <h2 id={titleId} className="text-base font-semibold text-gray-800">

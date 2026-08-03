@@ -9,13 +9,14 @@
  * 取り込んだあとに黄色い下線(unverified)で気付けるようにして後回しにする。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { X } from 'lucide-react'
 import {
   COMMON_TIMEZONES,
   parseStamp,
   tryMakeStamp,
 } from '../../../../lib/trip-notes/datetime'
+import { useDialogFocus } from '../-lib/focusTrap'
 import {
   cardClass,
   fieldClass,
@@ -109,21 +110,12 @@ export function ReviewDialog({
   const [edits, setEdits] = useState<Array<BookingEditState>>(() =>
     bookings.map((booking) => makeInitialEdit(booking, displayTz)),
   )
-  const panelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
-  // Esc で閉じる。旅先で片手操作しているときに、日時を編集しかけた状態のまま
-  // 誤操作で確定させないための最後の逃げ道。
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') onCancel()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
-
-  useEffect(() => {
-    panelRef.current?.focus()
-  }, [])
+  // Esc・初期フォーカス・フォーカスの循環・閉じたあとの復帰をまとめて任せる。
+  // Esc は、旅先で片手操作しているときに日時を編集しかけた状態のまま
+  // 誤操作で確定させないための最後の逃げ道でもある。
+  const panelRef = useDialogFocus<HTMLDivElement>({ onClose: onCancel })
 
   function updateStart(
     index: number,
@@ -193,14 +185,14 @@ export function ReviewDialog({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="日時とタイムゾーンの確認"
+        aria-labelledby={titleId}
         tabIndex={-1}
         className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl outline-none"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2 border-b border-gray-200 p-4 sm:p-5">
           <div>
-            <h2 className="text-base font-semibold text-gray-800">
+            <h2 id={titleId} className="text-base font-semibold text-gray-800">
               日時とタイムゾーンの確認
             </h2>
             <p className="mt-1 text-sm text-gray-600">
