@@ -165,6 +165,28 @@ describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
     expect(tripNotesReducer(base, { type: 'setPinnedTz', tz: null })).toBe(base)
   })
 
+  it('旅行期間の日付を有効な日付に更新できる', () => {
+    const next = tripNotesReducer(makeState(), {
+      type: 'setStartDate',
+      date: '2026-06-13',
+    })
+    expect(next.startDate).toBe('2026-06-13')
+  })
+
+  it('空文字や不正な日付は無視して直前の期間を保つ', () => {
+    // <input type="date"> のクリア操作で空文字が飛んでくる。
+    // これを状態に入れると computeNights が Temporal の RangeError で落ち、
+    // 画面全体が白くなってしまう
+    const base = makeState()
+    expect(tripNotesReducer(base, { type: 'setStartDate', date: '' })).toBe(
+      base,
+    )
+    expect(tripNotesReducer(base, { type: 'setEndDate', date: '' })).toBe(base)
+    expect(
+      tripNotesReducer(base, { type: 'setStartDate', date: '2026-02-30' }),
+    ).toBe(base)
+  })
+
   it('表示タイムゾーンを固定できる', () => {
     const next = tripNotesReducer(makeState(), {
       type: 'setPinnedTz',

@@ -10,6 +10,7 @@
  * 旅先で誤って消したときに戻せないと実害が出る。
  */
 
+import { isValidISODate } from '../../../../lib/trip-notes/datetime'
 import { createInitialState } from '../../../../lib/trip-notes/storage'
 import type {
   Booking,
@@ -122,11 +123,18 @@ export function tripNotesReducer(
       if (state.tripTitle === action.title) return state
       return { ...state, tripTitle: action.title }
 
+    // 旅行期間は「寝る場所がない夜」の計算の起点なので、不正な日付を
+    // 状態に入れてはならない。<input type="date"> はクリア操作で空文字を
+    // 返してくるが、それをそのまま入れると computeNights → diffDays が
+    // Temporal の RangeError で落ち、画面全体が白くなる。
+    // 入力を無視して直前の日付を保つ(表示は制御された input が元に戻す)。
     case 'setStartDate':
+      if (!isValidISODate(action.date)) return state
       if (state.startDate === action.date) return state
       return { ...state, startDate: action.date }
 
     case 'setEndDate':
+      if (!isValidISODate(action.date)) return state
       if (state.endDate === action.date) return state
       return { ...state, endDate: action.date }
 

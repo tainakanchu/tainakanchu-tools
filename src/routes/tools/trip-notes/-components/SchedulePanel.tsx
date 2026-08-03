@@ -150,19 +150,27 @@ export function SchedulePanel({
 
   const closeModal = () => setModalState({ mode: 'closed' })
 
-  // focusDate が来たら該当日へスクロールし、一定時間だけハイライトする
+  // focusDate が来たら該当日へスクロールしてハイライトを点ける
   useEffect(() => {
     if (focusDate === null) return
     const el = dayRefs.current.get(focusDate)
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setHighlightDate(focusDate)
     onFocusHandled()
+  }, [focusDate, onFocusHandled])
+
+  // ハイライトの消灯は focusDate ではなく highlightDate に紐付ける。
+  // 点灯と同じ effect に置くと、直後の onFocusHandled() で focusDate が
+  // null に戻った瞬間に cleanup がタイマーを消してしまい、
+  // 消灯が一度も走らずにリングが出っぱなしになる。
+  useEffect(() => {
+    if (highlightDate === null) return
     const timer = window.setTimeout(
       () => setHighlightDate(null),
       HIGHLIGHT_DURATION_MS,
     )
     return () => window.clearTimeout(timer)
-  }, [focusDate, onFocusHandled])
+  }, [highlightDate])
 
   // Esc で閉じる・フォーカスをモーダル内に閉じ込める・閉じたら元の位置に戻す、は
   // BookingForm 側の useDialogFocus が引き受ける(ここでは二重に登録しない)
