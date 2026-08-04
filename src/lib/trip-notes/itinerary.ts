@@ -34,7 +34,7 @@
  *   名前の包含だけでは「マルタ・ルア国際空港」と「マルタの知人宅」が
  *   どちらも他方を含まず、同じ島の中なのに食い違いとして報告されてしまう。
  *   そこで比較候補に「施設名の部分を末尾から落として地名だけにしたもの」を足してある
- *   (FACILITY_SUFFIXES 参照)。空港・駅・ホテル・知人宅といった語は
+ *   (placeNames.ts の FACILITY_SUFFIXES 参照)。空港・駅・ホテル・知人宅といった語は
  *   場所を特定する部分ではなく、そこに付く「どんな施設か」でしかないためである。
  *
  *   それでも語尾の除去で届く範囲には限りがある。「マルタ」と「バレッタ」のように
@@ -57,6 +57,11 @@
 import { addDays, diffDays, formatDateJa, tryParseStamp } from './datetime'
 import { isTransportKind, lodgingCoversNight } from './nights'
 import { sortEpochOf } from './ordering'
+import {
+  MIN_PARTIAL_MATCH_LENGTH,
+  normalizeName,
+  withoutFacilitySuffix,
+} from './placeNames'
 import type {
   Booking,
   ItineraryIssue,
@@ -76,12 +81,6 @@ export const SAME_PLACE_RADIUS_KM = 30
 
 /** 地球の平均半径 (km)。Haversine 用 */
 const EARTH_RADIUS_KM = 6371
-
-/**
- * 部分一致を認める最短の長さ。
- * 1 文字の地名まで包含判定に載せると、ほぼ何にでも一致してしまう。
- */
-const MIN_PARTIAL_MATCH_LENGTH = 2
 
 /**
  * 1 区間で宿の有無を調べる夜の上限。
@@ -180,106 +179,6 @@ function distanceKm(a: Coords, b: Coords): number {
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
   // asin の引数が丸め誤差で 1 を超えると NaN になるので上で止める
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
-}
-
-/**
- * 表記ゆれを潰す。NFKC で全角/半角を揃えたうえで小文字化し、
- * 文字と数字以外(空白・中黒・ハイフン・括弧などの記号)をすべて落とす。
- * 長音符「ー」は Unicode 上は文字なので残る。
- */
-function normalizeName(raw: string): string {
-  return raw
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, '')
-}
-
-/**
- * 名前の末尾から落とす「どんな施設か」の語。normalizeName() を通した後の形で持つ
- * (空白・中黒はこの時点で消えているので、英語は続けて書いた形になる)。
- *
- * ■ なぜ語尾を落とすのか
- *   「マルタ・ルア国際空港」と「マルタの知人宅」は人間には同じ島の話だと分かるが、
- *   文字列としてはどちらも他方を含まないので包含判定では一致しない。
- *   この 2 つで共通しているのは地名の部分だけで、残りは施設の種類でしかない。
- *   語尾を落として地名部分を露出させれば、既存の包含判定にそのまま乗る。
- *
- * ■ なぜ辞書を持たないのか
- *   都市名・国名の一覧を持てば同じことをもっと正確にできるが、
- *   世界中の地名を網羅した表を個人ツールで維持し続けるのは無理がある。
- *   古い表は「載っていない街だけ判定が変わる」という説明しづらい壊れ方をするので、
- *   最初から持たず、語尾の除去だけで届く範囲に留める。
- *
- * ■ 落としすぎないための制約
- *   落とすのは末尾の 1 語だけで、長い語から順に試して 1 つ落としたら打ち切る
- *   (「国際空港」を「空港」で削って「◯◯国際」を作らないため)。
- *   落とした残りが MIN_PARTIAL_MATCH_LENGTH 未満になる候補は捨てる。
- *   「駅」だけを入力した予約から空文字の候補が生まれると、
- *   何にでも一致して食い違いを丸ごと見逃すことになる。
- *
- * ■ 英語の `port` を単独では入れない(再追加しないこと)
- *   Newport / Southport / Stockport / Bridgeport のように、地名そのものが
- *   -port で終わる街が英語圏には実在する。`port` を落とすと「Newport」から
- *   「new」という候補が生まれ、3 文字あるので長さのガードも素通りしたうえで
- *   「New York」(newyork)に包含判定で一致してしまう。つまり本当に出るべき
- *   到着地の食い違いが消える。このファイルの方針は「見逃しより誤検出を許す」なので、
- *   港をひとつ拾うために見逃しを作るのは割に合わない。
- *   港を拾いたい場合は、地名の一部になりにくい複合語(seaport / ferryport /
- *   cruiseport)だけを足す。日本語の「港」は「神戸港」→「神戸」と落とせて、
- *   「香港」→「香」は 1 文字なので長さのガードで捨てられるため残してある。
- */
-const FACILITY_SUFFIXES: Array<string> = [
-  '国際空港',
-  '空港',
-  '飛行場',
-  '中央駅',
-  '駅',
-  'フェリーターミナル',
-  'バスターミナル',
-  'ターミナル',
-  '港',
-  'ホテル',
-  'ゲストハウス',
-  'ホステル',
-  '旅館',
-  '民宿',
-  '民泊',
-  '知人宅',
-  '友人宅',
-  '実家',
-  '自宅',
-  '別荘',
-  '宅',
-  'internationalairport',
-  'intlairport',
-  'airport',
-  'centralstation',
-  'station',
-  'ferryterminal',
-  'busterminal',
-  'terminal',
-  'cruiseport',
-  'ferryport',
-  'seaport',
-  'hotel',
-  'hostel',
-  'guesthouse',
-  'apartment',
-].toSorted((a, b) => b.length - a.length)
-
-/**
- * 施設の語を末尾から 1 つだけ落として、地名部分だけにした名前を返す。
- * 落とせない(施設の語で終わっていない、落とすと短くなりすぎる)なら null。
- */
-function withoutFacilitySuffix(name: string): string | null {
-  for (const suffix of FACILITY_SUFFIXES) {
-    if (!name.endsWith(suffix)) continue
-    const stripped = name.slice(0, name.length - suffix.length)
-    // 「マルタの知人宅」は「マルタの」で終わるので、助詞もここで落として地名にする
-    const base = stripped.endsWith('の') ? stripped.slice(0, -1) : stripped
-    return base.length < MIN_PARTIAL_MATCH_LENGTH ? null : base
-  }
-  return null
 }
 
 /**

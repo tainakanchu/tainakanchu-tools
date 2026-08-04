@@ -17,6 +17,8 @@
  *   (Booking.com / Google 検索・フライト・マップ・Rome2Rio)を軸にする。
  *   3 文字でない自由入力の地名を Skyscanner の URL パスにそのまま渡すと
  *   壊れたリンクになるため、この条件は緩められない。
+ *   唯一の例外が Rome2Rio で、ここだけは渡す文字列を都市名に寄せる
+ *   (理由は transitBookingLinks 参照)。
  *
  * ■ 日付の扱い
  *   予約の日付は必ずその予約自身のタイムゾーンで取る(datetime.ts の parseStamp /
@@ -25,6 +27,7 @@
  */
 
 import { addDays, tryParseStamp } from './datetime'
+import { toCityName } from './placeNames'
 import type { Booking, Place } from './types'
 
 export interface SearchLink {
@@ -142,13 +145,32 @@ function flightBookingLinks(booking: Booking): Array<SearchLink> {
 /**
  * 鉄道・バス・船・車の予約向けのリンク。
  * from / to のどちらかが取れないなら、比較のしようがないので出さない。
+ *
+ * ■ Rome2Rio にだけ都市名を渡す(placeNames.ts の toCityName)
+ *   Rome2Rio は「街から街へどう行くか」を比べるサービスで、動作が確認できている
+ *   URL は https://www.rome2rio.com/map/Milan/Interlaken のような都市名の形である。
+ *   予約に入力された「香港国際空港 T2」のような施設名・ターミナル番号込みの文字列は、
+ *   地点として解決できない見込みが高い。そこでここだけ都市名に寄せる。
+ *
+ *   Google マップ(経路)には同じ処理をかけない。Google は施設名をそのまま解決でき、
+ *   むしろ空港のターミナルまで指定できたほうが出てくる経路が正確になる。
+ *   宿(Booking.com / Google ホテル)やフライト・検索も同じ理由で元の名前のまま渡す。
+ *   「ここだけ扱いが違う」のは、相手が都市間の比較サービスだからである。
+ *
+ * ■ 当たっているかどうかはこのコードからは分からない
+ *   このツールは一切ネットワークに出ない(API を叩かず URL を組み立てるだけ)ので、
+ *   Rome2Rio がその文字列を実際に解決できるかは検証しようがない。
+ *   日本語の地名をどこまで受け付けるのかも不明である。
+ *   外していても Rome2Rio の検索画面自体は開き、利用者がその場で入力し直せるので、
+ *   致命的には壊れない。当てにいって空振りするほうが、施設名のまま確実に
+ *   解決されないより見込みがある、という賭けとして入れてある。
  */
 function transitBookingLinks(booking: Booking): Array<SearchLink> {
   const from = placeName(booking.from)
   const to = placeName(booking.to)
   if (from === null || to === null) return []
 
-  const rome2rioBase = `https://www.rome2rio.com/map/${encodeURIComponent(from)}/${encodeURIComponent(to)}`
+  const rome2rioBase = `https://www.rome2rio.com/map/${encodeURIComponent(toCityName(from))}/${encodeURIComponent(toCityName(to))}`
   const start = tryParseStamp(booking.start)
   // 開始時刻が壊れているデータでも区間の比較はできるので、リンクごと消さずに
   // 日付なしのまま返す。
