@@ -6,7 +6,12 @@ import {
   parseTripNotesState,
   requestPersistentStorage,
 } from './storage'
-import type { Booking, EmergencyContact, TripNotesState } from './types'
+import type {
+  Booking,
+  EmergencyContact,
+  TravelDoc,
+  TripNotesState,
+} from './types'
 
 /** 宿泊 1 件、任意フィールド全部入りの現実的な booking */
 function fullBooking(): Booking {
@@ -51,6 +56,24 @@ function fullEmergencyContacts(): Array<EmergencyContact> {
       value: '0120-xxx-xxx',
     },
   ]
+}
+
+/** 任意フィールド全部入りの手続き。壊れた値を混ぜるテストの土台にも使う */
+function fullTravelDoc(): TravelDoc {
+  return {
+    id: 'td-1',
+    kind: 'visa',
+    title: 'ETIAS',
+    region: 'シェンゲン圏',
+    status: 'done',
+    dueDate: '2026-08-01',
+    validFrom: '2026-08-10',
+    validUntil: '2029-08-10',
+    referenceNumber: 'ETIAS-2026-0001',
+    price: { amount: 7, currency: 'EUR' },
+    url: 'https://example.test/etias',
+    note: '有効期間は 3 年',
+  }
 }
 
 function fullState(): TripNotesState {
@@ -276,6 +299,67 @@ describe('parseTripNotesState', () => {
       parseTripNotesState({ ...fullState(), placeAliases: 'なにか' }),
     ).not.toHaveProperty('placeAliases')
     expect(parseTripNotesState(fullState())).not.toHaveProperty('placeAliases')
+  })
+
+  it('任意フィールド全部入りの travelDocs がそのまま復元される', () => {
+    const state = { ...fullState(), travelDocs: [fullTravelDoc()] }
+    expect(parseTripNotesState(state)).toEqual(state)
+  })
+
+  it('travelDocs の正常な要素は残り、必須が壊れた要素だけが落ちる', () => {
+    const state = {
+      ...fullState(),
+      travelDocs: [
+        fullTravelDoc(),
+        { ...fullTravelDoc(), id: undefined }, // id が無い
+        { ...fullTravelDoc(), kind: 'passport-photo' }, // kind が未知
+        { ...fullTravelDoc(), status: 'maybe' }, // status が未知
+        { ...fullTravelDoc(), title: 42 }, // title が文字列でない
+        'ビザ', // そもそもオブジェクトでない
+      ],
+    }
+    expect(parseTripNotesState(state)?.travelDocs).toEqual([fullTravelDoc()])
+  })
+
+  it('travelDocs の任意フィールドの不正値は、そのフィールドだけ落ちる', () => {
+    // 手続き自体は残す。1 つの日付が壊れているだけで参照番号まで消えると、
+    // 旅先で番号を見せられなくなるほうが困る
+    const state = {
+      ...fullState(),
+      travelDocs: [
+        {
+          ...fullTravelDoc(),
+          region: 42,
+          dueDate: '2026-13-40', // 暦にない日付
+          validFrom: 'いつか',
+          validUntil: '2026/09/20', // 区切りが違う
+          price: { amount: 'たかい', currency: 'EUR' },
+          url: 12345,
+        },
+      ],
+    }
+    const parsed = parseTripNotesState(state)?.travelDocs?.[0]
+    expect(parsed).toEqual({
+      id: 'td-1',
+      kind: 'visa',
+      title: 'ETIAS',
+      status: 'done',
+      referenceNumber: 'ETIAS-2026-0001',
+      note: '有効期間は 3 年',
+    })
+  })
+
+  it('travelDocs が空・不正・欠落ならフィールドごと付かない', () => {
+    expect(
+      parseTripNotesState({ ...fullState(), travelDocs: [] }),
+    ).not.toHaveProperty('travelDocs')
+    expect(
+      parseTripNotesState({ ...fullState(), travelDocs: [{ id: 'td-1' }] }),
+    ).not.toHaveProperty('travelDocs')
+    expect(
+      parseTripNotesState({ ...fullState(), travelDocs: 'なにか' }),
+    ).not.toHaveProperty('travelDocs')
+    expect(parseTripNotesState(fullState())).not.toHaveProperty('travelDocs')
   })
 })
 

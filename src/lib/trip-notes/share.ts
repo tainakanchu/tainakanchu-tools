@@ -35,8 +35,8 @@
  *   - タイムゾーン名を辞書の添字に置き換える(辞書に無ければ生文字列)
  *   - zdt(40文字前後の文字列)を「分単位 epoch + タイムゾーン」に分解する
  *
- * その後に足したフィールド(placeAliases)は v2 にだけ載せる。v1 の形式は
- * 発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
+ * その後に足したフィールド(placeAliases / travelDocs)は v2 にだけ載せる。
+ * v1 の形式は発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
  *
  * **'0' と '1' のデコード経路は消してはいけない。** 共有URLはサーバに保存して
  * いないため、一度発行したURLを回収する手段がない。古い形式のURLが読めなくなると
@@ -61,6 +61,9 @@ import type {
   PaymentStatus,
   Place,
   Stamp,
+  TravelDoc,
+  TravelDocKind,
+  TravelDocStatus,
   TripNotesState,
 } from './types'
 
@@ -146,10 +149,11 @@ interface ShortContact {
 /**
  * v1 の状態。過去に発行されたURLを読むための形なので、新しいフィールドは足さない。
  *
- * そのため placeAliases(「同じ場所として扱う」の登録)は v1 では落ちる。
- * v1 でエンコードする経路は CompressionStream が使えない環境だけで今も生きている
- * (buildPayload 参照)ため、そこで共有すると受け取り側では
- * 黙らせたはずの指摘が復活する。復活するのは警告であって旅程そのものではないうえ、
+ * そのため placeAliases(「同じ場所として扱う」の登録)と travelDocs(手続き)は
+ * v1 では落ちる。v1 でエンコードする経路は CompressionStream が使えない環境だけで
+ * 今も生きている(buildPayload 参照)ため、そこで共有すると受け取り側では
+ * 黙らせたはずの指摘が復活し、手続きの一覧は空になる。
+ * 落ちるのは旅程そのものではない(予約は全部載っている)うえ、
  * 現実にその経路を通るブラウザはほぼ無いので、マーカーを増やしてまで直さない。
  */
 interface ShortState {
@@ -356,6 +360,26 @@ interface ShortContactV2 {
   n?: string
 }
 
+/**
+ * 手続き(TravelDoc)。id は v2 の方針どおり載せない。
+ * キーは ShortBookingV2 と意味が重なるものをそろえてある
+ * (k = 種別、t = 題名、a = 状況、c = 参照番号、r = 金額、x = 期限、n = メモ)。
+ * 同じ意味に別の文字を割り当てると、片方を直したときにもう片方を直し忘れる。
+ */
+interface ShortTravelDocV2 {
+  k: TravelDocKind
+  t: string
+  g?: string
+  a: TravelDocStatus
+  x?: string
+  f?: string
+  u?: string
+  c?: string
+  r?: ShortMoney
+  l?: string
+  n?: string
+}
+
 interface ShortStateV2 {
   v: 1
   t: string
@@ -370,6 +394,12 @@ interface ShortStateV2 {
    * 大多数の旅程では 1 組も無いので、空なら丸ごと省く。
    */
   p?: Array<[string, string]>
+  /**
+   * travelDocs。placeAliases と同じで、1 件も無ければ丸ごと省く。
+   * 'd' はトップレベルでまだ使っていない文字だから選んだだけで、
+   * URL のクエリ名 `#d=` とは別の階層の話(あちらは payload 全体の入れ物)。
+   */
+  d?: Array<ShortTravelDocV2>
 }
 
 /**
@@ -489,8 +519,42 @@ function fromShortContactV2(short: ShortContactV2): EmergencyContact {
   }
 }
 
+function toShortTravelDocV2(doc: TravelDoc): ShortTravelDocV2 {
+  return {
+    k: doc.kind,
+    t: doc.title,
+    ...(doc.region !== undefined ? { g: doc.region } : {}),
+    a: doc.status,
+    ...(doc.dueDate !== undefined ? { x: doc.dueDate } : {}),
+    ...(doc.validFrom !== undefined ? { f: doc.validFrom } : {}),
+    ...(doc.validUntil !== undefined ? { u: doc.validUntil } : {}),
+    ...(doc.referenceNumber !== undefined ? { c: doc.referenceNumber } : {}),
+    ...(doc.price !== undefined ? { r: toShortMoney(doc.price) } : {}),
+    ...(doc.url !== undefined ? { l: doc.url } : {}),
+    ...(doc.note !== undefined ? { n: doc.note } : {}),
+  }
+}
+
+function fromShortTravelDocV2(short: ShortTravelDocV2): TravelDoc {
+  return {
+    id: newId('td'),
+    kind: short.k,
+    title: short.t,
+    ...(short.g !== undefined ? { region: short.g } : {}),
+    status: short.a,
+    ...(short.x !== undefined ? { dueDate: short.x } : {}),
+    ...(short.f !== undefined ? { validFrom: short.f } : {}),
+    ...(short.u !== undefined ? { validUntil: short.u } : {}),
+    ...(short.c !== undefined ? { referenceNumber: short.c } : {}),
+    ...(short.r !== undefined ? { price: fromShortMoney(short.r) } : {}),
+    ...(short.l !== undefined ? { url: short.l } : {}),
+    ...(short.n !== undefined ? { note: short.n } : {}),
+  }
+}
+
 function toShortStateV2(state: TripNotesState): ShortStateV2 {
   const aliases = state.placeAliases ?? []
+  const docs = state.travelDocs ?? []
   return {
     v: state.schemaVersion,
     t: state.tripTitle,
@@ -500,6 +564,7 @@ function toShortStateV2(state: TripNotesState): ShortStateV2 {
     b: state.bookings.map(toShortBookingV2),
     c: state.emergencyContacts.map(toShortContactV2),
     ...(aliases.length > 0 ? { p: aliases.map((alias) => alias.names) } : {}),
+    ...(docs.length > 0 ? { d: docs.map(toShortTravelDocV2) } : {}),
   }
 }
 
@@ -518,6 +583,11 @@ function fromShortStateV2(short: ShortStateV2): TripNotesState {
       ? {
           placeAliases: short.p.map((names) => ({ id: newId('pa'), names })),
         }
+      : {}),
+    // 手続きも同じ。キーが無い payload は「1 件も登録していない」を意味する
+    // (このキーを足す前に発行されたURLもここを通る)
+    ...(short.d !== undefined
+      ? { travelDocs: short.d.map(fromShortTravelDocV2) }
       : {}),
   }
 }

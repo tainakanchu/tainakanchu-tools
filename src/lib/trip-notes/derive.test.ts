@@ -737,4 +737,59 @@ describe('computeSummary', () => {
       'missing-transport',
     ])
   })
+
+  it('手続きの抜けも併せて返す(登録が無ければ空)', () => {
+    const state = makeState({
+      travelDocs: [
+        {
+          id: 'td-1',
+          kind: 'sim',
+          title: 'eSIM',
+          status: 'done',
+          // 旅行は 6/16 まで続くのに 6/14 で切れる
+          validUntil: '2026-06-14',
+        },
+      ],
+    })
+    const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
+    const summary = computeSummary(state, now)
+    expect(summary.travelDocIssues.map((issue) => issue.kind)).toEqual([
+      'coverage-gap',
+    ])
+
+    expect(computeSummary(makeState(), now).travelDocIssues).toEqual([])
+  })
+
+  it('手続きの「今日」は表示タイムゾーン基準で数える', () => {
+    // パリの 6/12 23:30 は、東京ではもう 6/13 06:30。
+    // 申請期限 6/12 は、パリで見ればまだ今日いっぱい残っているが、
+    // 東京で見れば昨日で切れている。手続きは時刻を持たない日付だけのデータなので、
+    // どちらの「今日」で数えるかで結論が変わる。表示タイムゾーンに揃える
+    const doc = {
+      id: 'td-1',
+      kind: 'visa' as const,
+      title: 'ビザ',
+      status: 'todo' as const,
+      dueDate: '2026-06-12',
+    }
+    const now = stampToEpoch(at('2026-06-12', '23:30', PARIS))
+
+    const inParis = computeSummary(
+      makeState({ pinnedTz: PARIS, travelDocs: [doc] }),
+      now,
+    )
+    const dueInParis = inParis.travelDocIssues.find(
+      (i) => i.kind === 'due-soon',
+    )
+    expect(dueInParis?.message).toContain('今日')
+
+    const inTokyo = computeSummary(
+      makeState({ pinnedTz: TOKYO, travelDocs: [doc] }),
+      now,
+    )
+    const dueInTokyo = inTokyo.travelDocIssues.find(
+      (i) => i.kind === 'due-soon',
+    )
+    expect(dueInTokyo?.message).toContain('過ぎています')
+  })
 })

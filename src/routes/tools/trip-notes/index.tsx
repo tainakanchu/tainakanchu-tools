@@ -552,7 +552,15 @@ function TripNotesPage() {
       {tripDialog === 'delete' && (
         <ConfirmDialog
           title="この旅程を削除しますか？"
-          description={`「${tripLabel(state.tripTitle)}」の予約 ${state.bookings.length}件と緊急連絡先 ${state.emergencyContacts.length}件がまとめて消えます。元に戻せません。${
+          // 消えるものを数え上げるのは、取り返しの付かない操作だからである。
+          // 手続き(ビザ・eSIM)は 1 件も登録していない旅程のほうが多いので、
+          // 0 件のときは文に出さない(いつも出すと、使っていない機能の名前を
+          // 削除確認という一番読んでほしい文の中に混ぜることになる)
+          description={`「${tripLabel(state.tripTitle)}」の予約 ${state.bookings.length}件と緊急連絡先 ${state.emergencyContacts.length}件${
+            (state.travelDocs?.length ?? 0) > 0
+              ? `、手続き ${state.travelDocs?.length}件`
+              : ''
+          }がまとめて消えます。元に戻せません。${
             liveLibrary.trips.length === 1
               ? 'これが最後の旅程なので、削除すると新しい空の旅程に置き換わります。'
               : '他の旅程は残ります。'

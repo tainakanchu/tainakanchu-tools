@@ -23,6 +23,9 @@ import type {
   Place,
   PlaceAlias,
   Stamp,
+  TravelDoc,
+  TravelDocKind,
+  TravelDocStatus,
   TripNotesState,
 } from './types'
 
@@ -71,10 +74,28 @@ export const PAYMENT_STATUSES: Array<PaymentStatus> = [
   'onsite',
 ]
 
+/** 手続きの種別。UI の選択肢の並び順もこれをそのまま使う */
+export const TRAVEL_DOC_KINDS: Array<TravelDocKind> = [
+  'visa',
+  'sim',
+  'insurance',
+  'permit',
+  'other',
+]
+
+/** 申請してから発給までの待ちがあるので、予約状況とは別の 3 段階を持つ */
+export const TRAVEL_DOC_STATUSES: Array<TravelDocStatus> = [
+  'todo',
+  'applied',
+  'done',
+]
+
 const FIELD_KEY_SET = new Set<string>(FIELD_KEYS)
 const BOOKING_KIND_SET = new Set<string>(BOOKING_KINDS)
 const BOOKING_STATUS_SET = new Set<string>(BOOKING_STATUSES)
 const PAYMENT_STATUS_SET = new Set<string>(PAYMENT_STATUSES)
+const TRAVEL_DOC_KIND_SET = new Set<string>(TRAVEL_DOC_KINDS)
+const TRAVEL_DOC_STATUS_SET = new Set<string>(TRAVEL_DOC_STATUSES)
 
 function isFieldKey(value: unknown): value is FieldKey {
   return typeof value === 'string' && FIELD_KEY_SET.has(value)
@@ -90,6 +111,14 @@ function isBookingStatus(value: unknown): value is BookingStatus {
 
 function isPaymentStatus(value: unknown): value is PaymentStatus {
   return typeof value === 'string' && PAYMENT_STATUS_SET.has(value)
+}
+
+function isTravelDocKind(value: unknown): value is TravelDocKind {
+  return typeof value === 'string' && TRAVEL_DOC_KIND_SET.has(value)
+}
+
+function isTravelDocStatus(value: unknown): value is TravelDocStatus {
+  return typeof value === 'string' && TRAVEL_DOC_STATUS_SET.has(value)
 }
 
 /**
@@ -290,6 +319,56 @@ function parsePlaceAlias(raw: unknown): PlaceAlias | null {
 }
 
 /**
+ * TravelDoc の検証方針は parseBooking と同じで、必須(id/kind/title/status)が
+ * 壊れていればその 1 件だけを落とし、任意フィールドは不正ならそのフィールドだけを
+ * 落として手続き自体は残す。
+ *
+ * 日付(dueDate/validFrom/validUntil)は isValidISODate を通ったものだけ採用する。
+ * 壊れた日付を残すと docs.ts の判定が「数えられないので警告」に倒れ続け、
+ * 直しようのない警告が画面に居座ることになる。値ごと落としておけば、
+ * 少なくとも「日付が入っていない手続き」として素直に扱える。
+ */
+export function parseTravelDoc(raw: unknown): TravelDoc | null {
+  if (!isRecord(raw)) return null
+  const value = raw
+
+  const { id, kind, title, status } = value
+  if (typeof id !== 'string') return null
+  if (!isTravelDocKind(kind)) return null
+  if (typeof title !== 'string') return null
+  if (!isTravelDocStatus(status)) return null
+
+  const doc: TravelDoc = { id, kind, title, status }
+
+  if (typeof value.region === 'string') doc.region = value.region
+
+  if (typeof value.dueDate === 'string' && isValidISODate(value.dueDate)) {
+    doc.dueDate = value.dueDate
+  }
+  if (typeof value.validFrom === 'string' && isValidISODate(value.validFrom)) {
+    doc.validFrom = value.validFrom
+  }
+  if (
+    typeof value.validUntil === 'string' &&
+    isValidISODate(value.validUntil)
+  ) {
+    doc.validUntil = value.validUntil
+  }
+
+  if (typeof value.referenceNumber === 'string') {
+    doc.referenceNumber = value.referenceNumber
+  }
+
+  const price = parseMoney(value.price)
+  if (price !== undefined) doc.price = price
+
+  if (typeof value.url === 'string') doc.url = value.url
+  if (typeof value.note === 'string') doc.note = value.note
+
+  return doc
+}
+
+/**
  * 初期状態。3泊4日を既定の旅程長にする
  * (週末+1日ずらした程度の、もっとも当たり障りのない旅行日数)。
  */
@@ -349,6 +428,13 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
         .filter((a): a is PlaceAlias => a !== null)
     : []
 
+  // travelDocs も placeAliases と同じ扱い(空ならフィールドごと付けない)
+  const travelDocs = Array.isArray(data.travelDocs)
+    ? data.travelDocs
+        .map(parseTravelDoc)
+        .filter((d): d is TravelDoc => d !== null)
+    : []
+
   return {
     schemaVersion: 1,
     tripTitle,
@@ -358,6 +444,7 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
     bookings,
     emergencyContacts,
     ...(placeAliases.length > 0 ? { placeAliases } : {}),
+    ...(travelDocs.length > 0 ? { travelDocs } : {}),
   }
 }
 

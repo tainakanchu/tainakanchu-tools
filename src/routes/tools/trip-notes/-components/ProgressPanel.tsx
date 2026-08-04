@@ -22,6 +22,7 @@ import {
   CircleHelp,
   ClipboardList,
   Columns3,
+  IdCard,
   List,
   PiggyBank,
   Wallet,
@@ -34,6 +35,7 @@ import { cardClass, sectionTitleClass } from '../-lib/styles'
 import { ItineraryIssueList } from './ItineraryIssueList'
 import { KanbanBoard } from './KanbanBoard'
 import { NightCoverageStrip } from './NightCoverageStrip'
+import { TravelDocIssueList } from './TravelDocIssueList'
 import type { KanbanAxis } from '../-lib/kanban'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
@@ -313,9 +315,20 @@ export function ProgressPanel({
   const [axis, setAxis] = useState<KanbanAxis>('status')
 
   // 乗り継ぎの案内(severity: 'info')は直す対象ではないので、
-  // 赤いアラートの点灯にも件数にも数えない
+  // 赤いアラートの点灯にも件数にも数えない。
+  // 手続き(travelDocIssues)も同じ理由でここには混ぜない。
+  // 上段の穴アラートは「旅程そのものが壊れているか(寝る場所がない/移動が
+  // つながっていない)」を示す場所で、手続きの抜けは旅程が壊れているかとは
+  // 別の軸(現地に行く前ならまだ埋め合わせが効く)なので、点灯条件を共有すると
+  // 「旅程は完璧なのに手続き待ちで赤くなる」のような読み違えが起きる
   const warningIssues = warningIssuesOf(summary.itineraryIssues)
   const hasHoles = summary.uncoveredNights > 0 || warningIssues.length > 0
+
+  // 1 件も登録していなければフィールドごと存在しない(types.ts 参照)
+  const travelDocs = state.travelDocs ?? []
+  const doneTravelDocCount = travelDocs.filter(
+    (doc) => doc.status === 'done',
+  ).length
 
   const confirmedCount = summary.statusCounts.confirmed
   const tentativeCount = summary.statusCounts.idea + summary.statusCounts.held
@@ -505,6 +518,38 @@ export function ProgressPanel({
               dispatch({ type: 'addPlaceAlias', names })
             }
           />
+
+          {/*
+            手続き(ビザ・eSIMなど)のセクション。位置は旅程の不整合の直後にする
+            (どちらも「あと何を潰せば旅行に行けるか」という同じ問いに答える
+            一覧だから)。
+
+            手続きを1件も登録していない旅程のほうが多いはずで、そこにまで
+            空のセクションを増やすと「これは何をする機能か」の説明ごと
+            画面が伸びてしまう。travelDocs が無ければ(空配列も含め)
+            セクションごと出さない
+          */}
+          {travelDocs.length > 0 ? (
+            <div className="mt-4">
+              <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+                <IdCard size={13} aria-hidden="true" />
+                手続き
+                <span className="tabular-nums">
+                  {travelDocs.length}件中{doneTravelDocCount}件が取得済み
+                </span>
+              </p>
+              {summary.travelDocIssues.length === 0 ? (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  <p className="text-sm font-medium">
+                    手続きの抜けはありません
+                  </p>
+                </div>
+              ) : (
+                <TravelDocIssueList issues={summary.travelDocIssues} />
+              )}
+            </div>
+          ) : null}
         </>
       )}
     </section>

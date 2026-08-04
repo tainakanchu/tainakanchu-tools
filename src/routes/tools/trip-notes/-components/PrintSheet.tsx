@@ -14,7 +14,8 @@ import {
   stampDate,
 } from '../../../../lib/trip-notes/datetime'
 import { todayISO } from '../-lib/format'
-import { KindIcon } from './KindIcon'
+import { KindIcon, TRAVEL_DOC_KIND_LABELS } from './KindIcon'
+import { TRAVEL_DOC_STATUS_LABELS } from './StatusBadge'
 import type { Booking, TripNotesState } from '../../../../lib/trip-notes/types'
 
 interface PrintSheetProps {
@@ -84,7 +85,11 @@ function OngoingLine({ booking, date }: { booking: Booking; date: string }) {
 
   return (
     <div className="flex items-baseline gap-1.5 py-0.5 text-[9pt] text-gray-500">
-      <KindIcon kind={booking.kind} size={9} className="shrink-0 text-gray-400" />
+      <KindIcon
+        kind={booking.kind}
+        size={9}
+        className="shrink-0 text-gray-400"
+      />
       <span>{booking.title}</span>
       <span className="text-gray-400">({label})</span>
     </div>
@@ -98,6 +103,9 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
     ...day,
     bookings: day.bookings.filter((b) => b.status !== 'cancelled'),
   }))
+
+  // 1 件も無ければフィールドごと存在しない(types.ts 参照)
+  const travelDocs = state.travelDocs ?? []
 
   return (
     <div className="hidden bg-white p-10 text-[10pt] leading-snug text-black print:block">
@@ -145,6 +153,49 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
           )}
         </section>
       ))}
+
+      {/*
+        旅行前の手続き(ビザ・eSIMなど)。緊急連絡先と同じく「電池が切れても
+        通信できなくても読める紙」として持ち歩く情報なので、その直前に置く。
+        1件も無ければセクションごと省く(紙面を無駄に伸ばさないため)。
+
+        未取得のものも印刷に載せる: この印刷しおりは出発直前にも見返す前提の
+        紙なので、取得済みだけに絞ると「印刷した時点で何が残っていたか」が
+        紙の上からは分からなくなる。むしろ未取得のものが載っているほうが、
+        紙を見返したときに「これはまだだった」と気付ける。
+        参照番号と有効期間は必ず載せる(紙で持ち歩く目的そのものがそこにあるため)。
+      */}
+      {travelDocs.length > 0 ? (
+        <section className="break-inside-avoid mt-4 border-t-4 border-black pt-2">
+          <h2 className="text-[12pt] font-bold">旅行前の手続き</h2>
+          <ul className="mt-1 space-y-1">
+            {travelDocs.map((doc) => (
+              <li key={doc.id} className="break-inside-avoid text-[9pt]">
+                <span className="font-semibold">
+                  [{TRAVEL_DOC_KIND_LABELS[doc.kind]}] {doc.title}
+                  {doc.region !== undefined ? `(${doc.region})` : ''}
+                </span>
+                {' - '}
+                {TRAVEL_DOC_STATUS_LABELS[doc.status]}
+                {doc.referenceNumber !== undefined ? (
+                  <>
+                    {' / 参照番号: '}
+                    <span className="font-mono font-semibold">
+                      {doc.referenceNumber}
+                    </span>
+                  </>
+                ) : null}
+                {doc.validFrom !== undefined || doc.validUntil !== undefined ? (
+                  <>
+                    {' / 有効期間: '}
+                    {doc.validFrom ?? '未定'} 〜 {doc.validUntil ?? '未定'}
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="break-inside-avoid mt-4 border-t-4 border-black pt-2">
         <h2 className="text-[12pt] font-bold">緊急連絡先</h2>

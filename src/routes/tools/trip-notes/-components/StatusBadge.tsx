@@ -1,22 +1,26 @@
 /**
- * 予約状況バッジと支払状況チップ。
+ * 予約状況バッジ・支払状況チップ・手続き状況バッジ。
  *
- * この 2 つは独立した軸(「確定しているが現地払い」が普通にある)なので、
- * 同じカードに並んでも混ざらないように色ではなく形で系統を分ける。
+ * この 3 つは独立した軸(「確定しているが現地払い」「確定しているがビザは未着手」が
+ * 普通にある)なので、同じ画面に並んでも混ざらないように色ではなく形で系統を分ける。
  * - 予約状況: 塗りつぶしの pill (rounded-full)
  * - 支払状況: 白地の枠線 chip (rounded-md)
+ * - 手続き状況: 白地 + 左だけ太い罫線の chip (rounded-lg)。「申請してから発給まで
+ *   進む」という時系列の軸であることを、チェックリストの行のような見た目で示す
  *
  * さらに、色覚特性や白黒印刷でも区別が付くように、
  * 状態ごとにアイコンを変え、キャンセルには打ち消し線を入れる。
  */
 
 import {
+  BadgeCheck,
   Ban,
   Banknote,
   CheckCheck,
   CheckCircle2,
   CircleDashed,
   Clock,
+  Hourglass,
   PiggyBank,
   XCircle,
 } from 'lucide-react'
@@ -24,6 +28,7 @@ import type { LucideIcon } from 'lucide-react'
 import type {
   BookingStatus,
   PaymentStatus,
+  TravelDocStatus,
 } from '../../../../lib/trip-notes/types'
 
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
@@ -91,6 +96,32 @@ const PAYMENT_STATUS_STYLES: Record<PaymentStatus, BadgeStyle> = {
   },
 }
 
+export const TRAVEL_DOC_STATUS_LABELS: Record<TravelDocStatus, string> = {
+  todo: '未着手',
+  applied: '申請中',
+  done: '取得済み',
+}
+
+const TRAVEL_DOC_STATUS_STYLES: Record<TravelDocStatus, BadgeStyle> = {
+  todo: {
+    className:
+      'bg-white text-slate-600 border border-slate-300 border-l-4 border-l-slate-400',
+    icon: CircleDashed,
+  },
+  applied: {
+    // 「申請したまま発給待ち」の待ちを表すのに、乗り継ぎ待ちで使っている
+    // Hourglass と同じアイコンを流用する(別画面なので混同はしない)
+    className:
+      'bg-white text-amber-700 border border-amber-300 border-l-4 border-l-amber-500',
+    icon: Hourglass,
+  },
+  done: {
+    className:
+      'bg-white text-emerald-700 border border-emerald-300 border-l-4 border-l-emerald-500',
+    icon: BadgeCheck,
+  },
+}
+
 export function BookingStatusBadge({
   status,
   size = 'md',
@@ -132,6 +163,29 @@ export function PaymentStatusBadge({
         size === 'sm' ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-xs'
       }`}
       aria-label={`支払状況: ${label}`}
+    >
+      <Icon size={size === 'sm' ? 11 : 13} aria-hidden="true" />
+      {label}
+    </span>
+  )
+}
+
+export function TravelDocStatusBadge({
+  status,
+  size = 'md',
+}: {
+  status: TravelDocStatus
+  size?: 'sm' | 'md'
+}) {
+  const style = TRAVEL_DOC_STATUS_STYLES[status]
+  const Icon = style.icon
+  const label = TRAVEL_DOC_STATUS_LABELS[status]
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-lg font-medium ${style.className} ${
+        size === 'sm' ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-xs'
+      }`}
+      aria-label={`手続きの状況: ${label}`}
     >
       <Icon size={size === 'sm' ? 11 : 13} aria-hidden="true" />
       {label}

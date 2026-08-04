@@ -3,6 +3,7 @@ import { createHistory, historyReducer, tripNotesReducer } from './reducer'
 import type {
   Booking,
   EmergencyContact,
+  TravelDoc,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 
@@ -34,6 +35,16 @@ function makeBooking(id: string, overrides: Partial<Booking> = {}): Booking {
 
 function contact(id: string, label: string): EmergencyContact {
   return { id, label, value: '+33-1-2345-6789' }
+}
+
+function travelDoc(id: string, overrides: Partial<TravelDoc> = {}): TravelDoc {
+  return {
+    id,
+    kind: 'visa',
+    title: `手続き ${id}`,
+    status: 'todo',
+    ...overrides,
+  }
 }
 
 describe('tripNotesReducer / 予約の CRUD', () => {
@@ -425,6 +436,93 @@ describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
     const empty = makeState()
     expect(
       tripNotesReducer(empty, { type: 'removePlaceAlias', id: 'いない' }),
+    ).toBe(empty)
+  })
+
+  it('手続きを追加・更新・削除できる', () => {
+    const added = tripNotesReducer(makeState(), {
+      type: 'addTravelDoc',
+      doc: travelDoc('td1'),
+    })
+    expect(added.travelDocs).toHaveLength(1)
+
+    const updated = tripNotesReducer(added, {
+      type: 'updateTravelDoc',
+      doc: { ...travelDoc('td1'), status: 'done', referenceNumber: 'V-0001' },
+    })
+    expect(updated.travelDocs?.[0].status).toBe('done')
+    expect(updated.travelDocs?.[0].referenceNumber).toBe('V-0001')
+
+    const removed = tripNotesReducer(updated, {
+      type: 'removeTravelDoc',
+      id: 'td1',
+    })
+    expect(removed).not.toHaveProperty('travelDocs')
+  })
+
+  it('手続きの追加は末尾に積まれ、更新は id が一致するものだけを置き換える', () => {
+    const base = makeState({
+      travelDocs: [travelDoc('td1'), travelDoc('td2')],
+    })
+    const added = tripNotesReducer(base, {
+      type: 'addTravelDoc',
+      doc: travelDoc('td3'),
+    })
+    expect(added.travelDocs?.map((doc) => doc.id)).toEqual([
+      'td1',
+      'td2',
+      'td3',
+    ])
+
+    const updated = tripNotesReducer(base, {
+      type: 'updateTravelDoc',
+      doc: { ...travelDoc('td2'), title: '書き換えた手続き' },
+    })
+    expect(updated.travelDocs?.[0].title).toBe('手続き td1')
+    expect(updated.travelDocs?.[1].title).toBe('書き換えた手続き')
+  })
+
+  it('削除で最後の 1 件が消えたらフィールドごと落ちる', () => {
+    // 「空配列が残っている state」と「一度も登録していない state」を
+    // 別物にしない(placeAliases と同じ扱い)
+    const base = makeState({
+      travelDocs: [travelDoc('td1'), travelDoc('td2')],
+    })
+    const removedOne = tripNotesReducer(base, {
+      type: 'removeTravelDoc',
+      id: 'td1',
+    })
+    expect(removedOne.travelDocs?.map((doc) => doc.id)).toEqual(['td2'])
+
+    const removedAll = tripNotesReducer(removedOne, {
+      type: 'removeTravelDoc',
+      id: 'td2',
+    })
+    expect(removedAll).not.toHaveProperty('travelDocs')
+  })
+
+  it('存在しない手続きの更新・削除は状態を変えない(同一参照を返す)', () => {
+    const base = makeState({ travelDocs: [travelDoc('td1')] })
+    expect(
+      tripNotesReducer(base, {
+        type: 'updateTravelDoc',
+        doc: travelDoc('いない'),
+      }),
+    ).toBe(base)
+    expect(
+      tripNotesReducer(base, { type: 'removeTravelDoc', id: 'いない' }),
+    ).toBe(base)
+
+    // 1 件も無い(フィールドごと存在しない)状態でも同じ
+    const empty = makeState()
+    expect(
+      tripNotesReducer(empty, { type: 'removeTravelDoc', id: 'いない' }),
+    ).toBe(empty)
+    expect(
+      tripNotesReducer(empty, {
+        type: 'updateTravelDoc',
+        doc: travelDoc('td1'),
+      }),
     ).toBe(empty)
   })
 

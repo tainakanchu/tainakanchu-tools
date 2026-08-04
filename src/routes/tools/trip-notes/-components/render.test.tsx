@@ -68,10 +68,41 @@ const state: TripNotesState = {
     }),
   ],
   emergencyContacts: [{ id: 'c1', label: '大使館', value: '+33-1-1111-1111' }],
+  // 手続きは任意フィールドなので、入っている側の描画をここで踏んでおく。
+  // 取得済み(参照番号あり)・申請中・有効期間が旅程からはみ出したものを 1 つずつ
+  travelDocs: [
+    {
+      id: 'td1',
+      kind: 'visa',
+      title: 'シェンゲンビザ',
+      region: 'シェンゲン圏',
+      status: 'done',
+      referenceNumber: 'VISA-0001',
+      validFrom: '2026-06-01',
+      validUntil: '2026-07-01',
+      url: 'https://example.test/visa',
+      price: { amount: 80, currency: 'EUR' },
+    },
+    {
+      id: 'td2',
+      kind: 'sim',
+      title: 'ヨーロッパ eSIM',
+      status: 'applied',
+      dueDate: '2026-06-01',
+      // 旅行は 6/22 まで続くのに 6/18 で切れる = coverage-gap が出る
+      validUntil: '2026-06-18',
+      note: '端末が eSIM 対応か要確認',
+    },
+  ],
 }
 
+// 手続きは「1 件も登録していなければフィールドごと存在しない」形なので、
+// 空の側ではフィールドごと落とす。これで state 側が「手続きを出す」分岐を、
+// empty 側が「セクションごと出さない」分岐を踏む
+const { travelDocs: _travelDocs, ...stateWithoutTravelDocs } = state
+
 const empty: TripNotesState = {
-  ...state,
+  ...stateWithoutTravelDocs,
   bookings: [],
   emergencyContacts: [],
 }
@@ -257,10 +288,7 @@ describe('BookingCard は予約状況でカード自体の見た目を変える'
 
   it('idea は破線ボーダーになり、confirmed とは見た目が違う', () => {
     const { container: ideaContainer } = render(
-      <BookingCard
-        booking={bk('idea-1', { status: 'idea' })}
-        {...cardProps}
-      />,
+      <BookingCard booking={bk('idea-1', { status: 'idea' })} {...cardProps} />,
     )
     const { container: confirmedContainer } = render(
       <BookingCard
@@ -275,10 +303,7 @@ describe('BookingCard は予約状況でカード自体の見た目を変える'
 
   it('held は実線のまま琥珀のボーダーが付き、idea の破線とは違う', () => {
     const { container } = render(
-      <BookingCard
-        booking={bk('held-1', { status: 'held' })}
-        {...cardProps}
-      />,
+      <BookingCard booking={bk('held-1', { status: 'held' })} {...cardProps} />,
     )
 
     expect(container.querySelector('.border-amber-300')).toBeTruthy()

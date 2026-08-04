@@ -19,6 +19,7 @@ import type {
   Booking,
   EmergencyContact,
   FieldKey,
+  TravelDoc,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 
@@ -50,6 +51,13 @@ export type TripNotesAction =
   | { type: 'addContact'; contact: EmergencyContact }
   | { type: 'updateContact'; contact: EmergencyContact }
   | { type: 'removeContact'; id: string }
+  /**
+   * 旅行前の手続き(ビザ・eSIM など)の CRUD。
+   * 予約と同じ「抜けを潰す」対象だが別の入れ物に持つ(types.ts の TravelDoc 参照)。
+   */
+  | { type: 'addTravelDoc'; doc: TravelDoc }
+  | { type: 'updateTravelDoc'; doc: TravelDoc }
+  | { type: 'removeTravelDoc'; id: string }
   /**
    * 「この 2 つは同じ場所」の登録。旅程の警告カードから、
    * そこに出ていた 2 つの地名をそのまま渡す(itinerary.ts の placeAliases)。
@@ -266,6 +274,33 @@ export function tripNotesReducer(
         return state
       }
       return { ...state, emergencyContacts }
+    }
+
+    case 'addTravelDoc': {
+      // 1 件も無いときはフィールドごと存在しないので、そこから積み直す
+      const current = state.travelDocs ?? []
+      return { ...state, travelDocs: [...current, action.doc] }
+    }
+
+    case 'updateTravelDoc': {
+      const current = state.travelDocs ?? []
+      const index = current.findIndex((d) => d.id === action.doc.id)
+      if (index === -1) return state
+      const travelDocs = [...current]
+      travelDocs[index] = action.doc
+      return { ...state, travelDocs }
+    }
+
+    case 'removeTravelDoc': {
+      const current = state.travelDocs ?? []
+      const travelDocs = current.filter((d) => d.id !== action.id)
+      if (travelDocs.length === current.length) return state
+      // 最後の 1 件を消したらフィールドごと落とす(removePlaceAlias と同じ理由)
+      if (travelDocs.length === 0) {
+        const { travelDocs: _travelDocs, ...rest } = state
+        return rest
+      }
+      return { ...state, travelDocs }
     }
 
     case 'addPlaceAlias': {

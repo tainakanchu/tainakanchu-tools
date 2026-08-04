@@ -112,6 +112,53 @@ export interface EmergencyContact {
   note?: string
 }
 
+export type TravelDocKind = 'visa' | 'sim' | 'insurance' | 'permit' | 'other'
+
+/** 手続きの進み具合。予約の BookingStatus とは別軸(申請してから発給までの待ちがある) */
+export type TravelDocStatus = 'todo' | 'applied' | 'done'
+
+/**
+ * 旅行前に済ませておく手続き(ビザ・eSIM・保険・入域許可など)。
+ *
+ * ■ なぜ Booking の kind に足さないのか
+ *   最初にそれを検討して捨てた。同じ道に戻らないよう理由を残しておく。
+ *   - itinerary.ts は予約の場所を時系列につないで連続性を見ている。そこに
+ *     「マルタのビザ」のような予約が混ざると、パリ → マルタ(ビザ) → パリ と読まれ、
+ *     ありもしない場所の食い違いを警告してしまう。判定を緩めて誤検出を消しにいくと、
+ *     今度は本物の移動の抜けまで見逃すようになる。
+ *   - 日程タイムラインは「その日にやること」の一覧なので、有効期間が数ヶ月ある書類が
+ *     そこに 1 行を占めると、当日の予定が書類に埋もれて読めなくなる。
+ *   予約と手続きは「旅行前に潰すべき抜け」という点だけが同じで、
+ *   場所も時刻も持たない別のものなので、最初から別の入れ物に置く。
+ *
+ * ■ なぜ Stamp ではなく YYYY-MM-DD なのか
+ *   予約の時刻は「14:20 発の列車」のように分単位で意味を持ち、1 時間ずれると
+ *   乗り遅れるので Stamp(現地時刻 + タイムゾーン)で持つ必要がある。
+ *   一方この手続きの日付は「9/15 まで有効」「9/1 が申請期限」という粒度でしか
+ *   使わず、時刻もタイムゾーンも入力のしようがない(ビザの有効期間に
+ *   タイムゾーンを聞かれても答えられる利用者はいない)。
+ *   持てない精度を型で要求すると、入力のたびに適当な時刻を選ばせることになる。
+ */
+export interface TravelDoc {
+  id: string
+  kind: TravelDocKind
+  title: string
+  /** 対象の国・地域。「マルタ」「シェンゲン圏」など自由入力 */
+  region?: string
+  status: TravelDocStatus
+  /** 申請の期限 (YYYY-MM-DD)。カウントダウンの元 */
+  dueDate?: string
+  /** 有効期間 (YYYY-MM-DD)。旅程をカバーしているかの判定に使う */
+  validFrom?: string
+  validUntil?: string
+  /** ビザ番号・eSIM の ICCID・申請 ID など */
+  referenceNumber?: string
+  price?: Money
+  /** 申請サイトやマイページ */
+  url?: string
+  note?: string
+}
+
 /**
  * 利用者が「この 2 つは同じ場所だ」と教えた組。
  *
@@ -155,6 +202,15 @@ export interface TripNotesState {
    * (share.ts の「値が無ければ省く」という方針とも揃う)。
    */
   placeAliases?: Array<PlaceAlias>
+  /**
+   * 旅行前に済ませておく手続き(ビザ・eSIM など)。
+   *
+   * placeAliases と同じ理由で必須にせず任意にしている。保存済みの localStorage にも
+   * 発行済みの共有URLにもこのフィールドは無く、手続きを 1 件も登録しない利用者の
+   * JSON や共有URLを `"travelDocs":[]` で膨らませたくない
+   * (share.ts の「値が無ければ省く」という方針とも揃う)。
+   */
+  travelDocs?: Array<TravelDoc>
 }
 
 /**
@@ -251,6 +307,30 @@ export interface ItineraryIssue {
   message: string
 }
 
+/**
+ * 手続き(TravelDoc)の抜けの種別。判定の本体は docs.ts。
+ *
+ * ItineraryIssue と同じくここに置いてあるのは、これも「状態ではない導出値」で、
+ * 画面と判定の両方から参照される型だからである(判定側だけが知っていればよい
+ * 定数やしきい値は docs.ts の中に閉じている)。
+ */
+export type TravelDocIssueKind =
+  /** 取得できていない(旅行開始までに間に合わせる必要がある) */
+  | 'not-done'
+  /** 申請期限が過ぎている / 迫っている */
+  | 'due-soon'
+  /** 有効期間が旅程をカバーしていない */
+  | 'coverage-gap'
+
+export interface TravelDocIssue {
+  docId: string
+  kind: TravelDocIssueKind
+  /** ItineraryIssueSeverity と同じ意味。'warning' は直さないと現地で困るもの */
+  severity: 'warning' | 'info'
+  /** 利用者向けの説明文。「次に何をすればよいか」まで含める */
+  message: string
+}
+
 export interface CancelDeadline {
   bookingId: string
   title: string
@@ -299,6 +379,12 @@ export interface TripSummary {
    * transportGaps(宿と宿の間だけ)の上位互換だが、UI の移行が済むまで両方持つ。
    */
   itineraryIssues: Array<ItineraryIssue>
+  /**
+   * 手続き(ビザ・eSIM など)の抜け。itineraryIssues と同じ扱いで、
+   * 状態としては持たず computeSummary のたびに計算する。
+   * 手続きを 1 件も登録していなければ常に空になる。
+   */
+  travelDocIssues: Array<TravelDocIssue>
   cancelDeadlines: Array<CancelDeadline>
   budget: Array<BudgetByCurrency>
   currentAndNext: CurrentAndNext

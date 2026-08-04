@@ -14,6 +14,7 @@ import {
   Download,
   FileJson,
   Globe,
+  IdCard,
   MapPinCheck,
   Pencil,
   Phone,
@@ -25,8 +26,16 @@ import {
   Upload,
 } from 'lucide-react'
 import { newId } from '../../../../lib/trip-notes/id'
-import { parseTripNotesState } from '../../../../lib/trip-notes/storage'
-import { COMMON_TIMEZONES, diffDays } from '../../../../lib/trip-notes/datetime'
+import {
+  TRAVEL_DOC_KINDS,
+  TRAVEL_DOC_STATUSES,
+  parseTripNotesState,
+} from '../../../../lib/trip-notes/storage'
+import {
+  COMMON_TIMEZONES,
+  diffDays,
+  isValidISODate,
+} from '../../../../lib/trip-notes/datetime'
 import { copyText, todayISO } from '../-lib/format'
 import {
   cardClass,
@@ -40,11 +49,16 @@ import {
 } from '../-lib/styles'
 import { AiImportPanel } from './AiImportPanel'
 import { ImportChoiceDialog } from './ImportChoiceDialog'
+import { TRAVEL_DOC_KIND_LABELS, TravelDocIcon } from './KindIcon'
 import { ShareDialog } from './ShareDialog'
+import { TRAVEL_DOC_STATUS_LABELS, TravelDocStatusBadge } from './StatusBadge'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
   EmergencyContact,
+  TravelDoc,
+  TravelDocKind,
+  TravelDocStatus,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 
@@ -211,6 +225,492 @@ function ContactRow({
   )
 }
 
+/**
+ * <select> から返る値を型に戻すための番人。BookingForm.tsx と同じ考え方で、
+ * TRAVEL_DOC_KINDS / TRAVEL_DOC_STATUSES から option を作っている以上
+ * 実際には妥当な値しか来ないが、event.target.value の型は string でしかないので
+ * アサーションで押し込まず、該当しない値は「今の選択を保つ」に倒す。
+ */
+const TRAVEL_DOC_KIND_SET = new Set<string>(TRAVEL_DOC_KINDS)
+const TRAVEL_DOC_STATUS_SET = new Set<string>(TRAVEL_DOC_STATUSES)
+
+function isTravelDocKind(value: string): value is TravelDocKind {
+  return TRAVEL_DOC_KIND_SET.has(value)
+}
+
+function isTravelDocStatus(value: string): value is TravelDocStatus {
+  return TRAVEL_DOC_STATUS_SET.has(value)
+}
+
+/**
+ * 手続きフォームの入力状態。TravelDoc とほぼ同じ形だが、数値や日付も
+ * すべて文字列で持つ(<input> が返す値の型に素直に合わせ、
+ * 入力途中の空文字や未確定の値を型エラーなく保持できるようにするため)。
+ */
+interface TravelDocFormState {
+  kind: TravelDocKind
+  title: string
+  region: string
+  status: TravelDocStatus
+  dueDate: string
+  validFrom: string
+  validUntil: string
+  referenceNumber: string
+  priceAmount: string
+  priceCurrency: string
+  url: string
+  note: string
+}
+
+function emptyTravelDocForm(): TravelDocFormState {
+  return {
+    kind: TRAVEL_DOC_KINDS[0],
+    title: '',
+    region: '',
+    status: TRAVEL_DOC_STATUSES[0],
+    dueDate: '',
+    validFrom: '',
+    validUntil: '',
+    referenceNumber: '',
+    priceAmount: '',
+    // 通貨コードは JPY を既定にしておく。海外の手続きでも申請料を円換算で
+    // 控えておく人が多く、毎回打ち直させるほどのことではない
+    priceCurrency: 'JPY',
+    url: '',
+    note: '',
+  }
+}
+
+function travelDocToForm(doc: TravelDoc): TravelDocFormState {
+  return {
+    kind: doc.kind,
+    title: doc.title,
+    region: doc.region ?? '',
+    status: doc.status,
+    dueDate: doc.dueDate ?? '',
+    validFrom: doc.validFrom ?? '',
+    validUntil: doc.validUntil ?? '',
+    referenceNumber: doc.referenceNumber ?? '',
+    priceAmount: doc.price !== undefined ? String(doc.price.amount) : '',
+    priceCurrency: doc.price?.currency ?? 'JPY',
+    url: doc.url ?? '',
+    note: doc.note ?? '',
+  }
+}
+
+/**
+ * フォームの入力から TravelDoc を組み立てる。名称が空なら null を返して
+ * 呼び出し側に追加/保存をやめさせる(handleAddContact と同じ流儀)。
+ * 空文字の任意フィールドはフィールドごと付けない(既存コードと同じ形)。
+ */
+function buildTravelDoc(
+  id: string,
+  form: TravelDocFormState,
+): TravelDoc | null {
+  const title = form.title.trim()
+  if (title.length === 0) return null
+
+  const doc: TravelDoc = { id, kind: form.kind, title, status: form.status }
+
+  const region = form.region.trim()
+  if (region.length > 0) doc.region = region
+
+  if (form.dueDate !== '' && isValidISODate(form.dueDate)) {
+    doc.dueDate = form.dueDate
+  }
+  if (form.validFrom !== '' && isValidISODate(form.validFrom)) {
+    doc.validFrom = form.validFrom
+  }
+  if (form.validUntil !== '' && isValidISODate(form.validUntil)) {
+    doc.validUntil = form.validUntil
+  }
+
+  const referenceNumber = form.referenceNumber.trim()
+  if (referenceNumber.length > 0) doc.referenceNumber = referenceNumber
+
+  // 数値として有限でなければ price ごと付けない。通貨コードが空欄なら
+  // JPY にフォールバックしたうえで大文字化する
+  if (form.priceAmount.trim() !== '') {
+    const amount = Number(form.priceAmount)
+    if (Number.isFinite(amount)) {
+      const currency = (form.priceCurrency.trim() || 'JPY').toUpperCase()
+      doc.price = { amount, currency }
+    }
+  }
+
+  const url = form.url.trim()
+  if (url.length > 0) doc.url = url
+
+  const note = form.note.trim()
+  if (note.length > 0) doc.note = note
+
+  return doc
+}
+
+/**
+ * 手続き1件ぶんの入力欄。追加フォームと編集フォームの両方から使い、
+ * 欄の並びを二重管理しない(このファイルの決まり)。
+ * 状態はフォームの外の呼び出し側(AddTravelDocSection / TravelDocRow)が持ち、
+ * ここは表示と onChange の橋渡しに徹する。
+ */
+function TravelDocFields({
+  form,
+  onChange,
+}: {
+  form: TravelDocFormState
+  onChange: <K extends keyof TravelDocFormState>(
+    key: K,
+    value: TravelDocFormState[K],
+  ) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <label className="text-xs text-gray-500">
+        種別
+        <select
+          className={`${fieldClass} mt-1`}
+          value={form.kind}
+          onChange={(e) => {
+            const next = e.target.value
+            if (isTravelDocKind(next)) onChange('kind', next)
+          }}
+        >
+          {TRAVEL_DOC_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {TRAVEL_DOC_KIND_LABELS[kind]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-xs text-gray-500">
+        名称
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.title}
+          onChange={(e) => onChange('title', e.target.value)}
+          placeholder="例: シェンゲンビザ"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        対象の国・地域(任意)
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.region}
+          onChange={(e) => onChange('region', e.target.value)}
+          placeholder="例: マルタ"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        状況
+        <select
+          className={`${fieldClass} mt-1`}
+          value={form.status}
+          onChange={(e) => {
+            const next = e.target.value
+            if (isTravelDocStatus(next)) onChange('status', next)
+          }}
+        >
+          {TRAVEL_DOC_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {TRAVEL_DOC_STATUS_LABELS[status]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-xs text-gray-500">
+        申請期限(任意)
+        <input
+          type="date"
+          className={`${fieldClass} mt-1`}
+          value={form.dueDate}
+          onChange={(e) => onChange('dueDate', e.target.value)}
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-gray-500">
+          有効期間・開始(任意)
+          <input
+            type="date"
+            className={`${fieldClass} mt-1`}
+            value={form.validFrom}
+            onChange={(e) => onChange('validFrom', e.target.value)}
+          />
+        </label>
+        <label className="text-xs text-gray-500">
+          有効期間・終了(任意)
+          <input
+            type="date"
+            className={`${fieldClass} mt-1`}
+            value={form.validUntil}
+            onChange={(e) => onChange('validUntil', e.target.value)}
+          />
+        </label>
+      </div>
+      <label className="text-xs text-gray-500">
+        参照番号(任意)
+        <input
+          className={`${fieldClass} mt-1 font-mono`}
+          value={form.referenceNumber}
+          onChange={(e) => onChange('referenceNumber', e.target.value)}
+          placeholder="ビザ番号・eSIMのICCIDなど"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        申請サイト・マイページURL(任意)
+        <input
+          type="url"
+          className={`${fieldClass} mt-1`}
+          value={form.url}
+          onChange={(e) => onChange('url', e.target.value)}
+          placeholder="https://..."
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-gray-500">
+          金額(任意)
+          <input
+            type="number"
+            inputMode="decimal"
+            step="any"
+            className={`${fieldClass} mt-1`}
+            value={form.priceAmount}
+            onChange={(e) => onChange('priceAmount', e.target.value)}
+          />
+        </label>
+        <label className="text-xs text-gray-500">
+          通貨コード
+          <input
+            className={`${fieldClass} mt-1`}
+            value={form.priceCurrency}
+            onChange={(e) =>
+              onChange('priceCurrency', e.target.value.toUpperCase())
+            }
+          />
+        </label>
+      </div>
+      <label className="text-xs text-gray-500 sm:col-span-2">
+        メモ(任意)
+        <textarea
+          rows={2}
+          className={`${fieldClass} mt-1`}
+          value={form.note}
+          onChange={(e) => onChange('note', e.target.value)}
+        />
+      </label>
+    </div>
+  )
+}
+
+/**
+ * 手続き1件の表示・編集。ContactRow と同じ構造(行内で完結する編集モード)を
+ * 踏襲する。手続きはフィールドが多いので、編集モードの入力欄は
+ * TravelDocFields をそのまま流用し、追加フォームと並びを合わせる。
+ */
+function TravelDocRow({
+  doc,
+  dispatch,
+}: {
+  doc: TravelDoc
+  dispatch: TripNotesDispatch
+}) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState<TravelDocFormState>(() =>
+    travelDocToForm(doc),
+  )
+
+  function set<K extends keyof TravelDocFormState>(
+    key: K,
+    value: TravelDocFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSave = () => {
+    const updated = buildTravelDoc(doc.id, form)
+    if (updated === null) return
+    dispatch({ type: 'updateTravelDoc', doc: updated })
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setForm(travelDocToForm(doc))
+    setEditing(false)
+  }
+
+  const handleRemove = () => {
+    if (!window.confirm(`「${doc.title}」を削除しますか?`)) return
+    dispatch({ type: 'removeTravelDoc', id: doc.id })
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-xl border border-gray-200 p-3">
+        <TravelDocFields form={form} onChange={set} />
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            className={primaryButtonClass}
+            disabled={form.title.trim().length === 0}
+            onClick={handleSave}
+          >
+            保存
+          </button>
+          <button
+            type="button"
+            className={subtleButtonClass}
+            onClick={handleCancel}
+          >
+            キャンセル
+          </button>
+        </div>
+      </li>
+    )
+  }
+
+  const hasValidity =
+    doc.validFrom !== undefined || doc.validUntil !== undefined
+
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <TravelDocIcon
+            kind={doc.kind}
+            size={16}
+            className="shrink-0 text-gray-500"
+          />
+          <p className="text-sm font-semibold text-gray-800">
+            {doc.title}
+            {doc.region !== undefined && doc.region.length > 0 ? (
+              <span className="ml-1 font-normal text-gray-500">
+                ({doc.region})
+              </span>
+            ) : null}
+          </p>
+          <TravelDocStatusBadge status={doc.status} size="sm" />
+        </div>
+        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+          {doc.referenceNumber !== undefined ? (
+            <p>
+              参照番号: <span className="font-mono">{doc.referenceNumber}</span>
+            </p>
+          ) : null}
+          {doc.dueDate !== undefined ? <p>申請期限: {doc.dueDate}</p> : null}
+          {hasValidity ? (
+            <p>
+              有効期間: {doc.validFrom ?? '未定'} 〜 {doc.validUntil ?? '未定'}
+            </p>
+          ) : null}
+          {doc.url !== undefined ? (
+            <p>
+              <a
+                href={doc.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-700 underline"
+              >
+                申請サイト・マイページを開く
+              </a>
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <button
+          type="button"
+          aria-label={`${doc.title}を編集`}
+          className={iconButtonClass}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          aria-label={`${doc.title}を削除`}
+          className={iconButtonClass}
+          onClick={handleRemove}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * 「手続きを追加」ボタンで開閉する追加フォーム。
+ *
+ * 緊急連絡先は3項目だけなので常時開いた1行フォームにしているが、手続きは
+ * 種別/名称/地域/状況/申請期限/有効期間(開始・終了)/参照番号/金額/URL/メモと
+ * 項目が多く、常時展開すると設定タブを開いた瞬間に空欄だらけの大きなフォームが
+ * 目に入ってしまう。手続きを使わない旅程のほうが多いはずなので、既定は
+ * ボタン1つだけの最小の姿にしておき、使う人だけが開けばよいようにする。
+ */
+function AddTravelDocSection({ dispatch }: { dispatch: TripNotesDispatch }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState<TravelDocFormState>(emptyTravelDocForm)
+
+  function set<K extends keyof TravelDocFormState>(
+    key: K,
+    value: TravelDocFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleAdd = (e: FormEvent) => {
+    e.preventDefault()
+    const doc = buildTravelDoc(newId('td'), form)
+    if (doc === null) return
+    dispatch({ type: 'addTravelDoc', doc })
+    setForm(emptyTravelDocForm())
+    setOpen(false)
+  }
+
+  const handleCancel = () => {
+    setForm(emptyTravelDocForm())
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={subtleButtonClass}
+        onClick={() => setOpen(true)}
+      >
+        <Plus size={16} />
+        手続きを追加
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={handleAdd}
+      className="rounded-xl border border-gray-200 p-3"
+    >
+      <TravelDocFields form={form} onChange={set} />
+      <div className="mt-2 flex gap-2">
+        <button
+          type="submit"
+          className={primaryButtonClass}
+          disabled={form.title.trim().length === 0}
+        >
+          <Plus size={16} />
+          追加
+        </button>
+        <button
+          type="button"
+          className={subtleButtonClass}
+          onClick={handleCancel}
+        >
+          キャンセル
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export function SettingsPanel({
   state,
   displayTz,
@@ -242,6 +742,8 @@ export function SettingsPanel({
 
   // 1 組も登録が無いときはフィールドごと存在しない(types.ts 参照)
   const aliases = state.placeAliases ?? []
+  // 手続きも travelDocs?: Array<TravelDoc> ゆえの、同じ理由の空配列フォールバック
+  const travelDocs = state.travelDocs ?? []
 
   // 終了日が開始日以前だと夜の計算(nights.ts)が破綻するので、その場で警告する
   let nights: number | null = null
@@ -611,8 +1113,39 @@ export function SettingsPanel({
         )}
       </section>
 
+      {/* 7. 旅行前の手続き */}
+      <section className={cardClass}>
+        <h2 className={sectionTitleClass}>
+          <IdCard size={18} className="text-cyan-600" />
+          旅行前の手続き
+        </h2>
+        <p className="mt-2 text-sm text-gray-600">
+          ビザ・SIM/eSIM・海外旅行保険・入域許可など、出発前に済ませておく手続きを
+          登録しておきましょう。期限や有効期間の抜けは進捗タブが教えてくれます。
+        </p>
+
+        {travelDocs.length === 0 ? (
+          // 上の説明文と同じことを繰り返さない。空のときに足す価値があるのは
+          // 「まず何を 1 件入れればいいか」の具体例だけ
+          <p className="mt-3 text-sm text-gray-500">
+            まだ登録がありません。まずは行き先のビザの要否と、現地の通信手段
+            (SIM・eSIM)を1件ずつ入れておくと、出発直前に慌てずに済みます。
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {travelDocs.map((doc) => (
+              <TravelDocRow key={doc.id} doc={doc} dispatch={dispatch} />
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-3">
+          <AddTravelDocSection dispatch={dispatch} />
+        </div>
+      </section>
+
       {/*
-        7. 同じ場所として扱う組。
+        8. 同じ場所として扱う組。
         進捗タブの警告カードから押した判断の置き場で、登録が無ければ何も出さない
         (使っていない人にとっては存在しない機能なので、説明ごと出す意味がない)。
         取り消せる場所をここに必ず設けているのは、押し間違えたまま放置すると
@@ -657,7 +1190,7 @@ export function SettingsPanel({
         </section>
       ) : null}
 
-      {/* 8. JSON入出力 */}
+      {/* 9. JSON入出力 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <FileJson size={18} className="text-cyan-600" />
@@ -735,7 +1268,7 @@ export function SettingsPanel({
         ) : null}
       </section>
 
-      {/* 9. いまの旅程を空にする */}
+      {/* 10. いまの旅程を空にする */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <AlertTriangle size={18} className="text-rose-600" />

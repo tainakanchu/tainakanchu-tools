@@ -18,14 +18,17 @@
  */
 
 import {
+  FALLBACK_TZ,
   addDays,
   diffDays,
+  getDeviceTz,
   parseStamp,
   stampDate,
   stampToEndEpoch,
   stampToEpoch,
   tryParseStamp,
 } from './datetime'
+import { findTravelDocIssues } from './docs'
 import { findItineraryIssues, isMoveBooking } from './itinerary'
 import { computeNights, countUncoveredNights, isTransportKind } from './nights'
 import { sortEpochOf } from './ordering'
@@ -359,6 +362,29 @@ export function summarizeBudget(
   )
 }
 
+/**
+ * 手続き(docs.ts)の判定に使う「今日」。
+ *
+ * 手続きは時刻を持たない日付だけのデータなので(types.ts の TravelDoc 参照)、
+ * 「今日」がどのタイムゾーンの今日なのかを外から決めてやる必要がある。
+ * 予約の期限(computeCancelDeadlines)はその予約自身の現地時間で数えられるが、
+ * 手続きには紐づく場所が無いので同じ手は使えない。
+ *
+ * 表示タイムゾーン(pinnedTz、無ければデバイス)に合わせるのは、画面に出る
+ * 「あと 3 日」と利用者が見ているカレンダーの日付をずらさないため。
+ */
+function todayISOIn(state: TripNotesState, nowMs: number): string {
+  const instant = Temporal.Instant.fromEpochMilliseconds(nowMs)
+  try {
+    return instant
+      .toZonedDateTimeISO(state.pinnedTz ?? getDeviceTz())
+      .toPlainDate()
+      .toString()
+  } catch {
+    return instant.toZonedDateTimeISO(FALLBACK_TZ).toPlainDate().toString()
+  }
+}
+
 /** AI 由来の未確認フィールドが残っている予約数。キャンセル済みは数えない */
 export function countUnverified(bookings: Array<Booking>): number {
   return bookings.filter(
@@ -388,6 +414,7 @@ export function computeSummary(
     unverifiedCount: countUnverified(state.bookings),
     transportGaps: findTransportGaps(state),
     itineraryIssues: findItineraryIssues(state),
+    travelDocIssues: findTravelDocIssues(state, todayISOIn(state, nowMs)),
     cancelDeadlines: computeCancelDeadlines(state.bookings, nowMs),
     budget: summarizeBudget(state.bookings),
     currentAndNext: findCurrentAndNext(state.bookings, nowMs),

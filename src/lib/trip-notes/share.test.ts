@@ -190,6 +190,14 @@ function normalizeIds(state: TripNotesState): TripNotesState {
             id: `p${index}`,
           })),
         }),
+    ...(state.travelDocs === undefined
+      ? {}
+      : {
+          travelDocs: state.travelDocs.map((doc, index) => ({
+            ...doc,
+            id: `d${index}`,
+          })),
+        }),
   }
 }
 
@@ -283,6 +291,47 @@ describe('share', () => {
       ],
     }
     expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('travelDocs がラウンドトリップで保たれる(任意フィールド全部入り)', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      travelDocs: [
+        {
+          id: 'td-1',
+          kind: 'visa',
+          title: 'ETIAS',
+          region: 'シェンゲン圏',
+          status: 'done',
+          dueDate: '2026-08-01',
+          validFrom: '2026-08-10',
+          validUntil: '2029-08-10',
+          referenceNumber: 'ETIAS-2026-0001',
+          price: { amount: 7, currency: 'EUR' },
+          url: 'https://example.test/etias',
+          note: '有効期間は 3 年',
+        },
+        {
+          // 必須だけの手続き。任意キーが省略されたまま往復することを見る
+          id: 'td-2',
+          kind: 'sim',
+          title: 'マルタの eSIM',
+          status: 'todo',
+        },
+      ],
+    }
+    expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('travelDocs が無ければ payload にも復元結果にもフィールドが現れない', async () => {
+    // 手続きを使っていない人の共有URLをこの機能で膨らませない
+    const state = buildFullState()
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    expect(decoded).not.toHaveProperty('travelDocs')
   })
 
   it('placeAliases が無ければ payload にも復元結果にもフィールドが現れない', async () => {
@@ -696,6 +745,32 @@ describe('share', () => {
       expect(normalizeIds(decoded)).toEqual(normalizeIds(legacyState()))
     })
 
+    /**
+     * 同じ payload は travelDocs(手続き)のキーも持っていない。
+     * v2 に任意キーを足すたびにここを増やすのは、「キーが無い = その機能を
+     * 一度も使っていない」と読めることが、発行済みURLが読めるための条件だから。
+     * 既存URLの持ち主が手続きを登録していないのは当たり前で、
+     * そのURLが「壊れたURL」になってはいけない。
+     */
+    it('marker "2" の既存URL(travelDocs のキーが無い)が今も読める', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded).not.toHaveProperty('travelDocs')
+      expect(decoded.bookings).toHaveLength(2)
+      expect(decoded.emergencyContacts).toHaveLength(1)
+    })
+
+    it('marker "0" / "1" の既存URLにも travelDocs は生えない', async () => {
+      // v1 形式にはそもそも手続きのキーが無い(ShortState 参照)
+      expect(
+        await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
+      ).not.toHaveProperty('travelDocs')
+      expect(
+        await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
+      ).not.toHaveProperty('travelDocs')
+    })
+
     it('marker "0" / "1" では id がそのまま復元される(振り直しは v2 以降の挙動)', async () => {
       const fromZero = requireDecoded(
         await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
@@ -727,6 +802,32 @@ describe('share', () => {
         const decoded = await decodeShareState(hash)
         // 無圧縮フォールバックは v1 形式なので id もそのまま戻る
         expect(decoded).toEqual(withoutEvidence(state))
+      } finally {
+        globalThis.CompressionStream = savedCompression
+        globalThis.DecompressionStream = savedDecompression
+      }
+    })
+
+    it('非圧縮(v1 形式)では travelDocs が落ちるが、予約は全部残る', async () => {
+      // v1 は発行済みURLを読むための固定された形なので書き足していない(share.ts 参照)。
+      // 手続きの一覧は空になるが、旅程そのもの(予約)は 1 件も失われない
+      const savedCompression = globalThis.CompressionStream
+      const savedDecompression = globalThis.DecompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.CompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.DecompressionStream
+      try {
+        const state: TripNotesState = {
+          ...buildFullState(),
+          travelDocs: [
+            { id: 'td-1', kind: 'visa', title: 'ETIAS', status: 'done' },
+          ],
+        }
+        const url = await encodeShareUrl(state, BASE_URL)
+        const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+        expect(decoded).not.toHaveProperty('travelDocs')
+        expect(decoded.bookings).toHaveLength(state.bookings.length)
       } finally {
         globalThis.CompressionStream = savedCompression
         globalThis.DecompressionStream = savedDecompression

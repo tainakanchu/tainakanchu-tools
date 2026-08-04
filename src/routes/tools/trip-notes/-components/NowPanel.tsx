@@ -16,9 +16,11 @@ import {
   ArrowRightCircle,
   CalendarPlus,
   CalendarX2,
+  ChevronDown,
   CircleDot,
   Clock,
   Copy,
+  IdCard,
   ListChecks,
   MapPin,
 } from 'lucide-react'
@@ -38,13 +40,14 @@ import {
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
-import { BOOKING_KIND_LABELS, KindIcon } from './KindIcon'
+import { BOOKING_KIND_LABELS, KindIcon, TravelDocIcon } from './KindIcon'
 import { BookingStatusBadge, PaymentStatusBadge } from './StatusBadge'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
   Booking,
   Place,
   Stamp,
+  TravelDoc,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 
@@ -181,6 +184,17 @@ export function NowPanel({
           )}
         </>
       )}
+
+      {/*
+        手続きの控え(取得済みかつ参照番号があるものだけ)。予約の有無や
+        現在地の判定と関係なく成り立つ情報なので、上の3分岐(空/期間外/
+        表示あり)の外側、画面のいちばん下に固定で置く。分岐の内側にまで
+        置こうとすると同じ呼び出しを3か所に書く羽目になり、後から欄を
+        増やすときに1か所直し忘れる事故のもとになる。
+        中で0件なら null を返すので、この位置に固定で置いても
+        「予約がまだありません」の空状態の下に余計な空白が出ることはない
+      */}
+      <TravelDocRecap docs={state.travelDocs ?? []} />
     </div>
   )
 }
@@ -493,6 +507,81 @@ function UpcomingList({
         ))}
       </ul>
     </section>
+  )
+}
+
+// --- 手続きの控え ---
+
+/**
+ * 取得済み(status === 'done')かつ参照番号(referenceNumber)がある手続きだけを
+ * 控えとして出す。入国審査の窓口やスマホの通信設定画面で、ビザ番号や eSIM の
+ * ICCID がその場で要ることがあるためで、まだ取得していない・番号が無いものは
+ * ここに出しても押したり見せたりする対象がないので載せない。
+ *
+ * 「今」タブの主役はあくまで今と次の予定なので、<details> で常時は畳んでおく。
+ * ConfirmationButton(次の予定の確認番号)のような画面幅いっぱいの巨大表示には
+ * しない。あちらは「カウンターでこれです、とスマホごと見せる」1点突破の主役だが、
+ * こちらは複数件を並べて見比べる一覧性のほうが大事なので、小さくまとめる。
+ */
+function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
+  const withReference = docs.filter(
+    (doc) =>
+      doc.status === 'done' &&
+      doc.referenceNumber !== undefined &&
+      doc.referenceNumber.length > 0,
+  )
+  if (withReference.length === 0) return null
+
+  return (
+    <details className={`${cardClass} group`}>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+        <ChevronDown
+          size={14}
+          className="shrink-0 transition group-open:rotate-180"
+          aria-hidden="true"
+        />
+        <IdCard
+          size={16}
+          className="shrink-0 text-gray-500"
+          aria-hidden="true"
+        />
+        手続きの控え
+        <span className="text-xs font-normal text-gray-400">
+          {withReference.length}件
+        </span>
+      </summary>
+      <ul className="mt-3 flex flex-col gap-2">
+        {withReference.map((doc) => (
+          <li key={doc.id} className="rounded-lg border border-gray-200 p-2">
+            <div className="flex items-center gap-1.5">
+              <TravelDocIcon
+                kind={doc.kind}
+                size={14}
+                className="shrink-0 text-gray-500"
+              />
+              <span className="text-sm font-medium text-gray-800">
+                {doc.title}
+                {doc.region !== undefined && doc.region.length > 0 ? (
+                  <span className="ml-1 font-normal text-gray-500">
+                    ({doc.region})
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            {/* 選択してコピーしやすいよう等幅にし、select-all で1タップの範囲選択を促す */}
+            <p className="mt-0.5 font-mono text-sm text-gray-900 select-all">
+              {doc.referenceNumber}
+            </p>
+            {doc.validFrom !== undefined || doc.validUntil !== undefined ? (
+              <p className="mt-0.5 text-xs text-gray-500">
+                有効期間: {doc.validFrom ?? '未定'} 〜{' '}
+                {doc.validUntil ?? '未定'}
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
