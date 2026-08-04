@@ -52,6 +52,7 @@ export function evaluateConstraints(
   // 組み込み: 航空券アンカー(IN/OUT 都市)
   const firstStay = state.stays[0]
   const lastStay = state.stays[state.stays.length - 1]
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- firstStay/lastStay の undefined チェックは stays が空配列のときの実行時ガード。型上は Array<T>[0] が非 undefined に見えるが人間による判断で維持(既存 ESLint 構成下でも未修正の既知違反)
   if (state.inCityId && firstStay && firstStay.cityId !== state.inCityId) {
     violations.push({
       constraintId: 'builtin:inCity',
@@ -60,6 +61,7 @@ export function evaluateConstraints(
       stayIds: [firstStay.id],
     })
   }
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- 同上。lastStay の undefined チェックを実行時ガードとして維持
   if (state.outCityId && lastStay && lastStay.cityId !== state.outCityId) {
     violations.push({
       constraintId: 'builtin:outCity',

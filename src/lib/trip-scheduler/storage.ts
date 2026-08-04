@@ -29,6 +29,7 @@ const TRAVEL_MODES: Array<TravelMode> = ['train', 'flight', 'bus', 'nightTrain']
 
 function isStay(value: unknown): value is Stay {
   if (typeof value !== 'object' || value === null) return false
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 外部由来 JSON の検証用キャスト。直後で全プロパティを typeof チェックしてから真偽を返す type guard 関数
   const stay = value as Record<string, unknown>
   return (
     typeof stay.id === 'string' &&
@@ -41,6 +42,7 @@ function isStay(value: unknown): value is Stay {
 
 function isConstraint(value: unknown): value is Constraint {
   if (typeof value !== 'object' || value === null) return false
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 外部由来 JSON の検証用キャスト。直後で全プロパティを typeof チェックしてから真偽を返す type guard 関数
   const c = value as Record<string, unknown>
   if (typeof c.id !== 'string') return false
   if (typeof c.enabled !== 'boolean') return false
@@ -65,12 +67,16 @@ function isConstraint(value: unknown): value is Constraint {
   }
 }
 
+const knownCity = (id: unknown): id is string =>
+  typeof id === 'string' && getCity(id) !== undefined
+
 /**
  * 外部由来 JSON(localStorage / ファイル読込)を TripState に検証・正規化する。
  * カタログにない都市 ID は黙って落とす(カタログ更新で消えた都市への保険)。
  */
 export function parseTripState(raw: unknown): TripState | null {
   if (typeof raw !== 'object' || raw === null) return null
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 外部由来 JSON (localStorage) の検証用キャスト。以降のフィールドごとの typeof / isValidISODate チェックで正規化する
   const data = raw as Record<string, unknown>
   if (data.schemaVersion !== 1) return null
   if (
@@ -81,9 +87,6 @@ export function parseTripState(raw: unknown): TripState | null {
   ) {
     return null
   }
-
-  const knownCity = (id: unknown): id is string =>
-    typeof id === 'string' && getCity(id) !== undefined
 
   const stays = Array.isArray(data.stays)
     ? data.stays.filter(isStay).filter((s) => knownCity(s.cityId))
@@ -98,7 +101,9 @@ export function parseTripState(raw: unknown): TripState | null {
   const legModes: Record<string, TravelMode> = {}
   if (typeof data.legModes === 'object' && data.legModes !== null) {
     for (const [key, mode] of Object.entries(data.legModes)) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- data.legModes は object までしか絞り込めず mode は any。TRAVEL_MODES.includes() の許可リストチェック自体が実質的な型ガード
       if (TRAVEL_MODES.includes(mode as TravelMode)) {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 直前の includes() チェックで許可リストに含まれることを確認済み
         legModes[key] = mode as TravelMode
       }
     }

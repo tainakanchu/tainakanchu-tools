@@ -12,6 +12,12 @@ import {
 /** 複数サンプルを差し替えたときの挙動を確かめるための重み */
 const MULTI_WEIGHTS = [0.45, 0.35, 0.2]
 
+/** 同じ乱数列を何度も使い回すための生成器 */
+const seq = (values: Array<number>) => {
+  let call = 0
+  return () => values[call++]
+}
+
 const makeLcg = (seed: number) => {
   let state = seed >>> 0
   return () => {
@@ -133,12 +139,6 @@ describe('rollStartEnvelope', () => {
 })
 
 describe('nextRollHit の立ち上がり', () => {
-  /** 同じ乱数列を何度も使い回すための生成器 */
-  const seq = (values: Array<number>) => {
-    let call = 0
-    return () => values[call++]
-  }
-
   it('hitIndex 0 では同じ乱数列でも音量が大きくなる', () => {
     // rng の消費順: サンプル選択 → 音量 → アクセント判定 → ピッチ → パン → 間隔
     const values = [0, 0.5, 0.5, 0.5, 0.5]

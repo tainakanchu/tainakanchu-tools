@@ -153,7 +153,7 @@ export class DrumRollEngine {
     source.connect(gainNode).connect(panNode).connect(master)
     if (trackPending) {
       this.pendingHits.set(source, when)
-      source.onended = () => this.pendingHits.delete(source)
+      source.addEventListener('ended', () => this.pendingHits.delete(source))
     }
     source.start(when)
   }

@@ -11,8 +11,9 @@ import type { City, TravelMode, TravelOption } from './types'
 
 const EARTH_RADIUS_KM = 6371
 
+const toRad = (deg: number) => (deg * Math.PI) / 180
+
 export function greatCircleKm(a: City, b: City): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(b.lat - a.lat)
   const dLng = toRad(b.lng - a.lng)
   const lat1 = toRad(a.lat)
@@ -98,7 +99,7 @@ export function estimateOptions(from: City, to: City): Array<TravelOption> {
     options.push(makeOption('flight', (km / 700) * 60 + 40))
   }
 
-  return options.sort((a, b) => a.doorToDoorMinutes - b.doorToDoorMinutes)
+  return options.toSorted((a, b) => a.doorToDoorMinutes - b.doorToDoorMinutes)
 }
 
 /** 推奨手段: 日中を食わない夜行は別枠とし、昼行の中で door-to-door 最短を選ぶ */
