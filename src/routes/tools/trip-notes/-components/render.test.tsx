@@ -116,6 +116,7 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
           state={state}
           summary={summary}
           displayTz={tz}
+          dispatch={noop}
           onSelectDate={noop}
           onJumpToUnverified={noop}
         />,

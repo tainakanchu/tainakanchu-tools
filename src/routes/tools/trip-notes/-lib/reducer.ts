@@ -52,11 +52,21 @@ export type TripNotesAction =
   /** 共有URL・JSON からの読み込み(現在のデータを丸ごと置き換える) */
   | { type: 'replaceState'; state: TripNotesState }
   | { type: 'resetAll'; today: string }
+  /**
+   * カンバンのドロップ / カード上の <select> からの、1 フィールドだけの状態変更。
+   *
+   * updateBooking を使わないのは、カンバンのカードが予約の全フィールドを
+   * 持っていないためである。差分だけを渡すアクションにしておけば、
+   * カード側が知らないフィールド(確認番号など)を undefined で潰す事故が起こりえない。
+   *
+   * 状態の型を Booking から引いているのは、この import 節に
+   * BookingStatus / PaymentStatus を足さずに済ませるため。
+   */
+  | { type: 'setBookingStatus'; id: string; status: Booking['status'] }
+  | { type: 'setBookingPayment'; id: string; payment: Booking['payment'] }
 
 export type HistoryAction =
-  | TripNotesAction
-  | { type: 'undo' }
-  | { type: 'redo' }
+  TripNotesAction | { type: 'undo' } | { type: 'redo' }
 
 export interface HistoryState {
   past: Array<TripNotesState>
@@ -240,6 +250,34 @@ export function tripNotesReducer(
 
     case 'resetAll':
       return createInitialState(action.today)
+
+    case 'setBookingStatus': {
+      const index = state.bookings.findIndex((b) => b.id === action.id)
+      if (index === -1) return state
+      const current = state.bookings[index]
+      if (current.status === action.status) return state
+      const bookings = [...state.bookings]
+      // 利用者が自分で選び直した値なので、AI 由来の未確認マークは外す
+      // (updateBooking の mergeUpdatedBooking と同じ考え方)
+      bookings[index] = withoutUnverified(
+        { ...current, status: action.status },
+        ['status'],
+      )
+      return { ...state, bookings }
+    }
+
+    case 'setBookingPayment': {
+      const index = state.bookings.findIndex((b) => b.id === action.id)
+      if (index === -1) return state
+      const current = state.bookings[index]
+      if (current.payment === action.payment) return state
+      const bookings = [...state.bookings]
+      bookings[index] = withoutUnverified(
+        { ...current, payment: action.payment },
+        ['payment'],
+      )
+      return { ...state, bookings }
+    }
   }
 }
 

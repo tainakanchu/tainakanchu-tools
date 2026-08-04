@@ -303,6 +303,7 @@ function TripNotesPage() {
                 state={state}
                 summary={summary}
                 displayTz={displayTz}
+                dispatch={dispatch}
                 onSelectDate={jumpToDate}
                 onJumpToUnverified={jumpToUnverified}
               />
