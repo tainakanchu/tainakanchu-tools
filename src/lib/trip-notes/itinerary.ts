@@ -7,9 +7,13 @@
  * 各予約の「終了時にいる場所」と次の予約の「開始時にいる場所」を突き合わせる。
  *
  * ■ 場所の取り出し方
- *   宿泊・アクティビティ等は place がそのまま滞在地なので、開始も終了も同じ場所。
- *   移動系は出発が from、到着が to。from も to も無い移動(出発地と返却地が同じ
- *   レンタカーなど)だけ place で代用する。
+ *   from / to が入っていれば、種別によらずそれを経路として扱う。
+ *   AI 取り込みは手段の決まっていない移動を kind: 'other' に分類するが、
+ *   出発地と到着地が入っている以上、利用者にとってはただの移動である。
+ *   種別で経路かどうかを決めていると、そうした予約が丸ごと判定から外れ、
+ *   移動が存在しないことになって「移動が登録されていません」を誤検出する。
+ *   from も to も無い予約(宿泊・アクティビティ、出発地と返却地が同じ
+ *   レンタカーなど)だけ place を滞在地として使い、開始も終了も同じ場所とする。
  *   場所がまったく取れない予約は連続性の判定から外す。情報が無いだけで
  *   不整合とは限らないうえ、「未入力だから警告」を出し始めると
  *   下書き段階の旅程が警告で埋まって読めなくなる。
@@ -113,16 +117,31 @@ function usablePlace(place: Place | undefined): Place | null {
 }
 
 function placeAt(booking: Booking, edge: 'start' | 'end'): Place | null {
-  if (isTransportKind(booking.kind)) {
-    const from = usablePlace(booking.from)
-    const to = usablePlace(booking.to)
-    // 片方でも入っていれば経路として扱う。
-    // 到着地が未入力の便に place を当てて「そこに着いた」ことにすると、
-    // 実際とは違う場所を起点にした警告が出てしまう
-    if (from !== null || to !== null) return edge === 'start' ? from : to
-    return usablePlace(booking.place)
-  }
+  const from = usablePlace(booking.from)
+  const to = usablePlace(booking.to)
+  // 種別は見ない。kind: 'other' でも from / to が入っていれば経路である。
+  // 片方でも入っていれば経路として扱う。
+  // 到着地が未入力の便に place を当てて「そこに着いた」ことにすると、
+  // 実際とは違う場所を起点にした警告が出てしまう
+  if (from !== null || to !== null) return edge === 'start' ? from : to
   return usablePlace(booking.place)
+}
+
+/**
+ * 連続性の判定で「移動」として扱うか。
+ *
+ * 種別が移動系であるか、from と to の両方が入っていれば移動とみなす。
+ * isTransportKind() だけで判定すると、AI が手段未定として kind: 'other' に
+ * 分類した移動が「移動ではない」ことになり、その前後が直接つながって
+ * 「移動が登録されていません」を誤検出する。
+ *
+ * nights.ts の isTransportKind() は据え置く。あちらは「車中泊・機内泊で
+ * その夜を寝られるか」の判定で、手段の決まっていない移動を夜行扱いすると
+ * 寝る場所がない夜を見逃す。見逃しより誤警告に倒すという方針に反する。
+ */
+function isMoveBooking(booking: Booking): boolean {
+  if (isTransportKind(booking.kind)) return true
+  return usablePlace(booking.from) !== null && usablePlace(booking.to) !== null
 }
 
 /** その予約が始まる時点でいる場所。分からなければ null */
@@ -233,7 +252,7 @@ interface Entry {
   endDate: string
   placeStart: Place | null
   placeEnd: Place | null
-  isTransport: boolean
+  isMove: boolean
 }
 
 /**
@@ -255,22 +274,22 @@ function toEntry(booking: Booking): Entry | null {
   const start = tryParseStamp(booking.start)
   if (start === null) return null
   const end = booking.end === null ? null : tryParseStamp(booking.end)
-  const isTransport = isTransportKind(booking.kind)
+  const isMove = isMoveBooking(booking)
   return {
     booking,
-    sortEpochMs: sortEpochOf(start, booking.start.allDay, isTransport),
+    sortEpochMs: sortEpochOf(start, booking.start.allDay, isMove),
     startDate: start.toPlainDate().toString(),
     endDate: (end ?? start).toPlainDate().toString(),
     placeStart: placeAt(booking, 'start'),
     placeEnd: placeAt(booking, 'end'),
-    isTransport,
+    isMove,
   }
 }
 
 function compareEntries(a: Entry, b: Entry): number {
   if (a.sortEpochMs !== b.sortEpochMs) return a.sortEpochMs - b.sortEpochMs
   // 同時刻なら「着いてから泊まる」の順に見えるよう移動を先に置く
-  if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
+  if (a.isMove !== b.isMove) return a.isMove ? -1 : 1
   return a.booking.id.localeCompare(b.booking.id)
 }
 
@@ -293,8 +312,8 @@ function placeLabel(place: Place | null, booking: Booking): string {
  * (先に着いた場所が違うほうが、利用者にとって手前の判断材料になる)。
  */
 function classify(prev: Entry, next: Entry): ItineraryIssueKind {
-  if (prev.isTransport) return 'location-mismatch'
-  if (next.isTransport) return 'departure-mismatch'
+  if (prev.isMove) return 'location-mismatch'
+  if (next.isMove) return 'departure-mismatch'
   return 'missing-transport'
 }
 
@@ -385,13 +404,13 @@ function findMissingLodgingIssues(
   entries: Array<Entry>,
   alive: Array<Booking>,
 ): Array<ItineraryIssue> {
-  const transports = entries.filter((entry) => entry.isTransport)
+  const moves = entries.filter((entry) => entry.isMove)
   const lodgings = alive.filter((booking) => booking.kind === 'lodging')
 
   const issues: Array<ItineraryIssue> = []
-  for (let i = 0; i + 1 < transports.length; i++) {
-    const arrive = transports[i]
-    const depart = transports[i + 1]
+  for (let i = 0; i + 1 < moves.length; i++) {
+    const arrive = moves[i]
+    const depart = moves[i + 1]
     // 同日中に乗り継ぐだけなら夜をまたがないので宿は要らない
     const nightCount = diffDays(arrive.endDate, depart.startDate)
     if (nightCount <= 0) continue

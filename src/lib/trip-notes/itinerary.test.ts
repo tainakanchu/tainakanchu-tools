@@ -115,6 +115,23 @@ describe('placeAtStart / placeAtEnd', () => {
     expect(placeAtEnd(oneWay)).toBeNull()
   })
 
+  it('kind が other でも from / to があれば経路として扱う', () => {
+    // AI 取り込みは手段の決まっていない移動を other に分類する。
+    // 種別で経路かどうかを決めていた頃は、この予約の場所が取れずに
+    // 判定から丸ごと外れ、前後が直接つながって移動の抜けを誤検出していた
+    const undecided = booking({
+      id: 'undecided',
+      kind: 'other',
+      title: 'パリ → ローマ(手段未定)',
+      start: at('2026-06-14', '11:00', PARIS),
+      end: at('2026-06-14', '20:00', ROME),
+      from: place('パリ'),
+      to: place('ローマ'),
+    })
+    expect(placeAtStart(undecided)?.name).toBe('パリ')
+    expect(placeAtEnd(undecided)?.name).toBe('ローマ')
+  })
+
   it('場所がまったく入っていない予約は null', () => {
     const memo = booking({
       id: 'memo',
@@ -541,7 +558,7 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
   })
 
   it('終日の移動は、同じ日の時刻付きの移動と終日の滞在の間に並ぶ', () => {
-    // 「ミラノ 13:15 着 → その日のうちに終日扱いの移動でスイスへ → スイスに泊まる」の形。
+    // 「ミラノ 13:15 着 → その日のうちに手段未定でスイスへ → スイスに泊まる」の形。
     // 終日の移動を滞在と同じ時刻に寄せると、この 3 つの順序が決まらない
     const arrival = booking({
       id: 'arrival',
@@ -554,7 +571,7 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
     })
     const onward = booking({
       id: 'onward',
-      kind: 'train',
+      kind: 'other',
       title: 'ローマ → チューリッヒ',
       start: allDay('2026-06-12', ROME),
       end: allDay('2026-06-12', ZURICH),
@@ -583,6 +600,60 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
       to: place('東京'),
     })
     expect(issuesOf([parisStay, outbound])).toEqual([])
+  })
+})
+
+describe('findItineraryIssues: 手段未定の移動', () => {
+  const undecided = booking({
+    id: 'undecided',
+    kind: 'other',
+    title: 'パリ → ローマ(手段未定)',
+    start: at('2026-06-14', '11:00', PARIS),
+    end: at('2026-06-14', '20:00', ROME),
+    from: place('パリ'),
+    to: place('ローマ'),
+  })
+
+  it('宿と宿の間を埋めるので missing-transport を出さない', () => {
+    expect(issuesOf([parisHotel, undecided, romeHotel])).toEqual([])
+  })
+
+  it('到着地が食い違えば other でも location-mismatch を出す', () => {
+    const wrong = { ...undecided, to: place('ミラノ') }
+    const issues = issuesOf([parisHotel, wrong, romeHotel])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({
+      kind: 'location-mismatch',
+      fromBookingId: 'undecided',
+      toBookingId: 'rome-hotel',
+    })
+  })
+
+  it('other どうしの間で夜をまたぐなら宿の抜けも検出する', () => {
+    const leg1 = booking({
+      id: 'leg1',
+      kind: 'other',
+      title: '東京 → パリ',
+      start: at('2026-06-12', '10:00', TOKYO),
+      end: at('2026-06-12', '17:00', PARIS),
+      from: place('東京'),
+      to: place('パリ'),
+    })
+    const leg2 = booking({
+      id: 'leg2',
+      kind: 'other',
+      title: 'パリ → ローマ',
+      start: at('2026-06-15', '09:00', PARIS),
+      end: at('2026-06-15', '18:00', ROME),
+      from: place('パリ'),
+      to: place('ローマ'),
+    })
+    const issues = issuesOf([leg1, leg2])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({
+      kind: 'missing-lodging',
+      date: '2026-06-12',
+    })
   })
 })
 
