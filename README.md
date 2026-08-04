@@ -33,14 +33,13 @@
   URL: `/tools/drum-roll`
   - 押している間はスネア連打（音量・ピッチ・パン・間隔を毎打ランダマイズ）
   - 放すとシンバルクラッシュ＋キックの同時ワンショット
-  - 音はすべてブラウザ内で再生（サーバー送信なし）
 
 ## 🛠 技術スタック
 
 - Vite + React 19
 - TanStack Router / Devtools
 - Tailwind CSS v4
-- TypeScript 5
+- TypeScript 7
 - pnpm
 
 ## 🚀 セットアップ
@@ -57,10 +56,21 @@ pnpm run dev
 ```bash
 pnpm run build      # Vite ビルド + tsc
 pnpm run typecheck  # 型チェックのみ
-pnpm run lint       # ESLint
+pnpm run lint       # oxlint
 pnpm run format     # Prettier (チェックのみ)
-pnpm run check      # Prettier --write + ESLint --fix まとめ実行
+pnpm run check      # Prettier --write + oxlint --fix まとめ実行
 ```
+
+## ☁️ デプロイ（Cloudflare Workers）
+
+Cloudflare Workers（Static Assets）にホスティングしています。設定は `wrangler.jsonc` を参照してください。
+
+```bash
+pnpm run cf:dev   # ビルド後、wrangler dev でローカル動作確認
+pnpm run deploy   # ビルド後、wrangler deploy で本番へ反映
+```
+
+初回デプロイ前に `wrangler login` で Cloudflare アカウントと連携してください。
 
 ## 🧪 テスト
 
@@ -99,6 +109,7 @@ src/
 1. pnpm install（`--frozen-lockfile`）
 2. `pnpm run build`
 3. `pnpm run typecheck`
+4. `wrangler deploy --dry-run`（Cloudflare Workers 設定の検証。実デプロイは行いません）
 
 ## 🧭 ルーティング
 

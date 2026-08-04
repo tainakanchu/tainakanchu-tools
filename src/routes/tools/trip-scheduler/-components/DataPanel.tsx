@@ -70,7 +70,7 @@ export function DataPanel({ state, dispatch }: DataPanelProps) {
         データ
       </h2>
       <p className="mt-2 text-sm text-gray-600">
-        編集内容はこのブラウザにだけ保存され、サーバーには送信されません。
+        編集内容はこのブラウザに自動保存されます。
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
