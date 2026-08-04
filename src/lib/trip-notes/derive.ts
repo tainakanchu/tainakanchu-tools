@@ -30,7 +30,12 @@ import {
 } from './datetime'
 import { findTravelDocIssues } from './docs'
 import { findItineraryIssues, isMoveBooking } from './itinerary'
-import { computeNights, countUncoveredNights, isTransportKind } from './nights'
+import {
+  computeNights,
+  countTentativeNights,
+  countUncoveredNights,
+  isTransportKind,
+} from './nights'
 import { sortEpochOf } from './ordering'
 import type {
   Booking,
@@ -465,6 +470,7 @@ export function computeSummary(
     totalNights: nights.length,
     nights,
     uncoveredNights: countUncoveredNights(nights),
+    tentativeNights: countTentativeNights(nights, state.bookings),
     bookingCount: state.bookings.filter((b) => b.status !== 'cancelled').length,
     statusCounts,
     unverifiedCount: countUnverified(state.bookings),

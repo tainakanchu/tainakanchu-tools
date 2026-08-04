@@ -9,8 +9,9 @@
  * - 宿泊の確定/仮は塗りつぶし/破線という「形」の違いでも区別する。
  */
 
-import { AlertTriangle, CheckCircle2, Moon } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, CircleDashed, Moon } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { countTentativeNights } from '../../../../lib/trip-notes/nights'
 import type { CSSProperties } from 'react'
 import type { Booking, NightSlot } from '../../../../lib/trip-notes/types'
 
@@ -224,8 +225,16 @@ export function NightCoverageStrip({
 }: NightCoverageStripProps) {
   const bookingMap = new Map(bookings.map((b) => [b.id, b]))
   const uncoveredCount = nights.filter((n) => n.covered === null).length
+  // 仮のままの夜の数え方は lib 側(nights.ts)と共有する。
+  // セルの色は「何で寝るか(宿・夜行移動・無し)」を、ここの一言は
+  // 「どれだけ確定しているか」を答えていて、問いが別なので数え直さない。
+  // とくに夜行移動のセルは色としては空色のままだが、その便がまだ確定していなければ
+  // ここでは仮に数える(取っていない夜行便は確保できた夜ではない)
+  const tentativeCount = countTentativeNights(nights, bookings)
   const isEmpty = nights.length === 0
   const allCovered = !isEmpty && uncoveredCount === 0
+  // 「確保できています」と言い切ってよいのは、全泊が確定しているときだけ
+  const allConfirmed = allCovered && tentativeCount === 0
   const weekMode = nights.length > WEEK_MODE_THRESHOLD
 
   return (
@@ -234,10 +243,16 @@ export function NightCoverageStrip({
         <h3 className="text-sm font-semibold text-gray-800">
           寝る場所カバレッジ
         </h3>
-        {isEmpty ? null : allCovered ? (
+        {isEmpty ? null : allConfirmed ? (
           <p className="flex items-center gap-1 text-sm font-medium text-emerald-700">
             <CheckCircle2 size={15} aria-hidden="true" />
             {nights.length}泊すべて寝る場所が確保できています
+          </p>
+        ) : allCovered ? (
+          <p className="flex items-center gap-1 text-sm font-medium text-amber-700">
+            <CircleDashed size={15} aria-hidden="true" />
+            {nights.length}泊中 {nights.length - tentativeCount}泊が確定、
+            {tentativeCount}泊は仮
           </p>
         ) : (
           <p className="flex items-center gap-1 text-sm font-medium text-rose-700">

@@ -476,3 +476,119 @@ describe('旅程の整合性チェックの表示', () => {
     ).toBeTruthy()
   })
 })
+
+describe('上段アラートの3段階', () => {
+  /** 4 泊すべてを 1 軒でカバーする宿。status だけを差し替えて段階を作り分ける */
+  function wholeTrip(status: Booking['status']) {
+    return makeState([
+      makeBooking('only', {
+        place: { name: '東京' },
+        end: { zdt: '2026-06-16T10:00:00+09:00[Asia/Tokyo]', allDay: false },
+        status,
+      }),
+    ])
+  }
+
+  it('寝る場所がない夜があれば赤いアラートで泊数を出す', () => {
+    const { container } = renderPanel(makeState([]))
+
+    const banner = container.querySelector('.bg-rose-50')
+    expect(banner?.textContent).toContain('寝る場所がない夜')
+    expect(banner?.textContent).toContain('4')
+    expect(container.querySelector('.bg-amber-50')).toBeNull()
+  })
+
+  it('仮の宿でしか埋まっていない夜があれば、確保できたとは言わず琥珀で出す', () => {
+    const { container } = renderPanel(wholeTrip('idea'))
+
+    // 「確保できています」と言い切ってよいのは全泊が確定しているときだけ
+    expect(
+      screen.queryByText(
+        '穴はありません。寝る場所も移動のつながりもすべて確保できています',
+      ),
+    ).toBeNull()
+    expect(
+      screen.getByText(
+        '寝る場所の割り当てはすべての夜にありますが、4泊は検討中・仮押さえのままです',
+      ),
+    ).toBeTruthy()
+    // 未確保の赤とは別の段階であることが、色以外(枠の色ではなく本文)でも分かる
+    expect(container.querySelector('.bg-rose-50')).toBeNull()
+    expect(container.querySelector('.bg-amber-50')).toBeTruthy()
+  })
+
+  it('仮のままの夜からは、確定させるために日程タブへ飛べる', () => {
+    const onSelectDate = vi.fn()
+    const state = wholeTrip('held')
+    render(
+      <ProgressPanel
+        state={state}
+        summary={computeSummary(state, NOW_MS)}
+        displayTz={TZ}
+        dispatch={noop}
+        onSelectDate={onSelectDate}
+        onJumpToUnverified={noop}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: '6/12(金)の日程を開いて予約を確定させる',
+      }),
+    )
+    expect(onSelectDate).toHaveBeenCalledWith('2026-06-12')
+  })
+
+  it('全泊が確定していれば緑で言い切る', () => {
+    const { container } = renderPanel(wholeTrip('confirmed'))
+
+    expect(
+      screen.getByText(
+        '穴はありません。寝る場所も移動のつながりもすべて確保できています',
+      ),
+    ).toBeTruthy()
+    expect(container.querySelector('.bg-rose-50')).toBeNull()
+    expect(container.querySelector('.bg-amber-50')).toBeNull()
+  })
+
+  it('仮の夜と未確保の夜が両方あるときは、重いほうの赤を出す', () => {
+    // 6/12・6/13 だけを仮の宿でカバーし、6/14・6/15 は何も無い状態
+    const { container } = renderPanel(
+      makeState([makeBooking('b1', { status: 'idea' })]),
+    )
+
+    expect(container.querySelector('.bg-rose-50')).toBeTruthy()
+    expect(screen.queryByText(/検討中・仮押さえのまま/)).toBeNull()
+  })
+})
+
+describe('寝る場所カバレッジ帯の一言', () => {
+  it('仮の夜が混ざるときは、確定と仮の内訳を出す', () => {
+    renderPanel(
+      makeState([
+        // 6/12・6/13 は確定、6/14・6/15 は仮
+        makeBooking('confirmed', { status: 'confirmed' }),
+        makeBooking('tentative', {
+          status: 'held',
+          start: {
+            zdt: '2026-06-14T15:00:00+09:00[Asia/Tokyo]',
+            allDay: false,
+          },
+          end: { zdt: '2026-06-16T10:00:00+09:00[Asia/Tokyo]', allDay: false },
+        }),
+      ]),
+    )
+    expect(screen.getByText('4泊中 2泊が確定、2泊は仮')).toBeTruthy()
+  })
+
+  it('全泊が確定しているときだけ「確保できています」と言う', () => {
+    renderPanel(
+      makeState([
+        makeBooking('only', {
+          end: { zdt: '2026-06-16T10:00:00+09:00[Asia/Tokyo]', allDay: false },
+        }),
+      ]),
+    )
+    expect(screen.getByText('4泊すべて寝る場所が確保できています')).toBeTruthy()
+  })
+})

@@ -172,3 +172,56 @@ export function computeNights(state: TripNotesState): Array<NightSlot> {
 export function countUncoveredNights(nights: Array<NightSlot>): number {
   return nights.filter((n) => n.covered === null).length
 }
+
+/**
+ * その夜をカバーしているのが「まだ仮」の予約か(検討中・仮押さえ、または status が読めない)。
+ *
+ * bookingId から予約が引けない夜は仮の側に倒す。予約が消えた・id が食い違ったなどで
+ * status が読めないだけなのに「確定済み」と言い切るほうが危ないためで、
+ * NightCoverageStrip の resolveCellState も同じ判断をしている。
+ * ここで流儀を変えると、帯のセルは破線(仮)なのに文言だけ「全泊確定」と言う、
+ * 同じ画面の中で食い違う表示になる。
+ */
+function isTentativeNight(
+  night: NightSlot,
+  bookingsById: Map<string, Booking>,
+): boolean {
+  // 何もカバーしていない夜は「仮」ではなく「未確保」。countUncoveredNights の担当
+  if (night.covered === null) return false
+  const booking =
+    night.bookingId === undefined
+      ? undefined
+      : bookingsById.get(night.bookingId)
+  return booking?.status !== 'confirmed'
+}
+
+/**
+ * 仮(検討中・仮押さえ)の予約でしか埋まっていない夜。宿でも夜行移動でも同じ扱いで、
+ * まだ取っていない夜行便で埋まっている夜は「確保できた夜」ではない。
+ *
+ * ■ なぜカバー判定そのものを変えず、数え直すだけなのか
+ *   仮の宿を「カバーされていない」側に倒すと、仮押さえだらけの旅程では
+ *   夜カバレッジ帯も上段のアラートも赤で埋まる。そうなると本当に何も入っていない夜の
+ *   赤がその中に埋もれて読み飛ばされる。このファイル冒頭の
+ *   「見逃しより誤警告のほうがまし」という方針は、警告が読み飛ばされないことを
+ *   前提にして初めて成立するので、警告の量を増やす方向の変更は方針に反する。
+ *   一方で「すべて確保できています」と言い切るのは、仮押さえしかしていない夜まで
+ *   含めると実態を超えた嘘になる(利用者からの指摘はここ)。
+ *   そこでカバー判定(= 赤い警告を出すかどうか)は据え置いたまま、
+ *   「確保できたと言い切ってよいか」を決めるための数だけを別に出す。
+ *   画面はこれを使って、未確保あり=赤 / 仮あり=琥珀 / 全確定=緑 の 3 段階にする。
+ */
+export function findTentativeNights(
+  nights: Array<NightSlot>,
+  bookings: Array<Booking>,
+): Array<NightSlot> {
+  const bookingsById = new Map(bookings.map((b) => [b.id, b]))
+  return nights.filter((night) => isTentativeNight(night, bookingsById))
+}
+
+export function countTentativeNights(
+  nights: Array<NightSlot>,
+  bookings: Array<Booking>,
+): number {
+  return findTentativeNights(nights, bookings).length
+}
