@@ -148,7 +148,16 @@ function transitBookingLinks(booking: Booking): Array<SearchLink> {
   const to = placeName(booking.to)
   if (from === null || to === null) return []
 
-  const rome2rio = `https://www.rome2rio.com/map/${encodeURIComponent(from)}/${encodeURIComponent(to)}`
+  const rome2rioBase = `https://www.rome2rio.com/map/${encodeURIComponent(from)}/${encodeURIComponent(to)}`
+  const start = tryParseStamp(booking.start)
+  // 開始時刻が壊れているデータでも区間の比較はできるので、リンクごと消さずに
+  // 日付なしのまま返す。
+  // accom_comparison(宿の比較パネルの表示切り替え)は区間を探すという目的とは
+  // 別物なので付けない。
+  const rome2rio =
+    start === null
+      ? rome2rioBase
+      : `${rome2rioBase}?${new URLSearchParams({ departureDate: start.toPlainDate().toString() }).toString()}`
   const mapsParams = new URLSearchParams({
     api: '1',
     origin: from,

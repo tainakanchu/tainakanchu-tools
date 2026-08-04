@@ -241,8 +241,66 @@ describe('bookingSearchLinks / train・bus・ferry・car', () => {
     const links = bookingSearchLinks(b)
     const rome2rio = links.find((link) => link.label === 'Rome2Rio')
     if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
-    expect(rome2rio.url).toBe(
+    const url = new URL(rome2rio.url)
+    expect(url.origin + url.pathname).toBe(
       `https://www.rome2rio.com/map/${encodeURIComponent('サン・ジョセフ')}/${encodeURIComponent('St. Moritz')}`,
+    )
+  })
+
+  it('Rome2Rio の URL に出発日(departureDate)が付く', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(rome2rio.url)
+    expect(url.searchParams.get('departureDate')).toBe('2026-06-16')
+    // 宿の比較パネルの表示切り替えであって区間探しとは無関係なので付けない
+    expect(url.searchParams.has('accom_comparison')).toBe(false)
+  })
+
+  it('出発日は予約自身のタイムゾーンの現地日付で取る(表示タイムゾーンに引きずられない)', () => {
+    // パリ 6/16 23:00 は東京では 6/17 の未明。日本時間に引きずられず
+    // 予約自身(パリ)の現地日付が使われることを確認する
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '23:00', PARIS),
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(rome2rio.url).searchParams.get('departureDate')).toBe(
+      '2026-06-16',
+    )
+  })
+
+  it('開始時刻が壊れている予約では日付なしの Rome2Rio リンクを返す', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: { zdt: 'こわれた時刻', allDay: false },
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    expect(rome2rio.url).toBe(
+      `https://www.rome2rio.com/map/${encodeURIComponent('パリ')}/${encodeURIComponent('アムステルダム')}`,
+    )
+    expect(new URL(rome2rio.url).searchParams.has('departureDate')).toBe(
+      false,
     )
   })
 
