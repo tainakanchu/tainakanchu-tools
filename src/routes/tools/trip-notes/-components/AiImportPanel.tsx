@@ -14,8 +14,20 @@
  */
 
 import { useMemo, useState } from 'react'
-import { CalendarDays, ListChecks, RefreshCw, Sparkles, X } from 'lucide-react'
+import {
+  CalendarDays,
+  ClipboardList,
+  ListChecks,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
+import {
+  buildBackfillPrompt,
+  findBackfillGaps,
+} from '../../../../lib/trip-notes/backfillPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { formatStamp, stampDate } from '../../../../lib/trip-notes/datetime'
 import { planImport } from '../../../../lib/trip-notes/importMerge'
@@ -43,6 +55,7 @@ import type {
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 import type { ImportResult } from '../../../../lib/trip-notes/aiImport'
+import type { BackfillGaps } from '../../../../lib/trip-notes/backfillPrompt'
 
 interface AiImportPanelProps {
   state: TripNotesState
@@ -167,6 +180,114 @@ function summarizeResult(result: ImportResult): string {
   return `${total}件中${successCount}件を取り込みました。${failedCount}件は取り込めませんでした`
 }
 
+/**
+ * 既存の予約に不足している項目を、原本を読み直さずに埋めるための導線。
+ *
+ * 穴が 1 つも無ければ呼び出し側が丸ごと出さない。「埋めるものがありません」と
+ * 書いてある枠が常設されていると、本当に穴が空いたときの見え方が変わらず、
+ * 気付いてほしいときに気付いてもらえない。
+ *
+ * 何が AI に送られるのかを必ず先に見せる。自分の予約データを外部のチャットに
+ * 貼る操作なので、コピーしてから中身を知るのでは遅い。確認番号が含まれないことも
+ * 明示する(backfillPrompt.ts が確認番号を送らないという判断を、画面からも
+ * 確かめられるようにするため)。
+ */
+function BackfillSection({
+  gaps,
+  prompt,
+  onGoToPaste,
+}: {
+  gaps: BackfillGaps
+  prompt: string
+  /** 貼り戻しは専用の口を作らず、既存のステップ 2 に誘導する */
+  onGoToPaste: () => void
+}) {
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+        <ClipboardList size={16} aria-hidden="true" className="text-cyan-600" />
+        既存の予約に不足している項目を埋める
+      </h3>
+      <p className="mt-1 text-sm text-gray-600">
+        アプリに新しい項目が増えたため、以前に取り込んだ
+        {gaps.bookingCount}件の予約には空のままの欄があります。
+        <strong className="font-semibold text-gray-800">
+          予約確認メールや PDF を探し直さなくても
+        </strong>
+        、登録済みの内容と AI の一般知識だけで埋められる項目だけを補います。
+      </p>
+
+      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+        {gaps.countsByField.map((count) => (
+          <li key={count.field.id}>
+            ・{count.field.label}: {count.bookingCount}件
+          </li>
+        ))}
+      </ul>
+
+      <details className="mt-2 text-sm text-gray-600">
+        <summary className="cursor-pointer">
+          対象の予約({gaps.bookingCount}件)
+        </summary>
+        <ul className="mt-1 space-y-1">
+          {gaps.targets.map((target) => (
+            <li key={target.booking.id} className="text-xs">
+              {stampDate(target.booking.start)} {target.booking.title} —{' '}
+              {target.fields.map((field) => field.label).join(' / ')}
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
+        <ShieldCheck
+          size={14}
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-gray-500"
+        />
+        <span>
+          AI に送られるのは、対象の予約の
+          <strong className="font-semibold text-gray-800">
+            種別・タイトル・開始日時・場所の名前
+          </strong>
+          だけです。
+          <strong className="font-semibold text-gray-800">
+            確認番号は含まれません。
+          </strong>
+          料金・メモ・その他の予約もプロンプトには入りません。
+        </span>
+      </p>
+
+      <div className="mt-3">
+        <PromptCopyBlock
+          prompt={prompt}
+          rows={10}
+          copyLabel="穴埋めプロンプトをコピー"
+        />
+      </div>
+
+      <p className="mt-3 text-sm text-gray-600">
+        コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
+        添付ファイルは要りません。返ってきた JSON は、このページのステップ 2
+        にそのまま貼り付ければ、既存の予約に反映されます。
+      </p>
+      <div className="mt-2">
+        <AiServiceLinks compact />
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <button
+          type="button"
+          className={subtleButtonClass}
+          onClick={onGoToPaste}
+        >
+          ステップ2へ: 結果を貼り付ける
+        </button>
+      </div>
+    </section>
+  )
+}
+
 export function AiImportPanel({
   state,
   displayTz,
@@ -198,6 +319,12 @@ export function AiImportPanel({
     [state, displayTz],
   )
 
+  // 穴埋めの導線。穴が 1 つも無ければ backfillPrompt が null になり、
+  // 導線ごと出さない。判定を UI 側で書き直すと、プロンプトの対象と画面の表示が
+  // 食い違って「導線は出ているのに埋めるものが無い」ことが起きる
+  const backfillGaps = useMemo(() => findBackfillGaps(state), [state])
+  const backfillPrompt = useMemo(() => buildBackfillPrompt(state), [state])
+
   // ステップ3のプレビュー一覧に「更新」バッジを出すための計画。判定は
   // importMerge.ts の planImport に必ず委ね、ここでは条件を再実装しない
   // (このプレビューと実際の取り込み結果がズレると、利用者が「更新と出ていたのに
@@ -206,7 +333,9 @@ export function AiImportPanel({
   // 実際の適用は handleConfirmImport 側で改めて確定後の値から計算し直す。
   const previewPlan = useMemo(
     () =>
-      importResult === null ? null : planImport(state.bookings, importResult.bookings),
+      importResult === null
+        ? null
+        : planImport(state.bookings, importResult.bookings),
     [state.bookings, importResult],
   )
 
@@ -360,6 +489,20 @@ export function AiImportPanel({
                 次へ: 結果を貼り付ける
               </button>
             </div>
+
+            {/*
+              穴埋めは「原本を読ませる」本筋とは別の作業なので、ステップ1の下に
+              独立した枠で置く。ステップの途中(貼り付け・レビュー)では出さない。
+              いま何をすればいいかを常に1つだけ提示する、というこの画面の原則を
+              崩さないため
+            */}
+            {backfillPrompt !== null && (
+              <BackfillSection
+                gaps={backfillGaps}
+                prompt={backfillPrompt}
+                onGoToPaste={() => setStep(2)}
+              />
+            )}
           </div>
         )}
 

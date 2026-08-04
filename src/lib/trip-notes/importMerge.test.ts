@@ -342,6 +342,93 @@ describe('mergeBooking / マージ規則', () => {
     expect(merged.bagDropClosesMinutesBefore).toBe(60)
   })
 
+  it('場所は Place ごと差し替えず、フィールド単位でマージする', () => {
+    // 穴埋めのパッチは name と latinName しか返さない。オブジェクトごと
+    // 差し替えていると、既存の住所や座標が黙って消える
+    const existing = existingBooking('e1', {
+      place: {
+        name: 'パリ',
+        localName: 'Paris',
+        address: '1 Rue de Rivoli, Paris',
+        lat: 48.8566,
+        lng: 2.3522,
+      },
+    })
+    const incoming = incomingBooking('tmp', {
+      place: { name: 'パリ', latinName: 'Paris' },
+    })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.place).toEqual({
+      name: 'パリ',
+      localName: 'Paris',
+      latinName: 'Paris',
+      address: '1 Rue de Rivoli, Paris',
+      lat: 48.8566,
+      lng: 2.3522,
+    })
+  })
+
+  it('場所は取り込み側に値がある欄だけ上書きする(from / to も同じ)', () => {
+    const existing = existingBooking('e1', {
+      kind: 'flight',
+      from: {
+        name: '羽田空港',
+        latinName: '古い表記',
+        address: '東京都大田区',
+      },
+      to: { name: 'CDG', lat: 49.0097, lng: 2.5479 },
+    })
+    const incoming = incomingBooking('tmp', {
+      kind: 'flight',
+      from: { name: '羽田空港', latinName: 'Tokyo Haneda' },
+      to: { name: 'CDG', latinName: 'Paris' },
+    })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.from).toEqual({
+      name: '羽田空港',
+      latinName: 'Tokyo Haneda',
+      address: '東京都大田区',
+    })
+    expect(merged.to).toEqual({
+      name: 'CDG',
+      latinName: 'Paris',
+      lat: 49.0097,
+      lng: 2.5479,
+    })
+  })
+
+  it('取り込み側に場所が無ければ既存の場所をそのまま維持する', () => {
+    const existing = existingBooking('e1', {
+      place: { name: 'パリ', address: '1 Rue de Rivoli, Paris' },
+    })
+    const incoming = incomingBooking('tmp', { place: undefined })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.place).toEqual({
+      name: 'パリ',
+      address: '1 Rue de Rivoli, Paris',
+    })
+  })
+
+  it('場所の未確認は、取り込み側がその欄を持っていたかで決まる', () => {
+    // unverified は from / to / place の単位でしか持てない。中身のどれか1つでも
+    // AI 由来の値が混ざったなら、その欄は未確認とみなす
+    const existing = existingBooking('e1', {
+      place: { name: 'パリ', address: '1 Rue de Rivoli, Paris' },
+    })
+    const incoming = incomingBooking('tmp', {
+      place: { name: 'パリ', latinName: 'Paris' },
+      unverified: ['place'],
+    })
+    expect(mergeBooking(existing, incoming).unverified).toContain('place')
+
+    // 取り込み側が場所を持たなければ、既存の確認済み状態が保たれる
+    const untouched = mergeBooking(
+      existing,
+      incomingBooking('tmp', { place: undefined, unverified: ['place'] }),
+    )
+    expect(untouched.unverified ?? []).not.toContain('place')
+  })
+
   it('evidence はキーごとにマージし、取り込み側を優先する', () => {
     const existing = existingBooking('e1', {
       evidence: { start: '既存の根拠', note: '既存のメモ根拠' },
