@@ -474,9 +474,7 @@ describe('bookingSearchLinks / 外部サイトに渡す地名は latinName を�
       to: { name: '台湾桃園国際空港 T2', latinName: 'Taipei' },
     })
     const links = bookingSearchLinks(b)
-    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
-    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
-    expect(rome2rio.url).toBe('https://www.rome2rio.com/map/Hong%20Kong/Taipei')
+    expect(pathOf(links, 'Rome2Rio')).toBe('/map/Hong Kong/Taipei')
   })
 
   it('Google マップの経路にも latinName が入る', () => {
@@ -539,11 +537,7 @@ describe('bookingSearchLinks / 外部サイトに渡す地名は latinName を�
       to: { name: 'アムステルダム' },
     })
     const links = bookingSearchLinks(b)
-    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
-    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
-    expect(rome2rio.url).toBe(
-      `https://www.rome2rio.com/map/${encodeURIComponent('パリ')}/${encodeURIComponent('アムステルダム')}`,
-    )
+    expect(pathOf(links, 'Rome2Rio')).toBe('/map/パリ/アムステルダム')
   })
 
   it('latinName が空白だけなら name にフォールバックする', () => {
