@@ -112,6 +112,43 @@ describe('tripNotesReducer / 未確認フィールド', () => {
     expect('unverified' in next.bookings[0]).toBe(false)
   })
 
+  it('verifyAllUnverified は ids で指定した予約だけをまとめて確認済みにする', () => {
+    const many = makeState({
+      bookings: [
+        makeBooking('b1', { unverified: ['start', 'title'] }),
+        makeBooking('b2', { unverified: ['title'] }),
+        makeBooking('b3', { unverified: ['note'] }),
+      ],
+    })
+    const next = tripNotesReducer(many, {
+      type: 'verifyAllUnverified',
+      ids: ['b1', 'b3'],
+    })
+    expect('unverified' in next.bookings[0]).toBe(false)
+    expect(next.bookings[1].unverified).toEqual(['title'])
+    expect('unverified' in next.bookings[2]).toBe(false)
+  })
+
+  it('verifyAllUnverified を ids 無しで呼ぶと全予約が対象になる', () => {
+    const many = makeState({
+      bookings: [
+        makeBooking('b1', { unverified: ['start'] }),
+        makeBooking('b2', { unverified: ['title', 'note'] }),
+      ],
+    })
+    const next = tripNotesReducer(many, { type: 'verifyAllUnverified' })
+    expect(next.bookings.every((b) => !('unverified' in b))).toBe(true)
+  })
+
+  it('外すものが1つも無い verifyAllUnverified は状態を変えない(同一参照)', () => {
+    // 空の1手を Undo 履歴に積むと、「元に戻す」が何も起きないまま消費される
+    const clean = makeState({ bookings: [makeBooking('b1')] })
+    expect(tripNotesReducer(clean, { type: 'verifyAllUnverified' })).toBe(clean)
+    expect(
+      tripNotesReducer(base, { type: 'verifyAllUnverified', ids: ['nope'] }),
+    ).toBe(base)
+  })
+
   it('値を書き換えて更新すると、そのフィールドは自動で未確認から外れる', () => {
     // AI が入れた出発時刻を人間が直したのに黄色い下線が残るのは筋が通らない
     const updated = makeBooking('b1', {
@@ -297,6 +334,32 @@ describe('historyReducer / Undo・Redo', () => {
 
     const undone = historyReducer(replaced, { type: 'undo' })
     expect(undone.present.bookings.map((b) => b.id)).toEqual(['mine'])
+  })
+
+  it('未確認の一括解除は件数によらず undo 1 回で元に戻る', () => {
+    // 予約ごとに1手ずつ積むと、10件取り込んだあとの取り消しに
+    // 10回の「元に戻す」が要る。それは実質的に取り消せないのと同じ
+    const history = createHistory(
+      makeState({
+        bookings: [
+          makeBooking('b1', { unverified: ['start', 'title'] }),
+          makeBooking('b2', { unverified: ['title'] }),
+          makeBooking('b3', { unverified: ['note'] }),
+        ],
+      }),
+    )
+    const cleared = historyReducer(history, { type: 'verifyAllUnverified' })
+    expect(cleared.past).toHaveLength(1)
+    expect(cleared.present.bookings.every((b) => !('unverified' in b))).toBe(
+      true,
+    )
+
+    const undone = historyReducer(cleared, { type: 'undo' })
+    expect(undone.present.bookings.map((b) => b.unverified)).toEqual([
+      ['start', 'title'],
+      ['title'],
+      ['note'],
+    ])
   })
 
   it('Undo 履歴は上限(50)を超えて伸び続けない', () => {

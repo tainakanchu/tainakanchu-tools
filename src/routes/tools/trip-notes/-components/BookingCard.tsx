@@ -6,7 +6,7 @@
  * 予定をすり合わせるたびに暗算が要るため。
  */
 
-import { Pencil, Trash2 } from 'lucide-react'
+import { Check, Pencil, Trash2 } from 'lucide-react'
 import {
   formatDualTime,
   formatStamp,
@@ -22,6 +22,11 @@ interface BookingCardProps {
   displayTz: string
   onEdit: () => void
   onDelete: () => void
+  /**
+   * この予約の未確認フィールドをまとめて確認済みにする。
+   * 未確認が残っているときだけカードにボタンが出る。
+   */
+  onVerifyAll: () => void
 }
 
 function formatTime(
@@ -57,6 +62,7 @@ export function BookingCard({
   displayTz,
   onEdit,
   onDelete,
+  onVerifyAll,
 }: BookingCardProps) {
   const unverified = booking.unverified ?? []
   const isUnverified = (...fields: Array<FieldKey>) =>
@@ -95,12 +101,28 @@ export function BookingCard({
               {booking.title}
             </h4>
             {unverified.length > 0 ? (
-              <span
-                className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-                title="AI が入力したまま未確認のフィールドがあります"
-              >
-                未確認 {unverified.length}件
-              </span>
+              <>
+                <span
+                  className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                  title="AI が入力したまま未確認のフィールドがあります"
+                >
+                  未確認 {unverified.length}件
+                </span>
+                {/*
+                  1 フィールドずつ「確認済みにする」を押させると、AI 取り込み直後の
+                  予約は 10 回近い操作になる。カードの表示だけで内容を見終えた人の
+                  ために、予約単位でまとめて外す出口を並べておく
+                */}
+                <button
+                  type="button"
+                  onClick={onVerifyAll}
+                  aria-label={`${booking.title} の未確認 ${unverified.length}件をすべて確認済みにする`}
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                >
+                  <Check size={11} aria-hidden="true" />
+                  確認済みにする
+                </button>
+              </>
             ) : null}
           </div>
 

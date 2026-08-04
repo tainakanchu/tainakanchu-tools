@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Plus } from 'lucide-react'
+import { CalendarDays, Check, Plus } from 'lucide-react'
 import { addDays, formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { groupByDay } from '../../../../lib/trip-notes/derive'
 import { computeNights } from '../../../../lib/trip-notes/nights'
@@ -22,6 +22,7 @@ import {
 } from '../-lib/styles'
 import { BookingCard } from './BookingCard'
 import { BookingForm } from './BookingForm'
+import { ConfirmDialog } from './ConfirmDialog'
 import { GapAlertCard } from './GapAlertCard'
 import type {
   Booking,
@@ -131,7 +132,18 @@ export function SchedulePanel({
     openAddOnMount ? { mode: 'add', date: null } : { mode: 'closed' },
   )
   const [highlightDate, setHighlightDate] = useState<string | null>(null)
+  const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false)
   const dayRefs = useRef(new Map<string, HTMLElement>())
+
+  // 未確認が 1 件でも残っている予約の数。一括解除ボタンの表示と、
+  // 「何件に効くのか」の提示に使う
+  const unverifiedCount = useMemo(
+    () =>
+      state.bookings.filter(
+        (b) => b.unverified !== undefined && b.unverified.length > 0,
+      ).length,
+    [state.bookings],
+  )
 
   const dayGroups = useMemo(
     () => groupByDay(state.bookings, state, displayTz),
@@ -190,14 +202,33 @@ export function SchedulePanel({
           <CalendarDays size={18} className="text-cyan-600" />
           日程タイムライン
         </h2>
-        <button
-          type="button"
-          onClick={() => setModalState({ mode: 'add', date: null })}
-          className={primaryButtonClass}
-        >
-          <Plus size={16} aria-hidden="true" />
-          予約を追加
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/*
+            AI 取り込み直後は全予約の全フィールドが未確認になる。1 つずつ外すのは
+            現実的ではないので、一覧の入口にまとめて外す出口を置く。ただし
+            「黄色い下線を根拠に旅程を見直す」機能そのものを一度で消す操作なので、
+            必ず確認ダイアログを挟む
+          */}
+          {unverifiedCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setBulkVerifyOpen(true)}
+              className={subtleButtonClass}
+              aria-label={`未確認の項目が残る${unverifiedCount}件の予約を、まとめて確認済みにする`}
+            >
+              <Check size={15} aria-hidden="true" />
+              未確認をすべて解除({unverifiedCount}件)
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setModalState({ mode: 'add', date: null })}
+            className={primaryButtonClass}
+          >
+            <Plus size={16} aria-hidden="true" />
+            予約を追加
+          </button>
+        </div>
       </div>
 
       {state.bookings.length === 0 ? (
@@ -272,6 +303,9 @@ export function SchedulePanel({
                           setModalState({ mode: 'edit', bookingId: booking.id })
                         }
                         onDelete={() => handleDelete(booking)}
+                        onVerifyAll={() =>
+                          dispatch({ type: 'verifyAllFields', id: booking.id })
+                        }
                       />
                     ))
                   )}
@@ -315,6 +349,20 @@ export function SchedulePanel({
             onClose={closeModal}
           />
         </div>
+      ) : null}
+
+      {bulkVerifyOpen ? (
+        <ConfirmDialog
+          title="未確認をすべて解除しますか?"
+          description={`${unverifiedCount}件の予約に付いている黄色い下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
+          confirmLabel="すべて解除する"
+          confirmAriaLabel={`${unverifiedCount}件の予約の未確認をすべて解除する`}
+          onConfirm={() => {
+            dispatch({ type: 'verifyAllUnverified' })
+            setBulkVerifyOpen(false)
+          }}
+          onCancel={() => setBulkVerifyOpen(false)}
+        />
       ) : null}
     </section>
   )

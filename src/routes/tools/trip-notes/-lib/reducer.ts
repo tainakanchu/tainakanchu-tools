@@ -35,6 +35,15 @@ export type TripNotesAction =
   | { type: 'verifyField'; id: string; field: FieldKey }
   /** その予約の未確認フィールドをまとめて確認済みにする */
   | { type: 'verifyAllFields'; id: string }
+  /**
+   * 複数の予約の未確認フィールドをまとめて確認済みにする。
+   * ids を省略すると全予約が対象。
+   *
+   * verifyAllFields を件数ぶん dispatch するのではなく 1 アクションにするのは、
+   * Undo を 1 回で元に戻せるようにするため。AI 取り込み直後は数十件が
+   * 一度に未確認になるので、取り消しに同じ回数の Undo を要求するのは実質不可逆になる。
+   */
+  | { type: 'verifyAllUnverified'; ids?: Array<string> }
   | { type: 'addContact'; contact: EmergencyContact }
   | { type: 'updateContact'; contact: EmergencyContact }
   | { type: 'removeContact'; id: string }
@@ -176,6 +185,21 @@ export function tripNotesReducer(
       if (updated === state.bookings[index]) return state
       const bookings = [...state.bookings]
       bookings[index] = updated
+      return { ...state, bookings }
+    }
+
+    case 'verifyAllUnverified': {
+      const targets = action.ids === undefined ? null : new Set(action.ids)
+      const bookings = state.bookings.map((booking) =>
+        targets !== null && !targets.has(booking.id)
+          ? booking
+          : withoutUnverified(booking, 'all'),
+      )
+      // 1 件も変わらないなら同一参照を返す。Undo 履歴に空の 1 手を積まない
+      // (withoutUnverified は外すものが無ければ元の参照をそのまま返す)
+      if (bookings.every((booking, i) => booking === state.bookings[i])) {
+        return state
+      }
       return { ...state, bookings }
     }
 
