@@ -7,9 +7,17 @@
  * 2 日目以降は控えめな 1 行にして、同じ警告を毎日フルサイズで並べない。
  *
  * 連泊中の宿・日をまたぐ移動も同じ考え方で扱う。開始日には BookingCard が
- * 出るので、2 日目以降は day.ongoing から OngoingRow という控えめな 1 行だけ
- * 出す。「この宿は今日も継続している」と分かればよく、詳細まで毎日繰り返す
+ * 出るので、2 日目以降は day.ongoing から OngoingRow という 1 行だけ出す。
+ * 「この宿は今日も継続している」と分かればよく、詳細まで毎日繰り返す
  * 必要はない。
+ *
+ * ただし、その 1 行を一律で控えめにしていたのは行き過ぎだった。継続行には
+ * 性質の違う 2 種類が混ざっている。チェックアウト・到着は「その時刻までに
+ * 何かをする必要がある」イベントで締切を持つが、滞在中・移動中・継続中は
+ * ただそうであるだけで行動を要求しない状態でしかない。この 2 つを同じ
+ * 破線グレーの 1 行にしていたので、過ぎれば延泊料金が発生する旅行中もっとも
+ * 硬い締切が、「滞在中(2泊目)」とまったく同じ見た目で並んでいた。
+ * 締切のあるほうだけ持ち上げ、状態の行は今までどおり控えめに置く。
  *
  * その簡易行とカードは、見た目は別物でも同じ 1 本の時間軸に並べる
  * (derive.ts の dayTimeline)。行の種類でまとめて出すと、12:00 チェックアウトの
@@ -17,7 +25,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Check, Plus } from 'lucide-react'
+import { CalendarDays, Check, LogOut, MapPinCheck, Plus } from 'lucide-react'
 import {
   diffDays,
   formatDateJa,
@@ -38,6 +46,7 @@ import { BookingForm } from './BookingForm'
 import { ConfirmDialog } from './ConfirmDialog'
 import { GapAlertCard } from './GapAlertCard'
 import { KindIcon } from './KindIcon'
+import type { LucideIcon } from 'lucide-react'
 import type {
   Booking,
   BookingKind,
@@ -70,8 +79,22 @@ type ModalState =
 const HIGHLIGHT_DURATION_MS = 2600
 
 /**
- * その日の状態ラベル。終了日なら「チェックアウト/到着」、
- * それ以外は種別ごとに「滞在中(N泊目)/移動中/継続中」を返す。
+ * 継続行がその日について語ること。
+ *
+ * tone は「締切のあるイベントか、行動を要求しないただの状態か」の区別で、
+ * 呼び出し側はこれだけを見て行の見た目を選ぶ。ラベルの文字列から
+ * 「チェックアウトで始まるか」を判定し直す手もあるが、それは文言を少し
+ * 変えた瞬間に静かに壊れるので、判別できる形で返す。
+ * アイコンを持つのがイベント側だけなのは、状態側には「滞在中」を
+ * 言い当てる絵が無く、そこは今までどおり種別の KindIcon で足りるため。
+ */
+type OngoingStatus =
+  | { tone: 'event'; label: string; icon: LucideIcon }
+  | { tone: 'state'; label: string }
+
+/**
+ * その日の状態。終了日なら「チェックアウト/到着」というイベント、
+ * それ以外は種別ごとに「滞在中(N泊目)/移動中/継続中」という状態を返す。
  * N泊目のNは、チェックイン当日を 1 泊目として数える(利用者が宿の予約サイトで
  * 見慣れている数え方に合わせる)。
  *
@@ -79,11 +102,11 @@ const HIGHLIGHT_DURATION_MS = 2600
  * 見出しなので、ここだけ表示タイムゾーンに変換すると、日をまたぐ移動の
  * 「到着」が 1 日ずれた見出しの下に出たり、泊数が 1 泊ずれたりする。
  */
-function ongoingStatusLabel(
+function ongoingStatus(
   booking: Booking,
   date: string,
   displayTz: string,
-): string {
+): OngoingStatus {
   const endDate = booking.end !== null ? stampDate(booking.end) : null
   const isLodging = booking.kind === 'lodging'
 
@@ -92,21 +115,35 @@ function ongoingStatusLabel(
       booking.end !== null && !booking.end.allDay
         ? ` ${formatStamp(booking.end, displayTz)}`
         : ''
-    return `${isLodging ? 'チェックアウト' : '到着'}${time}`
+    return {
+      tone: 'event',
+      label: `${isLodging ? 'チェックアウト' : '到着'}${time}`,
+      /*
+        宿は「部屋から出る」ので LogOut。移動側は種別を問わず MapPinCheck で
+        「着いた」だけを表す。列車やバスの到着に飛行機の PlaneLanding を
+        出すわけにはいかず、かといって種別ごとに絵を割り振ると、隣に出ている
+        はずの KindIcon と役割が重なって「なぜ2つ絵があるのか」になる。
+        種別は KindIcon に任せ、ここは中立の1つに寄せる
+      */
+      icon: isLodging ? LogOut : MapPinCheck,
+    }
   }
 
   if (isLodging) {
     const nights = diffDays(stampDate(booking.start), date) + 1
-    return `滞在中(${nights}泊目)`
+    return { tone: 'state', label: `滞在中(${nights}泊目)` }
   }
-  if (isTransportKind(booking.kind)) return '移動中'
-  return '継続中'
+  if (isTransportKind(booking.kind)) return { tone: 'state', label: '移動中' }
+  return { tone: 'state', label: '継続中' }
 }
 
 /**
  * 連泊中の宿・日をまたぐ移動を「その日どこにいるか」だけ示す簡易行。
- * BookingCard は開始日側にすでにあるので、ここでは詳細を繰り返さず、
- * 見た目もはっきり控えめにしてその日の本来の予定と混同されないようにする。
+ * BookingCard は開始日側にすでにあるので、ここでは詳細を繰り返さない。
+ *
+ * 状態(滞在中・移動中・継続中)は行動を要求しないので、その日の本来の予定と
+ * 混同されないようはっきり控えめに置く。イベント(チェックアウト・到着)は
+ * 締切なので、同じ小ささのまま「イベントだと分かる」ところまで持ち上げる。
  */
 function OngoingRow({
   booking,
@@ -119,6 +156,35 @@ function OngoingRow({
   displayTz: string
   onEdit: () => void
 }) {
+  const status = ongoingStatus(booking, date, displayTz)
+
+  /*
+    イベント行を持ち上げたいが、色で持ち上げることはできない。
+    この日程タブの amber は GapAlertCard(未確保の夜)が押さえていて、とくに
+    その continuation バリアント
+    (border border-amber-200/80 bg-amber-50/60 px-3 py-1.5 text-xs)は、
+    OngoingRow とほぼ同じ大きさ・形の 1 行として同じ日のセクションに並ぶ。
+    ここで amber を使うと「宿が取れていない警告」と見分けが付かなくなる。
+    cyan / sky はブランド・リンク・プライマリ操作の専用色(-lib/styles.ts)で、
+    rose は危険、emerald は良好。チェックアウトはそのどれでもない
+    「時刻の決まった事実」なので、当てられる色が残っていない。
+
+    そこで色はニュートラル(slate)のまま据え置き、色以外の signal を重ねる。
+    実線に戻す・左だけ太い罫線・淡い地色・濃い文字・時刻の太字・意味のある
+    アイコン、の 6 つ。左だけ太い罫線は StatusBadge の
+    TRAVEL_DOC_STATUS_STYLES で既に使っている「形で系統を分ける」語彙なので、
+    新しい語彙を増やさずそれに倣う。
+
+    その上で、BookingCard より目立たせないことを守る。その日の主役はその日に
+    始まる予約で、あちらは rounded-2xl + 白地 + shadow-sm + 大きな見出し。
+    こちらは text-xs・px-3 py-2・rounded-xl という小ささを状態行と揃えたまま、
+    shadow や大きな文字には手を出さない
+  */
+  const rowClass =
+    status.tone === 'event'
+      ? 'border-slate-300 border-l-4 border-l-slate-500 bg-slate-50 text-gray-700 hover:bg-slate-100'
+      : 'border-dashed border-gray-200 bg-gray-50/60 text-gray-500 hover:bg-gray-100'
+
   return (
     <button
       type="button"
@@ -127,15 +193,28 @@ function OngoingRow({
       // BookingCard 側と同じ「<タイトル> を編集」だけだとラベルが日をまたいで重複し、
       // スクリーンリーダー利用者やテストがどの行を指しているか判別できなくなる。
       // 開始日を付けて日付ごとに一意にする(既存の「この日に追加」ボタンの
-      // 「${formatDateJa(day.date)}に予約を追加」と同じ、日付を頭に付ける流儀)
-      aria-label={`${formatDateJa(date)}の${booking.title}を編集`}
-      className="flex w-full items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-3 py-2 text-left text-xs text-gray-500 transition hover:bg-gray-100"
+      // 「${formatDateJa(day.date)}に予約を追加」と同じ、日付を頭に付ける流儀)。
+      //
+      // さらに状態そのものもラベルに含める。aria-label はボタン内のテキストを
+      // まるごと覆い隠すので、これが無いと「チェックアウト 12:00」が
+      // スクリーンリーダーには一切届かない。締切を目立たせるのは視覚だけの
+      // 話ではないので、読み上げ側にも同じ情報が渡るようにする
+      aria-label={`${formatDateJa(date)}の${booking.title}(${status.label})を編集`}
+      className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${rowClass}`}
     >
-      <KindIcon
-        kind={booking.kind}
-        size={13}
-        className="shrink-0 text-gray-400"
-      />
+      {status.tone === 'event' ? (
+        <status.icon
+          size={13}
+          className="shrink-0 text-slate-600"
+          aria-hidden="true"
+        />
+      ) : (
+        <KindIcon
+          kind={booking.kind}
+          size={13}
+          className="shrink-0 text-gray-400"
+        />
+      )}
       {/*
         タイトルだけを単独の要素にすると、開始日の BookingCard 側の見出しと
         文字列が完全一致してしまい、画面を見ている人にも支援技術にも
@@ -143,8 +222,14 @@ function OngoingRow({
         先頭に継続を表す記号を足して「前日から続いている行」だと分かるようにする
       */}
       <span className="min-w-0 flex-1 truncate">↳ {booking.title}</span>
-      <span className="shrink-0 text-gray-400">
-        {ongoingStatusLabel(booking, date, displayTz)}
+      <span
+        className={
+          status.tone === 'event'
+            ? 'shrink-0 font-bold text-gray-900'
+            : 'shrink-0 text-gray-400'
+        }
+      >
+        {status.label}
       </span>
     </button>
   )

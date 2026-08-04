@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlarmClock,
   ArrowRightCircle,
   CalendarPlus,
   CalendarX2,
@@ -23,6 +24,7 @@ import {
   IdCard,
   ListChecks,
   MapPin,
+  Timer,
 } from 'lucide-react'
 import { findCurrentAndNext } from '../../../../lib/trip-notes/derive'
 import {
@@ -32,6 +34,7 @@ import {
   stampToEpoch,
   tryParseStamp,
 } from '../../../../lib/trip-notes/datetime'
+import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { copyText, formatCountdown, mapsUrl } from '../-lib/format'
 import {
   cardClass,
@@ -62,6 +65,21 @@ interface NowPanelProps {
 
 /** 現在時刻の更新間隔。カウントダウンは分単位表示なので秒単位で更新する意味がない */
 const NOW_TICK_MS = 60_000
+
+/**
+ * 進行中の予約の「終了まで」を強調に切り替えるしきい値。
+ *
+ * 基準に置いているのはチェックアウト。10:00〜12:00 に集中していて、過ぎると
+ * 延泊料金という実害が出るのに、朝起きて最初にこの画面を開いた時点で
+ * 「今日はもう時間がない」と気付けなければ強調する意味がない。起床から
+ * 荷造り・精算・チェックアウトまでの段取りに要る時間を見込むと、1 時間では
+ * 荷造りを始める前に気付けず、逆に半日にすると前夜から強調が出っぱなしになって
+ * 効かなくなる。その間を取って 2 時間にしている。
+ *
+ * 移動の「到着まで」にも同じ値を使う。降りる支度を始める頃合いとしても
+ * 2 時間は妥当で、種別ごとに値を散らすほどの差が無いため。
+ */
+const ENDING_SOON_MS = 2 * 60 * 60 * 1000
 
 // --- Stamp のフォーマットを落ちないようにするラッパー ---
 // findCurrentAndNext は start が壊れている予約をそもそも除外するが、
@@ -155,6 +173,7 @@ export function NowPanel({
                   booking={booking}
                   displayTz={displayTz}
                   variant="current"
+                  nowMs={nowMs}
                 />
               ))}
             </section>
@@ -300,8 +319,11 @@ function BookingHero({
   booking: Booking
   displayTz: string
   variant: 'current' | 'next'
-  /** カウントダウン表示に使う。variant === 'next' のときだけ渡す */
-  nowMs?: number
+  /**
+   * カウントダウン表示に使う。next は開始まで、current は終了までを出すので、
+   * どちらの variant でも要る
+   */
+  nowMs: number
 }) {
   const accent =
     variant === 'current'
@@ -323,7 +345,7 @@ function BookingHero({
 
       <h3 className="mt-2 text-xl font-bold text-gray-900">{booking.title}</h3>
 
-      {variant === 'next' && nowMs !== undefined && (
+      {variant === 'next' && (
         <p
           className="mt-1 text-2xl font-extrabold text-cyan-700"
           aria-live="polite"
@@ -344,6 +366,10 @@ function BookingHero({
         )}
       </p>
 
+      {variant === 'current' && (
+        <EndingCountdown booking={booking} nowMs={nowMs} />
+      )}
+
       {booking.confirmationNumber && (
         <ConfirmationButton value={booking.confirmationNumber} />
       )}
@@ -356,6 +382,85 @@ function BookingHero({
         </p>
       )}
     </article>
+  )
+}
+
+/**
+ * 進行中の予約が終わるまでの残り時間。
+ *
+ * カウントダウンは長らく「次」の開始時刻にしか無く、進行中のカードは
+ * 15:00 → 11:00 と時刻を並べるだけだった。旅行中もっとも硬い締切である
+ * チェックアウトが、画面のどこにもカウントダウンとして出ていなかったので足す。
+ *
+ * ただし「次」のカウントダウン(ラベル無しの mt-1 text-2xl font-extrabold
+ * text-cyan-700 の大きな数字)と同じ強さで 2 つ並ぶと、どちらが開始で
+ * どちらが終了なのか読み解けなくなる。4 点で描き分ける。
+ * - 位置: 「次」は時刻の行の上。こちらは下に置く。
+ *   「15:00 → 11:00」を読んでから「チェックアウトまで あと2時間」と読める順
+ * - 形: 「次」は裸の数字。こちらは枠付きのインラインのチップにして、
+ *   カード幅いっぱいに広がらないようにする
+ * - 大きさ: 「次」の text-2xl より一段小さい text-base
+ * - ラベル: 「次」はラベルを持たないが、こちらは必ずラベルを伴わせて、
+ *   何までの残り時間なのかが単体で読めるようにする
+ *
+ * aria-live は付けない。NOW_TICK_MS が 60 秒なので、「次」とこちらの両方に
+ * 付けると 1 分ごとに 2 か所が読み上げられ、どちらの数字なのか分からないまま
+ * 音だけが増える。live region は内容が変わるたびに読み上げるものなので、
+ * 「しきい値を跨いだ瞬間」という本当に意味のある変化だけを伝えることはできず、
+ * 毎分の更新をすべて読み上げてしまう。割に合わないので live region は
+ * 「次」の 1 つに留め、こちらはラベル込みの通常のテキスト
+ * (「チェックアウトまで あと2時間」)にして、読みに行けば正しく読める形にする。
+ *
+ * 強調に rose を選んだのは、この「今」タブでは cyan が「次」のカウントダウンと
+ * 操作、emerald が進行中のカード、amber が booking.note のブロック
+ * (すぐ下に全幅で出る)に埋まっていて空いておらず、かつチェックアウト超過は
+ * 実際にお金が出ていく事故なので、このコードベースで危険を表す rose が
+ * 意味の上でも合うため。それでも色だけに頼らず、枠の太さ(border → border-2)、
+ * アイコン(Timer → AlarmClock)、数字の太さ(font-bold → font-extrabold)も
+ * 一緒に変えて、色が見えなくても差が分かるようにする。
+ */
+function EndingCountdown({
+  booking,
+  nowMs,
+}: {
+  booking: Booking
+  nowMs: number
+}) {
+  const end = booking.end
+  if (end === null) return null
+  // 終日の終了は時刻を持たず、暦の上では現地 00:00 になる。そこへカウントダウンを
+  // 出すと、実際の締切とずれた数字を自信たっぷりに見せることになるので、
+  // 時刻が分からないものには残り時間を出さない
+  if (end.allDay) return null
+
+  // 壊れた Stamp では計算しない(safeCountdown と同じ扱い)。null で
+  // なかった時点で stampToEpoch も投げないことが保証される
+  const countdown = safeCountdown(end, nowMs)
+  if (countdown === null) return null
+
+  const label =
+    booking.kind === 'lodging'
+      ? 'チェックアウトまで'
+      : isTransportKind(booking.kind)
+        ? '到着まで'
+        : '終了まで'
+
+  // 境界は強調側に含める。ちょうど 2 時間を「まだ余裕がある」側に置く理由が無い
+  const soon = stampToEpoch(end) - nowMs <= ENDING_SOON_MS
+  const Icon = soon ? AlarmClock : Timer
+
+  return (
+    <p
+      className={`mt-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-base ${
+        soon
+          ? 'border-2 border-rose-400 bg-rose-50 text-rose-800'
+          : 'border border-gray-300 bg-white text-gray-700'
+      }`}
+    >
+      <Icon size={16} className="shrink-0" aria-hidden="true" />
+      <span className="text-sm font-medium">{label}</span>
+      <span className={soon ? 'font-extrabold' : 'font-bold'}>{countdown}</span>
+    </p>
   )
 }
 

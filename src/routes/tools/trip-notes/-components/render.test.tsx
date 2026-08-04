@@ -7,7 +7,7 @@
  */
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { computeSummary } from '../../../../lib/trip-notes/derive'
 import { computeNights } from '../../../../lib/trip-notes/nights'
 import { AiImportPanel } from './AiImportPanel'
@@ -308,5 +308,112 @@ describe('BookingCard は予約状況でカード自体の見た目を変える'
 
     expect(container.querySelector('.border-amber-300')).toBeTruthy()
     expect(container.querySelector('.border-dashed')).toBeNull()
+  })
+})
+
+/**
+ * ここも BookingCard と同じ理由で、例外的に見た目(クラス名)まで踏み込む。
+ *
+ * 継続行の「チェックアウト HH:MM」が「滞在中(N泊目)」とまったく同じ
+ * 破線グレーの 1 行で出ていて、過ぎれば延泊料金が出る旅行中もっとも硬い締切が
+ * 読み飛ばされる、という具体的な不満への回帰テストだから。ラベルの文字列が
+ * 出ているかを見るだけでは「2 つが同じ見た目である」という不満そのものは
+ * 再発を検出できないので、行が実際に別のクラスを持つところまで固定する。
+ *
+ * このファイルには afterEach(cleanup) が無く、前のテストが描いた DOM が
+ * body に残ったままなので、クエリは必ず自分の container に閉じ込める
+ * (screen も render 戻り値の getByText も baseElement = body を見てしまう)。
+ */
+describe('日程タブの継続行は締切のあるイベントだけを持ち上げる', () => {
+  // 共有の state は予約が 3 件あって継続行が複数出るので、
+  // 「滞在中の日」と「チェックアウトの日」が 1 つずつになる最小の state を組む。
+  // bk() の既定は Europe/Paris の 6/12 15:00 → 6/14 10:00 なので、
+  // 6/13 が「滞在中(2泊目)」、6/14 が「チェックアウト 10:00」になる
+  const oneLodging: TripNotesState = {
+    ...stateWithoutTravelDocs,
+    bookings: [bk('stay-1')],
+    emergencyContacts: [],
+  }
+
+  it('チェックアウトの行は破線をやめて時刻が太字になり、滞在中の行とは違う', () => {
+    const { container } = render(
+      <SchedulePanel
+        state={oneLodging}
+        displayTz={tz}
+        dispatch={noop}
+        focusDate={null}
+        onFocusHandled={noop}
+      />,
+    )
+    const scope = within(container)
+
+    // 行の取り出しはラベルの文字から button へ辿る。DOM の階層や並び順に
+    // 依存しないぶん、行の中身を足し引きしても壊れにくい
+    const checkoutRow = scope.getByText(/チェックアウト/).closest('button')
+    const stayingRow = scope.getByText(/滞在中/).closest('button')
+    expect(checkoutRow).toBeTruthy()
+    expect(stayingRow).toBeTruthy()
+
+    expect(checkoutRow?.className).not.toContain('border-dashed')
+    expect(stayingRow?.className).toContain('border-dashed')
+
+    expect(checkoutRow?.querySelector('.font-bold')).toBeTruthy()
+    expect(stayingRow?.querySelector('.font-bold')).toBeNull()
+  })
+})
+
+/**
+ * こちらも同じく見た目まで踏み込む。
+ *
+ * 「今」タブの進行中カードは 15:00 → 11:00 と時刻を並べるだけで、終了までの
+ * カウントダウンが無かった。チェックアウトの残り時間が出ること自体と、
+ * 「残りわずか」に切り替わる境界の両側を固定する。境界を含む側(<=)の
+ * 取り違えは画面を見ても気付けないので、しきい値ちょうどと 1 分手前の
+ * 2 ケースで挟んで動かせないようにするのがこの節の主眼。
+ */
+describe('「今」タブは進行中の予約に終了までのカウントダウンを出す', () => {
+  // 予約を 1 件だけにすると next が null になり、cyan の「次」のカウントダウンが
+  // 出ない。強調の判定に別のカウントダウンが混ざらないようにするため
+  const lodgingOnly: TripNotesState = {
+    ...stateWithoutTravelDocs,
+    bookings: [bk('now-stay')],
+    emergencyContacts: [],
+  }
+
+  // NowPanel は useState(() => Date.now()) で現在時刻の初期値を取るので、
+  // 時計は必ず render より前に動かす
+  function renderAt(iso: string) {
+    vi.setSystemTime(Date.parse(iso))
+    const { container } = render(
+      <NowPanel
+        state={lodgingOnly}
+        displayTz={tz}
+        dispatch={noop}
+        onGoToSchedule={noop}
+      />,
+    )
+    return { container, scope: within(container) }
+  }
+
+  it('進行中の宿泊には「チェックアウトまで」の残り時間が出る', () => {
+    vi.useFakeTimers()
+    const { scope } = renderAt('2026-06-13T12:00:00Z')
+
+    expect(scope.getByText('チェックアウトまで')).toBeTruthy()
+    expect(scope.getByText(/^あと/)).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('残り2時間ちょうどから強調が始まる(境界は強調側)', () => {
+    vi.useFakeTimers()
+    // bk() の既定の end は 2026-06-14T10:00:00+02:00 = 08:00Z
+    const before = renderAt('2026-06-14T05:59:00Z')
+    expect(before.scope.getByText('あと2時間1分')).toBeTruthy()
+    expect(before.container.querySelector('.border-rose-400')).toBeNull()
+
+    const after = renderAt('2026-06-14T06:00:00Z')
+    expect(after.scope.getByText('あと2時間')).toBeTruthy()
+    expect(after.container.querySelector('.border-rose-400')).toBeTruthy()
+    vi.useRealTimers()
   })
 })
