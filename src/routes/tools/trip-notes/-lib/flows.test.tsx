@@ -954,8 +954,22 @@ describe('共有URL', () => {
     )
     const hash = url.slice(url.indexOf('#'))
 
-    // ロジック層のラウンドトリップ
-    expect(await decodeShareState(hash)).toEqual(shared)
+    // ロジック層のラウンドトリップ。
+    //
+    // 共有URLは id を載せず、復元側で newId() を振り直す(payload を縮めるため)。
+    // TripNotesState の中に id の相互参照は無い
+    // (夜の充足・移動の抜け・キャンセル期限などは保存されない導出値で、
+    //  毎回 state から計算し直される)ので、id が変わっても画面の見え方は変わらない。
+    // だからここでは id の一致ではなく、件数と id 以外の中身が保たれることを見る。
+    const decoded = await decodeShareState(hash)
+    expect(decoded?.bookings.length).toBe(shared.bookings.length)
+    expect(decoded).toEqual({
+      ...shared,
+      bookings: shared.bookings.map((booking, index) => ({
+        ...booking,
+        id: decoded?.bookings[index].id ?? booking.id,
+      })),
+    })
 
     window.location.hash = hash
     await renderPage()

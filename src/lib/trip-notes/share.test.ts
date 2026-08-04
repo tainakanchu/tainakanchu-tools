@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { makeAllDayStamp, makeStamp, stampToEpoch, stampTz } from './datetime'
 import {
+  QR_SAFE_BYTES,
   QR_SAFE_LENGTH,
+  buildShare,
   decodeShareState,
   encodeShareUrl,
   estimateShareSize,
 } from './share'
+import { SHARE_TIMEZONES, decodeShareTz, encodeShareTz } from './shareTimezones'
 import type { Booking, TripNotesState } from './types'
 
 const BASE_URL = 'https://tainakanchu-tools.example/trip-notes/'
@@ -101,6 +104,91 @@ function withoutEvidence(state: TripNotesState): TripNotesState {
   return clone
 }
 
+/** 上記2つの payload に入っている state */
+function legacyState(): TripNotesState {
+  return {
+    schemaVersion: 1,
+    tripTitle: '旧フォーマットの旅',
+    startDate: '2026-09-10',
+    endDate: '2026-09-20',
+    pinnedTz: 'Europe/Paris',
+    bookings: [
+      {
+        id: 'bk-legacy-1',
+        kind: 'lodging',
+        title: 'Hotel Le Marais',
+        start: {
+          zdt: '2026-09-10T15:00:00+02:00[Europe/Paris]',
+          allDay: false,
+        },
+        end: {
+          zdt: '2026-09-13T11:00:00+02:00[Europe/Paris]',
+          allDay: false,
+        },
+        place: {
+          name: 'Hotel Le Marais',
+          localName: 'オテル・ル・マレ',
+          address: '12 Rue de Rivoli, Paris',
+          lat: 48.8566,
+          lng: 2.3522,
+        },
+        status: 'confirmed',
+        payment: 'paid',
+        confirmationNumber: 'ABC123',
+        provider: 'Booking.com',
+        price: { amount: 45000, currency: 'JPY' },
+        freeCancelUntil: '2026-09-01',
+        note: 'エレベーターなし',
+        unverified: ['freeCancelUntil'],
+      },
+      {
+        id: 'bk-legacy-2',
+        kind: 'activity',
+        title: 'ルーブル美術館',
+        start: {
+          zdt: '2026-09-14T00:00:00+02:00[Europe/Paris]',
+          allDay: true,
+        },
+        end: null,
+        status: 'idea',
+        payment: 'unpaid',
+      },
+    ],
+    emergencyContacts: [
+      {
+        id: 'ec-legacy-1',
+        label: '在フランス日本大使館',
+        value: '+33-1-4888-6200',
+        note: '平日9-17時のみ',
+      },
+    ],
+  }
+}
+
+/**
+ * id を連番に置き換える。
+ * marker '2' 以降は id を payload に載せず復元側で振り直すので、
+ * 「id 以外がすべて一致すること」を見るために両辺を正規化してから比較する。
+ */
+function normalizeIds(state: TripNotesState): TripNotesState {
+  return {
+    ...state,
+    bookings: state.bookings.map((booking, index) => ({
+      ...booking,
+      id: `b${index}`,
+    })),
+    emergencyContacts: state.emergencyContacts.map((contact, index) => ({
+      ...contact,
+      id: `c${index}`,
+    })),
+  }
+}
+
+/** 新フォーマットのラウンドトリップで期待する値(evidence を落とし、id を正規化) */
+function expected(state: TripNotesState): TripNotesState {
+  return normalizeIds(withoutEvidence(state))
+}
+
 function extractHash(url: string): string {
   const index = url.indexOf('#')
   return index === -1 ? '' : url.slice(index + 1)
@@ -112,12 +200,24 @@ function requireDecoded(state: TripNotesState | null): TripNotesState {
   return state
 }
 
+/** state をエンコードして復元する。id は正規化済み */
+async function roundTrip(
+  state: TripNotesState,
+  options?: { cjk: boolean },
+): Promise<TripNotesState> {
+  const url = await encodeShareUrl(state, BASE_URL, options)
+  return normalizeIds(requireDecoded(await decodeShareState(extractHash(url))))
+}
+
 describe('share', () => {
   it('エンコード→デコードのラウンドトリップで状態が保存される(全部入り)', async () => {
     const state = buildFullState()
-    const url = await encodeShareUrl(state, BASE_URL)
-    const decoded = await decodeShareState(extractHash(url))
-    expect(decoded).toEqual(withoutEvidence(state))
+    expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('既定のフォーマットは marker "2"(辞書 + zdt数値化 + id連番)', async () => {
+    const url = await encodeShareUrl(buildFullState(), BASE_URL)
+    expect(extractHash(url).startsWith('d=2')).toBe(true)
   })
 
   it('evidence はデコード結果から落ちるが、他のフィールドは保持される', async () => {
@@ -159,12 +259,10 @@ describe('share', () => {
     const url = await encodeShareUrl(state, BASE_URL)
     const decoded = requireDecoded(await decodeShareState(extractHash(url)))
 
-    const timedBooking = decoded.bookings.find((b) => b.id === 'booking-1')
-    const allDayBooking = decoded.bookings.find((b) => b.id === 'booking-3')
-    expect(timedBooking).toBeDefined()
-    expect(allDayBooking).toBeDefined()
-    expect(timedBooking?.start.allDay).toBe(false)
-    expect(allDayBooking?.start.allDay).toBe(true)
+    // id は振り直されるので、並び順で引く(順序は保たれる)
+    expect(decoded.bookings[0].start.allDay).toBe(false)
+    expect(decoded.bookings[2].start.allDay).toBe(true)
+    expect(decoded.bookings[2].start.zdt).toBe(state.bookings[2].start.zdt)
   })
 
   it('# を付けても付けなくても同じ結果になる', async () => {
@@ -173,8 +271,8 @@ describe('share', () => {
     const hash = extractHash(url)
     const withHash = await decodeShareState(`#${hash}`)
     const withoutHash = await decodeShareState(hash)
-    expect(withHash).toEqual(withoutEvidence(state))
-    expect(withoutHash).toEqual(withoutEvidence(state))
+    expect(normalizeIds(requireDecoded(withHash))).toEqual(expected(state))
+    expect(normalizeIds(requireDecoded(withoutHash))).toEqual(expected(state))
   })
 
   it('壊れたpayloadはnullを返す: 不正なbase64', async () => {
@@ -196,7 +294,7 @@ describe('share', () => {
     const hash = extractHash(url)
     const dIndex = hash.indexOf('d=')
     const markerIndex = dIndex + 2
-    // マーカー文字('0' か '1')だけを未知の文字に差し替える
+    // マーカー文字だけを未知の文字に差し替える
     const corrupted = `${hash.slice(0, markerIndex)}9${hash.slice(markerIndex + 1)}`
     await expect(decodeShareState(corrupted)).resolves.toBeNull()
   })
@@ -215,7 +313,7 @@ describe('share', () => {
     expect(size).toBe(payload.length)
   })
 
-  it('大きなstateはQR_SAFE_LENGTHを超える', async () => {
+  it('大きなstateはQR上限を超える', async () => {
     // deflate は繰り返しをよく畳むので、圧縮に強い(=容量超過を検出しづらい)データにならないよう
     // 各予約にランダムな16進文字列を持たせて圧縮が効きにくい状態を作る
     const bookings: Array<Booking> = []
@@ -241,8 +339,14 @@ describe('share', () => {
       emergencyContacts: [],
     }
 
-    const size = await estimateShareSize(state)
-    expect(size).toBeGreaterThan(QR_SAFE_LENGTH)
+    const share = await buildShare(state, BASE_URL)
+    expect(share.length).toBeGreaterThan(QR_SAFE_LENGTH)
+    expect(share.byteLength).toBeGreaterThan(QR_SAFE_BYTES)
+  })
+
+  it('小さなstateはQR上限に収まる', async () => {
+    const share = await buildShare(buildFullState(), BASE_URL)
+    expect(share.byteLength).toBeLessThanOrEqual(QR_SAFE_BYTES)
   })
 
   it('encodeShareUrlはbaseUrlに既存のハッシュがあっても#d=が二重にならない', async () => {
@@ -250,6 +354,314 @@ describe('share', () => {
     const url = await encodeShareUrl(state, `${BASE_URL}#old-hash-value`)
     expect(url.split('#').length).toBe(2)
     expect(url.startsWith(`${BASE_URL}#d=`)).toBe(true)
+  })
+
+  describe('id の振り直し', () => {
+    it('復元された id は共有元と別の値になり、重複しない', async () => {
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL)
+      const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+
+      const ids = decoded.bookings.map((booking) => booking.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      for (const id of ids) {
+        expect(id.startsWith('bk-')).toBe(true)
+      }
+
+      const contactIds = decoded.emergencyContacts.map((c) => c.id)
+      expect(new Set(contactIds).size).toBe(contactIds.length)
+      for (const id of contactIds) {
+        expect(id.startsWith('ec-')).toBe(true)
+      }
+    })
+
+    it('id を落としたぶん payload が短くなる', async () => {
+      // 長い id を持つ state と短い id を持つ state で payload が変わらないこと
+      // (= id が payload に含まれていないこと)
+      const base = buildFullState()
+      const longIds: TripNotesState = {
+        ...base,
+        bookings: base.bookings.map((booking, index) => ({
+          ...booking,
+          id: `bk-very-long-identifier-${index}-${'x'.repeat(40)}`,
+        })),
+      }
+      expect(await estimateShareSize(longIds)).toBe(
+        await estimateShareSize(base),
+      )
+    })
+
+    it('予約の並び順は保たれる', async () => {
+      const state = buildFullState()
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings.map((b) => b.title)).toEqual([
+        'Hotel Le Marais',
+        'JL415',
+        'ルーブル美術館',
+      ])
+    })
+  })
+
+  describe('タイムゾーン辞書', () => {
+    it('辞書の並びは固定されている(添字がずれると既存URLが壊れる)', () => {
+      expect(SHARE_TIMEZONES[0]).toBe('Asia/Tokyo')
+      expect(SHARE_TIMEZONES[18]).toBe('Europe/Paris')
+      expect(SHARE_TIMEZONES[SHARE_TIMEZONES.length - 1]).toBe('UTC')
+      expect(new Set(SHARE_TIMEZONES).size).toBe(SHARE_TIMEZONES.length)
+    })
+
+    it('辞書にある名前は添字に、無い名前は生文字列になる', () => {
+      expect(encodeShareTz('Europe/Paris')).toBe(18)
+      expect(encodeShareTz('Pacific/Chatham')).toBe('Pacific/Chatham')
+      expect(decodeShareTz(18)).toBe('Europe/Paris')
+      expect(decodeShareTz('Pacific/Chatham')).toBe('Pacific/Chatham')
+    })
+
+    it('未知の添字は null(適当なタイムゾーンに寄せない)', () => {
+      expect(decodeShareTz(SHARE_TIMEZONES.length)).toBeNull()
+      expect(decodeShareTz(-1)).toBeNull()
+      expect(decodeShareTz(1.5)).toBeNull()
+      expect(decodeShareTz(undefined)).toBeNull()
+    })
+
+    it('辞書に無い IANA 名でも往復する', async () => {
+      const state = buildFullState()
+      state.pinnedTz = 'Pacific/Chatham'
+      state.bookings[0].start = makeStamp(
+        '2026-09-10',
+        '15:00',
+        'Pacific/Chatham',
+      )
+      state.bookings[0].end = makeStamp(
+        '2026-09-13',
+        '11:00',
+        'Pacific/Chatham',
+      )
+
+      const decoded = await roundTrip(state)
+      expect(decoded.pinnedTz).toBe('Pacific/Chatham')
+      expect(stampTz(decoded.bookings[0].start)).toBe('Pacific/Chatham')
+      expect(decoded).toEqual(expected(state))
+    })
+
+    it('辞書に無いタイムゾーンでも予約が落ちない(共有URLの主目的を壊さない)', async () => {
+      const state = buildFullState()
+      state.bookings[2].start = makeAllDayStamp('2026-09-14', 'Asia/Kathmandu')
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings.length).toBe(3)
+      expect(stampTz(decoded.bookings[2].start)).toBe('Asia/Kathmandu')
+    })
+  })
+
+  describe('zdt の数値化', () => {
+    /**
+     * 秋の DST fall-back で同じ壁時計時刻が 2 回訪れるケース。
+     * Europe/Paris は 2026-10-25 に +02:00 → +01:00 へ戻るので、
+     * 02:30 が 2 回来る。分単位 epoch は瞬間なので、両方を区別して復元できる。
+     */
+    function ambiguousState(offset: '+02:00' | '+01:00'): TripNotesState {
+      const state = buildFullState()
+      state.startDate = '2026-10-24'
+      state.endDate = '2026-10-26'
+      state.bookings = [
+        {
+          id: 'ambiguous',
+          kind: 'train',
+          title: '夜行列車',
+          start: {
+            zdt: `2026-10-25T02:30:00${offset}[Europe/Paris]`,
+            allDay: false,
+          },
+          end: null,
+          status: 'confirmed',
+          payment: 'paid',
+        },
+      ]
+      state.emergencyContacts = []
+      return state
+    }
+
+    it('DST fall-back の 1 回目(+02:00)が正しく復元される', async () => {
+      const state = ambiguousState('+02:00')
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings[0].start.zdt).toBe(
+        '2026-10-25T02:30:00+02:00[Europe/Paris]',
+      )
+      expect(stampToEpoch(decoded.bookings[0].start)).toBe(
+        stampToEpoch(state.bookings[0].start),
+      )
+    })
+
+    it('DST fall-back の 2 回目(+01:00)が正しく復元される', async () => {
+      const state = ambiguousState('+01:00')
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings[0].start.zdt).toBe(
+        '2026-10-25T02:30:00+01:00[Europe/Paris]',
+      )
+      expect(stampToEpoch(decoded.bookings[0].start)).toBe(
+        stampToEpoch(state.bookings[0].start),
+      )
+    })
+
+    it('曖昧な 2 つの時刻は payload の時点で別の値になる', async () => {
+      const first = await estimateShareSize(ambiguousState('+02:00'))
+      const second = await estimateShareSize(ambiguousState('+01:00'))
+      // 長さが同じでも中身が違うことを確かめる
+      expect(first).toBe(second)
+      const a = await encodeShareUrl(ambiguousState('+02:00'), BASE_URL)
+      const b = await encodeShareUrl(ambiguousState('+01:00'), BASE_URL)
+      expect(a).not.toBe(b)
+    })
+
+    it('DST spring-forward の直後(存在しない時刻の隣)も往復する', async () => {
+      const state = buildFullState()
+      state.startDate = '2026-03-28'
+      state.endDate = '2026-03-30'
+      state.bookings = [
+        {
+          id: 'spring',
+          kind: 'flight',
+          title: '朝一の便',
+          // 2026-03-29 の 02:00〜03:00 は存在しない。その直後の 03:30
+          start: makeStamp('2026-03-29', '03:30', 'Europe/Paris'),
+          end: null,
+          status: 'confirmed',
+          payment: 'paid',
+        },
+      ]
+      state.emergencyContacts = []
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings[0].start.zdt).toBe(
+        '2026-03-29T03:30:00+02:00[Europe/Paris]',
+      )
+    })
+
+    it('分に揃わない時刻(秒を持つ zdt)は生文字列にフォールバックして往復する', async () => {
+      const state = buildFullState()
+      state.bookings = [
+        {
+          id: 'seconds',
+          kind: 'other',
+          title: '秒を持つ予定',
+          start: {
+            zdt: '2026-09-12T14:20:33+02:00[Europe/Paris]',
+            allDay: false,
+          },
+          end: null,
+          status: 'confirmed',
+          payment: 'paid',
+        },
+      ]
+      state.emergencyContacts = []
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings[0].start.zdt).toBe(
+        '2026-09-12T14:20:33+02:00[Europe/Paris]',
+      )
+    })
+
+    it('UTC の予定も往復する', async () => {
+      const state = buildFullState()
+      state.pinnedTz = 'UTC'
+      state.bookings[1].start = makeStamp('2026-09-10', '00:50', 'UTC')
+      const decoded = await roundTrip(state)
+      expect(decoded).toEqual(expected(state))
+    })
+  })
+
+  describe('CJK-16384(marker "3")', () => {
+    it('明示的に指定したときだけ marker "3" になる', async () => {
+      const state = buildFullState()
+      const plain = await encodeShareUrl(state, BASE_URL)
+      const kanji = await encodeShareUrl(state, BASE_URL, { cjk: true })
+      expect(extractHash(plain).startsWith('d=2')).toBe(true)
+      expect(extractHash(kanji).startsWith('d=3')).toBe(true)
+    })
+
+    it('ラウンドトリップで状態が保存される', async () => {
+      const state = buildFullState()
+      expect(await roundTrip(state, { cjk: true })).toEqual(expected(state))
+    })
+
+    it('marker "2" と同じ内容を運び、文字数は半分以下になる', async () => {
+      const state = buildFullState()
+      const plain = await buildShare(state, BASE_URL)
+      const kanji = await buildShare(state, BASE_URL, { cjk: true })
+
+      // 運んでいる中身(圧縮後のバイト列)は同じ
+      expect(kanji.byteLength).toBe(plain.byteLength)
+      expect(kanji.length).toBeLessThan(plain.length * 0.5)
+    })
+
+    it('payload の本体はすべて CJK統合漢字になる', async () => {
+      const url = await encodeShareUrl(buildFullState(), BASE_URL, {
+        cjk: true,
+      })
+      const body = extractHash(url).slice('d=3'.length)
+      expect(body.length).toBeGreaterThan(0)
+      for (const char of body) {
+        const code = char.codePointAt(0) ?? -1
+        expect(code).toBeGreaterThanOrEqual(0x4e00)
+        expect(code).toBeLessThan(0x4e00 + 16384)
+      }
+    })
+
+    it('ブラウザがパーセントエンコードしたフラグメントからも復元できる', async () => {
+      // new URL() を通すと fragment percent-encode set により非ASCIIが
+      // %E4%B8%80 のような形になる。URLSearchParams が自動でデコードするので
+      // decodeShareState 側に手当ては要らない、という前提を固定する
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL, { cjk: true })
+      const percentEncoded = new URL(url).hash
+      expect(percentEncoded).toContain('%')
+      const decoded = requireDecoded(await decodeShareState(percentEncoded))
+      expect(normalizeIds(decoded)).toEqual(expected(state))
+    })
+
+    it('本文に漢字以外が混ざったpayloadはnullを返す', async () => {
+      const url = await encodeShareUrl(buildFullState(), BASE_URL, {
+        cjk: true,
+      })
+      const hash = extractHash(url)
+      await expect(decodeShareState(`${hash}A`)).resolves.toBeNull()
+    })
+  })
+
+  describe('後方互換', () => {
+    /**
+     * 過去のビルドが実際に発行した形式の payload を固定値で持つ。
+     * 共有URLはサーバに保存していないので、一度発行したURLは回収できない。
+     * ここが落ちたら「利用者が持っているURLが読めなくなった」ということなので、
+     * 期待値のほうを直してはいけない。
+     */
+    const MARKER_0_PAYLOAD =
+      '0eyJ2IjoxLCJ0Ijoi5pen44OV44Kp44O844Oe44OD44OI44Gu5peFIiwicyI6IjIwMjYtMDktMTAiLCJlIjoiMjAyNi0wOS0yMCIsInoiOiJFdXJvcGUvUGFyaXMiLCJiIjpbeyJpIjoiYmstbGVnYWN5LTEiLCJrIjoibG9kZ2luZyIsInQiOiJIb3RlbCBMZSBNYXJhaXMiLCJzIjp7InoiOiIyMDI2LTA5LTEwVDE1OjAwOjAwKzAyOjAwW0V1cm9wZS9QYXJpc10ifSwiZSI6eyJ6IjoiMjAyNi0wOS0xM1QxMTowMDowMCswMjowMFtFdXJvcGUvUGFyaXNdIn0sInAiOnsibiI6IkhvdGVsIExlIE1hcmFpcyIsImwiOiLjgqrjg4bjg6vjg7vjg6vjg7vjg57jg6wiLCJhIjoiMTIgUnVlIGRlIFJpdm9saSwgUGFyaXMiLCJ0Ijo0OC44NTY2LCJnIjoyLjM1MjJ9LCJhIjoiY29uZmlybWVkIiwieSI6InBhaWQiLCJjIjoiQUJDMTIzIiwidiI6IkJvb2tpbmcuY29tIiwiciI6eyJhIjo0NTAwMCwiYyI6IkpQWSJ9LCJ4IjoiMjAyNi0wOS0wMSIsIm4iOiLjgqjjg6zjg5njg7zjgr_jg7zjgarjgZciLCJxIjpbImZyZWVDYW5jZWxVbnRpbCJdfSx7ImkiOiJiay1sZWdhY3ktMiIsImsiOiJhY3Rpdml0eSIsInQiOiLjg6vjg7zjg5bjg6vnvo7ooZPppKgiLCJzIjp7InoiOiIyMDI2LTA5LTE0VDAwOjAwOjAwKzAyOjAwW0V1cm9wZS9QYXJpc10iLCJhIjp0cnVlfSwiYSI6ImlkZWEiLCJ5IjoidW5wYWlkIn1dLCJjIjpbeyJpIjoiZWMtbGVnYWN5LTEiLCJsIjoi5Zyo44OV44Op44Oz44K55pel5pys5aSn5L2_6aSoIiwidiI6IiszMy0xLTQ4ODgtNjIwMCIsIm4iOiLlubPml6U5LTE35pmC44Gu44G_In1dfQ'
+
+    const MARKER_1_PAYLOAD =
+      '1fZJPaxNBGMa_yvJcOxtnJ39M59YWQUShlHiQkMN2Mw1DtrtxswnGsIdkUDx5EQ2FUhBamrahl55Kq_kwY1b9FjKbLYZSvQzDyzzzPu_veYfogzsEMTjSyalWn_X4TKtbrY60Ulp90KPLdPIOBF1wMMoqNl23HQoCsVJgpvAWHE96UdgRj7bdSHZBsAteH0KCY7dt-6LlegPbAUEbHH7YbMmghWXzp2EsfOu5sF64kZtpu-DD7M-_XWtOmVPKKV2jjFNaX-3WQJJ5uqcp1hzn_5qO0QQPWvDBocfnWr3X6kKrm7vzSKsZCFxwOMza6QmrKawd2Q99Say72WPwUrVQLVcqBC1wViiWGUuWKi8M9mS0L5ogGICj40pz9cCxsbnlsCKICQabYdiWQavghfsgiIxTF7xUppQuXz_bfmVmeLMyMjWAg8z5VKuZVgcmz_HcnKNzPZqA4DV4HXuREFtu4An_ZRBLH42E3M-K5Vm5Xiz7Mh7kYWUcbrX6otXFz-8ff3399Pt4-mBkpVrG_l_4Mxpx1BM5F9kUbo6kF2RQkkY2aL5FwlvdIhPP4nBqlladaXWlx9fp5CQ9nC2OT398my89GYxrxaLt2KVqtWpXGKU5n8X1VTo5Wbedx-nBWI8u9WiOpJH8AQ'
+
+    it('marker "0"(無圧縮 + base64url)の既存URLが今も読める', async () => {
+      const decoded = await decodeShareState(`#d=${MARKER_0_PAYLOAD}`)
+      expect(decoded).toEqual(legacyState())
+    })
+
+    it('marker "1"(短縮キー + deflate + base64url)の既存URLが今も読める', async () => {
+      const decoded = await decodeShareState(`#d=${MARKER_1_PAYLOAD}`)
+      expect(decoded).toEqual(legacyState())
+    })
+
+    it('marker "0" / "1" では id がそのまま復元される(振り直しは v2 以降の挙動)', async () => {
+      const fromZero = requireDecoded(
+        await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
+      )
+      const fromOne = requireDecoded(
+        await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
+      )
+      expect(fromZero.bookings.map((b) => b.id)).toEqual([
+        'bk-legacy-1',
+        'bk-legacy-2',
+      ])
+      expect(fromOne.emergencyContacts[0].id).toBe('ec-legacy-1')
+    })
   })
 
   describe('CompressionStream が無い環境', () => {
@@ -266,7 +678,26 @@ describe('share', () => {
         const hash = extractHash(url)
         expect(hash.startsWith('d=0')).toBe(true)
         const decoded = await decodeShareState(hash)
+        // 無圧縮フォールバックは v1 形式なので id もそのまま戻る
         expect(decoded).toEqual(withoutEvidence(state))
+      } finally {
+        globalThis.CompressionStream = savedCompression
+        globalThis.DecompressionStream = savedDecompression
+      }
+    })
+
+    it('圧縮が使えないときは漢字を指定しても非圧縮の"0"になる', async () => {
+      const savedCompression = globalThis.CompressionStream
+      const savedDecompression = globalThis.DecompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.CompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.DecompressionStream
+      try {
+        const url = await encodeShareUrl(buildFullState(), BASE_URL, {
+          cjk: true,
+        })
+        expect(extractHash(url).startsWith('d=0')).toBe(true)
       } finally {
         globalThis.CompressionStream = savedCompression
         globalThis.DecompressionStream = savedDecompression
@@ -300,8 +731,8 @@ describe('share', () => {
       const state = buildFullState()
       const url = await encodeShareUrl(state, BASE_URL)
       const hash = extractHash(url)
-      // 通常のテスト環境では圧縮APIが使えるので '1' 始まりになっているはず
-      expect(hash.startsWith('d=1')).toBe(true)
+      // 通常のテスト環境では圧縮APIが使えるので '2' 始まりになっているはず
+      expect(hash.startsWith('d=2')).toBe(true)
 
       const savedCompression = globalThis.CompressionStream
       const savedDecompression = globalThis.DecompressionStream
