@@ -39,7 +39,7 @@
 - Vite + React 19
 - TanStack Router / Devtools
 - Tailwind CSS v4
-- TypeScript 5
+- TypeScript 7
 - pnpm
 
 ## 🚀 セットアップ
@@ -56,9 +56,9 @@ pnpm run dev
 ```bash
 pnpm run build      # Vite ビルド + tsc
 pnpm run typecheck  # 型チェックのみ
-pnpm run lint       # ESLint
+pnpm run lint       # oxlint
 pnpm run format     # Prettier (チェックのみ)
-pnpm run check      # Prettier --write + ESLint --fix まとめ実行
+pnpm run check      # Prettier --write + oxlint --fix まとめ実行
 ```
 
 ## ☁️ デプロイ（Cloudflare Workers）

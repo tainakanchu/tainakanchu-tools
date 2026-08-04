@@ -335,7 +335,7 @@ describe('制約: order', () => {
     expect(idsOf(violations)).toEqual(['c1'])
     expect(violations[0].message).toContain('パリ')
     expect(violations[0].message).toContain('ローマ')
-    expect(violations[0].stayIds.sort()).toEqual(['s1', 's2'])
+    expect(violations[0].stayIds.toSorted()).toEqual(['s1', 's2'])
   })
 
   it('片方が未配置なら判定しない', () => {

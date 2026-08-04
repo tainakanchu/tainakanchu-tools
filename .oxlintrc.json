@@ -1,0 +1,88 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "browser": true,
+    "es2026": true
+  },
+  "settings": {
+    "react": {
+      "version": "19.2.8"
+    }
+  },
+  "rules": {
+    // --- @tanstack/eslint-config で有効だったが correctness/suspicious の
+    // カテゴリだけではカバーされない (style/pedantic/restriction 所属) ルールを
+    // 個別に復元。severity は元の eslint 設定に合わせている。
+
+    // eslint core
+    "no-case-declarations": "error",
+    "no-fallthrough": "error",
+    "no-regex-spaces": "error",
+    "no-shadow": "warn",
+    "no-var": "error",
+    "prefer-const": "error",
+    "sort-imports": ["error", { "ignoreDeclarationSort": true }],
+
+    // typescript-eslint 相当 (oxlint typescript plugin)
+    "typescript/array-type": [
+      "error",
+      { "default": "generic", "readonly": "generic" }
+    ],
+    "typescript/ban-ts-comment": [
+      "error",
+      { "ts-expect-error": false, "ts-ignore": "allow-with-description" }
+    ],
+    "typescript/consistent-type-imports": [
+      "error",
+      { "prefer": "type-imports" }
+    ],
+    "typescript/method-signature-style": ["error", "property"],
+    "typescript/no-inferrable-types": ["error", { "ignoreParameters": true }],
+    "typescript/no-namespace": "error",
+    "typescript/prefer-for-of": "warn",
+    "typescript/require-await": "warn",
+
+    // 型認識ルール (tsgolint 経由)。元の @typescript-eslint/no-unnecessary-condition
+    // を復元。oxlint では nursery カテゴリ所属のため個別に有効化が必要。
+    "typescript/no-unnecessary-condition": "error",
+
+    // eslint-plugin-import-x 相当 (oxlint import plugin)
+    // 注意: import/order に相当するルールは oxlint にまだ存在しない(後述レポート参照)。
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/first": "error",
+    "import/newline-after-import": "error",
+    "import/no-commonjs": "error",
+    "import/no-duplicates": "error",
+    // suspicious カテゴリで有効になる。CSS の side-effect import (main.tsx の
+    // `import './styles.css'`) は正当なパターンなので allow で明示的に許可する。
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+
+    // eslint-plugin-n の node/prefer-node-protocol 相当 (oxlint では unicorn plugin 所属)
+    "unicorn/prefer-node-protocol": "error",
+
+    // React hooks (react-hooks 相当。oxlint では react plugin に統合されている)。
+    // exhaustive-deps は correctness カテゴリで既に有効。rules-of-hooks は
+    // pedantic 所属のため個別に有効化。
+    "react/rules-of-hooks": "error",
+
+    // 新しい JSX ランタイム (jsx: "react-jsx") では import React が不要なため無効化。
+    // eslint-plugin-react の recommended でも jsx-runtime 使用時は同様に無効化される。
+    "react/react-in-jsx-scope": "off",
+
+    // suspicious カテゴリで有効になる型認識ルール。網羅的な switch (kind の
+    // discriminated union を全ケースで return する reducer 系関数) を軒並み
+    // 誤検知する。このコードベースの既存スタイル (constraints.ts / reducer.ts /
+    // ConstraintPanel.tsx) と噛み合わないため無効化。tsc 自身はこれらの関数を
+    // 網羅的と認識しており型上の問題はない。@tanstack/eslint-config にも
+    // 元々含まれていなかったルール。
+    "typescript/consistent-return": "off"
+  }
+}
