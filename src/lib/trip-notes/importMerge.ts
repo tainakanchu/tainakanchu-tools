@@ -57,7 +57,10 @@ export interface ImportPlan {
  * 誤ってマッチさせる事故になるため。
  */
 function normalizeConfirmationNumber(raw: string): string | null {
-  const normalized = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const normalized = raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
   return normalized.length > 0 ? normalized : null
 }
 
@@ -151,7 +154,8 @@ function findMatch(
 }
 
 /**
- * from/to/place/confirmationNumber/provider/price/freeCancelUntil/note の
+ * from/to/place/confirmationNumber/provider/price/freeCancelUntil/
+ * checkInClosesMinutesBefore/bagDropClosesMinutesBefore/note の
  * 共通ルール: 取り込み側に値があれば採用し、undefined なら既存を維持する。
  * fromIncoming も一緒に返し、unverified の引き継ぎ判定に使う。
  * K を呼び出しごとに具体的なリテラルへ固定して使うので、Booking[K] は
@@ -268,6 +272,29 @@ export function mergeBooking(existing: Booking, incoming: Booking): Booking {
   markUnverified('freeCancelUntil', freeCancelUntil.fromIncoming)
   if (freeCancelUntil.value !== undefined) {
     merged.freeCancelUntil = freeCancelUntil.value
+  }
+
+  // 締切は「出発の何分前か」という相対値なので、start を取り込み側で
+  // 上書きしても意味がずれない。むしろ出発時刻を直した再取り込みでこそ
+  // 生き残ってほしい値なので、他の任意フィールドと同じ規則でよい
+  const checkInCloses = pickOptional(
+    existing,
+    incoming,
+    'checkInClosesMinutesBefore',
+  )
+  markUnverified('checkInClosesMinutesBefore', checkInCloses.fromIncoming)
+  if (checkInCloses.value !== undefined) {
+    merged.checkInClosesMinutesBefore = checkInCloses.value
+  }
+
+  const bagDropCloses = pickOptional(
+    existing,
+    incoming,
+    'bagDropClosesMinutesBefore',
+  )
+  markUnverified('bagDropClosesMinutesBefore', bagDropCloses.fromIncoming)
+  if (bagDropCloses.value !== undefined) {
+    merged.bagDropClosesMinutesBefore = bagDropCloses.value
   }
 
   const note = pickOptional(existing, incoming, 'note')

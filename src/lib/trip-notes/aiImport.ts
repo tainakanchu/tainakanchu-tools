@@ -410,12 +410,15 @@ function toPlace(raw: unknown): Place | undefined {
     return name.length > 0 ? { name } : undefined
   }
   if (!isRecord(raw)) return undefined
-  const { name, localName, address } = raw
+  const { name, localName, latinName, address } = raw
   if (typeof name !== 'string' || name.trim().length === 0) return undefined
 
   const place: Place = { name: name.trim() }
   if (typeof localName === 'string' && localName.trim().length > 0) {
     place.localName = localName.trim()
+  }
+  if (typeof latinName === 'string' && latinName.trim().length > 0) {
+    place.latinName = latinName.trim()
   }
   if (typeof address === 'string' && address.trim().length > 0) {
     place.address = address.trim()
@@ -455,6 +458,27 @@ function toEvidence(
     }
   }
   return Object.keys(evidence).length > 0 ? evidence : undefined
+}
+
+/**
+ * 締切(出発の何分前か)。数値でも '60' のような文字列でも受ける。
+ *
+ * ここでは「数として読めるか」までしか見ない。範囲や整数かどうかの判定は
+ * storage.ts の parseBooking(= isDeadlineMinutesBefore)に委ねる。
+ * 取り込みと保存で許す値が食い違うと「取り込めたのに次回起動で消える」という
+ * 最悪の壊れ方をするので、規則の置き場所は 1 つに保つ。
+ *
+ * '60分前' のような単位付きの文字列は数字だけを抜き出したりせず捨てる。
+ * '1時間30分前' のような書き方から数字だけを拾うと 1 になってしまい、
+ * 締切が実際より 89 分遅い、いちばん危ない側にずれた値を通してしまう。
+ */
+function toMinutesBefore(raw: unknown): number | undefined {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : undefined
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  if (!/^\d+$/.test(trimmed)) return undefined
+  const value = Number(trimmed)
+  return Number.isFinite(value) ? value : undefined
 }
 
 function toOptionalString(raw: unknown): string | undefined {
@@ -571,6 +595,8 @@ function convertBooking(
     provider: toOptionalString(raw.provider),
     price: toMoney(raw.price),
     freeCancelUntil: toOptionalString(raw.freeCancelUntil),
+    checkInClosesMinutesBefore: toMinutesBefore(raw.checkInClosesMinutesBefore),
+    bagDropClosesMinutesBefore: toMinutesBefore(raw.bagDropClosesMinutesBefore),
     note: toOptionalString(raw.note),
     evidence: toEvidence(raw.evidence),
   }

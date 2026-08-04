@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { makeStamp } from './datetime'
 import {
+  FIELD_KEYS,
   createInitialState,
   loadFromStorage,
   parseTripNotesState,
@@ -24,6 +25,7 @@ function fullBooking(): Booking {
     place: {
       name: 'Hotel Le Marais',
       localName: 'オテル・ル・マレ',
+      latinName: 'Paris',
       address: '12 Rue de Rivoli, Paris',
       lat: 48.8566,
       lng: 2.3522,
@@ -216,6 +218,44 @@ describe('parseTripNotesState', () => {
     expect(booking?.freeCancelUntil).toBeUndefined()
   })
 
+  it('place.latinName は文字列なら残り、往復しても失われない', () => {
+    // 日本語の地名しか持たない予約でも、この欄があれば外部リンクが機能する
+    // (searchLinks.ts の placeName)。保存で落ちると機能ごと消える
+    const place = { name: '香港国際空港 T2', latinName: 'Hong Kong' }
+    const state = {
+      ...fullState(),
+      bookings: [{ ...fullBooking(), place }],
+    }
+    expect(parseTripNotesState(state)?.bookings[0].place).toEqual(place)
+  })
+
+  it('place.latinName が文字列でなければその欄だけ落ち、場所は残る', () => {
+    const state = {
+      ...fullState(),
+      bookings: [
+        {
+          ...fullBooking(),
+          place: { name: '香港国際空港 T2', latinName: 123 },
+        },
+      ],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.place?.name).toBe('香港国際空港 T2')
+    expect(booking?.place).not.toHaveProperty('latinName')
+  })
+
+  it('latinName を持たない保存済みデータは今までどおり読める', () => {
+    // この欄を足す前の localStorage には latinName が無い。
+    // 欄ごと生えないこと(undefined のキーが増えないこと)まで見る
+    const state = {
+      ...fullState(),
+      bookings: [{ ...fullBooking(), place: { name: 'Hotel Le Marais' } }],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.place).toEqual({ name: 'Hotel Le Marais' })
+    expect(booking?.place).not.toHaveProperty('latinName')
+  })
+
   it('unverified の未知キーは除去され、空になれば undefined になる', () => {
     const withKnownAndUnknown = {
       ...fullState(),
@@ -360,6 +400,77 @@ describe('parseTripNotesState', () => {
       parseTripNotesState({ ...fullState(), travelDocs: 'なにか' }),
     ).not.toHaveProperty('travelDocs')
     expect(parseTripNotesState(fullState())).not.toHaveProperty('travelDocs')
+  })
+
+  describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
+    it('妥当な締切(整数・1〜1440)は保持される', () => {
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            checkInClosesMinutesBefore: 45,
+            bagDropClosesMinutesBefore: 1440,
+          },
+        ],
+      }
+      const booking = parseTripNotesState(state)?.bookings[0]
+      expect(booking?.checkInClosesMinutesBefore).toBe(45)
+      expect(booking?.bagDropClosesMinutesBefore).toBe(1440)
+    })
+
+    // 0・負数・小数・上限超え・文字列・NaN はいずれも「怪しい値」として
+    // そのフィールドだけ落とす(isDeadlineMinutesBefore 参照)。予約自体は残る
+    it.each([
+      ['0', 0],
+      ['負の数', -10],
+      ['小数', 45.5],
+      ['1441(上限超え)', 1441],
+      ['文字列', '45'],
+      ['NaN', Number.NaN],
+    ])(
+      '%s の締切はそのフィールドだけ落ちて、予約自体は残る',
+      (_label, value) => {
+        const state = {
+          ...fullState(),
+          bookings: [
+            {
+              ...fullBooking(),
+              checkInClosesMinutesBefore: value,
+              bagDropClosesMinutesBefore: value,
+            },
+          ],
+        }
+        const parsed = parseTripNotesState(state)
+        expect(parsed?.bookings).toHaveLength(1)
+        const booking = parsed?.bookings[0]
+        expect(booking?.checkInClosesMinutesBefore).toBeUndefined()
+        expect(booking?.bagDropClosesMinutesBefore).toBeUndefined()
+      },
+    )
+
+    it('1 と 1440(境界値)はどちらも保持される', () => {
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            checkInClosesMinutesBefore: 1,
+            bagDropClosesMinutesBefore: 1440,
+          },
+        ],
+      }
+      const booking = parseTripNotesState(state)?.bookings[0]
+      expect(booking?.checkInClosesMinutesBefore).toBe(1)
+      expect(booking?.bagDropClosesMinutesBefore).toBe(1440)
+    })
+  })
+})
+
+describe('FIELD_KEYS', () => {
+  it('締切2種のキーが含まれる(unverified に載せられる)', () => {
+    expect(FIELD_KEYS).toContain('checkInClosesMinutesBefore')
+    expect(FIELD_KEYS).toContain('bagDropClosesMinutesBefore')
   })
 })
 

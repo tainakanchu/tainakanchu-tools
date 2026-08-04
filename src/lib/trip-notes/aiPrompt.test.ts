@@ -81,6 +81,56 @@ describe('buildImportPrompt: スキーマの同期', () => {
     expect(prompt).toContain('```json')
     expect(prompt).toContain('evidence')
   })
+
+  it('締切2種のフィールド名がスキーマに含まれる', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('checkInClosesMinutesBefore')
+    expect(prompt).toContain('bagDropClosesMinutesBefore')
+  })
+})
+
+describe('buildImportPrompt: 締切の抽出ルール(ルール8)', () => {
+  it('空港と航空会社によって締切が違う旨の記述が含まれる', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('空港')
+    expect(prompt).toContain('航空会社')
+    // 「一般的な相場」で埋めることを禁じているのが締切ルールの肝なので、
+    // 空港・航空会社ごとに違うと明記されていることまで確かめる
+    expect(prompt).toContain('空港ごと・航空会社ごとに違います')
+  })
+
+  it('締切がルール1(推測禁止)の例外である旨が明記されている', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('例外')
+    // ルール1本文からの参照とルール8本文の両方に「例外」の語が要る
+    expect(prompt).toContain('ルール 1 の例外')
+  })
+})
+
+describe('buildImportPrompt: 場所のラテン文字表記(ルール9)', () => {
+  it('PlaceInput に latinName がある', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('interface PlaceInput')
+    expect(prompt).toContain('latinName: string | null')
+    // 現地語表記(人に見せる用)と併存していることまで見る。片方で兼ねられない
+    expect(prompt).toContain('localName: string | null')
+  })
+
+  it('ラテン文字表記がルール1(推測禁止)の例外である旨が明記されている', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('ルール 9')
+    // ルール1本文からの参照とルール9本文の両方に「例外」の語が要る
+    expect(prompt).toContain('場所のラテン文字表記')
+    expect(prompt).toContain('ルール 1 の例外')
+  })
+
+  it('書類の表記を最優先し、都市名に寄せ、特定できなければ null という規則が入っている', () => {
+    const prompt = buildImportPrompt(state())
+    // 締切のルール8にも同じ言い回しがあるので、ルール9側の文面ごと確かめる
+    expect(prompt).toContain('書類にある表記が')
+    expect(prompt).toContain('都市名を優先してください')
+    expect(prompt).toContain('どう書くか特定できなければ')
+  })
 })
 
 describe('buildImportPrompt: 旅行のコンテキスト', () => {

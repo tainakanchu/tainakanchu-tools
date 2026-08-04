@@ -35,7 +35,8 @@
  *   - タイムゾーン名を辞書の添字に置き換える(辞書に無ければ生文字列)
  *   - zdt(40文字前後の文字列)を「分単位 epoch + タイムゾーン」に分解する
  *
- * その後に足したフィールド(placeAliases / travelDocs)は v2 にだけ載せる。
+ * その後に足したフィールド(placeAliases / travelDocs / 予約の締切 2 種)は
+ * v2 にだけ載せる。
  * v1 の形式は発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
  *
  * **'0' と '1' のデコード経路は消してはいけない。** 共有URLはサーバに保存して
@@ -107,9 +108,20 @@ interface ShortStamp {
   a?: boolean
 }
 
+/**
+ * 場所。v1 / v2 で共通の形なので、キーを足すと両方の形式に同時に載る。
+ *
+ * 'r' がラテン文字表記(latinName)。n/l/a/t/g が埋まっているので、
+ * roman(ラテン文字)の頭文字を取った。他の任意キーと同じく
+ * 「値が無ければキーごと省く」ので、この欄を使っていない旅程の
+ * 共有URLは 1 バイトも増えない。
+ * 逆にこのキーを持たない payload(= この欄を足す前に発行されたURL)は
+ * 「ラテン文字表記を入力していない場所」として読める。
+ */
 interface ShortPlace {
   n: string
   l?: string
+  r?: string
   a?: string
   t?: number
   g?: number
@@ -149,11 +161,14 @@ interface ShortContact {
 /**
  * v1 の状態。過去に発行されたURLを読むための形なので、新しいフィールドは足さない。
  *
- * そのため placeAliases(「同じ場所として扱う」の登録)と travelDocs(手続き)は
- * v1 では落ちる。v1 でエンコードする経路は CompressionStream が使えない環境だけで
+ * そのため placeAliases(「同じ場所として扱う」の登録)と travelDocs(手続き)、
+ * および予約の締切 2 種(搭乗手続き・受託手荷物)は v1 では落ちる。
+ * v1 でエンコードする経路は CompressionStream が使えない環境だけで
  * 今も生きている(buildPayload 参照)ため、そこで共有すると受け取り側では
- * 黙らせたはずの指摘が復活し、手続きの一覧は空になる。
+ * 黙らせたはずの指摘が復活し、手続きの一覧は空になり、締切は入っていない状態になる。
  * 落ちるのは旅程そのものではない(予約は全部載っている)うえ、
+ * 締切が落ちても「マイルストーンが 1 つ出ない」だけで、ずれた締切を
+ * 見せることにはならない(安全な側に落ちる)。
  * 現実にその経路を通るブラウザはほぼ無いので、マーカーを増やしてまで直さない。
  */
 interface ShortState {
@@ -180,6 +195,7 @@ function toShortPlace(place: Place): ShortPlace {
   return {
     n: place.name,
     ...(place.localName !== undefined ? { l: place.localName } : {}),
+    ...(place.latinName !== undefined ? { r: place.latinName } : {}),
     ...(place.address !== undefined ? { a: place.address } : {}),
     ...(place.lat !== undefined ? { t: place.lat } : {}),
     ...(place.lng !== undefined ? { g: place.lng } : {}),
@@ -255,6 +271,7 @@ function fromShortPlace(short: ShortPlace): Place {
   return {
     name: short.n,
     ...(short.l !== undefined ? { localName: short.l } : {}),
+    ...(short.r !== undefined ? { latinName: short.r } : {}),
     ...(short.a !== undefined ? { address: short.a } : {}),
     ...(short.t !== undefined ? { lat: short.t } : {}),
     ...(short.g !== undefined ? { lng: short.g } : {}),
@@ -336,6 +353,14 @@ interface ShortStampV2 {
   a?: boolean
 }
 
+/**
+ * v2 の予約。
+ *
+ * 締切の 2 つ(h / b)は v1 のキーに対応が無い、v2 で初めて足したキー。
+ * 'c' が確認番号で埋まっているので、check-in の 'h'、bag drop の 'b' を割り当てた。
+ * どちらも大多数の予約(宿泊・列車・アクティビティ)では入っていない値なので、
+ * 他の任意キーと同じく「値が無ければキーごと省く」。
+ */
 interface ShortBookingV2 {
   k: BookingKind
   t: string
@@ -350,6 +375,10 @@ interface ShortBookingV2 {
   v?: string
   r?: ShortMoney
   x?: string
+  /** 搭乗手続きの締切(出発の何分前か) */
+  h?: number
+  /** 受託手荷物の預け締切(出発の何分前か) */
+  b?: number
   n?: string
   q?: Array<FieldKey>
 }
@@ -476,6 +505,12 @@ function toShortBookingV2(booking: Booking): ShortBookingV2 {
     ...(booking.freeCancelUntil !== undefined
       ? { x: booking.freeCancelUntil }
       : {}),
+    ...(booking.checkInClosesMinutesBefore !== undefined
+      ? { h: booking.checkInClosesMinutesBefore }
+      : {}),
+    ...(booking.bagDropClosesMinutesBefore !== undefined
+      ? { b: booking.bagDropClosesMinutesBefore }
+      : {}),
     ...(booking.note !== undefined ? { n: booking.note } : {}),
     ...(booking.unverified !== undefined ? { q: booking.unverified } : {}),
   }
@@ -497,6 +532,11 @@ function fromShortBookingV2(short: ShortBookingV2): Booking {
     ...(short.v !== undefined ? { provider: short.v } : {}),
     ...(short.r !== undefined ? { price: fromShortMoney(short.r) } : {}),
     ...(short.x !== undefined ? { freeCancelUntil: short.x } : {}),
+    // このキーを持たない payload は「締切を入力していない予約」を意味する
+    // (締切を足す前に発行されたURLもここを通る)。値の妥当性は
+    // 呼び出し元の parseTripNotesState → parseBooking が見る
+    ...(short.h !== undefined ? { checkInClosesMinutesBefore: short.h } : {}),
+    ...(short.b !== undefined ? { bagDropClosesMinutesBefore: short.b } : {}),
     ...(short.n !== undefined ? { note: short.n } : {}),
     ...(short.q !== undefined ? { unverified: short.q } : {}),
   }

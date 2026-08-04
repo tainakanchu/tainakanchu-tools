@@ -39,6 +39,7 @@ function buildFullState(): TripNotesState {
         place: {
           name: 'Hotel Le Marais',
           localName: 'オテル・ル・マレ',
+          latinName: 'Paris',
           address: '12 Rue de Rivoli, Paris',
           lat: 48.8566,
           lng: 2.3522,
@@ -61,8 +62,12 @@ function buildFullState(): TripNotesState {
         title: 'JL415',
         start: makeStamp('2026-09-10', '00:50', 'Asia/Tokyo'),
         end: makeStamp('2026-09-10', '06:10', 'Europe/Paris'),
-        from: { name: '羽田空港', address: '東京都大田区羽田空港' },
-        to: { name: 'シャルル・ド・ゴール空港' },
+        from: {
+          name: '羽田空港',
+          latinName: 'Tokyo',
+          address: '東京都大田区羽田空港',
+        },
+        to: { name: 'シャルル・ド・ゴール空港', latinName: 'Paris' },
         status: 'confirmed',
         payment: 'paid',
         confirmationNumber: 'XYZ987',
@@ -343,6 +348,79 @@ describe('share', () => {
       ),
     )
     expect(decoded).not.toHaveProperty('placeAliases')
+  })
+
+  describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
+    it('締切がラウンドトリップで保たれる', async () => {
+      const state = buildFullState()
+      // bookings[1] は flight(JL415)。締切は移動の予約にしか意味を持たない
+      state.bookings[1] = {
+        ...state.bookings[1],
+        checkInClosesMinutesBefore: 45,
+        bagDropClosesMinutesBefore: 60,
+      }
+      expect(await roundTrip(state)).toEqual(expected(state))
+    })
+
+    it('締切が無い予約では payload にキーが現れない', async () => {
+      // buildFullState() の予約はどれも締切を入力していない。
+      // travelDocs/placeAliases と同じく「値が無ければキーごと省く」ことを見る
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL)
+      const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('checkInClosesMinutesBefore')
+        expect(booking).not.toHaveProperty('bagDropClosesMinutesBefore')
+      }
+    })
+  })
+
+  describe('場所のラテン文字表記(latinName)', () => {
+    it('v2 のラウンドトリップで latinName が保たれる', async () => {
+      const state = buildFullState()
+      const decoded = await roundTrip(state)
+      expect(decoded).toEqual(expected(state))
+      expect(decoded.bookings[0].place?.latinName).toBe('Paris')
+      expect(decoded.bookings[1].from?.latinName).toBe('Tokyo')
+      expect(decoded.bookings[1].to?.latinName).toBe('Paris')
+    })
+
+    it('v1(非圧縮フォールバック)でも latinName が保たれる', async () => {
+      // ShortPlace は v1 / v2 で共通の形なので、圧縮が使えない環境でも落ちない
+      const savedCompression = globalThis.CompressionStream
+      const savedDecompression = globalThis.DecompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.CompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.DecompressionStream
+      try {
+        const state = buildFullState()
+        const url = await encodeShareUrl(state, BASE_URL)
+        expect(extractHash(url).startsWith('d=0')).toBe(true)
+        const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+        expect(decoded).toEqual(withoutEvidence(state))
+        expect(decoded.bookings[0].place?.latinName).toBe('Paris')
+      } finally {
+        globalThis.CompressionStream = savedCompression
+        globalThis.DecompressionStream = savedDecompression
+      }
+    })
+
+    it('latinName が無い場所には復元後もプロパティが生えない', async () => {
+      // 他の任意キーと同じく「値が無ければキーごと省く」
+      const state = buildFullState()
+      state.bookings[0] = {
+        ...state.bookings[0],
+        place: { name: 'Hotel Le Marais' },
+      }
+      const decoded = requireDecoded(
+        await decodeShareState(
+          extractHash(await encodeShareUrl(state, BASE_URL)),
+        ),
+      )
+      expect(decoded.bookings[0].place).toEqual({ name: 'Hotel Le Marais' })
+      expect(decoded.bookings[0].place).not.toHaveProperty('latinName')
+    })
   })
 
   it('# を付けても付けなくても同じ結果になる', async () => {
@@ -759,6 +837,47 @@ describe('share', () => {
       expect(decoded).not.toHaveProperty('travelDocs')
       expect(decoded.bookings).toHaveLength(2)
       expect(decoded.emergencyContacts).toHaveLength(1)
+    })
+
+    /**
+     * 同じ payload は締切 2 種(h / b)のキーも持っていない
+     * (締切を足す前のビルドが出した URL のため)。placeAliases/travelDocs と
+     * 同じ理由で、キーが無い予約に締切のプロパティが生えてはいけない。
+     */
+    it('marker "2" の既存URL(締切のキーが無い)が今も読める。予約に締切のプロパティは生えない', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded.bookings).toHaveLength(2)
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('checkInClosesMinutesBefore')
+        expect(booking).not.toHaveProperty('bagDropClosesMinutesBefore')
+      }
+    })
+
+    /**
+     * ShortPlace はトップレベルではなく場所の中に任意キーを足した例。
+     * 場所を持つ既存URLは大量に発行されているので、キーが無いこと
+     * (= ラテン文字表記を入力していない場所)がそのまま読めなければならない。
+     */
+    it('marker "2" の既存URL(latinName のキーが無い)が今も読める', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded.bookings[0].place?.name).toBe('Hotel Le Marais')
+      expect(decoded.bookings[0].place).not.toHaveProperty('latinName')
+    })
+
+    it('marker "0" / "1" の既存URLにも latinName は生えない', async () => {
+      const fromZero = requireDecoded(
+        await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
+      )
+      const fromOne = requireDecoded(
+        await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
+      )
+      expect(fromZero.bookings[0].place?.localName).toBe('オテル・ル・マレ')
+      expect(fromZero.bookings[0].place).not.toHaveProperty('latinName')
+      expect(fromOne.bookings[0].place).not.toHaveProperty('latinName')
     })
 
     it('marker "0" / "1" の既存URLにも travelDocs は生えない', async () => {
