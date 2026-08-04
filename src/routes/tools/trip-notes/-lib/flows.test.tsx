@@ -536,6 +536,34 @@ describe('AI インポートの一括承認', () => {
     expect(within(main()).queryByText('期間外の予定')).toBeNull()
   })
 
+  it('取り込んだ直後に「日程で確認する」で日程タブの該当日へ飛べる', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const dialog = await openReviewDialog(user, THREE_BOOKINGS)
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: '3件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+
+    await user.click(
+      await screen.findByRole('button', { name: '日程で確認する' }),
+    )
+
+    expect(
+      screen.getByRole('tab', { name: /日程/ }).getAttribute('aria-selected'),
+    ).toBe('true')
+
+    // 3件のうち一番早い日(6/12・確認済みの宿)がハイライトされる
+    const day = within(main())
+      .getByRole('heading', { level: 3, name: /^6\/12/ })
+      .closest('li')
+    if (day === null) throw new Error('6/12 の日付ブロックが見つからない')
+    expect(day.className).toContain('ring-cyan-400')
+  })
+
   it('取り込んだ直後に、その場でまとめて確認済みにできる', async () => {
     const user = userEvent.setup()
     seed(makeState())

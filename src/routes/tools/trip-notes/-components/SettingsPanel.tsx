@@ -50,6 +50,8 @@ interface SettingsPanelProps {
   state: TripNotesState
   displayTz: string
   dispatch: TripNotesDispatch
+  /** AIインポート完了後、取り込んだ日へ日程タブから飛ぶための橋渡し */
+  onSelectDate: (date: string) => void
 }
 
 interface Message {
@@ -206,6 +208,7 @@ export function SettingsPanel({
   state,
   displayTz,
   dispatch,
+  onSelectDate,
 }: SettingsPanelProps) {
   const titleId = useId()
   const startId = useId()
@@ -322,7 +325,8 @@ export function SettingsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    // フォームの縦積みなので、main を広げても横いっぱいには伸ばさない
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       {/* 1. 旅行の基本情報 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
@@ -451,7 +455,12 @@ export function SettingsPanel({
       </section>
 
       {/* 3. AIインポート */}
-      <AiImportPanel state={state} displayTz={displayTz} dispatch={dispatch} />
+      <AiImportPanel
+        state={state}
+        displayTz={displayTz}
+        dispatch={dispatch}
+        onSelectDate={onSelectDate}
+      />
 
       {/* 4. 共有・バックアップ */}
       <section className={cardClass}>

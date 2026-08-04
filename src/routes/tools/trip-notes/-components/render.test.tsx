@@ -176,10 +176,24 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
 
   it('SettingsPanel / AiImportPanel / PrintSheet / Onboarding / BookingForm', () => {
     expect(() =>
-      render(<SettingsPanel state={state} displayTz={tz} dispatch={noop} />),
+      render(
+        <SettingsPanel
+          state={state}
+          displayTz={tz}
+          dispatch={noop}
+          onSelectDate={noop}
+        />,
+      ),
     ).not.toThrow()
     expect(() =>
-      render(<AiImportPanel state={state} displayTz={tz} dispatch={noop} />),
+      render(
+        <AiImportPanel
+          state={state}
+          displayTz={tz}
+          dispatch={noop}
+          onSelectDate={noop}
+        />,
+      ),
     ).not.toThrow()
     expect(() =>
       render(<PrintSheet state={state} displayTz={tz} />),

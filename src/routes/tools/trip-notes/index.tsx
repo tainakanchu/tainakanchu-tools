@@ -314,6 +314,7 @@ function TripNotesPage() {
               state={state}
               displayTz={displayTz}
               dispatch={dispatch}
+              onSelectDate={jumpToDate}
             />
           )}
         </div>

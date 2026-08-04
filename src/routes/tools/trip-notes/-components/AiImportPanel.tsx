@@ -15,6 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  CalendarDays,
   Check,
   Copy,
   ExternalLink,
@@ -27,7 +28,7 @@ import {
   buildImportPrompt,
 } from '../../../../lib/trip-notes/aiPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
-import { formatStamp } from '../../../../lib/trip-notes/datetime'
+import { formatStamp, stampDateInTz } from '../../../../lib/trip-notes/datetime'
 import { copyText } from '../-lib/format'
 import {
   cardClass,
@@ -53,6 +54,11 @@ interface AiImportPanelProps {
   state: TripNotesState
   displayTz: string
   dispatch: TripNotesDispatch
+  /**
+   * 取り込み完了バナーの「日程で確認する」から、日程タブの該当日へ飛ぶ。
+   * ProgressPanel の不整合カードなどと同じ、index.tsx の jumpToDate をそのまま渡してもらう
+   */
+  onSelectDate: (date: string) => void
 }
 
 type WizardStep = 1 | 2 | 3
@@ -151,6 +157,7 @@ export function AiImportPanel({
   state,
   displayTz,
   dispatch,
+  onSelectDate,
 }: AiImportPanelProps) {
   const [step, setStep] = useState<WizardStep>(1)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
@@ -163,6 +170,11 @@ export function AiImportPanel({
   const [importedUnverifiedIds, setImportedUnverifiedIds] = useState<
     Array<string>
   >([])
+  // 直前の取り込みで一番早い予約の日(表示タイムゾーン基準)。
+  // 「日程で確認する」がどの日へ飛ぶかを決める。取り込みが0件なら null のまま
+  const [importedFocusDate, setImportedFocusDate] = useState<string | null>(
+    null,
+  )
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false)
   const copyTimeoutRef = useRef<number | null>(null)
 
@@ -208,12 +220,19 @@ export function AiImportPanel({
     const unverifiedIds = confirmed
       .filter((b) => b.unverified !== undefined && b.unverified.length > 0)
       .map((b) => b.id)
+    // 「日程で確認する」の飛び先。複数日にまたがる取り込みでも、
+    // 一番早い日へ飛べば残りは日程タブのスクロールで自然に見える
+    const focusDate = confirmed.reduce<string | null>((earliest, b) => {
+      const date = stampDateInTz(b.start, displayTz)
+      return earliest === null || date < earliest ? date : earliest
+    }, null)
 
     setReviewOpen(false)
     setImportResult(null)
     setPastedText('')
     setStep(1)
     setImportedUnverifiedIds(unverifiedIds)
+    setImportedFocusDate(focusDate)
     if (confirmed.length === 0) {
       setSuccessMessage('取り込む予約がありませんでした')
     } else if (unverifiedIds.length === 0) {
@@ -262,23 +281,31 @@ export function AiImportPanel({
             </button>
           </div>
           {/*
-            取り込んだ直後こそ、値が頭に残っていてまとめて確認しやすい。
-            日程タブまで移動して1件ずつ押させると、その勢いが切れる
+            取り込んだ結果を見に行きたい人と、その場でまとめて片付けたい人の
+            両方の動線を残す。「日程で確認する」は取り込みがあれば常に出し、
+            「まとめて確認する」は未確認が残っているときだけ添える
           */}
-          {importedUnverifiedIds.length > 0 && (
+          {importedFocusDate !== null && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setBulkVerifyOpen(true)}
+                onClick={() => onSelectDate(importedFocusDate)}
                 className={subtleButtonClass}
-                aria-label={`取り込んだ${importedUnverifiedIds.length}件の未確認をまとめて確認済みにする`}
               >
-                <ListChecks size={15} aria-hidden="true" />
-                まとめて確認する
+                <CalendarDays size={15} aria-hidden="true" />
+                日程で確認する
               </button>
-              <span className="text-xs text-emerald-700">
-                日程タブの各カードでも、1件ずつ確認できます
-              </span>
+              {importedUnverifiedIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setBulkVerifyOpen(true)}
+                  className={subtleButtonClass}
+                  aria-label={`取り込んだ${importedUnverifiedIds.length}件の未確認をまとめて確認済みにする`}
+                >
+                  <ListChecks size={15} aria-hidden="true" />
+                  まとめて確認する
+                </button>
+              )}
             </div>
           )}
         </div>
