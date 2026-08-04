@@ -232,6 +232,33 @@ describe('parseImportedJson: タイムゾーンの補完', () => {
     ).toBe(true)
   })
 
+  it('tz を補完した予約の id だけが tzFallbackIds に載る', () => {
+    // レビュー画面が「一括承認するにしても、ここだけは見て」を出すための印。
+    // issues の文章からは、どの予約が危ういかを機械的に引けない
+    const text = [
+      '[',
+      '{"kind":"lodging","title":"tz あり","start":{"date":"2026-09-12","time":"15:00","tz":"Europe/Paris"}},',
+      '{"kind":"train","title":"tz なし","start":{"date":"2026-09-13","time":"09:00"}}',
+      ']',
+    ].join('')
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.bookings).toHaveLength(2)
+    expect(result.tzFallbackIds).toEqual([result.bookings[1].id])
+  })
+
+  it('end の tz だけを補完した予約も tzFallbackIds に載る', () => {
+    const text =
+      '[{"kind":"lodging","title":"Hotel Le Marais","start":{"date":"2026-09-12","time":"15:00","tz":"Europe/Paris"},"end":{"date":"2026-09-15","time":"11:00"}}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.tzFallbackIds).toEqual([result.bookings[0].id])
+  })
+
+  it('全件の tz が読めていれば tzFallbackIds は空になる', () => {
+    const text =
+      '[{"kind":"lodging","title":"Hotel Le Marais","start":{"date":"2026-09-12","time":"15:00","tz":"Europe/Paris"},"end":{"date":"2026-09-15","time":"11:00","tz":"Europe/Paris"}}]'
+    expect(parseImportedJson(text, TOKYO).tzFallbackIds).toEqual([])
+  })
+
   it('fallbackTz 自体が不正でも Asia/Tokyo に退避して取り込みは続く', () => {
     const text =
       '[{"kind":"other","title":"打ち合わせ","start":{"date":"2026-09-12","time":"19:00","tz":null}}]'

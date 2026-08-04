@@ -350,6 +350,23 @@ describe('AI インポート', () => {
     const dialog = await screen.findByRole('dialog', {
       name: '日時とタイムゾーンの確認',
     })
+    // 入力欄を開かなくても、確定される日時とタイムゾーンは一覧で読める
+    expect(
+      within(dialog).getByText('2030-06-12 15:00 / Europe/Paris'),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText('2030-06-14 10:00 / Europe/Paris'),
+    ).toBeTruthy()
+
+    // 直したいときだけ入力欄を開く
+    expect(
+      within(dialog).queryByLabelText('ホテル・ド・パリ の開始日'),
+    ).toBeNull()
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'ホテル・ド・パリ の日時を直す',
+      }),
+    )
     const startDate =
       within(dialog).getByLabelText<HTMLInputElement>(
         'ホテル・ド・パリ の開始日',
@@ -364,7 +381,9 @@ describe('AI インポート', () => {
     expect(screen.getByLabelText('寝る場所が未確保の夜が 3 泊')).toBeTruthy()
 
     await user.click(
-      within(dialog).getByRole('button', { name: '確定して取り込む' }),
+      within(dialog).getByRole('button', {
+        name: '1件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
     )
 
     expect(await screen.findByText(/^1件を取り込みました。/)).toBeTruthy()
@@ -377,6 +396,261 @@ describe('AI インポート', () => {
     const title = within(main()).getByText('ホテル・ド・パリ')
     expect(title.className).toContain('border-amber-400')
     expect(within(main()).getByText(/^未確認 \d+件$/)).toBeTruthy()
+  })
+})
+
+describe('AI インポートの一括承認', () => {
+  /**
+   * 3件。1件目だけが「そのまま通してよい」形で、
+   * 2件目は tz が欠けており、3件目は旅行期間から外れている。
+   */
+  const THREE_BOOKINGS = JSON.stringify([
+    {
+      kind: 'lodging',
+      title: '確認済みの宿',
+      start: { date: '2030-06-12', time: '15:00', tz: 'Asia/Tokyo' },
+      end: { date: '2030-06-14', time: '10:00', tz: 'Asia/Tokyo' },
+      status: 'confirmed',
+      payment: 'paid',
+      evidence: { start: 'チェックイン 15:00', end: 'チェックアウト 10:00' },
+    },
+    {
+      kind: 'train',
+      title: 'タイムゾーン不明の列車',
+      start: { date: '2030-06-14', time: '09:00' },
+      status: 'confirmed',
+      payment: 'paid',
+      evidence: { start: '09:00 発' },
+    },
+    {
+      kind: 'activity',
+      title: '期間外の予定',
+      start: { date: '2030-07-01', time: '12:00', tz: 'Asia/Tokyo' },
+      status: 'idea',
+      payment: 'unpaid',
+      evidence: { start: '7月1日 12:00' },
+    },
+  ])
+
+  /** 設定タブの AI インポートに JSON を流し込み、レビュー画面まで進める */
+  async function openReviewDialog(
+    user: UserEvent,
+    json: string,
+  ): Promise<HTMLElement> {
+    await goToTab(user, '設定')
+    await user.click(
+      screen.getByRole('button', { name: '次へ: 結果を貼り付ける' }),
+    )
+    const textarea = screen.getByLabelText('AI が返した JSON')
+    await user.click(textarea)
+    await user.paste(json)
+    await user.click(screen.getByRole('button', { name: '読み込む' }))
+    await user.click(await screen.findByRole('button', { name: '取り込む' }))
+    return screen.findByRole('dialog', { name: '日時とタイムゾーンの確認' })
+  }
+
+  it('全件の日時が一覧で見え、要確認の予約が先頭に寄る', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const dialog = await openReviewDialog(user, THREE_BOOKINGS)
+
+    // 展開しなくても3件ぶんの日時とタイムゾーンが読める
+    expect(
+      within(dialog).getByText('2030-06-12 15:00 / Asia/Tokyo'),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText('2030-06-14 09:00 / Asia/Tokyo'),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText('2030-07-01 12:00 / Asia/Tokyo'),
+    ).toBeTruthy()
+
+    // 要確認の2件が先に並ぶ。「まとめてOKする前に、ここだけは見て」の提示
+    expect(within(dialog).getByText(/2件は特に確認してください/)).toBeTruthy()
+    expect(within(dialog).getByText('タイムゾーンを補完')).toBeTruthy()
+    expect(within(dialog).getByText('旅行期間外')).toBeTruthy()
+    expect(
+      within(dialog)
+        .getAllByRole('button', { name: /の日時を直す$/ })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'タイムゾーン不明の列車 の日時を直す',
+      '期間外の予定 の日時を直す',
+      '確認済みの宿 の日時を直す',
+    ])
+  })
+
+  it('「すべて確認して取り込む」1回で3件まとめて取り込める', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const dialog = await openReviewDialog(user, THREE_BOOKINGS)
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: '3件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+
+    expect(
+      await screen.findByText(
+        '3件を取り込みました。3件に未確認の項目があります',
+      ),
+    ).toBeTruthy()
+
+    await goToTab(user, '日程')
+    expect(within(main()).getByText('確認済みの宿')).toBeTruthy()
+    expect(within(main()).getByText('タイムゾーン不明の列車')).toBeTruthy()
+    expect(within(main()).getByText('期間外の予定')).toBeTruthy()
+  })
+
+  it('取り込まないにチェックした予約は件数からも結果からも外れる', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const dialog = await openReviewDialog(user, THREE_BOOKINGS)
+    // 「期間外の予定」の行にあるチェックボックスだけを外す
+    const excludeTarget = within(dialog)
+      .getByRole('button', { name: '期間外の予定 の日時を直す' })
+      .closest('li')
+    if (excludeTarget === null) throw new Error('対象の行が見つからない')
+    await user.click(
+      within(excludeTarget).getByRole('checkbox', { name: '取り込まない' }),
+    )
+
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: '2件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+
+    expect(
+      await screen.findByText(
+        '2件を取り込みました。2件に未確認の項目があります',
+      ),
+    ).toBeTruthy()
+    await goToTab(user, '日程')
+    expect(within(main()).queryByText('期間外の予定')).toBeNull()
+  })
+
+  it('取り込んだ直後に、その場でまとめて確認済みにできる', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const dialog = await openReviewDialog(user, THREE_BOOKINGS)
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: '3件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: '取り込んだ3件の未確認をまとめて確認済みにする',
+      }),
+    )
+
+    // 誤操作が怖い操作なので、実行前に必ず確認を挟む
+    const confirm = await screen.findByRole('dialog', {
+      name: /未確認をまとめて解除しますか/,
+    })
+    await user.click(
+      within(confirm).getByRole('button', {
+        name: '取り込んだ3件の未確認をすべて解除する',
+      }),
+    )
+
+    expect(
+      await screen.findByText('3件の未確認をすべて解除しました'),
+    ).toBeTruthy()
+    await goToTab(user, '日程')
+    expect(within(main()).queryByText(/^未確認 \d+件$/)).toBeNull()
+  })
+})
+
+describe('未確認フィールドの一括解除', () => {
+  function unverifiedState(): TripNotesState {
+    return makeState({
+      bookings: [
+        lodging({ unverified: ['title', 'start'] }),
+        lodging({
+          id: 'bk-2',
+          title: '京都の宿',
+          start: {
+            zdt: '2030-06-14T15:00:00+09:00[Asia/Tokyo]',
+            allDay: false,
+          },
+          end: { zdt: '2030-06-15T10:00:00+09:00[Asia/Tokyo]', allDay: false },
+          unverified: ['title'],
+        }),
+      ],
+    })
+  }
+
+  it('予約カードのボタンで、その予約だけまとめて確認済みになる', async () => {
+    const user = userEvent.setup()
+    seed(unverifiedState())
+    await renderPage()
+    await goToTab(user, '日程')
+
+    await user.click(
+      within(main()).getByRole('button', {
+        name: '東京の宿 の未確認 2件をすべて確認済みにする',
+      }),
+    )
+
+    await waitFor(() =>
+      expect(within(main()).queryByText('未確認 2件')).toBeNull(),
+    )
+    // 別の予約の未確認は巻き込まない
+    expect(within(main()).getByText('未確認 1件')).toBeTruthy()
+  })
+
+  it('一覧の「未確認をすべて解除」は確認を挟み、undo 1回で戻せる', async () => {
+    const user = userEvent.setup()
+    seed(unverifiedState())
+    await renderPage()
+    await goToTab(user, '日程')
+
+    await user.click(
+      within(main()).getByRole('button', {
+        name: '未確認の項目が残る2件の予約を、まとめて確認済みにする',
+      }),
+    )
+    const confirm = await screen.findByRole('dialog', {
+      name: /未確認をすべて解除しますか/,
+    })
+
+    // 実行前にやめれば何も起きない
+    await user.click(within(confirm).getByRole('button', { name: 'やめる' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(within(main()).getByText('未確認 2件')).toBeTruthy()
+
+    await user.click(
+      within(main()).getByRole('button', {
+        name: '未確認の項目が残る2件の予約を、まとめて確認済みにする',
+      }),
+    )
+    const reopened = await screen.findByRole('dialog', {
+      name: /未確認をすべて解除しますか/,
+    })
+    await user.click(
+      within(reopened).getByRole('button', {
+        name: '2件の予約の未確認をすべて解除する',
+      }),
+    )
+
+    await waitFor(() =>
+      expect(within(main()).queryByText(/^未確認 \d+件$/)).toBeNull(),
+    )
+
+    // 件数ぶん undo を押させない。1回で元に戻る
+    await user.click(screen.getByRole('button', { name: '元に戻す' }))
+    expect(within(main()).getByText('未確認 2件')).toBeTruthy()
+    expect(within(main()).getByText('未確認 1件')).toBeTruthy()
   })
 })
 

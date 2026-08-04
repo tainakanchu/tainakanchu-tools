@@ -14,7 +14,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Copy, ExternalLink, Sparkles, X } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  ListChecks,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import {
   AI_SERVICE_LINKS,
   buildImportPrompt,
@@ -31,6 +38,7 @@ import {
   unverifiedFieldClass,
 } from '../-lib/styles'
 import { BookingStatusBadge } from './StatusBadge'
+import { ConfirmDialog } from './ConfirmDialog'
 import { KindIcon } from './KindIcon'
 import { ReviewDialog } from './ReviewDialog'
 import type { TripNotesDispatch } from '../-lib/reducer'
@@ -150,6 +158,12 @@ export function AiImportPanel({
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  // 直前の取り込みで未確認が残った予約の id。「まとめて確認する」の対象を
+  // このときの取り込みぶんだけに限る(手入力ぶんの未確認まで巻き込まない)
+  const [importedUnverifiedIds, setImportedUnverifiedIds] = useState<
+    Array<string>
+  >([])
+  const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false)
   const copyTimeoutRef = useRef<number | null>(null)
 
   // 表示中のタイムゾーンをそのままプロンプトの基準タイムゾーンにする。
@@ -189,15 +203,35 @@ export function AiImportPanel({
     if (confirmed.length > 0) {
       dispatch({ type: 'importBookings', bookings: confirmed })
     }
+    // 日時は ReviewDialog で確認済みになっているので、ここに残るのは
+    // タイトル・確認番号・料金など「間違っていても乗り遅れない」項目だけ
+    const unverifiedIds = confirmed
+      .filter((b) => b.unverified !== undefined && b.unverified.length > 0)
+      .map((b) => b.id)
+
     setReviewOpen(false)
     setImportResult(null)
     setPastedText('')
     setStep(1)
-    setSuccessMessage(
-      confirmed.length > 0
-        ? `${confirmed.length}件を取り込みました。日時以外の項目は黄色い下線が付いた状態で確認できます`
-        : '取り込む予約がありませんでした',
-    )
+    setImportedUnverifiedIds(unverifiedIds)
+    if (confirmed.length === 0) {
+      setSuccessMessage('取り込む予約がありませんでした')
+    } else if (unverifiedIds.length === 0) {
+      setSuccessMessage(`${confirmed.length}件を取り込みました`)
+    } else {
+      setSuccessMessage(
+        `${confirmed.length}件を取り込みました。${unverifiedIds.length}件に未確認の項目があります`,
+      )
+    }
+  }
+
+  /** 取り込んだぶんの未確認をまとめて外す。Undo 1 回で戻せる 1 アクション */
+  function handleBulkVerify(): void {
+    const count = importedUnverifiedIds.length
+    dispatch({ type: 'verifyAllUnverified', ids: importedUnverifiedIds })
+    setBulkVerifyOpen(false)
+    setImportedUnverifiedIds([])
+    setSuccessMessage(`${count}件の未確認をすべて解除しました`)
   }
 
   return (
@@ -214,17 +248,39 @@ export function AiImportPanel({
       {successMessage !== null && (
         <div
           role="status"
-          className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+          className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
         >
-          <span>{successMessage}</span>
-          <button
-            type="button"
-            onClick={() => setSuccessMessage(null)}
-            aria-label="このメッセージを閉じる"
-            className="shrink-0 rounded p-0.5 text-emerald-700 transition hover:bg-emerald-100"
-          >
-            <X size={14} aria-hidden="true" />
-          </button>
+          <div className="flex items-start justify-between gap-2">
+            <span>{successMessage}</span>
+            <button
+              type="button"
+              onClick={() => setSuccessMessage(null)}
+              aria-label="このメッセージを閉じる"
+              className="shrink-0 rounded p-0.5 text-emerald-700 transition hover:bg-emerald-100"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+          {/*
+            取り込んだ直後こそ、値が頭に残っていてまとめて確認しやすい。
+            日程タブまで移動して1件ずつ押させると、その勢いが切れる
+          */}
+          {importedUnverifiedIds.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkVerifyOpen(true)}
+                className={subtleButtonClass}
+                aria-label={`取り込んだ${importedUnverifiedIds.length}件の未確認をまとめて確認済みにする`}
+              >
+                <ListChecks size={15} aria-hidden="true" />
+                まとめて確認する
+              </button>
+              <span className="text-xs text-emerald-700">
+                日程タブの各カードでも、1件ずつ確認できます
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -421,8 +477,22 @@ export function AiImportPanel({
         <ReviewDialog
           bookings={importResult.bookings}
           displayTz={displayTz}
+          tripStartDate={state.startDate}
+          tripEndDate={state.endDate}
+          tzFallbackIds={importResult.tzFallbackIds}
           onConfirm={handleConfirmImport}
           onCancel={() => setReviewOpen(false)}
+        />
+      )}
+
+      {bulkVerifyOpen && (
+        <ConfirmDialog
+          title="未確認をまとめて解除しますか?"
+          description={`取り込んだ${importedUnverifiedIds.length}件の黄色い下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
+          confirmLabel="すべて解除する"
+          confirmAriaLabel={`取り込んだ${importedUnverifiedIds.length}件の未確認をすべて解除する`}
+          onConfirm={handleBulkVerify}
+          onCancel={() => setBulkVerifyOpen(false)}
         />
       )}
     </section>

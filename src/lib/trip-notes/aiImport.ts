@@ -59,6 +59,15 @@ export interface ImportIssue {
 export interface ImportResult {
   bookings: Array<Booking>
   issues: Array<ImportIssue>
+  /**
+   * タイムゾーンを読み取れず補完した予約の id。
+   *
+   * issues にも同じ内容の注記は載るが、あちらは人間が読む文章なので
+   * UI から機械的に「どの予約が危ういか」を引くには使えない。
+   * レビュー画面で「一括承認するにしても、ここだけは見て」を出すために、
+   * 予約と結び付いた形で別に持つ。
+   */
+  tzFallbackIds: Array<string>
 }
 
 /** issues に載せる生データの上限。UI に貼るためのものなので長すぎても読めない */
@@ -306,6 +315,8 @@ interface StampConversion {
   stamp: Stamp | null
   /** 呼び出し元が index を付けて issues に積むためのメッセージ */
   notes: Array<string>
+  /** tz を読み取れず fallbackTz で補ったか。レビュー画面の優先度付けに使う */
+  tzFallback: boolean
 }
 
 /**
@@ -337,13 +348,18 @@ function toStamp(
     timeRaw = raw.time
     tzRaw = raw.tz
   } else {
-    return { stamp: null, notes: [`${field} の日時が読み取れませんでした`] }
+    return {
+      stamp: null,
+      notes: [`${field} の日時が読み取れませんでした`],
+      tzFallback: false,
+    }
   }
 
   if (typeof dateRaw !== 'string' || !isValidISODate(dateRaw.trim())) {
     return {
       stamp: null,
       notes: [`${field}.date が 'YYYY-MM-DD' 形式ではありません`],
+      tzFallback: false,
     }
   }
   const date = dateRaw.trim()
@@ -359,9 +375,11 @@ function toStamp(
   }
 
   let tz = fallbackTz
+  let tzFallback = false
   if (isValidTz(tzRaw)) {
     tz = tzRaw
   } else {
+    tzFallback = true
     notes.push(
       tzRaw === null || tzRaw === undefined
         ? `${field}.tz が無いため ${fallbackTz} として解釈しました`
@@ -371,9 +389,13 @@ function toStamp(
 
   const stamp = tryMakeStamp(date, time, tz)
   if (stamp === null) {
-    return { stamp: null, notes: [`${field} の日時を解釈できませんでした`] }
+    return {
+      stamp: null,
+      notes: [`${field} の日時を解釈できませんでした`],
+      tzFallback,
+    }
   }
-  return { stamp, notes }
+  return { stamp, notes, tzFallback }
 }
 
 /** Place。name だけ必須。文字列 1 本で返してくることもあるので拾う */
@@ -456,6 +478,7 @@ function convertBooking(
   index: number,
   fallbackTz: string,
   issues: Array<ImportIssue>,
+  tzFallbackIds: Set<string>,
 ): Booking | null {
   const push = (message: string, withRaw = false): void => {
     issues.push({
@@ -492,6 +515,7 @@ function convertBooking(
     return null
   }
   const start = startResult.stamp
+  let tzFallback = startResult.tzFallback
 
   // end のタイムゾーンが不明なら、デバイスのものより start のほうが近い。
   // 宿のチェックアウトは必ず現地時刻だし、移動でも到着地が不明なら
@@ -503,6 +527,7 @@ function convertBooking(
     if (endResult.stamp === null) {
       push('end を解釈できなかったため終了時刻なしとして取り込みました')
     }
+    if (endResult.tzFallback) tzFallback = true
     end = endResult.stamp
   }
 
@@ -556,6 +581,10 @@ function convertBooking(
   const unverified = FIELD_KEYS.filter((key) => hasFieldValue(booking, key))
   if (unverified.length > 0) booking.unverified = unverified
 
+  // id は parseBooking を通ったあとの booking から取る(候補の id をそのまま
+  // 使うと、parseBooking が採番し直した場合に取り違える)
+  if (tzFallback) tzFallbackIds.add(booking.id)
+
   return booking
 }
 
@@ -570,6 +599,7 @@ export function parseImportedJson(
   fallbackTz: string,
 ): ImportResult {
   const issues: Array<ImportIssue> = []
+  const tzFallbackIds = new Set<string>()
   // 呼び出し元が壊れた tz を渡してきても、取り込み全体が空振りしないようにする
   const safeTz = isValidTz(fallbackTz) ? fallbackTz : FALLBACK_TZ
 
@@ -577,7 +607,7 @@ export function parseImportedJson(
   const cleaned = text.replace(/^\ufeff/, '').trim()
   if (cleaned.length === 0) {
     issues.push({ index: null, message: '入力が空です' })
-    return { bookings: [], issues }
+    return { bookings: [], issues, tzFallbackIds: [] }
   }
 
   let records: Array<unknown> | null = null
@@ -603,7 +633,7 @@ export function parseImportedJson(
         index: null,
         message: '予約が 1 件も含まれていませんでした(空の配列)',
       })
-      return { bookings: [], issues }
+      return { bookings: [], issues, tzFallbackIds: [] }
     }
     issues.push({
       index: null,
@@ -611,14 +641,14 @@ export function parseImportedJson(
         'JSON として読み取れませんでした。AI の出力を ```json フェンスごとすべて貼り付けてください',
       raw: truncate(cleaned),
     })
-    return { bookings: [], issues }
+    return { bookings: [], issues, tzFallbackIds: [] }
   }
 
   const bookings: Array<Booking> = []
   records.forEach((record, index) => {
-    const booking = convertBooking(record, index, safeTz, issues)
+    const booking = convertBooking(record, index, safeTz, issues, tzFallbackIds)
     if (booking !== null) bookings.push(booking)
   })
 
-  return { bookings, issues }
+  return { bookings, issues, tzFallbackIds: [...tzFallbackIds] }
 }
