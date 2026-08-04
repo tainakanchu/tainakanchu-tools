@@ -413,6 +413,100 @@ describe('日程タブの継続行は締切のあるイベントだけを持ち�
 })
 
 /**
+ * 印刷しおりは画面に出ないので、壊れても誰も気付けない。
+ * 「この紙 1 部で旅程を遂行できる」を支えている情報が、実際に紙へ落ちているかを
+ * ここで固定しておく。見ているのは次の 4 点。
+ * - カウンターで探す確認番号と、運転手に見せる現地語表記が載っていること
+ * - キャンセル済みが載っていないこと(行かないと決めた予定は紙で見るものではない)
+ * - 夜の一覧が出て、未確保の夜を正直に「未確保」と書くこと
+ * - 継続行が画面と同じく時刻順に混ざること
+ */
+describe('印刷しおりは紙で使う情報を載せる', () => {
+  it('確認番号・現地語表記・夜の一覧が出て、キャンセル済みは載らない', () => {
+    const { container } = render(<PrintSheet state={state} displayTz={tz} />)
+    const scope = within(container)
+
+    // bk() の既定なので、キャンセル済みを除いた 2 件ぶん出る
+    expect(scope.getAllByText('ABC-123')).toHaveLength(2)
+    expect(scope.getAllByText('確認番号')).toHaveLength(2)
+    expect(scope.getAllByText('Hôtel de Paris')).toHaveLength(2)
+
+    expect(scope.queryByText('キャンセルした予定')).toBeNull()
+
+    expect(scope.getByText('夜の一覧')).toBeTruthy()
+    // 6/12〜6/22 の 10 泊のうち、宿と夜行がカバーするのは 3 泊だけ
+    expect(scope.getByText('10泊中 7泊が未確保')).toBeTruthy()
+    expect(scope.getAllByText('未確保').length).toBeGreaterThan(0)
+
+    // 手続きの参照番号も紙で持ち歩く目的そのものなので落とさない
+    expect(scope.getByText('VISA-0001')).toBeTruthy()
+  })
+
+  it('継続行はまとめて先頭に出さず、その日の予定と時刻順に混ざる', () => {
+    // 6/14 は「09:00 に美術館へ行き、12:00 に宿を出る」日。継続行を先頭に
+    // まとめていた頃は、12:00 のチェックアウトが 09:00 の予定より上に出ていた
+    const mixed: TripNotesState = {
+      ...stateWithoutTravelDocs,
+      endDate: '2026-06-15',
+      bookings: [
+        bk('mix-stay', {
+          end: {
+            zdt: '2026-06-14T12:00:00+02:00[Europe/Paris]',
+            allDay: false,
+          },
+        }),
+        bk('mix-morning', {
+          kind: 'activity',
+          title: '朝の美術館',
+          start: {
+            zdt: '2026-06-14T09:00:00+02:00[Europe/Paris]',
+            allDay: false,
+          },
+          end: null,
+        }),
+      ],
+      emergencyContacts: [],
+    }
+
+    const { container } = render(<PrintSheet state={mixed} displayTz={tz} />)
+    const text = container.textContent
+
+    expect(text).toContain('朝の美術館')
+    expect(text).toContain('チェックアウト')
+    expect(text.indexOf('朝の美術館')).toBeLessThan(
+      text.indexOf('チェックアウト'),
+    )
+  })
+
+  it('移動の締切は「出発の何分前」ではなく時刻に直して出る', () => {
+    // 紙は空港のカウンターの前で読むものなので、暗算を残さない
+    const flight: TripNotesState = {
+      ...stateWithoutTravelDocs,
+      bookings: [
+        bk('dl-flight', {
+          kind: 'flight',
+          title: 'AF276',
+          start: {
+            zdt: '2026-06-14T13:00:00+02:00[Europe/Paris]',
+            allDay: false,
+          },
+          end: null,
+          bagDropClosesMinutesBefore: 60,
+          checkInClosesMinutesBefore: 45,
+        }),
+      ],
+      emergencyContacts: [],
+    }
+
+    const { container } = render(<PrintSheet state={flight} displayTz={tz} />)
+    const scope = within(container)
+
+    expect(scope.getByText('手荷物を預ける締切 12:00')).toBeTruthy()
+    expect(scope.getByText('搭乗手続きの締切 12:15')).toBeTruthy()
+  })
+})
+
+/**
  * こちらも同じく見た目まで踏み込む。
  *
  * 「今」タブの進行中カードは 15:00 → 11:00 と時刻を並べるだけで、終了までの
