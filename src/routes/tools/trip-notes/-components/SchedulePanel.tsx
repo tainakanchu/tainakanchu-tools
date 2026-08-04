@@ -22,6 +22,11 @@
  * その簡易行とカードは、見た目は別物でも同じ 1 本の時間軸に並べる
  * (derive.ts の dayTimeline)。行の種類でまとめて出すと、12:00 チェックアウトの
  * 簡易行が朝 09:00 のカードより前に出て、書いてある時刻と並び順が食い違う。
+ *
+ * カードの開閉状態(どの予約を展開しているか)もここが持つ。カード自身に
+ * 持たせると、日付の並べ替えや再描画でカードが作り直されたときに黙って
+ * 閉じてしまうため。保存はしない。開いたかどうかは「いま確認している最中」と
+ * いう一時的な文脈でしかなく、次にアプリを開いたときまで引きずる意味が無い。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -249,7 +254,22 @@ export function SchedulePanel({
   )
   const [highlightDate, setHighlightDate] = useState<string | null>(null)
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false)
+  /**
+   * 展開中の予約 id。予約 id で持てるのは、カードがその予約の開始日にしか
+   * 出ないため(2 日目以降は OngoingRow という別の行になる)。
+   * 同じ予約のカードが 2 つの日に並ぶことは無いので、日付との組にする必要が無い。
+   */
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   const dayRefs = useRef(new Map<string, HTMLElement>())
+
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
 
   // 未確認が 1 件でも残っている予約の数。一括解除ボタンの表示と、
   // 「何件に効くのか」の提示に使う
@@ -433,6 +453,8 @@ export function SchedulePanel({
                           key={booking.id}
                           booking={booking}
                           displayTz={displayTz}
+                          expanded={expandedIds.has(booking.id)}
+                          onToggleExpand={() => toggleExpanded(booking.id)}
                           onEdit={() =>
                             setModalState({
                               mode: 'edit',
@@ -444,6 +466,13 @@ export function SchedulePanel({
                             dispatch({
                               type: 'verifyAllFields',
                               id: booking.id,
+                            })
+                          }
+                          onVerifyField={(field) =>
+                            dispatch({
+                              type: 'verifyField',
+                              id: booking.id,
+                              field,
                             })
                           }
                         />

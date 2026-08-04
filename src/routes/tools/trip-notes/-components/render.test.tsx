@@ -6,10 +6,12 @@
  * ここが赤くなるのは型では拾えない実行時の事故が入ったときだけ。
  */
 // @vitest-environment jsdom
+import { useReducer } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render, within } from '@testing-library/react'
+import { fireEvent, render, within } from '@testing-library/react'
 import { computeSummary } from '../../../../lib/trip-notes/derive'
 import { computeNights } from '../../../../lib/trip-notes/nights'
+import { tripNotesReducer } from '../-lib/reducer'
 import { AiImportPanel } from './AiImportPanel'
 import { BookingCard } from './BookingCard'
 import { BookingForm } from './BookingForm'
@@ -331,9 +333,12 @@ describe('BookingForm の締切の入力欄', () => {
 describe('BookingCard は予約状況でカード自体の見た目を変える', () => {
   const cardProps = {
     displayTz: tz,
+    expanded: false,
+    onToggleExpand: noop,
     onEdit: noop,
     onDelete: noop,
     onVerifyAll: noop,
+    onVerifyField: noop,
   }
 
   it('idea は破線ボーダーになり、confirmed とは見た目が違う', () => {
@@ -551,5 +556,194 @@ describe('「今」タブは次に来る時刻をマイルストーンとして�
     // 過ぎた「チェックイン開始」はマイルストーンとして出さない
     expect(scope.queryByText('チェックイン開始')).toBeNull()
     vi.useRealTimers()
+  })
+})
+
+/**
+ * AI が入れた値の確認を、編集フォームを開かずにその場で済ませられること。
+ *
+ * 以前は未確認フィールドを 1 つずつ確認するのに鉛筆 → 編集フォームしか道が無く、
+ * 「見て確かめたいだけ」の操作に編集の入口を通らせていた、という不満への回帰テスト。
+ * だからここで固定したいのは「詳細が出ること」そのものより、
+ * 抽出根拠と値が同じ行に並ぶこと・1 行だけ確認済みにできることの 2 つになる。
+ *
+ * 状態の変化(1 フィールドだけ確認済みになる)まで見たいので、
+ * 本物の reducer をつないだ器から SchedulePanel を描く。dispatch をスパイに
+ * するだけでは「他のフィールドの未確認が残っているか」を確かめられない。
+ */
+describe('日程タブの予約カードはタップでその場に展開する', () => {
+  // AI 取り込み直後を模した予約を 1 件だけ置く。未確認を 2 つにしてあるのは、
+  // 片方を確認済みにしたときにもう片方が残ることを見たいため
+  const NIGHT_TRAIN_TITLE = '夜行列車 パリ→ローマ'
+  const expandTrip: TripNotesState = {
+    ...stateWithoutTravelDocs,
+    bookings: [
+      bk('exp-1', {
+        kind: 'train',
+        title: NIGHT_TRAIN_TITLE,
+        start: {
+          zdt: '2026-06-14T21:00:00+02:00[Europe/Paris]',
+          allDay: false,
+        },
+        end: { zdt: '2026-06-15T07:00:00+02:00[Europe/Rome]', allDay: false },
+        // 移動なので place は持たず from/to を持つ(bk() の既定を打ち消す)
+        place: undefined,
+        from: {
+          name: 'パリ・リヨン駅',
+          localName: 'Gare de Lyon',
+          address: '20 Boulevard Diderot, 75012 Paris',
+        },
+        to: { name: 'ローマ・テルミニ駅' },
+        provider: 'Trenitalia',
+        confirmationNumber: 'ABC-123',
+        unverified: ['start', 'confirmationNumber'],
+        evidence: {
+          start: 'Departure 21:00 from Paris Gare de Lyon (14 Jun)',
+          confirmationNumber: 'Booking reference: ABC-123',
+        },
+      }),
+    ],
+    emergencyContacts: [],
+  }
+
+  /** 本物の reducer をつないだ器。dispatch した結果が画面に返ってくる */
+  function ScheduleHarness({ initial }: { initial: TripNotesState }) {
+    const [current, dispatch] = useReducer(tripNotesReducer, initial)
+    return (
+      <SchedulePanel
+        state={current}
+        displayTz={tz}
+        dispatch={dispatch}
+        focusDate={null}
+        onFocusHandled={noop}
+      />
+    )
+  }
+
+  function renderSchedule() {
+    const { container } = render(<ScheduleHarness initial={expandTrip} />)
+    const scope = within(container)
+    // 開閉ボタンは aria-expanded を持つ唯一の要素として引く。
+    // タイトルで引くと鉛筆・ゴミ箱(aria-label にタイトルを含む)まで拾ってしまう
+    return {
+      container,
+      scope,
+      toggle: scope.getByRole('button', { expanded: false }),
+    }
+  }
+
+  it('カードを押すと詳細が開き、もう一度押すと閉じる', () => {
+    const { scope, toggle } = renderSchedule()
+
+    // 現地語表記(タクシー運転手に見せる用)は、展開して初めて画面に出る
+    expect(scope.queryByText('Gare de Lyon')).toBeNull()
+
+    fireEvent.click(toggle)
+    expect(scope.getByRole('button', { expanded: true })).toBeTruthy()
+    expect(scope.getByText('Gare de Lyon')).toBeTruthy()
+    expect(scope.getByText('20 Boulevard Diderot, 75012 Paris')).toBeTruthy()
+    expect(scope.getByText('Trenitalia')).toBeTruthy()
+
+    fireEvent.click(toggle)
+    expect(scope.queryByText('Gare de Lyon')).toBeNull()
+  })
+
+  it('未確認フィールドの行には AI の抽出根拠がそのまま出る', () => {
+    const { scope, toggle } = renderSchedule()
+    fireEvent.click(toggle)
+
+    // 元の予約確認メールを開き直さずに照合できることが狙いなので、
+    // 引用は切り詰めず全文が出ていること
+    expect(
+      scope.getByText('Departure 21:00 from Paris Gare de Lyon (14 Jun)'),
+    ).toBeTruthy()
+    expect(scope.getByText('Booking reference: ABC-123')).toBeTruthy()
+  })
+
+  it('行の「確認済みにする」は、その1フィールドだけを確認済みにする', () => {
+    const { scope, toggle } = renderSchedule()
+    fireEvent.click(toggle)
+
+    fireEvent.click(
+      scope.getByRole('button', {
+        name: `${NIGHT_TRAIN_TITLE} の確認番号を確認済みにする`,
+      }),
+    )
+
+    // 押した行は消え、根拠の引用も一緒に消える
+    expect(
+      scope.queryByRole('button', {
+        name: `${NIGHT_TRAIN_TITLE} の確認番号を確認済みにする`,
+      }),
+    ).toBeNull()
+    expect(scope.queryByText('Booking reference: ABC-123')).toBeNull()
+
+    // もう片方は未確認のまま残る(まとめて外れてしまわない)
+    expect(
+      scope.getByRole('button', {
+        name: `${NIGHT_TRAIN_TITLE} の開始日時を確認済みにする`,
+      }),
+    ).toBeTruthy()
+    expect(
+      scope.getByText('Departure 21:00 from Paris Gare de Lyon (14 Jun)'),
+    ).toBeTruthy()
+    expect(scope.getByText(/未確認 1件/)).toBeTruthy()
+
+    // 展開したままなので、続けて残りを確認しにいける
+    expect(scope.getByRole('button', { expanded: true })).toBeTruthy()
+  })
+
+  it('展開トグルは鉛筆・ゴミ箱のクリックを妨げない', () => {
+    const onEdit = vi.fn()
+    const onDelete = vi.fn()
+    const onToggleExpand = vi.fn()
+    const { container } = render(
+      <BookingCard
+        booking={bk('icon-1')}
+        displayTz={tz}
+        expanded={false}
+        onToggleExpand={onToggleExpand}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onVerifyAll={noop}
+        onVerifyField={noop}
+      />,
+    )
+    const scope = within(container)
+
+    fireEvent.click(scope.getByRole('button', { name: '宿 icon-1 を編集' }))
+    fireEvent.click(scope.getByRole('button', { name: '宿 icon-1 を削除' }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onDelete).toHaveBeenCalledTimes(1)
+    expect(onToggleExpand).not.toHaveBeenCalled()
+
+    // 本文を押したときだけ開閉する
+    fireEvent.click(scope.getByRole('button', { expanded: false }))
+    expect(onToggleExpand).toHaveBeenCalledTimes(1)
+  })
+
+  it('展開しても操作の要素が入れ子にならない', () => {
+    // 検索リンク(idea/held のときだけ出る a)と一括確認ボタンが同時に出る条件で、
+    // button の中に button / a が入っていないことを見る。入れ子は不正な HTML で、
+    // 押したときにどちらが反応するかが決まらない
+    const { container } = render(
+      <BookingCard
+        booking={bk('nest-1', {
+          status: 'held',
+          unverified: ['title', 'place'],
+        })}
+        displayTz={tz}
+        expanded
+        onToggleExpand={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onVerifyAll={noop}
+        onVerifyField={noop}
+      />,
+    )
+
+    expect(container.querySelector('button button')).toBeNull()
+    expect(container.querySelector('button a')).toBeNull()
+    expect(container.querySelector('a button')).toBeNull()
   })
 })
