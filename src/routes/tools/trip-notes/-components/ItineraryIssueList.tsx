@@ -13,18 +13,25 @@
  * severity が 'info' のもの(乗り継ぎの案内)は色も見出しも分ける。
  * これは直すべき不整合ではなく「知らせるだけ」なので、警告と同じ塊に混ぜると
  * 「不整合 N 件」の N が直しようのない数で膨らみ、本当の穴が埋もれる。
+ *
+ * 場所の食い違い系には「同じ場所として扱う」も並べる。地名の同一判定は
+ * ヒューリスティックなので必ず外れる場面があり(itinerary.ts 冒頭参照)、
+ * 直しようのない警告が残り続けると一覧そのものが読まれなくなる。
+ * 「日程で直す」が旅程を直す道なら、こちらは判定のほうを直す道である。
  */
 
 import {
   BedDouble,
   Hourglass,
   Info,
+  MapPinCheck,
   MapPinX,
   PlaneTakeoff,
   Route,
   TriangleAlert,
 } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { isAliasableIssueKind } from '../../../../lib/trip-notes/itinerary'
 import { subtleButtonClass } from '../-lib/styles'
 import type { LucideIcon } from 'lucide-react'
 import type {
@@ -73,6 +80,7 @@ interface IssueSectionProps {
   headingIcon: LucideIcon
   issues: Array<ItineraryIssue>
   onSelectDate: (date: string) => void
+  onTreatAsSamePlace?: (names: [string, string]) => void
 }
 
 function IssueSection({
@@ -80,6 +88,7 @@ function IssueSection({
   headingIcon: HeadingIcon,
   issues,
   onSelectDate,
+  onTreatAsSamePlace,
 }: IssueSectionProps) {
   if (issues.length === 0) return null
 
@@ -123,15 +132,36 @@ function IssueSection({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => onSelectDate(issue.date)}
-                className={`${subtleButtonClass} shrink-0 bg-white`}
-                aria-label={`${formatDateJa(issue.date)}の日程を開く`}
-              >
-                {/* 情報の指摘は直すものではないので、行き先だけ示す */}
-                {issue.severity === 'warning' ? '日程で直す' : '日程で見る'}
-              </button>
+              <div className="flex shrink-0 flex-wrap gap-1.5">
+                {/*
+                  「同じ場所として扱う」は、判定が外れているときだけ意味がある。
+                  場所の食い違い系にしか出さないのは、宿の有無の指摘に出しても
+                  押した結果が何も変わらないためで、条件は lib 側と共有する
+                */}
+                {onTreatAsSamePlace !== undefined &&
+                isAliasableIssueKind(issue.kind) ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onTreatAsSamePlace([issue.fromLabel, issue.toLabel])
+                    }
+                    className={`${subtleButtonClass} bg-white`}
+                    aria-label={`${issue.fromLabel} と ${issue.toLabel} を同じ場所として扱う`}
+                  >
+                    <MapPinCheck size={14} aria-hidden="true" />
+                    同じ場所として扱う
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onSelectDate(issue.date)}
+                  className={`${subtleButtonClass} bg-white`}
+                  aria-label={`${formatDateJa(issue.date)}の日程を開く`}
+                >
+                  {/* 情報の指摘は直すものではないので、行き先だけ示す */}
+                  {issue.severity === 'warning' ? '日程で直す' : '日程で見る'}
+                </button>
+              </div>
             </li>
           )
         })}
@@ -144,11 +174,17 @@ interface ItineraryIssueListProps {
   issues: Array<ItineraryIssue>
   /** その日の日程タブへ飛ばす */
   onSelectDate: (date: string) => void
+  /**
+   * 「この 2 つは同じ場所」の登録。渡されていなければボタンごと出さない
+   * (印刷用など、その場で状態を変えられない文脈からも使えるようにするため)。
+   */
+  onTreatAsSamePlace?: (names: [string, string]) => void
 }
 
 export function ItineraryIssueList({
   issues,
   onSelectDate,
+  onTreatAsSamePlace,
 }: ItineraryIssueListProps) {
   const warnings = issues.filter((issue) => issue.severity === 'warning')
   const notices = issues.filter((issue) => issue.severity === 'info')
@@ -160,12 +196,14 @@ export function ItineraryIssueList({
         headingIcon={TriangleAlert}
         issues={warnings}
         onSelectDate={onSelectDate}
+        onTreatAsSamePlace={onTreatAsSamePlace}
       />
       <IssueSection
         title="確認しておきたい点"
         headingIcon={Info}
         issues={notices}
         onSelectDate={onSelectDate}
+        onTreatAsSamePlace={onTreatAsSamePlace}
       />
     </>
   )

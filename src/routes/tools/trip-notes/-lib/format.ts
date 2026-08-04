@@ -13,6 +13,21 @@ export function todayISO(): string {
 }
 
 /**
+ * ISO 日付から先頭ゼロ無しの月日を取り出す。'2026-09-05' → '9/5'。
+ * 年を落とすのは、旅程セレクタや穴アラートのように
+ * 「どの旅行の話か」が文脈で決まっている場所で使うため。
+ */
+export function monthDay(iso: string): string {
+  const date = Temporal.PlainDate.from(iso)
+  return `${date.month}/${date.day}`
+}
+
+/** '9/5〜9/20' のように月日だけをつなぐ */
+export function formatRangeShort(startISO: string, endISO: string): string {
+  return `${monthDay(startISO)}〜${monthDay(endISO)}`
+}
+
+/**
  * 金額表示。通貨コードごとの小数桁は Intl に任せる
  * (JPY は 0 桁、EUR は 2 桁)。未知のコードでも落ちないようにする。
  */

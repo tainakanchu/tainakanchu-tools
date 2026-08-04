@@ -287,6 +287,20 @@ describe('旅程の整合性チェックの表示', () => {
     expect(onSelectDate).toHaveBeenCalledWith('2026-06-14')
   })
 
+  it('「同じ場所として扱う」で、そのカードに出ていた 2 つの地名が登録される', () => {
+    // 地名の同一判定はどうしても外れるので、外れたときの逃げ道が要る。
+    // 押した組は、画面に出ていた文言そのままで渡す
+    const dispatch = vi.fn()
+    renderPanel(stateWithGap, dispatch)
+    fireEvent.click(
+      screen.getByRole('button', { name: '東京 と 大阪 を同じ場所として扱う' }),
+    )
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'addPlaceAlias',
+      names: ['東京', '大阪'],
+    })
+  })
+
   it('件数が上段のアラートに反映される', () => {
     const { container } = renderPanel(stateWithGap)
     const banner = container.querySelector('.bg-rose-50')
@@ -330,6 +344,8 @@ describe('旅程の整合性チェックの表示', () => {
     expect(screen.getByText('乗り継ぎ')).toBeTruthy()
     expect(screen.queryByText('旅程の不整合')).toBeNull()
     expect(container.querySelector('.bg-rose-50')).toBeNull()
+    // 宿の要否の話なので「同じ場所として扱う」は出さない(押しても何も消えない)
+    expect(screen.queryByText('同じ場所として扱う')).toBeNull()
   })
 
   it('不整合が無ければアラートも一覧も出ない', () => {

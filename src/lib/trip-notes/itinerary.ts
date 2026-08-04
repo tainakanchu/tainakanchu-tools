@@ -31,6 +31,18 @@
  *   「移動がありません」と出る。実際には予約済みでも、それが正しい区間かは
  *   判断しようがないので、警告を出して利用者に確かめてもらう側に倒している。
  *
+ *   名前の包含だけでは「マルタ・ルア国際空港」と「マルタの知人宅」が
+ *   どちらも他方を含まず、同じ島の中なのに食い違いとして報告されてしまう。
+ *   そこで比較候補に「施設名の部分を末尾から落として地名だけにしたもの」を足してある
+ *   (FACILITY_SUFFIXES 参照)。空港・駅・ホテル・知人宅といった語は
+ *   場所を特定する部分ではなく、そこに付く「どんな施設か」でしかないためである。
+ *
+ *   それでも語尾の除去で届く範囲には限りがある。「マルタ」と「バレッタ」のように
+ *   地名そのものが違う書き方をされていれば、辞書を持たない以上どうやっても一致しない。
+ *   判定をこれ以上緩めると本当の穴まで見逃すので、外れたぶんは利用者に
+ *   「この 2 つは同じ場所」と教えてもらう(TripNotesState.placeAliases)。
+ *   登録された組に該当する指摘だけを、判定の後で落とす。
+ *
  * ■ 日付と時刻
  *   並び順は epoch(絶対時刻)で決める。時差のある区間が混ざるので、
  *   現地の壁時計時刻で並べると順序が逆転する。
@@ -47,6 +59,7 @@ import type {
   ItineraryIssue,
   ItineraryIssueKind,
   Place,
+  PlaceAlias,
   TripNotesState,
 } from './types'
 
@@ -205,12 +218,108 @@ function normalizeName(raw: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, '')
 }
 
-/** 比較に使う名前の候補。localName も同じ土俵に載せる */
+/**
+ * 名前の末尾から落とす「どんな施設か」の語。normalizeName() を通した後の形で持つ
+ * (空白・中黒はこの時点で消えているので、英語は続けて書いた形になる)。
+ *
+ * ■ なぜ語尾を落とすのか
+ *   「マルタ・ルア国際空港」と「マルタの知人宅」は人間には同じ島の話だと分かるが、
+ *   文字列としてはどちらも他方を含まないので包含判定では一致しない。
+ *   この 2 つで共通しているのは地名の部分だけで、残りは施設の種類でしかない。
+ *   語尾を落として地名部分を露出させれば、既存の包含判定にそのまま乗る。
+ *
+ * ■ なぜ辞書を持たないのか
+ *   都市名・国名の一覧を持てば同じことをもっと正確にできるが、
+ *   世界中の地名を網羅した表を個人ツールで維持し続けるのは無理がある。
+ *   古い表は「載っていない街だけ判定が変わる」という説明しづらい壊れ方をするので、
+ *   最初から持たず、語尾の除去だけで届く範囲に留める。
+ *
+ * ■ 落としすぎないための制約
+ *   落とすのは末尾の 1 語だけで、長い語から順に試して 1 つ落としたら打ち切る
+ *   (「国際空港」を「空港」で削って「◯◯国際」を作らないため)。
+ *   落とした残りが MIN_PARTIAL_MATCH_LENGTH 未満になる候補は捨てる。
+ *   「駅」だけを入力した予約から空文字の候補が生まれると、
+ *   何にでも一致して食い違いを丸ごと見逃すことになる。
+ *
+ * ■ 英語の `port` を単独では入れない(再追加しないこと)
+ *   Newport / Southport / Stockport / Bridgeport のように、地名そのものが
+ *   -port で終わる街が英語圏には実在する。`port` を落とすと「Newport」から
+ *   「new」という候補が生まれ、3 文字あるので長さのガードも素通りしたうえで
+ *   「New York」(newyork)に包含判定で一致してしまう。つまり本当に出るべき
+ *   到着地の食い違いが消える。このファイルの方針は「見逃しより誤検出を許す」なので、
+ *   港をひとつ拾うために見逃しを作るのは割に合わない。
+ *   港を拾いたい場合は、地名の一部になりにくい複合語(seaport / ferryport /
+ *   cruiseport)だけを足す。日本語の「港」は「神戸港」→「神戸」と落とせて、
+ *   「香港」→「香」は 1 文字なので長さのガードで捨てられるため残してある。
+ */
+const FACILITY_SUFFIXES: Array<string> = [
+  '国際空港',
+  '空港',
+  '飛行場',
+  '中央駅',
+  '駅',
+  'フェリーターミナル',
+  'バスターミナル',
+  'ターミナル',
+  '港',
+  'ホテル',
+  'ゲストハウス',
+  'ホステル',
+  '旅館',
+  '民宿',
+  '民泊',
+  '知人宅',
+  '友人宅',
+  '実家',
+  '自宅',
+  '別荘',
+  '宅',
+  'internationalairport',
+  'intlairport',
+  'airport',
+  'centralstation',
+  'station',
+  'ferryterminal',
+  'busterminal',
+  'terminal',
+  'cruiseport',
+  'ferryport',
+  'seaport',
+  'hotel',
+  'hostel',
+  'guesthouse',
+  'apartment',
+].toSorted((a, b) => b.length - a.length)
+
+/**
+ * 施設の語を末尾から 1 つだけ落として、地名部分だけにした名前を返す。
+ * 落とせない(施設の語で終わっていない、落とすと短くなりすぎる)なら null。
+ */
+function withoutFacilitySuffix(name: string): string | null {
+  for (const suffix of FACILITY_SUFFIXES) {
+    if (!name.endsWith(suffix)) continue
+    const stripped = name.slice(0, name.length - suffix.length)
+    // 「マルタの知人宅」は「マルタの」で終わるので、助詞もここで落として地名にする
+    const base = stripped.endsWith('の') ? stripped.slice(0, -1) : stripped
+    return base.length < MIN_PARTIAL_MATCH_LENGTH ? null : base
+  }
+  return null
+}
+
+/**
+ * 比較に使う名前の候補。localName も同じ土俵に載せる。
+ * 施設の語を落とした形は元の名前を消さずに「足す」。
+ * 「羽田空港」を「羽田」に置き換えてしまうと、空港名どうしの比較
+ * (「羽田空港」と「東京国際空港(羽田空港)」)のような素直な一致を失う。
+ */
 function nameCandidates(place: Place): Array<string> {
   const names = [place.name, place.localName ?? '']
     .map(normalizeName)
     .filter((name) => name !== '')
-  return [...new Set(names)]
+  const bases = names
+    .map(withoutFacilitySuffix)
+    .filter((name): name is string => name !== null)
+  return [...new Set([...names, ...bases])]
 }
 
 /**
@@ -245,6 +354,74 @@ export function isSamePlace(a: Place, b: Place): boolean {
     }
   }
   return false
+}
+
+// --- 利用者が「同じ場所」と教えた組 ---
+
+/**
+ * 2 つの名前の組が、順不同で同じ組か。
+ *
+ * 突き合わせるのは normalizeName() を通した完全一致だけで、
+ * isSamePlace() のような包含は使わない。ここは推測を足す場所ではなく、
+ * 利用者が名指しで「この 2 つ」と教えた組をそのまま照合する場所だからである。
+ * 包含まで認めると、教えていない組まで巻き添えで消える。
+ *
+ * 名前が空になる組は常に一致しないものとして扱う。空文字どうしが一致すると、
+ * 場所が入っていない予約の指摘がまとめて消えて、穴が見えなくなる。
+ */
+export function isSameAliasPair(
+  a: [string, string],
+  b: [string, string],
+): boolean {
+  const [a0, a1] = a.map(normalizeName)
+  const [b0, b1] = b.map(normalizeName)
+  if (a0 === '' || a1 === '' || b0 === '' || b1 === '') return false
+  return (a0 === b0 && a1 === b1) || (a0 === b1 && a1 === b0)
+}
+
+/**
+ * 「同じ場所として扱う」で落とせる指摘の種別。
+ *
+ * 場所の食い違い系だけに限る。missing-lodging と layover は
+ * 「その夜に寝る場所があるか」の話で、2 つの地名が同じ場所かどうかとは別の問題である。
+ * 同じ場所だと教えられたからといって宿が要らなくなるわけではないので、
+ * ここで一緒に消すと、教えた副作用で泊まる場所の無い夜が見えなくなる。
+ */
+const ALIASABLE_ISSUE_KINDS: ReadonlySet<ItineraryIssueKind> = new Set([
+  'location-mismatch',
+  'departure-mismatch',
+  'missing-transport',
+])
+
+/**
+ * その種別の指摘に「同じ場所として扱う」を出してよいか。
+ * 画面側もこれを見る。ボタンを出す条件と実際に落ちる条件が別々に書かれていると、
+ * 押しても何も消えないボタンが生まれて、利用者は何が起きたのか分からなくなる。
+ */
+export function isAliasableIssueKind(kind: ItineraryIssueKind): boolean {
+  return ALIASABLE_ISSUE_KINDS.has(kind)
+}
+
+/**
+ * 利用者が登録した組に該当する指摘か。
+ *
+ * Place どうしの同一判定(isSamePlace)に混ぜず、指摘のラベルで突き合わせている。
+ * 理由は 2 つある。
+ * - 利用者が押すのは「画面に出ていたこの警告の 2 つの地名は同じ場所だ」であって、
+ *   予約のどのフィールドから来た Place かではない。出ていた文言そのままで
+ *   突き合わせるほうが、押した結果と消える警告が一致して裏切りが無い。
+ * - placeLabel() は place が空なら予約の題名で代用するので、
+ *   ラベルが Place 由来とは限らない。Place だけを見ていると、
+ *   利用者が押した組に対応する Place が存在せず、永久に消えない警告が生まれる。
+ */
+function isDismissedByAlias(
+  issue: ItineraryIssue,
+  aliases: Array<PlaceAlias>,
+): boolean {
+  if (!isAliasableIssueKind(issue.kind)) return false
+  return aliases.some((alias) =>
+    isSameAliasPair([issue.fromLabel, issue.toLabel], alias.names),
+  )
 }
 
 // --- 時系列に並べた予約 ---
@@ -511,6 +688,11 @@ export function warningIssuesOf(
  * キャンセル済みの予約は無いものとして扱う。キャンセルした宿がつながりを埋めていると、
  * 実際には泊まる場所が無いのに警告が出ないという、一番まずい壊れ方をする。
  * 開始時刻が壊れている予約も並べようがないので判定から外す。
+ *
+ * 利用者が「同じ場所」と教えた組(state.placeAliases)に該当する指摘は、
+ * 判定を通したうえで最後に落とす。判定そのものを書き換えてしまうと、
+ * 教えた組が別の場面(乗り継ぎかどうかなど)にも波及して、
+ * 何が消えたのか説明できなくなる。
  */
 export function findItineraryIssues(
   state: TripNotesState,
@@ -523,10 +705,11 @@ export function findItineraryIssues(
     .filter((entry): entry is Entry => entry !== null)
     .toSorted(compareEntries)
 
+  const aliases = state.placeAliases ?? []
   const issues = [
     ...findContinuityIssues(entries),
     ...findMissingLodgingIssues(entries, alive),
-  ]
+  ].filter((issue) => !isDismissedByAlias(issue, aliases))
   // 同じ日に複数出る場合の並びは検出順のまま(toSorted も安定ソート)
   return issues.toSorted((a, b) => a.date.localeCompare(b.date))
 }

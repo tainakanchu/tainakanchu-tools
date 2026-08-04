@@ -14,10 +14,11 @@
  */
 
 import { useMemo, useState } from 'react'
-import { CalendarDays, ListChecks, Sparkles, X } from 'lucide-react'
+import { CalendarDays, ListChecks, RefreshCw, Sparkles, X } from 'lucide-react'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { formatStamp, stampDateInTz } from '../../../../lib/trip-notes/datetime'
+import { planImport } from '../../../../lib/trip-notes/importMerge'
 import {
   cardClass,
   fieldClass,
@@ -68,13 +69,33 @@ function StepHeading({ step, title }: { step: WizardStep; title: string }) {
   )
 }
 
+/**
+ * 既存予約を更新することになる取り込み候補に付ける、控えめな「更新」バッジ。
+ * 予約状況バッジ(BookingStatusBadge)より目立たせないのは、これは AI 取り込みの
+ * 結果を説明する補助情報であって、予約そのものの状態ではないため。
+ */
+function UpdateBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700"
+      aria-label="既存の予約を更新します"
+    >
+      <RefreshCw size={11} aria-hidden="true" />
+      更新
+    </span>
+  )
+}
+
 /** 取り込み候補の1件をカードで見せる。unverified なフィールドには黄色い下線を引く */
 function BookingPreviewCard({
   booking,
   displayTz,
+  willUpdate,
 }: {
   booking: Booking
   displayTz: string
+  /** true なら既存の予約とマッチし、取り込むとその予約が更新される */
+  willUpdate: boolean
 }) {
   const unverified = booking.unverified ?? []
   const isUnverified = (key: FieldKey): boolean => unverified.includes(key)
@@ -98,6 +119,7 @@ function BookingPreviewCard({
           {booking.title}
         </span>
         <BookingStatusBadge status={booking.status} size="sm" />
+        {willUpdate && <UpdateBadge />}
       </div>
       <p
         className={`mt-1 inline-block text-sm text-gray-600 ${
@@ -176,6 +198,18 @@ export function AiImportPanel({
     [state, displayTz],
   )
 
+  // ステップ3のプレビュー一覧に「更新」バッジを出すための計画。判定は
+  // importMerge.ts の planImport に必ず委ね、ここでは条件を再実装しない
+  // (このプレビューと実際の取り込み結果がズレると、利用者が「更新と出ていたのに
+  // 別々に増えた」ように見えて信頼を失う)。ReviewDialog で日時を直すと
+  // マッチ結果が変わりうるが、それはあくまで最終確定前の見込み表示であり、
+  // 実際の適用は handleConfirmImport 側で改めて確定後の値から計算し直す。
+  const previewPlan = useMemo(
+    () =>
+      importResult === null ? null : planImport(state.bookings, importResult.bookings),
+    [state.bookings, importResult],
+  )
+
   function handleParse(): void {
     const result = parseImportedJson(pastedText, displayTz)
     setImportResult(result)
@@ -183,17 +217,26 @@ export function AiImportPanel({
   }
 
   function handleConfirmImport(confirmed: Array<Booking>): void {
+    // reducer が実際に適用するのと同じ計画をここでも計算する。plan.entries[].booking
+    // は reducer が state へ書き込む最終形(マージ後なら既存の id を持つ)そのものなので、
+    // 「まとめて確認する」対象の id や完了メッセージの件数は、取り込み前の confirmed
+    // ではなくこちらを基準にする。confirmed 側の id をそのまま使うと、更新でマージされた
+    // 予約は id が既存側に変わるため、あとから対象を見失って「まとめて確認する」が
+    // 効かなくなる
+    const plan = planImport(state.bookings, confirmed)
     if (confirmed.length > 0) {
       dispatch({ type: 'importBookings', bookings: confirmed })
     }
+    const finalBookings = plan.entries.map((entry) => entry.booking)
+
     // 日時は ReviewDialog で確認済みになっているので、ここに残るのは
     // タイトル・確認番号・料金など「間違っていても乗り遅れない」項目だけ
-    const unverifiedIds = confirmed
+    const unverifiedIds = finalBookings
       .filter((b) => b.unverified !== undefined && b.unverified.length > 0)
       .map((b) => b.id)
     // 「日程で確認する」の飛び先。複数日にまたがる取り込みでも、
     // 一番早い日へ飛べば残りは日程タブのスクロールで自然に見える
-    const focusDate = confirmed.reduce<string | null>((earliest, b) => {
+    const focusDate = finalBookings.reduce<string | null>((earliest, b) => {
       const date = stampDateInTz(b.start, displayTz)
       return earliest === null || date < earliest ? date : earliest
     }, null)
@@ -206,12 +249,20 @@ export function AiImportPanel({
     setImportedFocusDate(focusDate)
     if (confirmed.length === 0) {
       setSuccessMessage('取り込む予約がありませんでした')
-    } else if (unverifiedIds.length === 0) {
-      setSuccessMessage(`${confirmed.length}件を取り込みました`)
     } else {
-      setSuccessMessage(
-        `${confirmed.length}件を取り込みました。${unverifiedIds.length}件に未確認の項目があります`,
-      )
+      // 既存の予約を更新した件数があれば、新規追加ぶんと分けて伝える。
+      // 「何件増えたか」だけでは、実は重複せずマージされたことに気付けない
+      const updateNote =
+        plan.updatedCount > 0
+          ? `(うち${plan.updatedCount}件は既存の予約を更新)`
+          : ''
+      if (unverifiedIds.length === 0) {
+        setSuccessMessage(`${confirmed.length}件を取り込みました${updateNote}`)
+      } else {
+        setSuccessMessage(
+          `${confirmed.length}件を取り込みました${updateNote}。${unverifiedIds.length}件に未確認の項目があります`,
+        )
+      }
     }
   }
 
@@ -368,11 +419,15 @@ export function AiImportPanel({
             ) : (
               <>
                 <ul className="space-y-2">
-                  {importResult.bookings.map((booking) => (
+                  {importResult.bookings.map((booking, index) => (
                     <BookingPreviewCard
                       key={booking.id}
                       booking={booking}
                       displayTz={displayTz}
+                      willUpdate={
+                        previewPlan !== null &&
+                        previewPlan.entries[index].replacesId !== null
+                      }
                     />
                   ))}
                 </ul>

@@ -500,6 +500,11 @@ export function ProgressPanel({
           <ItineraryIssueList
             issues={summary.itineraryIssues}
             onSelectDate={onSelectDate}
+            // カンバンの列移動と同じで、ページ側の状態は要らず reducer に流すだけ。
+            // 押し間違えても Undo で戻せるうえ、設定タブの一覧からも取り消せる
+            onTreatAsSamePlace={(names) =>
+              dispatch({ type: 'addPlaceAlias', names })
+            }
           />
         </>
       )}

@@ -5,12 +5,23 @@
  * 未確保の夜は computeGapAlerts で洗い出して各日のセクションに差し込む。
  * 連続する未確保でも滞在地が同じ区間の初日は目立つカード、
  * 2 日目以降は控えめな 1 行にして、同じ警告を毎日フルサイズで並べない。
+ *
+ * 連泊中の宿・日をまたぐ移動も同じ考え方で扱う。開始日には BookingCard が
+ * 出るので、2 日目以降は day.ongoing から OngoingRow という控えめな 1 行だけ
+ * 出す。「この宿は今日も継続している」と分かればよく、詳細まで毎日繰り返す
+ * 必要はない。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Check, Plus } from 'lucide-react'
-import { formatDateJa } from '../../../../lib/trip-notes/datetime'
+import {
+  diffDays,
+  formatDateJa,
+  formatStamp,
+  stampDateInTz,
+} from '../../../../lib/trip-notes/datetime'
 import { groupByDay } from '../../../../lib/trip-notes/derive'
+import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { computeGapAlerts } from '../../../../lib/trip-notes/uncovered-gaps'
 import {
   cardClass,
@@ -22,6 +33,7 @@ import { BookingCard } from './BookingCard'
 import { BookingForm } from './BookingForm'
 import { ConfirmDialog } from './ConfirmDialog'
 import { GapAlertCard } from './GapAlertCard'
+import { KindIcon } from './KindIcon'
 import type {
   Booking,
   BookingKind,
@@ -52,6 +64,84 @@ type ModalState =
   | { mode: 'edit'; bookingId: string }
 
 const HIGHLIGHT_DURATION_MS = 2600
+
+/**
+ * その日の状態ラベル。終了日(表示タイムゾーン基準)なら「チェックアウト/到着」、
+ * それ以外は種別ごとに「滞在中(N泊目)/移動中/継続中」を返す。
+ * N泊目のNは、チェックイン当日を 1 泊目として数える(利用者が宿の予約サイトで
+ * 見慣れている数え方に合わせる)。
+ */
+function ongoingStatusLabel(
+  booking: Booking,
+  date: string,
+  displayTz: string,
+): string {
+  const endDate =
+    booking.end !== null ? stampDateInTz(booking.end, displayTz) : null
+  const isLodging = booking.kind === 'lodging'
+
+  if (endDate === date) {
+    const time =
+      booking.end !== null && !booking.end.allDay
+        ? ` ${formatStamp(booking.end, displayTz)}`
+        : ''
+    return `${isLodging ? 'チェックアウト' : '到着'}${time}`
+  }
+
+  if (isLodging) {
+    const nights = diffDays(stampDateInTz(booking.start, displayTz), date) + 1
+    return `滞在中(${nights}泊目)`
+  }
+  if (isTransportKind(booking.kind)) return '移動中'
+  return '継続中'
+}
+
+/**
+ * 連泊中の宿・日をまたぐ移動を「その日どこにいるか」だけ示す簡易行。
+ * BookingCard は開始日側にすでにあるので、ここでは詳細を繰り返さず、
+ * 見た目もはっきり控えめにしてその日の本来の予定と混同されないようにする。
+ */
+function OngoingRow({
+  booking,
+  date,
+  displayTz,
+  onEdit,
+}: {
+  booking: Booking
+  date: string
+  displayTz: string
+  onEdit: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      // 連泊中は同じ予約が複数日にまたがって ongoing 行を出すため、
+      // BookingCard 側と同じ「<タイトル> を編集」だけだとラベルが日をまたいで重複し、
+      // スクリーンリーダー利用者やテストがどの行を指しているか判別できなくなる。
+      // 開始日を付けて日付ごとに一意にする(既存の「この日に追加」ボタンの
+      // 「${formatDateJa(day.date)}に予約を追加」と同じ、日付を頭に付ける流儀)
+      aria-label={`${formatDateJa(date)}の${booking.title}を編集`}
+      className="flex w-full items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-3 py-2 text-left text-xs text-gray-500 transition hover:bg-gray-100"
+    >
+      <KindIcon
+        kind={booking.kind}
+        size={13}
+        className="shrink-0 text-gray-400"
+      />
+      {/*
+        タイトルだけを単独の要素にすると、開始日の BookingCard 側の見出しと
+        文字列が完全一致してしまい、画面を見ている人にも支援技術にも
+        「同じ名前の別要素が2つ以上ある」状態になって紛らわしい。
+        先頭に継続を表す記号を足して「前日から続いている行」だと分かるようにする
+      */}
+      <span className="min-w-0 flex-1 truncate">↳ {booking.title}</span>
+      <span className="shrink-0 text-gray-400">
+        {ongoingStatusLabel(booking, date, displayTz)}
+      </span>
+    </button>
+  )
+}
 
 export function SchedulePanel({
   state,
@@ -223,25 +313,48 @@ export function SchedulePanel({
                 </div>
 
                 <div className="mt-2 space-y-2">
-                  {day.bookings.length === 0 ? (
+                  {day.bookings.length === 0 && day.ongoing.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-400">
                       この日の予定はまだありません
                     </p>
                   ) : (
-                    day.bookings.map((booking) => (
-                      <BookingCard
-                        key={booking.id}
-                        booking={booking}
-                        displayTz={displayTz}
-                        onEdit={() =>
-                          setModalState({ mode: 'edit', bookingId: booking.id })
-                        }
-                        onDelete={() => handleDelete(booking)}
-                        onVerifyAll={() =>
-                          dispatch({ type: 'verifyAllFields', id: booking.id })
-                        }
-                      />
-                    ))
+                    <>
+                      {/*
+                        滞在の継続 → その日の新しい予定、の順。
+                        「今日はどこにいるか」が先に分かったほうが読みやすい
+                      */}
+                      {day.ongoing.map((booking) => (
+                        <OngoingRow
+                          key={booking.id}
+                          booking={booking}
+                          date={day.date}
+                          displayTz={displayTz}
+                          onEdit={() =>
+                            setModalState({
+                              mode: 'edit',
+                              bookingId: booking.id,
+                            })
+                          }
+                        />
+                      ))}
+                      {day.bookings.map((booking) => (
+                        <BookingCard
+                          key={booking.id}
+                          booking={booking}
+                          displayTz={displayTz}
+                          onEdit={() =>
+                            setModalState({
+                              mode: 'edit',
+                              bookingId: booking.id,
+                            })
+                          }
+                          onDelete={() => handleDelete(booking)}
+                          onVerifyAll={() =>
+                            dispatch({ type: 'verifyAllFields', id: booking.id })
+                          }
+                        />
+                      ))}
+                    </>
                   )}
 
                   {gap !== undefined ? (

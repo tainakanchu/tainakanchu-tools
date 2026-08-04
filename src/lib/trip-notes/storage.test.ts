@@ -5,7 +5,6 @@ import {
   loadFromStorage,
   parseTripNotesState,
   requestPersistentStorage,
-  saveToStorage,
 } from './storage'
 import type { Booking, EmergencyContact, TripNotesState } from './types'
 
@@ -247,6 +246,37 @@ describe('parseTripNotesState', () => {
     const parsed = parseTripNotesState(state)
     expect(parsed?.emergencyContacts).toHaveLength(2)
   })
+
+  it('placeAliases の正常な組は残り、不正要素だけが落ちる', () => {
+    const state = {
+      ...fullState(),
+      placeAliases: [
+        { id: 'pa-1', names: ['マルタ・ルア国際空港', 'マルタの知人宅'] },
+        { id: 'pa-2', names: ['パリ'] }, // 2 つ揃っていない
+        { id: 'pa-3', names: ['パリ', 'パリ市内', 'パリ近郊'] }, // 3 つある
+        { id: 'pa-4', names: ['パリ', 4] }, // 文字列でない
+        { names: ['パリ', 'パリ市内'] }, // id が無い
+        { id: 'pa-5' }, // names が無い
+      ],
+    }
+    expect(parseTripNotesState(state)?.placeAliases).toEqual([
+      { id: 'pa-1', names: ['マルタ・ルア国際空港', 'マルタの知人宅'] },
+    ])
+  })
+
+  it('placeAliases が空・不正・欠落ならフィールドごと付かない', () => {
+    // 「一度も使っていない」ことを空配列で表現すると、JSON も共有URLも無駄に伸びる
+    expect(
+      parseTripNotesState({ ...fullState(), placeAliases: [] }),
+    ).not.toHaveProperty('placeAliases')
+    expect(
+      parseTripNotesState({ ...fullState(), placeAliases: [{ id: 'pa-1' }] }),
+    ).not.toHaveProperty('placeAliases')
+    expect(
+      parseTripNotesState({ ...fullState(), placeAliases: 'なにか' }),
+    ).not.toHaveProperty('placeAliases')
+    expect(parseTripNotesState(fullState())).not.toHaveProperty('placeAliases')
+  })
 })
 
 describe('createInitialState', () => {
@@ -263,13 +293,18 @@ describe('createInitialState', () => {
   })
 })
 
-describe('loadFromStorage / saveToStorage', () => {
+/**
+ * 旧キーは trips.ts への移行元としてしか使われない読み取り専用の入口になったので、
+ * 書き込み側(旧 saveToStorage)のテストは trips.test.ts の移行テストに引き継いだ。
+ * ここに残すのは「壊れた入力・window が無い環境でも例外を投げない」ことだけ。
+ */
+describe('loadFromStorage', () => {
   afterEach(() => {
     // @ts-expect-error テスト用に差し込んだ window を必ず後片付けする
     delete globalThis.window
   })
 
-  it('saveToStorage → loadFromStorage のラウンドトリップができる', () => {
+  it('旧キーに保存された state を復元できる', () => {
     const store = new Map<string, string>()
     const localStorage: Storage = {
       getItem: (key) => store.get(key) ?? null,
@@ -291,16 +326,12 @@ describe('loadFromStorage / saveToStorage', () => {
     globalThis.window = { localStorage }
 
     const state = fullState()
-    saveToStorage(state)
+    store.set('trip-notes:v1', JSON.stringify(state))
     expect(loadFromStorage()).toEqual(state)
   })
 
   it('window が無い環境では loadFromStorage は例外を投げず null を返す', () => {
     expect(loadFromStorage()).toBeNull()
-  })
-
-  it('window が無い環境では saveToStorage は例外を投げない', () => {
-    expect(() => saveToStorage(fullState())).not.toThrow()
   })
 })
 

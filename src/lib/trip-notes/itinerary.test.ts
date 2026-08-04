@@ -14,6 +14,10 @@ const PARIS = 'Europe/Paris'
 const ROME = 'Europe/Rome'
 const DELHI = 'Asia/Kolkata'
 const ZURICH = 'Europe/Zurich'
+const MALTA = 'Europe/Malta'
+const NEW_YORK = 'America/New_York'
+const LISBON = 'Europe/Lisbon'
+const DOHA = 'Asia/Qatar'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
   return {
@@ -206,6 +210,63 @@ describe('isSamePlace', () => {
     expect(
       isSamePlace(place('パリ', { localName: 'Paris' }), place('Paris')),
     ).toBe(true)
+  })
+})
+
+describe('isSamePlace: 施設名を落として地名で照合する', () => {
+  it('「マルタ・ルア国際空港」と「マルタの知人宅」を同じ場所とみなす', () => {
+    // 利用者から報告された実例。どちらも他方を含まないので包含判定だけでは繋がらない
+    expect(
+      isSamePlace(place('マルタ・ルア国際空港'), place('マルタの知人宅')),
+    ).toBe(true)
+  })
+
+  it('駅・ホテル・実家などの語尾も落とす', () => {
+    expect(isSamePlace(place('京都駅'), place('京都のホテル'))).toBe(true)
+    expect(isSamePlace(place('金沢中央駅'), place('金沢の実家'))).toBe(true)
+    expect(isSamePlace(place('博多港'), place('博多のゲストハウス'))).toBe(true)
+  })
+
+  it('英語表記でも施設の語を落とす', () => {
+    expect(
+      isSamePlace(place('Lisbon Airport'), place('Lisbon Marriott Hotel')),
+    ).toBe(true)
+    expect(
+      isSamePlace(place('Porto Central Station'), place('Porto Apartment')),
+    ).toBe(true)
+    expect(
+      isSamePlace(place('Dover Ferry Port'), place('Dover Guest House')),
+    ).toBe(true)
+  })
+
+  it('-port で終わる地名は削らない(単独の port は落とす語に入れない)', () => {
+    // 「Newport」から「new」を作ると「New York」に一致してしまい、
+    // 本当に出るべき食い違いが消える。港を拾うために見逃しを作らない
+    expect(isSamePlace(place('Newport'), place('New York'))).toBe(false)
+    expect(isSamePlace(place('Southport'), place('South Kensington'))).toBe(
+      false,
+    )
+    expect(isSamePlace(place('Stockport'), place('Stockholm'))).toBe(false)
+  })
+
+  it('落とすのは末尾の 1 語だけ(「国際空港」を「空港」で削らない)', () => {
+    // 「◯◯国際」まで削れてしまうと、無関係な「◯◯国際会議場」などと繋がる
+    expect(isSamePlace(place('関西国際空港'), place('関西'))).toBe(true)
+    expect(isSamePlace(place('関西国際空港'), place('中部国際空港'))).toBe(
+      false,
+    )
+  })
+
+  it('地名が違えば、施設の語を落としても別の場所のまま', () => {
+    expect(isSamePlace(place('羽田空港'), place('成田空港'))).toBe(false)
+    expect(isSamePlace(place('パリ北駅'), place('ローマ'))).toBe(false)
+    expect(isSamePlace(place('マルタの知人宅'), place('バレッタ'))).toBe(false)
+  })
+
+  it('施設の語しか無い名前からは候補を作らない', () => {
+    // 「駅」から空文字の候補が生まれると、どの地名にも一致してしまう
+    expect(isSamePlace(place('駅'), place('京都駅'))).toBe(false)
+    expect(isSamePlace(place('宅'), place('マルタの知人宅'))).toBe(false)
   })
 })
 
@@ -744,6 +805,218 @@ describe('findItineraryIssues: 同一地点での乗り継ぎ', () => {
       place: airport,
     })
     expect(issuesOf([leg1, leg2, hotel])).toEqual([])
+  })
+})
+
+describe('findItineraryIssues: 施設名を落とした地名での照合', () => {
+  it('マルタの空港に着いてマルタの知人宅に泊まる旅程は警告にならない', () => {
+    // 利用者から報告された実例そのもの。
+    // 「マルタ・ルア国際空港 に到着する予定ですが、次の予約は マルタの知人宅 です」
+    const arrive = booking({
+      id: 'to-malta',
+      kind: 'flight',
+      title: 'ローマ → マルタ',
+      start: at('2026-09-08', '18:00', ROME),
+      end: at('2026-09-08', '19:30', MALTA),
+      from: place('ローマ'),
+      to: place('マルタ・ルア国際空港'),
+    })
+    const stay = booking({
+      id: 'malta-stay',
+      kind: 'lodging',
+      title: '知人宅に宿泊',
+      start: at('2026-09-08', '21:00', MALTA),
+      end: at('2026-09-09', '10:00', MALTA),
+      place: place('マルタの知人宅'),
+    })
+    expect(issuesOf([arrive, stay])).toEqual([])
+  })
+
+  it('地名が違う空港どうしは今までどおり食い違いとして検出する', () => {
+    const arrive = booking({
+      id: 'arrive-haneda',
+      kind: 'flight',
+      title: 'ソウル → 羽田',
+      start: at('2026-06-12', '09:00', TOKYO),
+      end: at('2026-06-12', '11:00', TOKYO),
+      from: place('ソウル'),
+      to: place('羽田空港'),
+    })
+    const depart = booking({
+      id: 'depart-narita',
+      kind: 'flight',
+      title: '成田 → パリ',
+      start: at('2026-06-12', '14:00', TOKYO),
+      end: at('2026-06-12', '19:00', PARIS),
+      from: place('成田空港'),
+      to: place('パリ'),
+    })
+    const issues = issuesOf([arrive, depart])
+    expect(issues.map((issue) => issue.kind)).toEqual(['location-mismatch'])
+  })
+
+  it('「Newport」着 →「New York」の予約は今までどおり食い違いとして検出する', () => {
+    // 英語の単独 port を落とす語に入れると「new」が候補に生まれ、
+    // 「newyork」に包含判定で一致してこの警告が消えてしまう
+    const arrive = booking({
+      id: 'arrive-newport',
+      kind: 'train',
+      title: 'ボストン → ニューポート',
+      start: at('2026-06-12', '09:00', NEW_YORK),
+      end: at('2026-06-12', '12:00', NEW_YORK),
+      from: place('Boston'),
+      to: place('Newport'),
+    })
+    const stay = booking({
+      id: 'ny-hotel',
+      kind: 'lodging',
+      title: 'ニューヨークの宿',
+      start: at('2026-06-12', '18:00', NEW_YORK),
+      end: at('2026-06-13', '10:00', NEW_YORK),
+      place: place('New York'),
+    })
+    const issues = issuesOf([arrive, stay])
+    expect(issues.map((issue) => issue.kind)).toEqual(['location-mismatch'])
+    expect(issues[0]).toMatchObject({
+      fromLabel: 'Newport',
+      toLabel: 'New York',
+    })
+  })
+
+  it('駅の地名部分が違えば今までどおり検出する', () => {
+    const arriveNord = booking({
+      id: 'arrive-nord',
+      kind: 'train',
+      title: 'リール → パリ',
+      start: at('2026-06-14', '09:00', PARIS),
+      end: at('2026-06-14', '12:00', PARIS),
+      from: place('リール'),
+      to: place('パリ北駅'),
+    })
+    const issues = issuesOf([arriveNord, romeHotel])
+    expect(issues.map((issue) => issue.kind)).toEqual(['location-mismatch'])
+  })
+})
+
+describe('findItineraryIssues: 同じ場所として扱う組(placeAliases)', () => {
+  // 語尾の除去では繋がらない組。利用者に教えてもらうしかない場面
+  const arriveFaro = booking({
+    id: 'arrive-faro',
+    kind: 'flight',
+    title: 'リスボン → ファーロ',
+    start: at('2026-06-12', '10:00', LISBON),
+    end: at('2026-06-12', '11:00', LISBON),
+    from: place('リスボン'),
+    to: place('Faro'),
+  })
+  const departAlgarve = booking({
+    id: 'depart-algarve',
+    kind: 'bus',
+    title: 'アルガルヴェ → セビリア',
+    start: at('2026-06-14', '09:00', LISBON),
+    end: at('2026-06-14', '14:00', 'Europe/Madrid'),
+    from: place('アルガルヴェ'),
+    to: place('セビリア'),
+  })
+
+  const issuesWithAliases = (names: Array<[string, string]>) =>
+    findItineraryIssues(
+      makeState({
+        bookings: [arriveFaro, departAlgarve],
+        placeAliases: names.map((pair, index) => ({
+          id: `alias-${index}`,
+          names: pair,
+        })),
+      }),
+    )
+
+  it('登録前は宿の抜けと場所の食い違いが両方出る', () => {
+    expect(
+      issuesOf([arriveFaro, departAlgarve]).map((issue) => issue.kind),
+    ).toEqual(['missing-lodging', 'location-mismatch'])
+  })
+
+  it('組を登録すると場所の食い違いだけが消え、宿の抜けは残る', () => {
+    // 同じ場所だと教わっても、その夜に寝る場所が要ることは変わらない
+    const issues = issuesWithAliases([['Faro', 'アルガルヴェ']])
+    expect(issues.map((issue) => issue.kind)).toEqual(['missing-lodging'])
+  })
+
+  it('組の順番が逆でも、表記が揺れていても効く', () => {
+    const issues = issuesWithAliases([['アルガルヴェ', 'ＦＡＲＯ']])
+    expect(issues.map((issue) => issue.kind)).toEqual(['missing-lodging'])
+  })
+
+  it('別の組を登録しても、その指摘は消えない', () => {
+    const issues = issuesWithAliases([['Faro', 'セビリア']])
+    expect(issues.map((issue) => issue.kind)).toEqual([
+      'missing-lodging',
+      'location-mismatch',
+    ])
+  })
+
+  it('missing-transport も落とせる', () => {
+    const stayFaro = booking({
+      id: 'faro-hotel',
+      kind: 'lodging',
+      title: 'ファーロの宿',
+      start: at('2026-06-12', '15:00', LISBON),
+      end: at('2026-06-13', '10:00', LISBON),
+      place: place('Faro'),
+    })
+    const stayAlgarve = booking({
+      id: 'algarve-house',
+      kind: 'lodging',
+      title: 'アルガルヴェの家',
+      start: at('2026-06-13', '15:00', LISBON),
+      end: at('2026-06-14', '10:00', LISBON),
+      place: place('アルガルヴェ'),
+    })
+    const bookings = [stayFaro, stayAlgarve]
+    expect(issuesOf(bookings).map((issue) => issue.kind)).toEqual([
+      'missing-transport',
+    ])
+    expect(
+      findItineraryIssues(
+        makeState({
+          bookings,
+          placeAliases: [{ id: 'alias-1', names: ['Faro', 'アルガルヴェ'] }],
+        }),
+      ),
+    ).toEqual([])
+  })
+
+  it('乗り継ぎ(layover)は組を登録しても消えない', () => {
+    // 「同じ場所か」ではなく「その夜どこで寝るか」の話なので、教えても結論は変わらない
+    const terminal1 = place('ドーハ国際空港', { lat: 25.2731, lng: 51.6081 })
+    const terminal2 = place('ハマド国際空港', { lat: 25.2609, lng: 51.6138 })
+    const leg1 = booking({
+      id: 'leg1',
+      kind: 'flight',
+      title: '東京 → ドーハ',
+      start: at('2026-06-12', '10:00', TOKYO),
+      end: at('2026-06-12', '20:00', DOHA),
+      from: place('東京'),
+      to: terminal1,
+    })
+    const leg2 = booking({
+      id: 'leg2',
+      kind: 'flight',
+      title: 'ドーハ → ローマ',
+      start: at('2026-06-13', '08:00', DOHA),
+      end: at('2026-06-13', '13:00', ROME),
+      from: terminal2,
+      to: place('ローマ'),
+    })
+    const issues = findItineraryIssues(
+      makeState({
+        bookings: [leg1, leg2],
+        placeAliases: [
+          { id: 'alias-1', names: ['ドーハ国際空港', 'ハマド国際空港'] },
+        ],
+      }),
+    )
+    expect(issues.map((issue) => issue.kind)).toEqual(['layover'])
   })
 })
 

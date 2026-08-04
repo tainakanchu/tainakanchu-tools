@@ -35,6 +35,9 @@
  *   - タイムゾーン名を辞書の添字に置き換える(辞書に無ければ生文字列)
  *   - zdt(40文字前後の文字列)を「分単位 epoch + タイムゾーン」に分解する
  *
+ * その後に足したフィールド(placeAliases)は v2 にだけ載せる。v1 の形式は
+ * 発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
+ *
  * **'0' と '1' のデコード経路は消してはいけない。** 共有URLはサーバに保存して
  * いないため、一度発行したURLを回収する手段がない。古い形式のURLが読めなくなると
  * 利用者の旅程が失われる。エンコード側だけを新しい形式に進める。
@@ -140,6 +143,15 @@ interface ShortContact {
   n?: string
 }
 
+/**
+ * v1 の状態。過去に発行されたURLを読むための形なので、新しいフィールドは足さない。
+ *
+ * そのため placeAliases(「同じ場所として扱う」の登録)は v1 では落ちる。
+ * v1 でエンコードする経路は CompressionStream が使えない環境だけで今も生きている
+ * (buildPayload 参照)ため、そこで共有すると受け取り側では
+ * 黙らせたはずの指摘が復活する。復活するのは警告であって旅程そのものではないうえ、
+ * 現実にその経路を通るブラウザはほぼ無いので、マーカーを増やしてまで直さない。
+ */
 interface ShortState {
   v: 1
   t: string
@@ -352,6 +364,12 @@ interface ShortStateV2 {
   z?: number | string
   b: Array<ShortBookingV2>
   c: Array<ShortContactV2>
+  /**
+   * placeAliases。名前の組だけを載せ、id は v2 の方針どおり落とす
+   * (復元側で newId() を振り直す)。
+   * 大多数の旅程では 1 組も無いので、空なら丸ごと省く。
+   */
+  p?: Array<[string, string]>
 }
 
 /**
@@ -472,6 +490,7 @@ function fromShortContactV2(short: ShortContactV2): EmergencyContact {
 }
 
 function toShortStateV2(state: TripNotesState): ShortStateV2 {
+  const aliases = state.placeAliases ?? []
   return {
     v: state.schemaVersion,
     t: state.tripTitle,
@@ -480,6 +499,7 @@ function toShortStateV2(state: TripNotesState): ShortStateV2 {
     ...(state.pinnedTz !== null ? { z: encodeShareTz(state.pinnedTz) } : {}),
     b: state.bookings.map(toShortBookingV2),
     c: state.emergencyContacts.map(toShortContactV2),
+    ...(aliases.length > 0 ? { p: aliases.map((alias) => alias.names) } : {}),
   }
 }
 
@@ -493,6 +513,12 @@ function fromShortStateV2(short: ShortStateV2): TripNotesState {
     pinnedTz: short.z !== undefined ? decodeShareTz(short.z) : null,
     bookings: short.b.map(fromShortBookingV2),
     emergencyContacts: short.c.map(fromShortContactV2),
+    // 省略されていた(= 1 組も無い)ときはフィールドごと付けない
+    ...(short.p !== undefined
+      ? {
+          placeAliases: short.p.map((names) => ({ id: newId('pa'), names })),
+        }
+      : {}),
   }
 }
 

@@ -175,12 +175,14 @@ describe('tripNotesReducer / 未確認フィールド', () => {
 })
 
 describe('tripNotesReducer / AI 取り込みのバルク追加', () => {
-  it('既存の予約を消さずに末尾へ足す', () => {
-    // 手入力済みの予約を巻き込むと確認番号が失われて復元できない
+  it('既存と同一とみなせない予約は末尾へ足す', () => {
     const base = makeState({ bookings: [makeBooking('manual')] })
     const next = tripNotesReducer(base, {
       type: 'importBookings',
-      bookings: [makeBooking('ai1'), makeBooking('ai2')],
+      bookings: [
+        makeBooking('ai1', { title: '別の宿1' }),
+        makeBooking('ai2', { title: '別の宿2' }),
+      ],
     })
     expect(next.bookings.map((b) => b.id)).toEqual(['manual', 'ai1', 'ai2'])
   })
@@ -190,6 +192,89 @@ describe('tripNotesReducer / AI 取り込みのバルク追加', () => {
     expect(
       tripNotesReducer(base, { type: 'importBookings', bookings: [] }),
     ).toBe(base)
+  })
+
+  it('既存と同一とみなせる予約は、既存の位置のままマージして差し替える', () => {
+    // 同じ確認番号を持つ予約をもう一度取り込んでも、重複して増えてはいけない
+    const base = makeState({
+      bookings: [
+        makeBooking('manual1', {
+          title: '手入力の宿A',
+          confirmationNumber: 'ABC123',
+          note: '朝食付き',
+        }),
+        makeBooking('manual2', { title: '手入力の宿B' }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'importBookings',
+      bookings: [
+        makeBooking('tmp', {
+          title: 'AIが読み取った宿A',
+          confirmationNumber: 'abc-123',
+          note: undefined,
+          price: { amount: 120, currency: 'EUR' },
+        }),
+      ],
+    })
+
+    // 件数は増えず、既存の並び順(先頭)のまま更新される
+    expect(next.bookings).toHaveLength(2)
+    expect(next.bookings[0].id).toBe('manual1')
+    expect(next.bookings[1].id).toBe('manual2')
+    // マージ結果: タイトル・確認番号は取り込み側(確認番号は一致判定こそ
+    // 正規化するが、採用する値そのものは正規化しない取り込み側の生の値)、
+    // 取り込み側に値の無かったメモは既存を維持、料金は取り込み側の値が新たに入る
+    expect(next.bookings[0].title).toBe('AIが読み取った宿A')
+    expect(next.bookings[0].confirmationNumber).toBe('abc-123')
+    expect(next.bookings[0].note).toBe('朝食付き')
+    expect(next.bookings[0].price).toEqual({ amount: 120, currency: 'EUR' })
+  })
+
+  it('新規追加ぶんとマージぶんが混在していても、undo 1回でまとめて取り消せる', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('manual1', {
+          title: '手入力の宿A',
+          confirmationNumber: 'ABC123',
+        }),
+      ],
+    })
+    const history = createHistory(base)
+    const imported = historyReducer(history, {
+      type: 'importBookings',
+      bookings: [
+        makeBooking('tmp1', {
+          title: '更新される宿A',
+          confirmationNumber: 'ABC123',
+        }),
+        makeBooking('tmp2', { title: '新規の宿B' }),
+      ],
+    })
+    expect(imported.present.bookings).toHaveLength(2)
+    expect(imported.present.bookings[0].title).toBe('更新される宿A')
+
+    const undone = historyReducer(imported, { type: 'undo' })
+    expect(undone.present.bookings).toHaveLength(1)
+    expect(undone.present.bookings[0].title).toBe('手入力の宿A')
+  })
+
+  it('status が cancelled の既存予約は取り込みでマッチせず、新規として別に追加される', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('cancelled1', {
+          status: 'cancelled',
+          confirmationNumber: 'ABC123',
+        }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'importBookings',
+      bookings: [makeBooking('tmp', { confirmationNumber: 'ABC123' })],
+    })
+    expect(next.bookings).toHaveLength(2)
+    expect(next.bookings[0].status).toBe('cancelled')
+    expect(next.bookings[1].id).not.toBe('cancelled1')
   })
 })
 
@@ -250,6 +335,97 @@ describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
       id: 'c1',
     })
     expect(removed.emergencyContacts).toHaveLength(0)
+  })
+
+  it('同じ場所として扱う組を追加できる(id が振られる)', () => {
+    const next = tripNotesReducer(makeState(), {
+      type: 'addPlaceAlias',
+      names: ['マルタ・ルア国際空港', 'マルタの知人宅'],
+    })
+    expect(next.placeAliases).toHaveLength(1)
+    expect(next.placeAliases?.[0].names).toEqual([
+      'マルタ・ルア国際空港',
+      'マルタの知人宅',
+    ])
+    expect(next.placeAliases?.[0].id).not.toBe('')
+  })
+
+  it('同じ組の追加は状態を変えない(順不同・表記ゆれも同じ組とみなす)', () => {
+    // 二度押しで Undo 履歴に空の 1 手が積まれると、「元に戻す」が空振りする
+    const base = tripNotesReducer(makeState(), {
+      type: 'addPlaceAlias',
+      names: ['マルタ・ルア国際空港', 'マルタの知人宅'],
+    })
+    expect(
+      tripNotesReducer(base, {
+        type: 'addPlaceAlias',
+        names: ['マルタ・ルア国際空港', 'マルタの知人宅'],
+      }),
+    ).toBe(base)
+    expect(
+      tripNotesReducer(base, {
+        type: 'addPlaceAlias',
+        names: ['マルタの知人宅', 'マルタルア国際空港'],
+      }),
+    ).toBe(base)
+  })
+
+  it('名前が空の組は登録しない(何にも一致しないので保存を膨らませるだけ)', () => {
+    const base = makeState()
+    expect(
+      tripNotesReducer(base, { type: 'addPlaceAlias', names: ['パリ', '  '] }),
+    ).toBe(base)
+  })
+
+  it('違う組なら並べて追加される', () => {
+    const first = tripNotesReducer(makeState(), {
+      type: 'addPlaceAlias',
+      names: ['Faro', 'アルガルヴェ'],
+    })
+    const second = tripNotesReducer(first, {
+      type: 'addPlaceAlias',
+      names: ['Faro', 'セビリア'],
+    })
+    expect(second.placeAliases).toHaveLength(2)
+  })
+
+  it('削除で最後の 1 組が消えたらフィールドごと落ちる', () => {
+    const first = tripNotesReducer(makeState(), {
+      type: 'addPlaceAlias',
+      names: ['Faro', 'アルガルヴェ'],
+    })
+    const second = tripNotesReducer(first, {
+      type: 'addPlaceAlias',
+      names: ['Faro', 'セビリア'],
+    })
+    const ids = (second.placeAliases ?? []).map((alias) => alias.id)
+
+    const removedOne = tripNotesReducer(second, {
+      type: 'removePlaceAlias',
+      id: ids[0],
+    })
+    expect(removedOne.placeAliases?.map((alias) => alias.id)).toEqual([ids[1]])
+
+    const removedAll = tripNotesReducer(removedOne, {
+      type: 'removePlaceAlias',
+      id: ids[1],
+    })
+    expect(removedAll).not.toHaveProperty('placeAliases')
+  })
+
+  it('存在しない組の削除は状態を変えない', () => {
+    const base = tripNotesReducer(makeState(), {
+      type: 'addPlaceAlias',
+      names: ['Faro', 'アルガルヴェ'],
+    })
+    expect(
+      tripNotesReducer(base, { type: 'removePlaceAlias', id: 'いない' }),
+    ).toBe(base)
+    // 1 組も無い状態でも同じ
+    const empty = makeState()
+    expect(
+      tripNotesReducer(empty, { type: 'removePlaceAlias', id: 'いない' }),
+    ).toBe(empty)
   })
 
   it('resetAll は初期状態に戻す', () => {
@@ -360,6 +536,32 @@ describe('historyReducer / Undo・Redo', () => {
       ['title'],
       ['note'],
     ])
+  })
+
+  it('旅程の切り替え(loadTrip)は past も future も捨てる', () => {
+    // 別の旅程を開いたあとに Ctrl+Z で前の旅程が戻ってくると、
+    // いまどちらを編集しているのか分からなくなる。だから履歴は旅程ごとに閉じる
+    const history = createHistory(makeState({ bookings: [makeBooking('a1')] }))
+    const edited = historyReducer(history, {
+      type: 'addBooking',
+      booking: makeBooking('a2'),
+    })
+    const undone = historyReducer(edited, { type: 'undo' })
+    expect(undone.past).toHaveLength(0)
+    expect(undone.future).toHaveLength(1)
+
+    const other = makeState({
+      tripTitle: '台湾年末',
+      bookings: [makeBooking('b1')],
+    })
+    const loaded = historyReducer(undone, { type: 'loadTrip', state: other })
+    expect(loaded.present).toBe(other)
+    expect(loaded.past).toHaveLength(0)
+    expect(loaded.future).toHaveLength(0)
+
+    // 切り替え直後の undo / redo は空振りし、前の旅程には戻らない
+    expect(historyReducer(loaded, { type: 'undo' })).toBe(loaded)
+    expect(historyReducer(loaded, { type: 'redo' })).toBe(loaded)
   })
 
   it('Undo 履歴は上限(50)を超えて伸び続けない', () => {

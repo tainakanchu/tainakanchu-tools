@@ -11,6 +11,9 @@
  */
 
 import { isValidISODate } from '../../../../lib/trip-notes/datetime'
+import { newId } from '../../../../lib/trip-notes/id'
+import { planImport } from '../../../../lib/trip-notes/importMerge'
+import { isSameAliasPair } from '../../../../lib/trip-notes/itinerary'
 import { createInitialState } from '../../../../lib/trip-notes/storage'
 import type {
   Booking,
@@ -47,7 +50,17 @@ export type TripNotesAction =
   | { type: 'addContact'; contact: EmergencyContact }
   | { type: 'updateContact'; contact: EmergencyContact }
   | { type: 'removeContact'; id: string }
-  /** AI 取り込みのバルク追加 */
+  /**
+   * 「この 2 つは同じ場所」の登録。旅程の警告カードから、
+   * そこに出ていた 2 つの地名をそのまま渡す(itinerary.ts の placeAliases)。
+   */
+  | { type: 'addPlaceAlias'; names: [string, string] }
+  | { type: 'removePlaceAlias'; id: string }
+  /**
+   * AI 取り込みのバルク追加。
+   * 既存の予約と同一とみなせるもの(importMerge.ts の planImport が判定)は
+   * マージして差し替え、それ以外だけを新規に追加する。
+   */
   | { type: 'importBookings'; bookings: Array<Booking> }
   /** 共有URL・JSON からの読み込み(現在のデータを丸ごと置き換える) */
   | { type: 'replaceState'; state: TripNotesState }
@@ -66,7 +79,23 @@ export type TripNotesAction =
   | { type: 'setBookingPayment'; id: string; payment: Booking['payment'] }
 
 export type HistoryAction =
-  TripNotesAction | { type: 'undo' } | { type: 'redo' }
+  | TripNotesAction
+  | { type: 'undo' }
+  | { type: 'redo' }
+  /**
+   * 別の旅程を開く(旅程セレクタでの切り替え・新規作成・複製・削除の着地点)。
+   *
+   * replaceState と別のアクションにしているのは、置き換えが「いまの旅程への編集」
+   * なのに対して、こちらは「編集対象そのものの乗り換え」だからである。
+   * 同じ扱いにして履歴を引き継ぐと、台湾の旅程を開いてから Ctrl+Z を押すと
+   * マルタの旅程が戻ってくる、ということが起きる。
+   * そのとき画面に出ているのがどちらの旅程なのか、
+   * さらに続く編集がどちらに保存されるのかが利用者にも実装にも分からなくなる。
+   * だから切り替えでは past も future も捨て、履歴は旅程ごとに閉じたものにする
+   * (乗り換えを取り消したければ、セレクタで元の旅程を選び直せばよい。
+   *  切り替えは非破壊なので、Undo で守るべきものがそもそも無い)。
+   */
+  | { type: 'loadTrip'; state: TripNotesState }
 
 export interface HistoryState {
   past: Array<TripNotesState>
@@ -239,11 +268,71 @@ export function tripNotesReducer(
       return { ...state, emergencyContacts }
     }
 
-    case 'importBookings':
-      // 既存の予約は消さずに足すだけにする。AI の抽出結果を信じて
-      // 手入力済みの予約を巻き込むと、確認番号が失われて復元できない
+    case 'addPlaceAlias': {
+      // 名前が空になる組は何にも一致しないので、登録しても保存を膨らませるだけになる
+      // (判定側も空文字を含む組は常に不一致として扱う)
+      if (action.names.some((name) => name.trim() === '')) return state
+
+      const current = state.placeAliases ?? []
+      // 同じ組を二度押しても状態を変えない(同一参照を返して Undo 履歴に空の 1 手を積まない)。
+      // 表記ゆれや順番の違いは isSameAliasPair が正規化して吸収するので、
+      // 「マルタ・ルア国際空港 / マルタの知人宅」と「マルタルア国際空港 / マルタの知人宅」は
+      // 同じ 1 組として扱われる。
+      if (current.some((alias) => isSameAliasPair(alias.names, action.names))) {
+        return state
+      }
+      return {
+        ...state,
+        placeAliases: [...current, { id: newId('pa'), names: action.names }],
+      }
+    }
+
+    case 'removePlaceAlias': {
+      const current = state.placeAliases ?? []
+      const placeAliases = current.filter((alias) => alias.id !== action.id)
+      if (placeAliases.length === current.length) return state
+      // 最後の 1 組を消したらフィールドごと落とす。
+      // 「空配列が残っている state」と「一度も登録していない state」を
+      // 別物として扱う必要はなく、共有URLも無駄に伸びる(unverified と同じ扱い)
+      if (placeAliases.length === 0) {
+        const { placeAliases: _placeAliases, ...rest } = state
+        return rest
+      }
+      return { ...state, placeAliases }
+    }
+
+    case 'importBookings': {
+      // 既存の予約と同一とみなせるものはマージして差し替え、それ以外だけを
+      // 末尾に追加する。判定は importMerge.ts の planImport に集約し、ここで
+      // 条件を再実装しない(UI のプレビューと実際の取り込み結果がズレるのを防ぐ)。
+      //
+      // 以前は「既存の予約は消さずに足すだけ」にしていたが、それだと同じ
+      // 予約確認メールをもう一度 AI に読ませて貼り付けたときに同じ予定が
+      // 二重に増えてしまっていた。マージは 1 アクションの中で完結させ、
+      // Undo 1 回で取り込み全体(新規追加ぶんもマージぶんも)を戻せるようにする。
       if (action.bookings.length === 0) return state
-      return { ...state, bookings: [...state.bookings, ...action.bookings] }
+
+      const plan = planImport(state.bookings, action.bookings)
+
+      // マッチした予約は既存の並び順の位置で差し替え、それ以外だけを
+      // 末尾に追加する。並び順を保つのは、同じ日の予約カードの表示順が
+      // 取り込みのたびに入れ替わるような不要な差分を出さないため
+      const updates = new Map<string, Booking>()
+      const additions: Array<Booking> = []
+      for (const entry of plan.entries) {
+        if (entry.replacesId === null) {
+          additions.push(entry.booking)
+        } else {
+          updates.set(entry.replacesId, entry.booking)
+        }
+      }
+
+      const bookings = [
+        ...state.bookings.map((booking) => updates.get(booking.id) ?? booking),
+        ...additions,
+      ]
+      return { ...state, bookings }
+    }
 
     case 'replaceState':
       return action.state
@@ -285,6 +374,11 @@ export function historyReducer(
   history: HistoryState,
   action: HistoryAction,
 ): HistoryState {
+  // 旅程の乗り換えなので、いまの旅程で積んだ履歴は持ち越さない(HistoryAction の解説を参照)
+  if (action.type === 'loadTrip') {
+    return createHistory(action.state)
+  }
+
   if (action.type === 'undo') {
     if (history.past.length === 0) return history
     const previous = history.past[history.past.length - 1]

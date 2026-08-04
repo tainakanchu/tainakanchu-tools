@@ -11,6 +11,7 @@ import { render } from '@testing-library/react'
 import { computeSummary } from '../../../../lib/trip-notes/derive'
 import { computeNights } from '../../../../lib/trip-notes/nights'
 import { AiImportPanel } from './AiImportPanel'
+import { BookingCard } from './BookingCard'
 import { BookingForm } from './BookingForm'
 import { NightCoverageStrip } from './NightCoverageStrip'
 import { NowPanel } from './NowPanel'
@@ -182,6 +183,7 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
           displayTz={tz}
           dispatch={noop}
           onSelectDate={noop}
+          onAddTrip={noop}
         />,
       ),
     ).not.toThrow()
@@ -235,5 +237,51 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
         />,
       ),
     ).not.toThrow()
+  })
+})
+
+/**
+ * 上の describe はあくまで「初回描画で落ちない」ことしか見ないが、
+ * ここだけは例外的に見た目まで踏み込む。検討中(idea)・仮押さえ(held)の
+ * 予約が確定済みとほぼ同じ見た目になり、一覧を流し見しても
+ * 「まだ仮だ」に気付けない、という具体的な不満への回帰テストなので、
+ * BookingStatusBadge のラベルだけでなくカード自体の縁が変わっているかを見る。
+ */
+describe('BookingCard は予約状況でカード自体の見た目を変える', () => {
+  const cardProps = {
+    displayTz: tz,
+    onEdit: noop,
+    onDelete: noop,
+    onVerifyAll: noop,
+  }
+
+  it('idea は破線ボーダーになり、confirmed とは見た目が違う', () => {
+    const { container: ideaContainer } = render(
+      <BookingCard
+        booking={bk('idea-1', { status: 'idea' })}
+        {...cardProps}
+      />,
+    )
+    const { container: confirmedContainer } = render(
+      <BookingCard
+        booking={bk('confirmed-1', { status: 'confirmed' })}
+        {...cardProps}
+      />,
+    )
+
+    expect(ideaContainer.querySelector('.border-dashed')).toBeTruthy()
+    expect(confirmedContainer.querySelector('.border-dashed')).toBeNull()
+  })
+
+  it('held は実線のまま琥珀のボーダーが付き、idea の破線とは違う', () => {
+    const { container } = render(
+      <BookingCard
+        booking={bk('held-1', { status: 'held' })}
+        {...cardProps}
+      />,
+    )
+
+    expect(container.querySelector('.border-amber-300')).toBeTruthy()
+    expect(container.querySelector('.border-dashed')).toBeNull()
   })
 })

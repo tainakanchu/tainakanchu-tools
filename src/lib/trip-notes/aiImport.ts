@@ -89,9 +89,14 @@ function isPaymentStatus(value: unknown): value is PaymentStatus {
   return typeof value === 'string' && PAYMENT_STATUS_SET.has(value)
 }
 
-/** status / payment が未指定のときの既定値。「まだ何も決まっていない」に寄せる */
-const DEFAULT_STATUS: BookingStatus = 'idea'
-const DEFAULT_PAYMENT: PaymentStatus = 'unpaid'
+/**
+ * status / payment が未指定のときの既定値。「まだ何も決まっていない」に寄せる。
+ * importMerge.ts もこの値を「AI が読み取れなかった印」として参照している
+ * (取り込み側がこの値のときは、既存の予約が持つ status/payment を上書きしない
+ * ための判定に使う)ので export している。
+ */
+export const DEFAULT_STATUS: BookingStatus = 'idea'
+export const DEFAULT_PAYMENT: PaymentStatus = 'unpaid'
 
 function truncate(text: string): string {
   const trimmed = text.trim()

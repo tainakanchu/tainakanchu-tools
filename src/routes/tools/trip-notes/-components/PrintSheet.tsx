@@ -8,7 +8,11 @@
  */
 
 import { groupByDay } from '../../../../lib/trip-notes/derive'
-import { formatDateJa, formatStamp } from '../../../../lib/trip-notes/datetime'
+import {
+  formatDateJa,
+  formatStamp,
+  stampDateInTz,
+} from '../../../../lib/trip-notes/datetime'
 import { todayISO } from '../-lib/format'
 import { KindIcon } from './KindIcon'
 import type { Booking, TripNotesState } from '../../../../lib/trip-notes/types'
@@ -63,6 +67,38 @@ function BookingLine({
   )
 }
 
+/**
+ * 連泊中の宿・日をまたぐ移動を示す最小限の 1 行。
+ * 紙は画面と違ってクリックで詳細に飛べないので、BookingLine のように
+ * 情報を積む意味が薄い。「この日もまだそこにいる」と分かれば十分なので、
+ * 状態は「チェックアウト/到着」と「継続中」だけに絞って印字を軽くする。
+ */
+function OngoingLine({
+  booking,
+  date,
+  displayTz,
+}: {
+  booking: Booking
+  date: string
+  displayTz: string
+}) {
+  const isEndDate =
+    booking.end !== null && stampDateInTz(booking.end, displayTz) === date
+  const label = isEndDate
+    ? booking.kind === 'lodging'
+      ? 'チェックアウト'
+      : '到着'
+    : '継続中'
+
+  return (
+    <div className="flex items-baseline gap-1.5 py-0.5 text-[9pt] text-gray-500">
+      <KindIcon kind={booking.kind} size={9} className="shrink-0 text-gray-400" />
+      <span>{booking.title}</span>
+      <span className="text-gray-400">({label})</span>
+    </div>
+  )
+}
+
 export function PrintSheet({ state, displayTz }: PrintSheetProps) {
   // キャンセル済みは紙に残す価値がないので、印刷時だけ取り除く
   // (画面側のタイムライン表示には影響しない、この関数内だけの絞り込み)。
@@ -87,18 +123,34 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
           <h2 className="border-b-2 border-black pb-1 text-[12pt] font-bold">
             {formatDateJa(day.date)}
           </h2>
-          {day.bookings.length === 0 ? (
+          {day.bookings.length === 0 && day.ongoing.length === 0 ? (
             <p className="mt-1 text-[9pt] text-gray-500">予定なし</p>
           ) : (
-            <div className="mt-1 divide-y divide-gray-300">
-              {day.bookings.map((booking) => (
-                <BookingLine
-                  key={booking.id}
-                  booking={booking}
-                  displayTz={displayTz}
-                />
-              ))}
-            </div>
+            <>
+              {day.ongoing.length > 0 ? (
+                <div className="mt-1">
+                  {day.ongoing.map((booking) => (
+                    <OngoingLine
+                      key={booking.id}
+                      booking={booking}
+                      date={day.date}
+                      displayTz={displayTz}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {day.bookings.length > 0 ? (
+                <div className="mt-1 divide-y divide-gray-300">
+                  {day.bookings.map((booking) => (
+                    <BookingLine
+                      key={booking.id}
+                      booking={booking}
+                      displayTz={displayTz}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
         </section>
       ))}

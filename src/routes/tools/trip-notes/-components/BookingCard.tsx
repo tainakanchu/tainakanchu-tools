@@ -4,6 +4,12 @@
  * 移動系(飛行機・列車・バス・船・レンタカー)だけ formatDualTime で
  * 日本時間を併記する。「現地 14:20 発」だけだと、日本にいる家族と
  * 予定をすり合わせるたびに暗算が要るため。
+ *
+ * カードの縁と地色も予約状況(idea/held)で変える。BookingStatusBadge は
+ * 一覧をざっと流し見したときに気付かれないくらい小さいので、カードの
+ * 見た目そのものに「まだ確定していない」を語らせる。色だけに頼ると
+ * 色覚特性や白黒印刷で idea/held/confirmed が見分けられなくなるため、
+ * idea には破線ボーダーという形の違いも足す(StatusBadge.tsx 冒頭のコメント参照)。
  */
 
 import { Check, Pencil, Trash2 } from 'lucide-react'
@@ -12,10 +18,30 @@ import {
   formatStamp,
 } from '../../../../lib/trip-notes/datetime'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
+import { bookingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
 import { iconButtonClass, unverifiedFieldClass } from '../-lib/styles'
 import { KindIcon } from './KindIcon'
+import { SearchLinks } from './SearchLinks'
 import { BookingStatusBadge, PaymentStatusBadge } from './StatusBadge'
-import type { Booking, FieldKey, Stamp } from '../../../../lib/trip-notes/types'
+import type {
+  Booking,
+  BookingStatus,
+  FieldKey,
+  Stamp,
+} from '../../../../lib/trip-notes/types'
+
+/**
+ * カード全体の縁・地色。confirmed/cancelled は現状どおり白地・実線グレーのまま
+ * 変えない(cancelled は打ち消し線と opacity-60 だけで十分「見なくていい」が伝わる)。
+ * status は 4 択の単一値なので、この対応表 1 つだけで済み、
+ * cancelled が idea/held の装飾を誤って引きずる心配もない。
+ */
+const CARD_STATUS_CLASS: Record<BookingStatus, string> = {
+  idea: 'border-dashed border-slate-300 bg-slate-50',
+  held: 'border-amber-300 bg-amber-50',
+  confirmed: 'border-gray-200 bg-white',
+  cancelled: 'border-gray-200 bg-white',
+}
 
 interface BookingCardProps {
   booking: Booking
@@ -70,7 +96,17 @@ export function BookingCard({
       ? unverifiedFieldClass
       : ''
   const cancelled = booking.status === 'cancelled'
+  const statusClass = CARD_STATUS_CLASS[booking.status]
   const place = summarizePlace(booking)
+  /**
+   * 検索リンクを出すのは idea/held だけ。confirmed はもう予約が取れているので
+   * 「どこで探すか」自体が不要になっており、cancelled は行かないと決めた予定なので
+   * リンクを出すと「まだ探している」ように見えて紛らわしい。
+   */
+  const searchLinks =
+    booking.status === 'idea' || booking.status === 'held'
+      ? bookingSearchLinks(booking)
+      : []
 
   const timeLabel = formatTime(booking.kind, booking.start, displayTz)
   const endLabel =
@@ -80,7 +116,7 @@ export function BookingCard({
 
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition sm:p-4 ${
+      className={`rounded-2xl border p-3 shadow-sm transition sm:p-4 ${statusClass} ${
         cancelled ? 'opacity-60' : ''
       }`}
     >
@@ -145,6 +181,12 @@ export function BookingCard({
             <BookingStatusBadge status={booking.status} size="sm" />
             <PaymentStatusBadge payment={booking.payment} size="sm" />
           </div>
+
+          {searchLinks.length > 0 ? (
+            <div className="mt-2">
+              <SearchLinks links={searchLinks} />
+            </div>
+          ) : null}
 
           {booking.confirmationNumber !== undefined ? (
             <p

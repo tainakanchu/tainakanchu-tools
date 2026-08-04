@@ -14,6 +14,7 @@ import {
   Download,
   FileJson,
   Globe,
+  MapPinCheck,
   Pencil,
   Phone,
   Plane,
@@ -38,6 +39,7 @@ import {
   subtleButtonClass,
 } from '../-lib/styles'
 import { AiImportPanel } from './AiImportPanel'
+import { ImportChoiceDialog } from './ImportChoiceDialog'
 import { ShareDialog } from './ShareDialog'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { TripNotesDispatch } from '../-lib/reducer'
@@ -52,6 +54,11 @@ interface SettingsPanelProps {
   dispatch: TripNotesDispatch
   /** AIインポート完了後、取り込んだ日へ日程タブから飛ぶための橋渡し */
   onSelectDate: (date: string) => void
+  /**
+   * 読み込んだ JSON を新しい旅程として追加して開く。
+   * 旅程の入れ物はページ側が持つので、ここからは追加を頼むだけにする。
+   */
+  onAddTrip: (state: TripNotesState) => void
 }
 
 interface Message {
@@ -209,6 +216,7 @@ export function SettingsPanel({
   displayTz,
   dispatch,
   onSelectDate,
+  onAddTrip,
 }: SettingsPanelProps) {
   const titleId = useId()
   const startId = useId()
@@ -227,6 +235,13 @@ export function SettingsPanel({
 
   const [importText, setImportText] = useState('')
   const [ioMessage, setIoMessage] = useState<Message | null>(null)
+  /** 読み取りに成功した JSON。取り込み先(追加か置き換えか)が決まるまでは適用しない */
+  const [pendingImport, setPendingImport] = useState<TripNotesState | null>(
+    null,
+  )
+
+  // 1 組も登録が無いときはフィールドごと存在しない(types.ts 参照)
+  const aliases = state.placeAliases ?? []
 
   // 終了日が開始日以前だと夜の計算(nights.ts)が破綻するので、その場で警告する
   let nights: number | null = null
@@ -279,6 +294,14 @@ export function SettingsPanel({
     )
   }
 
+  /**
+   * JSON を読み取って、取り込み先の確認ダイアログまで進める。
+   *
+   * 以前は window.confirm 一発で現在のデータを置き換えていたが、
+   * 旅程を複数持てるようになったので「新しい旅程として追加」も選べるようにする。
+   * ファイル選択と貼り付けのどちらもここを通るので、経路によって
+   * 選択肢が違う(片方だけ置き換え固定)ということが起きない。
+   */
   const applyImportedJson = (raw: string) => {
     let parsed: TripNotesState | null = null
     try {
@@ -293,10 +316,8 @@ export function SettingsPanel({
       })
       return
     }
-    if (!window.confirm('現在のデータを上書きします。よろしいですか?')) return
-    dispatch({ type: 'replaceState', state: parsed })
-    setIoMessage({ tone: 'ok', text: '読み込みました。' })
-    setImportText('')
+    setIoMessage(null)
+    setPendingImport(parsed)
   }
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -313,10 +334,15 @@ export function SettingsPanel({
     }
   }
 
+  /**
+   * いま開いている旅程だけを空にする。
+   * 旅程を複数持てるようになったので、「すべて消す」という言い方は
+   * 他の旅程まで消えると誤解される。実際に消えるのはこの旅程の中身だけ
+   */
   const handleResetAll = () => {
     if (
       !window.confirm(
-        'すべてのデータ(旅程・緊急連絡先を含む)を削除して最初からやり直します。元に戻せません。よろしいですか?',
+        'いま開いている旅程の予約と緊急連絡先をすべて削除して、この旅程を空にします。他の旅程は消えません。元に戻せません。よろしいですか?',
       )
     ) {
       return
@@ -577,7 +603,53 @@ export function SettingsPanel({
         )}
       </section>
 
-      {/* 7. JSON入出力 */}
+      {/*
+        7. 同じ場所として扱う組。
+        進捗タブの警告カードから押した判断の置き場で、登録が無ければ何も出さない
+        (使っていない人にとっては存在しない機能なので、説明ごと出す意味がない)。
+        取り消せる場所をここに必ず設けているのは、押し間違えたまま放置すると
+        その組の警告が二度と戻らず、本物の食い違いを見落とすため。
+      */}
+      {aliases.length > 0 ? (
+        <section className={cardClass}>
+          <h2 className={sectionTitleClass}>
+            <MapPinCheck size={18} className="text-cyan-600" />
+            同じ場所として扱う組
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            旅程の不整合で「同じ場所として扱う」を押した組です。この組は場所の食い違いとして
+            警告されなくなります。押し間違えたときは削除すると元どおり警告が出ます。
+          </p>
+          <ul className="mt-3 space-y-2">
+            {aliases.map((alias) => (
+              <li
+                key={alias.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3"
+              >
+                <p className="min-w-0 text-sm text-gray-800">
+                  <span className="font-semibold">{alias.names[0]}</span>
+                  <span className="mx-1.5 text-gray-400" aria-hidden="true">
+                    ＝
+                  </span>
+                  <span className="font-semibold">{alias.names[1]}</span>
+                </p>
+                <button
+                  type="button"
+                  aria-label={`${alias.names[0]} と ${alias.names[1]} を同じ場所として扱うのをやめる`}
+                  className={iconButtonClass}
+                  onClick={() =>
+                    dispatch({ type: 'removePlaceAlias', id: alias.id })
+                  }
+                >
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* 8. JSON入出力 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <FileJson size={18} className="text-cyan-600" />
@@ -655,14 +727,15 @@ export function SettingsPanel({
         ) : null}
       </section>
 
-      {/* 8. すべて消す */}
+      {/* 9. いまの旅程を空にする */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <AlertTriangle size={18} className="text-rose-600" />
-          すべて消す
+          いまの旅程を空にする
         </h2>
         <p className="mt-2 text-sm text-gray-600">
-          旅程・緊急連絡先を含むすべてのデータを削除し、最初からやり直します。
+          いま開いている旅程の予約と緊急連絡先をすべて削除して、最初からやり直します。
+          他の旅程は消えません。旅程そのものを消したいときは、画面上部の旅程セレクタから「削除」を選んでください。
           元に戻せないので、必要なら先にJSONで書き出しておいてください。
         </p>
         <button
@@ -671,9 +744,37 @@ export function SettingsPanel({
           onClick={handleResetAll}
         >
           <Trash2 size={16} />
-          すべて消して最初からやり直す
+          いまの旅程を空にする
         </button>
       </section>
+
+      {pendingImport !== null ? (
+        <ImportChoiceDialog
+          title="読み込んだ旅のしおりをどう取り込みますか？"
+          incomingLabel="読み込んだ予約"
+          incoming={pendingImport}
+          current={state}
+          onCancel={() => setPendingImport(null)}
+          onAddAsNew={() => {
+            onAddTrip(pendingImport)
+            setPendingImport(null)
+            setImportText('')
+            setIoMessage({
+              tone: 'ok',
+              text: '新しい旅程として読み込みました。',
+            })
+          }}
+          onReplace={() => {
+            dispatch({ type: 'replaceState', state: pendingImport })
+            setPendingImport(null)
+            setImportText('')
+            setIoMessage({
+              tone: 'ok',
+              text: 'いまの旅程を読み込んだ内容で置き換えました。',
+            })
+          }}
+        />
+      ) : null}
     </div>
   )
 }

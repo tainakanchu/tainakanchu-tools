@@ -112,6 +112,22 @@ export interface EmergencyContact {
   note?: string
 }
 
+/**
+ * 利用者が「この 2 つは同じ場所だ」と教えた組。
+ *
+ * 地名の同一判定(itinerary.ts)は座標が無ければ文字列のヒューリスティックに頼るしかなく、
+ * 住所も座標も入っていない予約ではどうしても外れる
+ * (「マルタ・ルア国際空港」と「マルタの知人宅」など)。
+ * かといって判定を緩めて誤検出を消しにいくと、本当に移動が抜けている穴まで
+ * 見逃すようになる。だから判定は厳しいままにして、外れたときは
+ * 利用者に教えてもらい、その 1 組だけを黙らせる。
+ */
+export interface PlaceAlias {
+  id: string
+  /** 同じ場所とみなす 2 つの表記。順序に意味は無い */
+  names: [string, string]
+}
+
 export interface TripNotesState {
   schemaVersion: 1
   tripTitle: string
@@ -122,6 +138,16 @@ export interface TripNotesState {
   pinnedTz: string | null
   bookings: Array<Booking>
   emergencyContacts: Array<EmergencyContact>
+  /**
+   * 場所の同一判定が外れたときに、利用者が個別に黙らせた組。
+   *
+   * 必須にせず任意にしているのは、保存済みの localStorage や発行済みの共有URLに
+   * このフィールドが無いうえ、大多数の利用者はこの逃げ道を一度も使わないため。
+   * 「空なら配列ではなくフィールドごと存在しない」という形にしておけば、
+   * JSON の書き出しや共有URLの中身がこの機能の追加で無駄に膨らまない
+   * (share.ts の「値が無ければ省く」という方針とも揃う)。
+   */
+  placeAliases?: Array<PlaceAlias>
 }
 
 /**
@@ -143,6 +169,11 @@ export interface DayGroup {
   date: string
   /** その日に始まる予約(開始日基準)。終了側は各カードの end で示す */
   bookings: Array<Booking>
+  /**
+   * その日に始まってはいないが、その日も継続している予約
+   * (連泊中の宿・日をまたぐ移動)。
+   */
+  ongoing: Array<Booking>
   /** その日の晩の夜。旅行最終日と旅行期間外の日は null */
   night: NightSlot | null
 }

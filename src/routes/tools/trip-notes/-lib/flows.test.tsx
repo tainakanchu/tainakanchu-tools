@@ -28,7 +28,7 @@ import {
   decodeShareState,
   encodeShareUrl,
 } from '../../../../lib/trip-notes/share'
-import { loadFromStorage } from '../../../../lib/trip-notes/storage'
+import { activeStateOf, loadLibrary } from '../../../../lib/trip-notes/trips'
 import { Route } from '../index'
 import type { RenderResult } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
@@ -45,7 +45,14 @@ if (routeComponent === undefined) {
 }
 const TripNotesPage = routeComponent
 
-/** storage.ts の STORAGE_KEY。テストから状態を仕込むためだけに複製する */
+/**
+ * storage.ts の旧 STORAGE_KEY。テストから状態を仕込むためだけに複製する。
+ *
+ * 現在の保存先は trips.ts の新キーだが、仕込みは旧キーのままにしてある。
+ * loadLibrary が旧キーを 1 件目の旅程として取り込むので、
+ * 「以前のバージョンで作った旅程を持つ利用者がページを開く」という
+ * 移行そのものが、フローのテストを回すたびに一緒に検証されることになる。
+ */
 const STORAGE_KEY = 'trip-notes:v1'
 
 // 日程タブの「その日へ飛ぶ」演出が呼ぶ。jsdom には実装が無い
@@ -91,6 +98,13 @@ function seed(state: TripNotesState): void {
  * render() を await した act() で包むのは、遅延読み込みが React 19 の use() で
  * サスペンドするため。render() 自身の act() は同期版なので、その中で発生した
  * サスペンドの再開はキューに積まれたまま流れず、<main> が永遠に現れない。
+ *
+ * 待ち時間を既定(1秒)より長く取っているのは、このファイルで最初に描画される
+ * 1 本だけがページのチャンクを実際に読み込む役を負うためである。
+ * ページが依存するコンポーネントが増えるたびにその 1 本だけが不安定になり、
+ * 「たまたま最初に走ったテストが落ちる」という中身と無関係な失敗になる。
+ * 2 本目以降はモジュールが温まっていて即座に解決するので、上限を伸ばしても
+ * テスト全体が遅くなることはない。
  */
 async function renderPage(): Promise<RenderResult> {
   let view!: RenderResult
@@ -98,7 +112,7 @@ async function renderPage(): Promise<RenderResult> {
     view = render(<TripNotesPage />)
     await Promise.resolve()
   })
-  await screen.findByRole('main')
+  await screen.findByRole('main', {}, { timeout: 10_000 })
   return view
 }
 
@@ -622,6 +636,73 @@ describe('AI インポートの一括承認', () => {
   })
 })
 
+describe('AI インポートの重複マージ', () => {
+  /**
+   * 既存の宿と同じ確認番号(区切り文字・大小文字違い)を持つ再取り込み。
+   * 予約確認メールをもう一度 AI に読ませて貼り付けたときの再現。
+   */
+  const RESENT_LODGING = JSON.stringify([
+    {
+      kind: 'lodging',
+      title: '東京の宿(再送)',
+      start: { date: '2030-06-12', time: '15:00', tz: 'Asia/Tokyo' },
+      end: { date: '2030-06-14', time: '10:00', tz: 'Asia/Tokyo' },
+      status: 'confirmed',
+      payment: 'paid',
+      confirmationNumber: 'TKY-0001',
+      price: { amount: 25000, currency: 'JPY' },
+    },
+  ])
+
+  it('確認番号が一致する予約はプレビューで更新バッジが付き、取り込んでも重複せずマージされる', async () => {
+    const user = userEvent.setup()
+    seed(
+      makeState({
+        bookings: [lodging({ confirmationNumber: 'tky 0001' })],
+      }),
+    )
+    await renderPage()
+
+    await goToTab(user, '設定')
+    await user.click(
+      screen.getByRole('button', { name: '次へ: 結果を貼り付ける' }),
+    )
+    const textarea = screen.getByLabelText('AI が返した JSON')
+    await user.click(textarea)
+    await user.paste(RESENT_LODGING)
+    await user.click(screen.getByRole('button', { name: '読み込む' }))
+
+    // プレビュー一覧のこの予約に「更新」バッジが付く
+    const previewCard = (await screen.findByText('東京の宿(再送)')).closest(
+      'li',
+    )
+    if (previewCard === null) throw new Error('プレビューの行が見つからない')
+    expect(within(previewCard).getByText('更新')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '取り込む' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: '日時とタイムゾーンの確認',
+    })
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: '1件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+
+    // 完了メッセージが「新規」ではなく「更新」だったことを伝える
+    expect(
+      await screen.findByText(
+        /^1件を取り込みました\(うち1件は既存の予約を更新\)/,
+      ),
+    ).toBeTruthy()
+
+    // 重複して増えず、既存の1件がマージされて残るだけ
+    await goToTab(user, '日程')
+    expect(within(main()).getByText('東京の宿(再送)')).toBeTruthy()
+    expect(within(main()).queryByText('東京の宿')).toBeNull()
+  })
+})
+
 describe('予約追加フォームからの AI 貼り付け', () => {
   /** 航空券 1 件ぶん。前後に散文が付いた、AI が普通に返してくる形 */
   const ONE_FLIGHT = [
@@ -980,8 +1061,9 @@ describe('共有URL', () => {
     })
     expect(within(dialog).getByText('1件')).toBeTruthy()
 
+    // 主導線は非破壊の「新しい旅程として追加」
     await user.click(
-      within(dialog).getByRole('button', { name: '読み込んで置き換える' }),
+      within(dialog).getByRole('button', { name: '新しい旅程として追加' }),
     )
 
     // 2泊ぶん(6/12・6/13)の夜が共有された宿で埋まる
@@ -990,6 +1072,194 @@ describe('共有URL', () => {
     ).toHaveLength(2)
     // 再読み込みのたびに同じ確認が出ないよう、ハッシュは読んだ時点で消す
     expect(window.location.hash).toBe('')
+
+    // 元の旅程は消えず、共有された旅程と並んで残る
+    await user.click(screen.getByRole('button', { name: /^同行者の旅程/ }))
+    const menu = screen.getByRole('menu', { name: '旅程の切り替えと操作' })
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(2)
+  })
+
+  it('置き換えを選ぶと、いまの旅程だけが入れ替わる', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: '自分の旅程', bookings: [lodging()] }))
+
+    const shared = makeState({
+      tripTitle: '同行者の旅程',
+      bookings: [lodging({ id: 'shared-1', title: '共有された宿' })],
+    })
+    const url = await encodeShareUrl(
+      shared,
+      'https://example.test/tools/trip-notes/',
+    )
+    window.location.hash = url.slice(url.indexOf('#'))
+    await renderPage()
+
+    const dialog = await screen.findByRole('dialog', {
+      name: /共有された旅のしおり/,
+    })
+    await user.click(
+      within(dialog).getByRole('button', { name: 'いまの旅程を置き換える' }),
+    )
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: /宿泊確定: 共有された宿$/ }),
+      ).toHaveLength(2),
+    )
+    // 旅程は増えない(いまの 1 件の中身が入れ替わっただけ)
+    await user.click(screen.getByRole('button', { name: /^同行者の旅程/ }))
+    const menu = screen.getByRole('menu', { name: '旅程の切り替えと操作' })
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(1)
+  })
+})
+
+/** 旅程セレクタ(いま開いている旅程名がそのままボタン名になる)を開く */
+async function openTripMenu(
+  user: UserEvent,
+  activeTitle: string,
+): Promise<HTMLElement> {
+  await user.click(screen.getByRole('button', { name: activeTitle }))
+  return screen.findByRole('menu', { name: '旅程の切り替えと操作' })
+}
+
+/** 旅程の名前を変える。Undo 履歴に 1 手積む手軽な編集としても使う */
+async function renameTrip(
+  user: UserEvent,
+  activeTitle: string,
+  next: string,
+): Promise<void> {
+  const menu = await openTripMenu(user, activeTitle)
+  await user.click(within(menu).getByRole('menuitem', { name: '名前を変える' }))
+  const dialog = await screen.findByRole('dialog', {
+    name: '旅程の名前を変える',
+  })
+  const input =
+    within(dialog).getByLabelText<HTMLInputElement>('旅行のタイトル')
+  await user.clear(input)
+  await user.type(input, next)
+  await user.click(within(dialog).getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+}
+
+describe('旅程の複数管理', () => {
+  it('新しい旅程を作ると、元の旅程の予約は持ち込まれず、切り替えで戻れる', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月', bookings: [lodging()] }))
+    await renderPage()
+    await goToTab(user, '日程')
+    expect(within(main()).getByText('東京の宿')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '新しい旅程を作る' }))
+
+    // 新しい旅程はまっさらなので、オンボーディングに戻る
+    expect(
+      await screen.findByRole('button', { name: /予約を 1 件登録する/ }),
+    ).toBeTruthy()
+
+    // セレクタから元の旅程に戻れば、予約もそのまま残っている
+    const menu = await openTripMenu(user, '名称未設定')
+    await user.click(
+      within(menu).getByRole('menuitemradio', { name: /マルタ9月/ }),
+    )
+    await goToTab(user, '日程')
+    expect(within(main()).getByText('東京の宿')).toBeTruthy()
+  })
+
+  it('旅程を切り替えると Undo 履歴は持ち越されない', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月', bookings: [lodging()] }))
+    await renderPage()
+
+    // 1 手だけ編集して、Undo が効く状態を作る
+    await renameTrip(user, 'マルタ9月', 'マルタ再訪')
+    expect(
+      screen.getByRole('button', { name: '元に戻す' }).hasAttribute('disabled'),
+    ).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: '新しい旅程を作る' }))
+
+    // 別の旅程を開いた以上、前の旅程の履歴には戻れない
+    expect(
+      screen.getByRole('button', { name: '元に戻す' }).hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('複製すると「のコピー」が増え、元の旅程は残る', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月', bookings: [lodging()] }))
+    await renderPage()
+
+    const menu = await openTripMenu(user, 'マルタ9月')
+    await user.click(within(menu).getByRole('menuitem', { name: '複製' }))
+
+    const reopened = await openTripMenu(user, 'マルタ9月 のコピー')
+    expect(
+      within(reopened)
+        .getAllByRole('menuitemradio')
+        .map((item) => item.textContent),
+    ).toEqual([
+      expect.stringContaining('マルタ9月'),
+      expect.stringContaining('マルタ9月 のコピー'),
+    ])
+
+    // 複製先を編集しても元の旅程には波及しない(構造ごとコピーしている)
+    await goToTab(user, '日程')
+    expect(within(main()).getByText('東京の宿')).toBeTruthy()
+  })
+
+  it('最後の1件を削除しても空にはならず、新しい空の旅程に置き換わる', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月', bookings: [lodging()] }))
+    await renderPage()
+
+    const menu = await openTripMenu(user, 'マルタ9月')
+    await user.click(within(menu).getByRole('menuitem', { name: '削除' }))
+    const confirm = await screen.findByRole('dialog', {
+      name: /この旅程を削除しますか/,
+    })
+    await user.click(
+      within(confirm).getByRole('button', { name: /を削除する$/ }),
+    )
+
+    // 予約 0 件のまっさらな旅程が 1 件だけ開いている
+    expect(
+      await screen.findByRole('button', { name: /予約を 1 件登録する/ }),
+    ).toBeTruthy()
+    const reopened = await openTripMenu(user, '名称未設定')
+    expect(within(reopened).getAllByRole('menuitemradio')).toHaveLength(1)
+  })
+
+  it('名前を変えるとセレクタの表示もその場で変わる', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月' }))
+    await renderPage()
+
+    await renameTrip(user, 'マルタ9月', 'マルタ再訪')
+    expect(screen.getByRole('button', { name: 'マルタ再訪' })).toBeTruthy()
+  })
+
+  it('旅程ごとに別々に保存され、開き直しても両方残る', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ tripTitle: 'マルタ9月', bookings: [lodging()] }))
+    const view = await renderPage()
+
+    await user.click(screen.getByRole('button', { name: '新しい旅程を作る' }))
+    await renameTrip(user, '名称未設定', '台湾年末')
+
+    await waitFor(
+      () => {
+        expect(
+          loadLibrary('2030-06-12').trips.map((trip) => trip.state.tripTitle),
+        ).toEqual(['マルタ9月', '台湾年末'])
+      },
+      { timeout: 3000 },
+    )
+
+    view.unmount()
+    await renderPage()
+    // 最後に開いていた旅程がそのまま開く
+    const menu = await openTripMenu(user, '台湾年末')
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(2)
   })
 })
 
@@ -1075,9 +1345,9 @@ describe('ローカル保存', () => {
 
     await waitFor(
       () => {
-        expect(loadFromStorage()?.bookings.map((b) => b.title)).toEqual([
-          '保存される宿',
-        ])
+        expect(
+          activeStateOf(loadLibrary('2030-06-12')).bookings.map((b) => b.title),
+        ).toEqual(['保存される宿'])
       },
       { timeout: 3000 },
     )

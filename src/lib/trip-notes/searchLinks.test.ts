@@ -1,0 +1,354 @@
+import { describe, expect, it } from 'vitest'
+import { makeStamp } from './datetime'
+import { bookingSearchLinks, lodgingSearchLinks } from './searchLinks'
+import type { Booking } from './types'
+
+const PARIS = 'Europe/Paris'
+
+const at = makeStamp
+
+type BookingInit = Partial<Booking> &
+  Pick<Booking, 'id' | 'kind' | 'title' | 'start'>
+
+function booking(init: BookingInit): Booking {
+  return { end: null, status: 'idea', payment: 'unpaid', ...init }
+}
+
+function labels(links: Array<{ label: string }>): Array<string> {
+  return links.map((link) => link.label)
+}
+
+describe('lodgingSearchLinks', () => {
+  it('Booking.com と Google ホテルへのリンクを返す', () => {
+    const links = lodgingSearchLinks('パリ', '2026-06-12', '2026-06-15')
+    expect(labels(links)).toEqual(['Booking.com', 'Google ホテル'])
+  })
+
+  it('Booking.com の URL に地名・チェックイン・チェックアウトが入る', () => {
+    const links = lodgingSearchLinks('パリ', '2026-06-12', '2026-06-15')
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(bookingCom.url)
+    expect(url.origin + url.pathname).toBe(
+      'https://www.booking.com/searchresults.ja.html',
+    )
+    expect(url.searchParams.get('ss')).toBe('パリ')
+    expect(url.searchParams.get('checkin')).toBe('2026-06-12')
+    expect(url.searchParams.get('checkout')).toBe('2026-06-15')
+  })
+
+  it('Google ホテルの URL は地名だけを持ち、日付は入れない', () => {
+    const links = lodgingSearchLinks('パリ', '2026-06-12', '2026-06-15')
+    const google = links.find((link) => link.label === 'Google ホテル')
+    if (google === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(google.url)
+    expect(url.origin + url.pathname).toBe(
+      'https://www.google.com/travel/search',
+    )
+    expect(url.searchParams.get('q')).toBe('パリ')
+    expect(url.searchParams.get('hl')).toBe('ja')
+    // 日付をプリセットする公開 URL 仕様が無いので checkin/checkout は含まない
+    expect(url.searchParams.has('checkin')).toBe(false)
+  })
+
+  it('日本語・スペース・& を含む地名も正しく URL エンコードされる', () => {
+    const links = lodgingSearchLinks(
+      'サン・ジョセフ & Co',
+      '2026-06-12',
+      '2026-06-15',
+    )
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    // URLSearchParams で組み立てているので、生の "&" が区切り文字と混ざらない
+    const url = new URL(bookingCom.url)
+    expect(url.searchParams.get('ss')).toBe('サン・ジョセフ & Co')
+    expect(bookingCom.url).not.toContain(' ')
+  })
+
+  it('地名が空文字(空白のみ含む)なら空配列を返す', () => {
+    expect(lodgingSearchLinks('', '2026-06-12', '2026-06-15')).toEqual([])
+    expect(lodgingSearchLinks('   ', '2026-06-12', '2026-06-15')).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / lodging', () => {
+  it('place.name を地名として使い、start/end の現地日付をチェックイン/アウトにする', () => {
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル探す',
+      start: at('2026-06-12', '15:00', PARIS),
+      end: at('2026-06-15', '11:00', PARIS),
+      place: { name: 'パリ' },
+    })
+    const links = bookingSearchLinks(b)
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(bookingCom.url)
+    expect(url.searchParams.get('ss')).toBe('パリ')
+    expect(url.searchParams.get('checkin')).toBe('2026-06-12')
+    expect(url.searchParams.get('checkout')).toBe('2026-06-15')
+  })
+
+  it('place が無ければ title を地名として使う', () => {
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'サントリーニのヴィラ',
+      start: at('2026-06-12', '15:00', PARIS),
+    })
+    const links = bookingSearchLinks(b)
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(bookingCom.url).searchParams.get('ss')).toBe(
+      'サントリーニのヴィラ',
+    )
+  })
+
+  it('end が無ければチェックアウトは start の翌日(現地日付)', () => {
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start: at('2026-06-12', '15:00', PARIS),
+      place: { name: 'パリ' },
+    })
+    const links = bookingSearchLinks(b)
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(bookingCom.url).searchParams.get('checkout')).toBe(
+      '2026-06-13',
+    )
+  })
+
+  it('日付は予約自身のタイムゾーンの現地日付で取る', () => {
+    // パリ 6/12 23:00 は東京では 6/13 の未明。日本時間に引きずられず
+    // 予約自身(パリ)の現地日付が使われることを確認する
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start: at('2026-06-12', '23:00', PARIS),
+      place: { name: 'パリ' },
+    })
+    const links = bookingSearchLinks(b)
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(bookingCom.url).searchParams.get('checkin')).toBe(
+      '2026-06-12',
+    )
+  })
+
+  it('地名も title も空なら空配列を返す', () => {
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: '   ',
+      start: at('2026-06-12', '15:00', PARIS),
+      place: { name: '' },
+    })
+    expect(bookingSearchLinks(b)).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / flight', () => {
+  function flight(from: string, to: string): Booking {
+    return booking({
+      id: 'flight',
+      kind: 'flight',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: from },
+      to: { name: to },
+    })
+  }
+
+  it('IATA コードらしい地名なら Google フライトと Skyscanner の両方を返す', () => {
+    const links = bookingSearchLinks(flight('CDG', 'FCO'))
+    expect(labels(links)).toEqual(['Google フライト', 'Skyscanner'])
+  })
+
+  it('Google フライトの q には区間と日付が入る', () => {
+    const links = bookingSearchLinks(flight('パリ', 'ローマ'))
+    const google = links.find((link) => link.label === 'Google フライト')
+    if (google === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(google.url)
+    expect(url.searchParams.get('q')).toBe(
+      'Flights from パリ to ローマ on 2026-06-16',
+    )
+    expect(url.searchParams.get('hl')).toBe('ja')
+    expect(url.searchParams.get('curr')).toBe('JPY')
+  })
+
+  it('IATA コードでない自由入力の地名では Skyscanner を出さない', () => {
+    const links = bookingSearchLinks(flight('パリ', 'ローマ'))
+    expect(labels(links)).toEqual(['Google フライト'])
+    expect(links.some((link) => link.label === 'Skyscanner')).toBe(false)
+  })
+
+  it('片方だけ IATA コードらしくても Skyscanner は出ない', () => {
+    const links = bookingSearchLinks(flight('CDG', 'ローマ'))
+    expect(links.some((link) => link.label === 'Skyscanner')).toBe(false)
+  })
+
+  it('Skyscanner の URL は YYMMDD 形式の日付と小文字コードを使う', () => {
+    const links = bookingSearchLinks(flight('CDG', 'FCO'))
+    const sky = links.find((link) => link.label === 'Skyscanner')
+    if (sky === undefined) throw new Error('リンクが生成されなかった')
+    expect(sky.url).toBe(
+      'https://www.skyscanner.jp/transport/flights/cdg/fco/260616/',
+    )
+  })
+
+  it('from / to のどちらかが無ければ空配列を返す', () => {
+    const b = booking({
+      id: 'flight',
+      kind: 'flight',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      to: { name: 'ローマ' },
+    })
+    expect(bookingSearchLinks(b)).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / train・bus・ferry・car', () => {
+  it.each(['train', 'bus', 'ferry', 'car'] as const)(
+    'kind: %s は Rome2Rio と Google マップの経路検索を返す',
+    (kind) => {
+      const b = booking({
+        id: 'transit',
+        kind,
+        title: '移動',
+        start: at('2026-06-16', '10:00', PARIS),
+        from: { name: 'パリ' },
+        to: { name: 'アムステルダム' },
+      })
+      const links = bookingSearchLinks(b)
+      expect(labels(links)).toEqual(['Rome2Rio', 'Google マップ(経路)'])
+    },
+  )
+
+  it('Rome2Rio の URL は from/to をパスとしてエンコードする', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'サン・ジョセフ' },
+      to: { name: 'St. Moritz' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    expect(rome2rio.url).toBe(
+      `https://www.rome2rio.com/map/${encodeURIComponent('サン・ジョセフ')}/${encodeURIComponent('St. Moritz')}`,
+    )
+  })
+
+  it('Google マップの URL は origin/destination/travelmode=transit を持つ', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'bus',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    const maps = links.find((link) => link.label === 'Google マップ(経路)')
+    if (maps === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(maps.url)
+    expect(url.searchParams.get('api')).toBe('1')
+    expect(url.searchParams.get('origin')).toBe('パリ')
+    expect(url.searchParams.get('destination')).toBe('アムステルダム')
+    expect(url.searchParams.get('travelmode')).toBe('transit')
+  })
+
+  it('from / to のどちらかが無ければ空配列を返す', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'car',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ' },
+    })
+    expect(bookingSearchLinks(b)).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / activity・other', () => {
+  it.each(['activity', 'other'] as const)(
+    'kind: %s はタイトルと場所名で Google 検索リンクを返す',
+    (kind) => {
+      const b = booking({
+        id: 'activity',
+        kind,
+        title: 'ルーブル美術館',
+        start: at('2026-06-16', '10:00', PARIS),
+        place: { name: 'パリ' },
+      })
+      const links = bookingSearchLinks(b)
+      expect(labels(links)).toEqual(['Google 検索'])
+      const url = new URL(links[0].url)
+      expect(url.searchParams.get('q')).toBe('ルーブル美術館 パリ')
+      expect(url.searchParams.get('hl')).toBe('ja')
+    },
+  )
+
+  it('場所が無くてもタイトルだけで検索リンクを作る', () => {
+    const b = booking({
+      id: 'activity',
+      kind: 'activity',
+      title: '現地ツアー予約',
+      start: at('2026-06-16', '10:00', PARIS),
+    })
+    const links = bookingSearchLinks(b)
+    expect(links).toHaveLength(1)
+    expect(new URL(links[0].url).searchParams.get('q')).toBe('現地ツアー予約')
+  })
+
+  it('タイトルも場所も空なら空配列を返す', () => {
+    const b = booking({
+      id: 'activity',
+      kind: 'other',
+      title: '   ',
+      start: at('2026-06-16', '10:00', PARIS),
+      place: { name: '' },
+    })
+    expect(bookingSearchLinks(b)).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / other は from・to の有無で経路検索と Google 検索を切り替える', () => {
+  // itinerary.ts の isMoveBooking() が説明する通り、AI 取り込みは手段未定の移動を
+  // kind: 'other' に分類する。from/to が揃っているなら、それは種別が未確定な
+  // だけの移動なので、鉄道・バス等と同じ経路検索が一番効く。
+  it('from / to が揃っていれば Rome2Rio と Google マップの経路検索を返す', () => {
+    const b = booking({
+      id: 'other-move',
+      kind: 'other',
+      title: '手段未定の移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    expect(labels(links)).toEqual(['Rome2Rio', 'Google マップ(経路)'])
+  })
+
+  it('from / to のどちらかが欠けていれば Google 検索にフォールバックする', () => {
+    const b = booking({
+      id: 'other-place',
+      kind: 'other',
+      title: '現地集合の予定',
+      start: at('2026-06-16', '10:00', PARIS),
+      place: { name: 'パリ' },
+    })
+    const links = bookingSearchLinks(b)
+    expect(labels(links)).toEqual(['Google 検索'])
+    expect(new URL(links[0].url).searchParams.get('q')).toBe(
+      '現地集合の予定 パリ',
+    )
+  })
+})

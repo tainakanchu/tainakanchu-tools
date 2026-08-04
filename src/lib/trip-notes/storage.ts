@@ -21,6 +21,7 @@ import type {
   Money,
   PaymentStatus,
   Place,
+  PlaceAlias,
   Stamp,
   TripNotesState,
 } from './types'
@@ -273,6 +274,22 @@ function parseEmergencyContact(raw: unknown): EmergencyContact | null {
 }
 
 /**
+ * PlaceAlias: id が文字列、names がちょうど 2 つの文字列であることを要求する。
+ * 3 つ以上や 1 つだけの組は、どの 2 地点を同じとみなすのかが決まらないので落とす。
+ * 判定を黙らせる側のデータなので、壊れた要素を無理に活かすと
+ * 意図しない指摘まで消えて「なぜ警告が出ないのか」が説明できなくなる。
+ */
+function parsePlaceAlias(raw: unknown): PlaceAlias | null {
+  if (!isRecord(raw)) return null
+  const { id, names } = raw
+  if (typeof id !== 'string') return null
+  if (!Array.isArray(names) || names.length !== 2) return null
+  const [first, second] = names
+  if (typeof first !== 'string' || typeof second !== 'string') return null
+  return { id, names: [first, second] }
+}
+
+/**
  * 初期状態。3泊4日を既定の旅程長にする
  * (週末+1日ずらした程度の、もっとも当たり障りのない旅行日数)。
  */
@@ -323,6 +340,15 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
         .filter((c): c is EmergencyContact => c !== null)
     : []
 
+  // 空なら配列ではなくフィールドごと付けない。
+  // 一度も使われていない逃げ道のために、JSON や共有URLに `"placeAliases":[]` が
+  // 混ざり続けるのを避ける(types.ts で任意フィールドにしたのと同じ理由)。
+  const placeAliases = Array.isArray(data.placeAliases)
+    ? data.placeAliases
+        .map(parsePlaceAlias)
+        .filter((a): a is PlaceAlias => a !== null)
+    : []
+
   return {
     schemaVersion: 1,
     tripTitle,
@@ -331,9 +357,19 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
     pinnedTz,
     bookings,
     emergencyContacts,
+    ...(placeAliases.length > 0 ? { placeAliases } : {}),
   }
 }
 
+/**
+ * 旧キー(旅程が 1 つしか無かった頃の保存)の読み取り。
+ *
+ * 現在の保存先は trips.ts の trip-notes:trips:v1 で、このキーは
+ * そちらへの移行元としてしか使われない読み取り専用の入口になった。
+ * 対になる書き込み関数を置いていないのは意図的で、新旧の両方に書くと
+ * 静かに食い違ったときにどちらが正しいのか誰にも分からなくなるためである
+ * (旧キーを消さない理由と合わせて trips.ts の冒頭コメントを参照)。
+ */
 export function loadFromStorage(): TripNotesState | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
@@ -341,14 +377,6 @@ export function loadFromStorage(): TripNotesState | null {
     return parseTripNotesState(JSON.parse(raw))
   } catch {
     return null
-  }
-}
-
-export function saveToStorage(state: TripNotesState): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // 容量超過・プライベートモード・window が無い環境でも編集自体は継続できるようにする
   }
 }
 

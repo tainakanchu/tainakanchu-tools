@@ -10,9 +10,12 @@
  */
 
 import { AlertTriangle, Plus } from 'lucide-react'
-import { formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { addDays, formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { lodgingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
 import type { GapAlertVariant } from '../../../../lib/trip-notes/uncovered-gaps'
+import { formatRangeShort } from '../-lib/format'
 import { primaryButtonClass } from '../-lib/styles'
+import { SearchLinks } from './SearchLinks'
 
 interface GapAlertCardProps {
   /** 同じ連続区間の全日付(YYYY-MM-DD)。primary の範囲表示に使う */
@@ -21,17 +24,6 @@ interface GapAlertCardProps {
   areaLabel?: string
   variant?: GapAlertVariant
   onAddLodging: () => void
-}
-
-/** ISO 日付から先頭ゼロ無しの月日を取り出す */
-function monthDay(iso: string): string {
-  const date = Temporal.PlainDate.from(iso)
-  return `${date.month}/${date.day}`
-}
-
-/** '9/6〜9/8' のように月日だけをつなぐ。1 日だけのときは使わない */
-function formatRangeShort(dates: Array<string>): string {
-  return `${monthDay(dates[0])}〜${monthDay(dates[dates.length - 1])}`
 }
 
 export function GapAlertCard({
@@ -65,11 +57,26 @@ function PrimaryCard({
   const stayLabel = areaLabel !== undefined ? `${areaLabel}泊` : '滞在地不明'
   // 複数泊のときだけ「9/6〜9/8 の 3 泊」で全体像を示す
   const rangeLabel =
-    nights > 1 ? `${formatRangeShort(rangeDates)} の${nights}泊` : null
+    nights > 1
+      ? `${formatRangeShort(rangeDates[0], rangeDates[nights - 1])} の${nights}泊`
+      : null
   const ariaDate =
     nights > 1
       ? `${formatDateJa(rangeDates[0])}から${formatDateJa(rangeDates[nights - 1])}`
       : formatDateJa(rangeDates[0])
+  /**
+   * 「まだ予約を取っていない」がここで一番効くので宿の検索リンクを添える。
+   * チェックインは区間の初日、チェックアウトは最終日の翌日(その夜まで滞在する前提)。
+   * areaLabel が無いと検索する地名が決まらないので、そのときはリンクを出さない。
+   */
+  const searchLinks =
+    areaLabel !== undefined
+      ? lodgingSearchLinks(
+          areaLabel,
+          rangeDates[0],
+          addDays(rangeDates[nights - 1], 1),
+        )
+      : []
 
   return (
     <div
@@ -94,6 +101,11 @@ function PrimaryCard({
             <p className="mt-1 text-sm font-medium text-amber-800">
               {rangeLabel}
             </p>
+          ) : null}
+          {searchLinks.length > 0 ? (
+            <div className="mt-2">
+              <SearchLinks links={searchLinks} />
+            </div>
           ) : null}
         </div>
       </div>

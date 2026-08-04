@@ -181,6 +181,15 @@ function normalizeIds(state: TripNotesState): TripNotesState {
       ...contact,
       id: `c${index}`,
     })),
+    // 1 組も無いときはフィールドごと存在しないので、空配列を生やさないよう分ける
+    ...(state.placeAliases === undefined
+      ? {}
+      : {
+          placeAliases: state.placeAliases.map((alias, index) => ({
+            ...alias,
+            id: `p${index}`,
+          })),
+        }),
   }
 }
 
@@ -263,6 +272,28 @@ describe('share', () => {
     expect(decoded.bookings[0].start.allDay).toBe(false)
     expect(decoded.bookings[2].start.allDay).toBe(true)
     expect(decoded.bookings[2].start.zdt).toBe(state.bookings[2].start.zdt)
+  })
+
+  it('placeAliases がラウンドトリップで保たれる', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      placeAliases: [
+        { id: 'pa-1', names: ['マルタ・ルア国際空港', 'マルタの知人宅'] },
+        { id: 'pa-2', names: ['Faro', 'アルガルヴェ'] },
+      ],
+    }
+    expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('placeAliases が無ければ payload にも復元結果にもフィールドが現れない', async () => {
+    // 使っていない人の共有URLをこの機能で膨らませない
+    const state = buildFullState()
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    expect(decoded).not.toHaveProperty('placeAliases')
   })
 
   it('# を付けても付けなくても同じ結果になる', async () => {
@@ -649,6 +680,22 @@ describe('share', () => {
       expect(decoded).toEqual(legacyState())
     })
 
+    /**
+     * placeAliases を足す前のビルドが出した marker "2" の payload。
+     * v2 に任意キーを 1 つ増やしたことで、そのキーを持たない既存URLが
+     * 読めなくなっていないことを見る(キーが無い = 1 組も登録していない)。
+     */
+    const MARKER_2_PAYLOAD_WITHOUT_ALIASES =
+      '2bZLPattAEMZfRXzXroy0_hN5b00upbQQAj0U44Mqb8wSWUoV2TQ1OlhLS0-9lNQEQqCQECcxueQUmtYPM7XavkVZySku9DIsMzvfzPfbHWME4TKkECimF6SPKL8kfU_6lLQm_YEmN8X0HRgOIMAd3rKdtu06YJBrCW4SbyFcj-EVRGeMPQiEca-voj4q-SdxKkPrmbSe-4mvDirJMQYQvO25Gw3urCSyUvuhwt2ms1bZN5Xov3IhBCi_Iv2e9DXprw_xlPQcDD4EXG7tDKXVk9aOGsWhYta2n5TNKUTDq3nNVouhD8Fr9SbnWdUVxNGuSgayB4ZDCOz7yhwDCDze3HJ5HcxgxGYc76moXwviARgSs6kP0Wg6xoC5_XT7JTKGN2vkHBes9EP5jPSc9LGhny9MnFzRZAqG1xAd7CZSbvlRIMMXUapCdDNWUfaDVI1UerjCXLq-J_2Z9PXP7x9_ffn0-2z2L2zOuef8fS8fIk2GcuVV9aS_sjmMSqNZt1y-My4BL09m5pPoS9K3lN8V0_PiZL48u_jxbVHNMSAe1eu2azc8z7Nb3HFWDpd3t8X0vG27G8VxTpMbmiyQdbM_'
+
+    it('marker "2" の既存URL(placeAliases のキーが無い)が今も読める', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded).not.toHaveProperty('placeAliases')
+      expect(normalizeIds(decoded)).toEqual(normalizeIds(legacyState()))
+    })
+
     it('marker "0" / "1" では id がそのまま復元される(振り直しは v2 以降の挙動)', async () => {
       const fromZero = requireDecoded(
         await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
@@ -680,6 +727,30 @@ describe('share', () => {
         const decoded = await decodeShareState(hash)
         // 無圧縮フォールバックは v1 形式なので id もそのまま戻る
         expect(decoded).toEqual(withoutEvidence(state))
+      } finally {
+        globalThis.CompressionStream = savedCompression
+        globalThis.DecompressionStream = savedDecompression
+      }
+    })
+
+    it('非圧縮(v1 形式)では placeAliases が落ちる', async () => {
+      // v1 は発行済みURLを読むための固定された形なので書き足していない(share.ts 参照)。
+      // 落ちるのは警告を黙らせる設定だけで、旅程そのものは失われない
+      const savedCompression = globalThis.CompressionStream
+      const savedDecompression = globalThis.DecompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.CompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.DecompressionStream
+      try {
+        const state: TripNotesState = {
+          ...buildFullState(),
+          placeAliases: [{ id: 'pa-1', names: ['Faro', 'アルガルヴェ'] }],
+        }
+        const url = await encodeShareUrl(state, BASE_URL)
+        const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+        expect(decoded).not.toHaveProperty('placeAliases')
+        expect(decoded.bookings).toHaveLength(state.bookings.length)
       } finally {
         globalThis.CompressionStream = savedCompression
         globalThis.DecompressionStream = savedDecompression

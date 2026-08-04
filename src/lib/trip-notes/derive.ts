@@ -85,12 +85,52 @@ export function sortBookings(
   })
 }
 
+/** ongoing 判定の下準備。開始日・終了日を文字列として 1 回だけ計算しておく */
+interface OngoingCandidate {
+  booking: Booking
+  startDate: string
+  endDate: string
+}
+
+/**
+ * ongoing の対象候補。end が無い予約は「継続の終わり」が定義できないので除外し、
+ * キャンセル済みも除外する(簡易行は「その日どこにいるか」を示すものなので、
+ * キャンセルした宿を滞在中と出すのは誤りになる)。
+ * Stamp が壊れている(パースできない)ものも安全側に倒して除外する。
+ */
+function findOngoingCandidates(
+  sorted: Array<Booking>,
+  displayTz: string,
+): Array<OngoingCandidate> {
+  const candidates: Array<OngoingCandidate> = []
+  for (const booking of sorted) {
+    if (booking.status === 'cancelled') continue
+    if (booking.end === null) continue
+    if (tryParseStamp(booking.start) === null) continue
+    if (tryParseStamp(booking.end) === null) continue
+    candidates.push({
+      booking,
+      startDate: stampDateInTz(booking.start, displayTz),
+      endDate: stampDateInTz(booking.end, displayTz),
+    })
+  }
+  return candidates
+}
+
 /**
  * 表示タイムゾーン基準の日付で束ねる。
  *
  * 予約は「開始日」の 1 か所にだけ置く。3 泊の宿を 3 日分に複製すると
  * 一覧が宿で埋まって当日の予定が読めなくなるため。
  * 終了側(チェックアウト・到着)は各カードの end と、その日の夜のカバー表示で分かる。
+ *
+ * ただし開始日だけに置くと、連泊中の宿(2 泊目以降)や日をまたぐ移動の
+ * 「その日は何もない」ように見えてしまう。実際にはその宿に滞在中/その移動の
+ * 途中なので、bookings とは別に ongoing として同じ日に添える。
+ * ongoing は「その日開始日ではないが、その日も continue している」もの
+ * (開始日 < その日 <= 終了日、表示タイムゾーン基準)で、終了日当日
+ * (チェックアウト・到着の日)も含む。bookings 側と重複しないよう、
+ * 開始日そのものは ongoing に含めない。
  *
  * 旅行期間外の日付に予約がある場合(前泊や延泊)もその日を作る。
  * 期間の指定ミスで予約が画面から消えるのが一番困る。
@@ -111,6 +151,7 @@ export function groupByDay(
   }
 
   const nightByDate = new Map(computeNights(state).map((n) => [n.date, n]))
+  const ongoingCandidates = findOngoingCandidates(sorted, displayTz)
 
   const dates = new Set<string>(byDate.keys())
   const tripDays = Math.max(0, diffDays(state.startDate, state.endDate))
@@ -119,6 +160,10 @@ export function groupByDay(
   return [...dates].toSorted().map((date) => ({
     date,
     bookings: byDate.get(date) ?? [],
+    // sortBookings 済みの sorted から作っているので、ここでも開始が早い順を保つ
+    ongoing: ongoingCandidates
+      .filter((c) => c.startDate < date && date <= c.endDate)
+      .map((c) => c.booking),
     night: nightByDate.get(date) ?? null,
   }))
 }

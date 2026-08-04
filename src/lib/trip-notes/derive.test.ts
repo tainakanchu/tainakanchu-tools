@@ -191,6 +191,67 @@ describe('groupByDay', () => {
       groups.filter((g) => g.bookings.length > 0).map((g) => g.date),
     ).toEqual(['2026-06-12'])
   })
+
+  describe('ongoing(連泊・日をまたぐ移動の継続表示)', () => {
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start: at('2026-06-12', '15:00', TOKYO),
+      end: at('2026-06-15', '10:00', TOKYO),
+    })
+
+    it('開始日は bookings 側にだけ出て、ongoing には出ない(重複させない)', () => {
+      const state = makeState({ bookings: [hotel] })
+      const groups = groupByDay([hotel], state, TOKYO)
+      const day12 = groups.find((g) => g.date === '2026-06-12')
+      expect(day12?.bookings.map((b) => b.id)).toEqual(['hotel'])
+      expect(day12?.ongoing).toEqual([])
+    })
+
+    it('連泊中の中日には ongoing として出る', () => {
+      const state = makeState({ bookings: [hotel] })
+      const groups = groupByDay([hotel], state, TOKYO)
+      const day13 = groups.find((g) => g.date === '2026-06-13')
+      const day14 = groups.find((g) => g.date === '2026-06-14')
+      expect(day13?.bookings).toEqual([])
+      expect(day13?.ongoing.map((b) => b.id)).toEqual(['hotel'])
+      expect(day14?.ongoing.map((b) => b.id)).toEqual(['hotel'])
+    })
+
+    it('チェックアウト日にも ongoing として出る', () => {
+      const state = makeState({ bookings: [hotel] })
+      const groups = groupByDay([hotel], state, TOKYO)
+      const day15 = groups.find((g) => g.date === '2026-06-15')
+      expect(day15?.ongoing.map((b) => b.id)).toEqual(['hotel'])
+    })
+
+    it('チェックアウト日の翌日には出ない', () => {
+      const state = makeState({ bookings: [hotel] })
+      const groups = groupByDay([hotel], state, TOKYO)
+      const day16 = groups.find((g) => g.date === '2026-06-16')
+      expect(day16?.ongoing).toEqual([])
+    })
+
+    it('キャンセル済みの予約は ongoing に出ない', () => {
+      const cancelled = { ...hotel, status: 'cancelled' as const }
+      const state = makeState({ bookings: [cancelled] })
+      const groups = groupByDay([cancelled], state, TOKYO)
+      expect(groups.every((g) => g.ongoing.length === 0)).toBe(true)
+    })
+
+    it('end が null の予約は ongoing に出ない(継続の終わりが定義できない)', () => {
+      const meeting = booking({
+        id: 'meet',
+        kind: 'activity',
+        title: '集合',
+        start: at('2026-06-12', '09:00', TOKYO),
+      })
+      const state = makeState({ bookings: [meeting] })
+      const groups = groupByDay([meeting], state, TOKYO)
+      expect(groups.every((g) => g.ongoing.length === 0)).toBe(true)
+    })
+  })
 })
 
 describe('findCurrentAndNext', () => {
