@@ -125,7 +125,9 @@ export function NowPanel({
   const laterUpcoming = upcoming.slice(1)
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    // 旅行中にスマホで開く一画面一情報の画面なので、main を広げても
+    // ここだけは横に伸ばさず中央寄せの読みやすい幅に留める
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-8">
       <TzControl state={state} displayTz={displayTz} dispatch={dispatch} />
 
       {!hasAnyBooking ? (

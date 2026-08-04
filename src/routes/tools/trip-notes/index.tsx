@@ -197,7 +197,13 @@ function TripNotesPage() {
 
   return (
     <>
-      <main className="mx-auto w-full max-w-4xl px-4 pb-28 pt-6 text-gray-900 sm:px-6 md:pb-10 print:hidden">
+      {/*
+        カンバン(KanbanBoard)は列幅 w-64(256px) x 4列 + gap-3(12px) x 3 で
+        1060px が必要。sm:px-6 のページ余白とカードの p-4 sm:p-5 を差し引くと
+        max-w-6xl(1152px)ではわずか数px しか余らず崩れやすいため、
+        余裕を持って max-w-7xl(1280px)まで広げる
+      */}
+      <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 text-gray-900 sm:px-6 md:pb-10 print:hidden">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold sm:text-3xl">旅のしおり</h1>

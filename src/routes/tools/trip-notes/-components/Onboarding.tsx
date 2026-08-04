@@ -37,7 +37,9 @@ export function Onboarding({
   const nights = datesValid ? diffDays(state.startDate, state.endDate) : 0
 
   return (
-    <div className="space-y-4">
+    // 日付・タイトル入力と2択ボタンだけの画面なので、main を広げても
+    // 横いっぱいには伸ばさず読みやすい幅に留める
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <CalendarRange size={18} className="text-cyan-600" />
