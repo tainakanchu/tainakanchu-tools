@@ -77,6 +77,21 @@ function switchToKanban() {
   fireEvent.click(screen.getByRole('button', { name: 'カンバン' }))
 }
 
+/** カードのチェックボックスを入れる。選択の手段は修飾キーではなく触れる印 */
+function selectCard(title: string) {
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: `${title} をまとめて移す対象に選ぶ` }),
+  )
+}
+
+/**
+ * 選択件数の表示。目に見えるバーの文言と、読み上げ用の live region の
+ * 2 か所に出るのが正しい状態(画面を見ずに操作している人にも件数が届く)
+ */
+function selectionCountTexts(count: number) {
+  return screen.queryAllByText(`${count}件を選択中`)
+}
+
 afterEach(cleanup)
 
 describe('進捗タブの表示切替', () => {
@@ -238,6 +253,101 @@ describe('カンバンのドラッグ以外の操作手段', () => {
     })
     // dnd-kit が付ける tabIndex。ドラッグの開始点にキーボードで届く
     expect(handle.tabIndex).toBe(0)
+  })
+})
+
+describe('カンバンの複数選択', () => {
+  it('選んだ件数が、見える形でも読み上げでも分かる', () => {
+    renderPanel(
+      makeState([
+        makeBooking('b1', { status: 'idea' }),
+        makeBooking('b2', { status: 'idea' }),
+      ]),
+    )
+    switchToKanban()
+    // 選ぶ前はバーそのものが無い
+    expect(screen.queryByText(/件を選択中/)).toBeNull()
+
+    selectCard('宿 b1')
+    selectCard('宿 b2')
+    expect(selectionCountTexts(2)).toHaveLength(2)
+  })
+
+  it('一括操作バーの移動先を選ぶと、選んだ全件が 1 アクションで動く', () => {
+    const dispatch = vi.fn()
+    renderPanel(
+      makeState([
+        makeBooking('b1', { status: 'idea' }),
+        makeBooking('b2', { status: 'held' }),
+        makeBooking('b3', { status: 'idea' }),
+      ]),
+      dispatch,
+    )
+    switchToKanban()
+    selectCard('宿 b1')
+    selectCard('宿 b2')
+
+    fireEvent.change(
+      screen.getByLabelText('選択中の2件の予約状況をまとめて変える'),
+      { target: { value: 'kanban-column:status:confirmed' } },
+    )
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'setBookingsStatus',
+      ids: ['b1', 'b2'],
+      status: 'confirmed',
+    })
+    // 適用したら選択は解ける(次の操作を誤爆させないため)
+    expect(screen.queryByText(/件を選択中/)).toBeNull()
+  })
+
+  it('列ヘッダーのトグルでその列のカードをまとめて選べる', () => {
+    renderPanel(
+      makeState([
+        makeBooking('b1', { status: 'idea' }),
+        makeBooking('b2', { status: 'idea' }),
+        makeBooking('b3', { status: 'confirmed' }),
+      ]),
+    )
+    switchToKanban()
+    const toggle = screen.getByRole('checkbox', {
+      name: '検討中の2件をすべて選ぶ',
+    })
+
+    fireEvent.click(toggle)
+    expect(selectionCountTexts(2)).toHaveLength(2)
+
+    // もう一度押すと解除される
+    fireEvent.click(toggle)
+    expect(screen.queryByText(/件を選択中/)).toBeNull()
+  })
+
+  it('盤から外れた予約は選択に残らない(軸を変えるとキャンセル済みは消える)', () => {
+    renderPanel(
+      makeState([
+        makeBooking('alive', { payment: 'unpaid' }),
+        makeBooking('dead', { payment: 'unpaid', status: 'cancelled' }),
+      ]),
+    )
+    switchToKanban()
+    selectCard('宿 alive')
+    selectCard('宿 dead')
+    expect(selectionCountTexts(2)).toHaveLength(2)
+
+    // 支払状況の軸ではキャンセル済みが盤から外れる。
+    // 見えていないカードが一括操作に巻き込まれないよう、選択からも落ちる
+    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    expect(selectionCountTexts(1)).toHaveLength(2)
+  })
+
+  it('「選択を解除」で選択が空に戻る', () => {
+    renderPanel(makeState([makeBooking('b1')]))
+    switchToKanban()
+    selectCard('宿 b1')
+
+    fireEvent.click(screen.getByRole('button', { name: '選択を解除' }))
+    expect(screen.queryByText(/件を選択中/)).toBeNull()
+    expect(screen.queryByLabelText(/まとめて変える/)).toBeNull()
   })
 })
 
