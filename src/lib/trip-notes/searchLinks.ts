@@ -43,8 +43,19 @@ function looksLikeIata(code: string): boolean {
   return /^[A-Za-z]{3}$/.test(code)
 }
 
-/** Place から表示用の地名を取り出す。空なら null */
+/**
+ * Place から検索サイトに渡す地名を取り出す。空なら null。
+ *
+ * latinName を最優先にするのは、ここで作った文字列の渡し先が人間ではなく
+ * 外部サービスの検索エンジンだから。日本人の利用者は name に日本語しか
+ * 書かないため、そのまま渡すと Rome2Rio のような英語圏のサイトでは
+ * 地名が解決できずリンクが空振りする。
+ * localName を最後に置いているのも同じ理由で、現地語表記はタイ文字や
+ * ギリシャ文字のこともあり、外部サイトが解決できる保証がもっとも薄い。
+ */
 function placeName(place: Place | undefined): string | null {
+  const latinName = place?.latinName?.trim()
+  if (latinName !== undefined && latinName !== '') return latinName
   const name = place?.name.trim()
   if (name !== undefined && name !== '') return name
   const localName = place?.localName?.trim()

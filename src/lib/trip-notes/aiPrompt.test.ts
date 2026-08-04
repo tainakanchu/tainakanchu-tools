@@ -107,6 +107,32 @@ describe('buildImportPrompt: 締切の抽出ルール(ルール8)', () => {
   })
 })
 
+describe('buildImportPrompt: 場所のラテン文字表記(ルール9)', () => {
+  it('PlaceInput に latinName がある', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('interface PlaceInput')
+    expect(prompt).toContain('latinName: string | null')
+    // 現地語表記(人に見せる用)と併存していることまで見る。片方で兼ねられない
+    expect(prompt).toContain('localName: string | null')
+  })
+
+  it('ラテン文字表記がルール1(推測禁止)の例外である旨が明記されている', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('ルール 9')
+    // ルール1本文からの参照とルール9本文の両方に「例外」の語が要る
+    expect(prompt).toContain('場所のラテン文字表記')
+    expect(prompt).toContain('ルール 1 の例外')
+  })
+
+  it('書類の表記を最優先し、都市名に寄せ、特定できなければ null という規則が入っている', () => {
+    const prompt = buildImportPrompt(state())
+    // 締切のルール8にも同じ言い回しがあるので、ルール9側の文面ごと確かめる
+    expect(prompt).toContain('書類にある表記が')
+    expect(prompt).toContain('都市名を優先してください')
+    expect(prompt).toContain('どう書くか特定できなければ')
+  })
+})
+
 describe('buildImportPrompt: 旅行のコンテキスト', () => {
   it('旅行期間と旅行名が含まれる', () => {
     const prompt = buildImportPrompt(state())

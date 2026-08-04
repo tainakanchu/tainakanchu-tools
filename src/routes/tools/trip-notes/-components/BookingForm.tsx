@@ -131,10 +131,14 @@ interface FormState {
   note: string
   placeName: string
   placeLocalName: string
+  /** ラテン文字表記。外部の検索サイトに渡す用(types.ts の Place を参照) */
+  placeLatinName: string
   placeAddress: string
   fromName: string
+  fromLatinName: string
   fromAddress: string
   toName: string
+  toLatinName: string
   toAddress: string
 }
 
@@ -169,10 +173,13 @@ const FIELD_OF: Record<keyof FormState, FieldKey> = {
   note: 'note',
   placeName: 'place',
   placeLocalName: 'place',
+  placeLatinName: 'place',
   placeAddress: 'place',
   fromName: 'from',
+  fromLatinName: 'from',
   fromAddress: 'from',
   toName: 'to',
+  toLatinName: 'to',
   toAddress: 'to',
 }
 
@@ -234,10 +241,13 @@ function buildInitialForm(
       note: booking.note ?? '',
       placeName: booking.place?.name ?? '',
       placeLocalName: booking.place?.localName ?? '',
+      placeLatinName: booking.place?.latinName ?? '',
       placeAddress: booking.place?.address ?? '',
       fromName: booking.from?.name ?? '',
+      fromLatinName: booking.from?.latinName ?? '',
       fromAddress: booking.from?.address ?? '',
       toName: booking.to?.name ?? '',
+      toLatinName: booking.to?.latinName ?? '',
       toAddress: booking.to?.address ?? '',
     }
   }
@@ -266,10 +276,13 @@ function buildInitialForm(
     note: '',
     placeName: '',
     placeLocalName: '',
+    placeLatinName: '',
     placeAddress: '',
     fromName: '',
+    fromLatinName: '',
     fromAddress: '',
     toName: '',
+    toLatinName: '',
     toAddress: '',
   }
 }
@@ -314,18 +327,28 @@ function endLabelFor(kind: BookingKind): string {
   return '終了日時'
 }
 
-/** 空文字を undefined に丸め込みつつ Place を組み立てる。name が空なら Place ごと無し */
-function buildPlace(
-  name: string,
-  localName: string,
-  address: string,
-): Place | undefined {
-  const trimmedName = name.trim()
+/**
+ * 空文字を undefined に丸め込みつつ Place を組み立てる。name が空なら Place ごと無し。
+ *
+ * 引数をオブジェクトで受けるのは、同じ型(string)の欄が並ぶため。位置引数だと
+ * 現地語表記の欄を持たない出発地・到着地の呼び出しが buildPlace(name, '', '', address)
+ * のような形になり、どの空文字がどの欄なのかを数えないと読めなくなる。
+ * しかも取り違えても型が同じなので検査では気付けない。
+ */
+function buildPlace(fields: {
+  name: string
+  localName?: string
+  latinName?: string
+  address?: string
+}): Place | undefined {
+  const trimmedName = fields.name.trim()
   if (trimmedName === '') return undefined
   const place: Place = { name: trimmedName }
-  const trimmedLocal = localName.trim()
+  const trimmedLocal = fields.localName?.trim() ?? ''
   if (trimmedLocal !== '') place.localName = trimmedLocal
-  const trimmedAddress = address.trim()
+  const trimmedLatin = fields.latinName?.trim() ?? ''
+  if (trimmedLatin !== '') place.latinName = trimmedLatin
+  const trimmedAddress = fields.address?.trim() ?? ''
   if (trimmedAddress !== '') place.address = trimmedAddress
   return place
 }
@@ -524,8 +547,16 @@ export function BookingForm({
     }
 
     if (isTransportKind(form.kind)) {
-      const from = buildPlace(form.fromName, '', form.fromAddress)
-      const to = buildPlace(form.toName, '', form.toAddress)
+      const from = buildPlace({
+        name: form.fromName,
+        latinName: form.fromLatinName,
+        address: form.fromAddress,
+      })
+      const to = buildPlace({
+        name: form.toName,
+        latinName: form.toLatinName,
+        address: form.toAddress,
+      })
       if (from !== undefined) next.from = from
       if (to !== undefined) next.to = to
       // 種別を宿泊などに変えたときは、入力欄が消えるのと一緒に値も落とす。
@@ -537,11 +568,12 @@ export function BookingForm({
         next.bagDropClosesMinutesBefore = bagDropCloses
       }
     } else {
-      const place = buildPlace(
-        form.placeName,
-        form.placeLocalName,
-        form.placeAddress,
-      )
+      const place = buildPlace({
+        name: form.placeName,
+        localName: form.placeLocalName,
+        latinName: form.placeLatinName,
+        address: form.placeAddress,
+      })
       if (place !== undefined) next.place = place
     }
 
@@ -1080,6 +1112,10 @@ export function BookingForm({
                       className={fieldClass}
                     />
                   </label>
+                  <LatinNameField
+                    value={form.placeLatinName}
+                    onChange={(value) => set('placeLatinName', value)}
+                  />
                   <label className="block space-y-1">
                     <span className={labelClass}>住所</span>
                     <input
@@ -1110,6 +1146,10 @@ export function BookingForm({
                         className={`${fieldClass} ${ufc('from')}`}
                       />
                     </label>
+                    <LatinNameField
+                      value={form.fromLatinName}
+                      onChange={(value) => set('fromLatinName', value)}
+                    />
                     <label className="block space-y-1">
                       <span className={labelClass}>住所</span>
                       <input
@@ -1137,6 +1177,10 @@ export function BookingForm({
                         className={`${fieldClass} ${ufc('to')}`}
                       />
                     </label>
+                    <LatinNameField
+                      value={form.toLatinName}
+                      onChange={(value) => set('toLatinName', value)}
+                    />
                     <label className="block space-y-1">
                       <span className={labelClass}>住所</span>
                       <input
@@ -1187,6 +1231,45 @@ export function BookingForm({
         />
       ) : null}
     </>
+  )
+}
+
+/**
+ * ラテン文字表記の入力欄 1 つ。場所・出発地・到着地の 3 箇所で使う。
+ *
+ * 説明文を付けているのは、この欄だけ「画面に出すための表記」ではないから。
+ * 現地語表記(タクシー運転手に見せる用)の隣に無印の欄が並ぶと、
+ * 同じく人に見せる別表記だと読まれ、日本語や現地語が入ってしまう。
+ * それでは外部サイトに渡す文字列としての役目を果たさない。
+ * 部品として切り出したのは、この説明を 3 箇所に書き写して片方だけ
+ * 直し忘れる形にしないため。
+ *
+ * 未確認(黄色い下線)の扱いは付けていない。未確認は FieldKey 単位
+ * (place / from / to)で、名称や住所と同じ欄の一部として既に注記が出る。
+ */
+function LatinNameField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className={labelClass}>ラテン文字表記</span>
+      <input
+        type="text"
+        value={value}
+        placeholder="Hong Kong"
+        onChange={(event) => onChange(event.target.value)}
+        className={fieldClass}
+      />
+      <span className="block text-xs font-normal text-gray-500">
+        Rome2Rio や Google
+        マップなど外部の検索サイトに渡す用。日本語の地名のままだと検索が空振りします。
+        空港などを除けば、施設名より都市名のほうが当たります。
+      </span>
+    </label>
   )
 }
 

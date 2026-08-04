@@ -320,6 +320,126 @@ describe('bookingSearchLinks / activity・other', () => {
   })
 })
 
+describe('bookingSearchLinks / 外部サイトに渡す地名は latinName を最優先する', () => {
+  // 渡す先が人間ではなく検索エンジンなので、name(日本人利用者なら日本語)より
+  // ラテン文字表記を優先する。types.ts の Place / searchLinks.ts の placeName を参照
+  it('Rome2Rio の URL には name(日本語)ではなく latinName が入る', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: '香港国際空港 T2', latinName: 'Hong Kong' },
+      to: { name: '台湾桃園国際空港 T2', latinName: 'Taipei' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    expect(rome2rio.url).toBe('https://www.rome2rio.com/map/Hong%20Kong/Taipei')
+  })
+
+  it('Google マップの経路にも latinName が入る', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'bus',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ', latinName: 'Paris' },
+      to: { name: 'アムステルダム', latinName: 'Amsterdam' },
+    })
+    const links = bookingSearchLinks(b)
+    const maps = links.find((link) => link.label === 'Google マップ(経路)')
+    if (maps === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(maps.url)
+    expect(url.searchParams.get('origin')).toBe('Paris')
+    expect(url.searchParams.get('destination')).toBe('Amsterdam')
+  })
+
+  it('flight でも latinName が使われ、IATA コードなら Skyscanner も出る', () => {
+    const b = booking({
+      id: 'flight',
+      kind: 'flight',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: '羽田空港', latinName: 'HND' },
+      to: { name: 'シャルル・ド・ゴール空港', latinName: 'CDG' },
+    })
+    const links = bookingSearchLinks(b)
+    expect(labels(links)).toEqual(['Google フライト', 'Skyscanner'])
+    const google = links.find((link) => link.label === 'Google フライト')
+    if (google === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(google.url).searchParams.get('q')).toBe(
+      'Flights from HND to CDG on 2026-06-16',
+    )
+  })
+
+  it('宿泊の地名にも latinName が使われる', () => {
+    const b = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start: at('2026-06-12', '15:00', PARIS),
+      end: at('2026-06-15', '11:00', PARIS),
+      place: { name: 'パリのホテル', latinName: 'Paris' },
+    })
+    const links = bookingSearchLinks(b)
+    const bookingCom = links.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(bookingCom.url).searchParams.get('ss')).toBe('Paris')
+  })
+
+  it('latinName が無ければ従来どおり name を使う', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ' },
+      to: { name: 'アムステルダム' },
+    })
+    const links = bookingSearchLinks(b)
+    const rome2rio = links.find((link) => link.label === 'Rome2Rio')
+    if (rome2rio === undefined) throw new Error('リンクが生成されなかった')
+    expect(rome2rio.url).toBe(
+      `https://www.rome2rio.com/map/${encodeURIComponent('パリ')}/${encodeURIComponent('アムステルダム')}`,
+    )
+  })
+
+  it('latinName が空白だけなら name にフォールバックする', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: 'パリ', latinName: '   ' },
+      to: { name: 'アムステルダム', latinName: '' },
+    })
+    const links = bookingSearchLinks(b)
+    const maps = links.find((link) => link.label === 'Google マップ(経路)')
+    if (maps === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(maps.url)
+    expect(url.searchParams.get('origin')).toBe('パリ')
+    expect(url.searchParams.get('destination')).toBe('アムステルダム')
+  })
+
+  it('name が空なら localName を使う従来の逃げ道も残っている', () => {
+    const b = booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: '', localName: 'Παρίσι' },
+      to: { name: '', localName: 'Άμστερνταμ' },
+    })
+    const links = bookingSearchLinks(b)
+    const maps = links.find((link) => link.label === 'Google マップ(経路)')
+    if (maps === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(maps.url)
+    expect(url.searchParams.get('origin')).toBe('Παρίσι')
+    expect(url.searchParams.get('destination')).toBe('Άμστερνταμ')
+  })
+})
+
 describe('bookingSearchLinks / other は from・to の有無で経路検索と Google 検索を切り替える', () => {
   // itinerary.ts の isMoveBooking() が説明する通り、AI 取り込みは手段未定の移動を
   // kind: 'other' に分類する。from/to が揃っているなら、それは種別が未確定な

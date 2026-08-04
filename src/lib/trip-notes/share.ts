@@ -108,9 +108,20 @@ interface ShortStamp {
   a?: boolean
 }
 
+/**
+ * 場所。v1 / v2 で共通の形なので、キーを足すと両方の形式に同時に載る。
+ *
+ * 'r' がラテン文字表記(latinName)。n/l/a/t/g が埋まっているので、
+ * roman(ラテン文字)の頭文字を取った。他の任意キーと同じく
+ * 「値が無ければキーごと省く」ので、この欄を使っていない旅程の
+ * 共有URLは 1 バイトも増えない。
+ * 逆にこのキーを持たない payload(= この欄を足す前に発行されたURL)は
+ * 「ラテン文字表記を入力していない場所」として読める。
+ */
 interface ShortPlace {
   n: string
   l?: string
+  r?: string
   a?: string
   t?: number
   g?: number
@@ -184,6 +195,7 @@ function toShortPlace(place: Place): ShortPlace {
   return {
     n: place.name,
     ...(place.localName !== undefined ? { l: place.localName } : {}),
+    ...(place.latinName !== undefined ? { r: place.latinName } : {}),
     ...(place.address !== undefined ? { a: place.address } : {}),
     ...(place.lat !== undefined ? { t: place.lat } : {}),
     ...(place.lng !== undefined ? { g: place.lng } : {}),
@@ -259,6 +271,7 @@ function fromShortPlace(short: ShortPlace): Place {
   return {
     name: short.n,
     ...(short.l !== undefined ? { localName: short.l } : {}),
+    ...(short.r !== undefined ? { latinName: short.r } : {}),
     ...(short.a !== undefined ? { address: short.a } : {}),
     ...(short.t !== undefined ? { lat: short.t } : {}),
     ...(short.g !== undefined ? { lng: short.g } : {}),

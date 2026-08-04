@@ -25,6 +25,7 @@ function fullBooking(): Booking {
     place: {
       name: 'Hotel Le Marais',
       localName: 'オテル・ル・マレ',
+      latinName: 'Paris',
       address: '12 Rue de Rivoli, Paris',
       lat: 48.8566,
       lng: 2.3522,
@@ -215,6 +216,44 @@ describe('parseTripNotesState', () => {
     expect(booking?.place?.lat).toBeUndefined()
     expect(booking?.place?.lng).toBe(2.3522)
     expect(booking?.freeCancelUntil).toBeUndefined()
+  })
+
+  it('place.latinName は文字列なら残り、往復しても失われない', () => {
+    // 日本語の地名しか持たない予約でも、この欄があれば外部リンクが機能する
+    // (searchLinks.ts の placeName)。保存で落ちると機能ごと消える
+    const place = { name: '香港国際空港 T2', latinName: 'Hong Kong' }
+    const state = {
+      ...fullState(),
+      bookings: [{ ...fullBooking(), place }],
+    }
+    expect(parseTripNotesState(state)?.bookings[0].place).toEqual(place)
+  })
+
+  it('place.latinName が文字列でなければその欄だけ落ち、場所は残る', () => {
+    const state = {
+      ...fullState(),
+      bookings: [
+        {
+          ...fullBooking(),
+          place: { name: '香港国際空港 T2', latinName: 123 },
+        },
+      ],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.place?.name).toBe('香港国際空港 T2')
+    expect(booking?.place).not.toHaveProperty('latinName')
+  })
+
+  it('latinName を持たない保存済みデータは今までどおり読める', () => {
+    // この欄を足す前の localStorage には latinName が無い。
+    // 欄ごと生えないこと(undefined のキーが増えないこと)まで見る
+    const state = {
+      ...fullState(),
+      bookings: [{ ...fullBooking(), place: { name: 'Hotel Le Marais' } }],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.place).toEqual({ name: 'Hotel Le Marais' })
+    expect(booking?.place).not.toHaveProperty('latinName')
   })
 
   it('unverified の未知キーは除去され、空になれば undefined になる', () => {

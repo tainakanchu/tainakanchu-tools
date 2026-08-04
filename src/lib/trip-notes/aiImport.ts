@@ -410,12 +410,15 @@ function toPlace(raw: unknown): Place | undefined {
     return name.length > 0 ? { name } : undefined
   }
   if (!isRecord(raw)) return undefined
-  const { name, localName, address } = raw
+  const { name, localName, latinName, address } = raw
   if (typeof name !== 'string' || name.trim().length === 0) return undefined
 
   const place: Place = { name: name.trim() }
   if (typeof localName === 'string' && localName.trim().length > 0) {
     place.localName = localName.trim()
+  }
+  if (typeof latinName === 'string' && latinName.trim().length > 0) {
+    place.latinName = latinName.trim()
   }
   if (typeof address === 'string' && address.trim().length > 0) {
     place.address = address.trim()

@@ -372,6 +372,33 @@ describe('parseImportedJson: フィールドの正規化', () => {
   })
 })
 
+describe('parseImportedJson: 場所のラテン文字表記(latinName)', () => {
+  it('from / to / place の latinName を取り込む', () => {
+    const text =
+      '[{"kind":"train","title":"移動","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Hong_Kong"},"from":{"name":"香港国際空港 T2","latinName":"Hong Kong"},"to":{"name":"台湾桃園国際空港 T2","latinName":"Taipei"}}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.from?.name).toBe('香港国際空港 T2')
+    expect(booking.from?.latinName).toBe('Hong Kong')
+    expect(booking.to?.latinName).toBe('Taipei')
+  })
+
+  it('前後の空白は落とし、null・空文字ならキーごと付けない', () => {
+    const text =
+      '[{"kind":"lodging","title":"ホテル","start":{"date":"2026-09-12","time":"15:00","tz":"Europe/Paris"},"place":{"name":"パリのホテル","latinName":"  Paris  "},"from":null,"to":{"name":"パリ","latinName":null}}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.place?.latinName).toBe('Paris')
+    expect(booking.to).not.toHaveProperty('latinName')
+  })
+
+  it('latinName を返してこない AI の出力でも今までどおり取り込める', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"from":{"name":"HND"},"to":{"name":"CDG"}}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.from).toEqual({ name: 'HND' })
+    expect(booking.to).toEqual({ name: 'CDG' })
+  })
+})
+
 describe('parseImportedJson: unverified', () => {
   it('値の入ったフィールドがすべて unverified に入る', () => {
     const text = `\`\`\`json

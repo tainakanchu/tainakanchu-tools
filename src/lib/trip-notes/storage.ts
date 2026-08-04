@@ -196,11 +196,12 @@ function isStamp(value: unknown): value is Stamp {
  */
 function parsePlace(raw: unknown): Place | undefined {
   if (!isRecord(raw)) return undefined
-  const { name, localName, address, lat, lng } = raw
+  const { name, localName, latinName, address, lat, lng } = raw
   if (typeof name !== 'string') return undefined
 
   const place: Place = { name }
   if (typeof localName === 'string') place.localName = localName
+  if (typeof latinName === 'string') place.latinName = latinName
   if (typeof address === 'string') place.address = address
   if (typeof lat === 'number' && Number.isFinite(lat)) place.lat = lat
   if (typeof lng === 'number' && Number.isFinite(lng)) place.lng = lng
