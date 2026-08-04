@@ -120,6 +120,7 @@ export function ConstraintPanel({
         <select
           value={kind}
           onChange={(event) => {
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- option の value は kindLabels (ConstraintKind 型) からのみ生成されるため実行時も安全
             setKind(event.target.value as ConstraintKind)
             resetForm()
           }}

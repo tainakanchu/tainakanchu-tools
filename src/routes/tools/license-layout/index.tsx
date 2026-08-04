@@ -48,7 +48,7 @@ function LicenseLayoutPage() {
   const [pageMarginMm, setPageMarginMm] = useState(25)
   const [cardGapMm, setCardGapMm] = useState(16)
   const [cardCornersRounded, setCardCornersRounded] = useState(true)
-  const [images, setImages] = useState<UploadedImage[]>([])
+  const [images, setImages] = useState<Array<UploadedImage>>([])
 
   const currentPreset = documentPresets.find((preset) => preset.id === presetId)
 
@@ -160,6 +160,7 @@ function LicenseLayoutPage() {
             <span className="text-sm font-medium text-gray-700">種類</span>
             <select
               value={presetId}
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- option の value は documentPresets (PresetId 型) からのみ生成されるため実行時も安全
               onChange={(event) => setPresetId(event.target.value as PresetId)}
               className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
             >
@@ -410,14 +411,15 @@ function clampDimension(value: number, min = 10, max = 400) {
 function readFileAsDataUrl(file: File, index: number): Promise<UploadedImage> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.addEventListener('load', () => {
       resolve({
         id: `${Date.now()}-${index}`,
         name: file.name,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- readAsDataURL() 使用のため result は string になる (ArrayBuffer にはならない)
         dataUrl: reader.result as string,
       })
-    }
-    reader.onerror = () => reject(reader.error)
+    })
+    reader.addEventListener('error', () => reject(reader.error))
     reader.readAsDataURL(file)
   })
 }

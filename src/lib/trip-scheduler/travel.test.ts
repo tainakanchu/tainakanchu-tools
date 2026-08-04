@@ -78,7 +78,7 @@ describe('estimateOptions', () => {
 
   it('候補は door-to-door 昇順に並ぶ', () => {
     const options = estimateOptions(city('paris'), city('vienna'))
-    const sorted = [...options].sort(
+    const sorted = options.toSorted(
       (a, b) => a.doorToDoorMinutes - b.doorToDoorMinutes,
     )
     expect(options).toEqual(sorted)

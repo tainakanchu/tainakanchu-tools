@@ -28,9 +28,9 @@
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
-    "lint": "eslint",
+    "lint": "oxlint",
     "format": "prettier",
-    "check": "prettier --write . && eslint --fix",
+    "check": "prettier --write . && oxlint --fix",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -48,17 +48,17 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@tanstack/eslint-config": "^0.4.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
-    "eslint": "^10.8.0",
     "jsdom": "^30.0.1",
+    "oxlint": "^1.77.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.9.6",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10",
     "web-vitals": "^6.0.1"
