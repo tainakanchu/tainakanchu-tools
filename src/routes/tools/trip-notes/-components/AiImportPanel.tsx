@@ -13,23 +13,11 @@
  * 面倒がって素通りするようになり、かえって事故が増えるための妥協。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  CalendarDays,
-  Check,
-  Copy,
-  ExternalLink,
-  ListChecks,
-  Sparkles,
-  X,
-} from 'lucide-react'
-import {
-  AI_SERVICE_LINKS,
-  buildImportPrompt,
-} from '../../../../lib/trip-notes/aiPrompt'
+import { useMemo, useState } from 'react'
+import { CalendarDays, ListChecks, Sparkles, X } from 'lucide-react'
+import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { formatStamp, stampDateInTz } from '../../../../lib/trip-notes/datetime'
-import { copyText } from '../-lib/format'
 import {
   cardClass,
   fieldClass,
@@ -38,6 +26,11 @@ import {
   subtleButtonClass,
   unverifiedFieldClass,
 } from '../-lib/styles'
+import {
+  AiServiceLinks,
+  ImportIssueDetails,
+  PromptCopyBlock,
+} from './AiImportParts'
 import { BookingStatusBadge } from './StatusBadge'
 import { ConfirmDialog } from './ConfirmDialog'
 import { KindIcon } from './KindIcon'
@@ -62,7 +55,6 @@ interface AiImportPanelProps {
 }
 
 type WizardStep = 1 | 2 | 3
-type CopyStatus = 'idle' | 'copied' | 'failed'
 
 /** ステップの見出しと進捗表示。中身は呼び出し側に委ねる薄いラッパー */
 function StepHeading({ step, title }: { step: WizardStep; title: string }) {
@@ -160,7 +152,6 @@ export function AiImportPanel({
   onSelectDate,
 }: AiImportPanelProps) {
   const [step, setStep] = useState<WizardStep>(1)
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const [pastedText, setPastedText] = useState('')
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -176,7 +167,6 @@ export function AiImportPanel({
     null,
   )
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false)
-  const copyTimeoutRef = useRef<number | null>(null)
 
   // 表示中のタイムゾーンをそのままプロンプトの基準タイムゾーンにする。
   // 画面に出ている「今どこにいる想定か」とプロンプトの前提がずれると、
@@ -185,25 +175,6 @@ export function AiImportPanel({
     () => buildImportPrompt(state, { deviceTz: displayTz }),
     [state, displayTz],
   )
-
-  useEffect(
-    () => () => {
-      if (copyTimeoutRef.current !== null)
-        window.clearTimeout(copyTimeoutRef.current)
-    },
-    [],
-  )
-
-  async function handleCopy(): Promise<void> {
-    const ok = await copyText(prompt)
-    setCopyStatus(ok ? 'copied' : 'failed')
-    if (copyTimeoutRef.current !== null)
-      window.clearTimeout(copyTimeoutRef.current)
-    copyTimeoutRef.current = window.setTimeout(
-      () => setCopyStatus('idle'),
-      2000,
-    )
-  }
 
   function handleParse(): void {
     const result = parseImportedJson(pastedText, displayTz)
@@ -315,38 +286,7 @@ export function AiImportPanel({
         {step === 1 && (
           <div className="space-y-3">
             <StepHeading step={1} title="プロンプトをコピー" />
-            <textarea
-              readOnly
-              value={prompt}
-              rows={10}
-              className={`${fieldClass} resize-y font-mono text-xs leading-relaxed`}
-              aria-label="AI に貼り付けるプロンプト"
-              onFocus={(e) => e.currentTarget.select()}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCopy}
-                className={primaryButtonClass}
-              >
-                {copyStatus === 'copied' ? (
-                  <>
-                    <Check size={14} aria-hidden="true" />
-                    コピーしました
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} aria-hidden="true" />
-                    コピーする
-                  </>
-                )}
-              </button>
-              {copyStatus === 'failed' && (
-                <span role="alert" className="text-xs text-rose-600">
-                  コピーに失敗しました。テキストを選択して手動でコピーしてください
-                </span>
-              )}
-            </div>
+            <PromptCopyBlock prompt={prompt} alwaysShowPrompt rows={10} />
 
             <p className="text-sm text-gray-600">
               コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けたあと、
@@ -356,25 +296,7 @@ export function AiImportPanel({
               AI が本文や添付ファイルを読み取り、予約情報を JSON
               形式で抽出します。
             </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {AI_SERVICE_LINKS.map((service) => (
-                <a
-                  key={service.id}
-                  href={service.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col gap-0.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <ExternalLink size={14} aria-hidden="true" />
-                    {service.label} を開く
-                  </span>
-                  <span className="text-xs font-normal text-gray-500">
-                    {service.hint}
-                  </span>
-                </a>
-              ))}
-            </div>
+            <AiServiceLinks />
 
             <div className="flex justify-end">
               <button
@@ -431,31 +353,7 @@ export function AiImportPanel({
               {summarizeResult(importResult)}
             </p>
 
-            {importResult.issues.length > 0 && (
-              <details className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                <summary className="cursor-pointer font-medium">
-                  問題の詳細({importResult.issues.length}件)
-                </summary>
-                <ul className="mt-2 space-y-2">
-                  {importResult.issues.map((issue, i) => (
-                    <li
-                      key={i}
-                      className="border-t border-amber-200 pt-2 first:border-t-0 first:pt-0"
-                    >
-                      <p>
-                        {issue.index !== null ? `${issue.index + 1}件目: ` : ''}
-                        {issue.message}
-                      </p>
-                      {issue.raw !== undefined && (
-                        <blockquote className="mt-1 border-l-4 border-amber-300 pl-2 text-xs text-amber-700">
-                          {issue.raw}
-                        </blockquote>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
+            <ImportIssueDetails issues={importResult.issues} />
 
             {importResult.bookings.length === 0 ? (
               <div className="flex justify-start">

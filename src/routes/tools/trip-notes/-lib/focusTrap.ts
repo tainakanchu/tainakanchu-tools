@@ -14,8 +14,9 @@
  * - 閉じたときに開く前のフォーカス位置へ戻す
  * - Esc で閉じる
  *
- * 外部ライブラリは使わない。ダイアログは高々 2 種類しか同時に存在せず、
- * 入れ子にもならないので、focus-trap 相当の一般解を持ち込む必要がない。
+ * 外部ライブラリは使わない。同時に開くダイアログは高々 2 枚で、重なるのも
+ * 「予約フォームの上に取り込みレビューを載せる」1 箇所だけなので、
+ * focus-trap 相当の一般解は持ち込まず、下側が paused で降りる形で済ませる。
  */
 
 import { useEffect, useRef } from 'react'
@@ -67,6 +68,16 @@ export interface DialogFocusOptions {
    * 省略するとダイアログ内の最初のフォーカス可能要素(無ければパネル自身)。
    */
   initialFocusRef?: RefObject<HTMLElement | null>
+  /**
+   * true の間だけ Esc とフォーカスの循環を止める。
+   *
+   * 自分の上に別のダイアログを重ねるとき(BookingForm から取り込みレビューを
+   * 開く場面)に使う。止めないと keydown が両方のダイアログに届き、
+   * Esc 一度で上下がまとめて閉じる・Tab を 2 つの罠が奪い合って
+   * 上のダイアログから弾き出される、という壊れ方をする。
+   * 初期フォーカスと閉じたあとの復帰は自分のものなので止めない。
+   */
+  paused?: boolean
 }
 
 /**
@@ -77,6 +88,7 @@ export interface DialogFocusOptions {
 export function useDialogFocus<T extends HTMLElement>({
   onClose,
   initialFocusRef,
+  paused = false,
 }: DialogFocusOptions): RefObject<T | null> {
   const panelRef = useRef<T | null>(null)
 
@@ -86,9 +98,11 @@ export function useDialogFocus<T extends HTMLElement>({
   // 最新の値だけを ref 経由で読み、effect 自体はマウント時の一度きりにする。
   const onCloseRef = useRef(onClose)
   const initialFocusRefRef = useRef(initialFocusRef)
+  const pausedRef = useRef(paused)
   useEffect(() => {
     onCloseRef.current = onClose
     initialFocusRefRef.current = initialFocusRef
+    pausedRef.current = paused
   })
 
   useEffect(() => {
@@ -112,6 +126,8 @@ export function useDialogFocus<T extends HTMLElement>({
     // 関数宣言(巻き上げ)にすると panel の null 絞り込みが効かないので、
     // 絞り込み後に作られるアロー関数にする
     const handleKeyDown = (event: KeyboardEvent): void => {
+      // 上に別のダイアログが載っている間は、そちらに任せて何もしない
+      if (pausedRef.current) return
       if (event.key === 'Escape') {
         onCloseRef.current()
         return
