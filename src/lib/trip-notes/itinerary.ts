@@ -32,6 +32,8 @@
  *   現地の壁時計時刻で並べると順序が逆転する。
  *   一方「何日の問題か」は、その予約の現地日付で答える。
  *   「6/15 にローマを発つ」は現地の暦の話なので、日本時間に直す意味がない。
+ *
+ *   ただし終日の予定だけは、そのままの epoch では並べない(ALL_DAY_* 参照)。
  */
 
 import { addDays, diffDays, formatDateJa, tryParseStamp } from './datetime'
@@ -68,6 +70,36 @@ const MIN_PARTIAL_MATCH_LENGTH = 2
  * ここを超える滞在は、宿より先に日付を直すべき状態である。
  */
 const MAX_STAY_NIGHTS = 366
+
+/**
+ * 終日の予定を並べるときの、みなしの開始時刻(現地の時)。
+ *
+ * ■ なぜ必要か
+ *   終日は現地 00:00 の ZonedDateTime として保存される(types.ts の Stamp 参照)。
+ *   epoch そのままで並べると「9/6 からコペンハーゲンに泊まる」は 9/5 22:00 UTC、
+ *   「9/6 12:20 デリー発コペンハーゲン行き」は 9/6 06:50 UTC になり、
+ *   泊まる予定のほうが、そこへ向かう便より前に来てしまう。
+ *   結果、到着地の食い違いと出発地の食い違いが必ずペアで誤検出される。
+ *
+ * ■ なぜこの方針か
+ *   候補は 3 つあった。
+ *   (a) 同一日なら「移動 → 滞在」の順に並べ替える
+ *   (b) 終日は「その日の遅い時刻に始まる」とみなす ← これを採った
+ *   (c) 終日を区間として扱い、区間と点の重なりで判定する
+ *   (a) は日付が主キーになるので、時差をまたいで現地日付が前後する区間
+ *   (東京 6/12 23:00 発 → パリ 6/13 05:30 着)で並びが崩れる。
+ *   (c) は「点の列」という前提で書かれた連続性の判定と宿の判定を両方作り直すことになり、
+ *   壊す範囲が広すぎる。
+ *   (b) は並び替えの鍵を作る 1 か所で閉じるうえ、実態にも合っている
+ *   (チェックインは午後、その日のうちの移動は日中に済ませる)。
+ *
+ * ■ 移動と滞在で時刻を分けるのは、終日の移動があるため
+ *   「ミラノ→スイス」のように手段未定で終日の移動があると、
+ *   同じ日の「時刻付きの到着便 → 終日の移動 → 夕方チェックインの宿」を
+ *   正しい順に並べる必要がある。移動を昼、滞在を夕方に置けばこれが素直に決まる。
+ */
+const ALL_DAY_MOVE_HOUR = 12
+const ALL_DAY_STAY_HOUR = 18
 
 // --- 場所の取り出し ---
 
@@ -193,7 +225,8 @@ export function isSamePlace(a: Place, b: Place): boolean {
 
 interface Entry {
   booking: Booking
-  epochMs: number
+  /** 並び替えの鍵。終日はみなしの時刻に寄せてあるので実際の epoch とは違う */
+  sortEpochMs: number
   /** 現地時間での開始日 (YYYY-MM-DD) */
   startDate: string
   /** 現地時間での終了日。end が無ければ開始日と同じ */
@@ -203,23 +236,39 @@ interface Entry {
   isTransport: boolean
 }
 
+/**
+ * 並び替えに使う時刻。終日なら現地のみなしの時刻に寄せる。
+ * startOfDay() から時を足すので、その日が 23 時間や 25 時間になる
+ * 夏時間の切替日でも例外を投げず、必ずその日の中に収まる。
+ */
+function sortEpochOf(
+  start: Temporal.ZonedDateTime,
+  allDay: boolean,
+  isMove: boolean,
+): number {
+  if (!allDay) return start.epochMilliseconds
+  const hours = isMove ? ALL_DAY_MOVE_HOUR : ALL_DAY_STAY_HOUR
+  return start.startOfDay().add({ hours }).epochMilliseconds
+}
+
 function toEntry(booking: Booking): Entry | null {
   const start = tryParseStamp(booking.start)
   if (start === null) return null
   const end = booking.end === null ? null : tryParseStamp(booking.end)
+  const isTransport = isTransportKind(booking.kind)
   return {
     booking,
-    epochMs: start.epochMilliseconds,
+    sortEpochMs: sortEpochOf(start, booking.start.allDay, isTransport),
     startDate: start.toPlainDate().toString(),
     endDate: (end ?? start).toPlainDate().toString(),
     placeStart: placeAt(booking, 'start'),
     placeEnd: placeAt(booking, 'end'),
-    isTransport: isTransportKind(booking.kind),
+    isTransport,
   }
 }
 
 function compareEntries(a: Entry, b: Entry): number {
-  if (a.epochMs !== b.epochMs) return a.epochMs - b.epochMs
+  if (a.sortEpochMs !== b.sortEpochMs) return a.sortEpochMs - b.sortEpochMs
   // 同時刻なら「着いてから泊まる」の順に見えるよう移動を先に置く
   if (a.isTransport !== b.isTransport) return a.isTransport ? -1 : 1
   return a.booking.id.localeCompare(b.booking.id)

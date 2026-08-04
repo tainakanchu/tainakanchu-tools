@@ -12,6 +12,7 @@ import type { Booking, Place, TripNotesState } from './types'
 const TOKYO = 'Asia/Tokyo'
 const PARIS = 'Europe/Paris'
 const ROME = 'Europe/Rome'
+const ZURICH = 'Europe/Zurich'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
   return {
@@ -501,6 +502,87 @@ describe('findItineraryIssues: タイムゾーンをまたぐ移動', () => {
     })
     expect(issues[0].message).toContain(formatDateJa('2026-06-13'))
     expect(issues[0].message).toContain(formatDateJa('2026-06-14'))
+  })
+})
+
+describe('findItineraryIssues: 終日の予定の並び', () => {
+  const tokyoHotel = booking({
+    id: 'tokyo-hotel',
+    kind: 'lodging',
+    title: '成田前泊',
+    start: at('2026-06-11', '15:00', TOKYO),
+    end: at('2026-06-12', '10:00', TOKYO),
+    place: place('東京'),
+  })
+  const inbound = booking({
+    id: 'inbound',
+    kind: 'flight',
+    title: '東京 → パリ',
+    start: at('2026-06-12', '11:00', TOKYO),
+    end: at('2026-06-12', '17:00', PARIS),
+    from: place('東京'),
+    to: place('パリ'),
+  })
+  /** 終日の宿。現地 00:00 として保存されるので epoch は前日の夜になる */
+  const parisStay = booking({
+    id: 'paris-stay',
+    kind: 'lodging',
+    title: 'パリ滞在',
+    start: allDay('2026-06-12', PARIS),
+    end: allDay('2026-06-14', PARIS),
+    place: place('パリ'),
+  })
+
+  it('同じ日に終日の滞在と時刻付きの移動があっても食い違いを出さない', () => {
+    // 終日の epoch(6/11 22:00 UTC)は、その日の便(6/12 02:00 UTC)より前になる。
+    // 素の epoch で並べると「パリに泊まる → 東京発パリ行き」の順になり、
+    // 到着地の食い違いと出発地の食い違いが必ずペアで出ていた
+    expect(issuesOf([tokyoHotel, inbound, parisStay])).toEqual([])
+  })
+
+  it('終日の移動は、同じ日の時刻付きの移動と終日の滞在の間に並ぶ', () => {
+    // 「ミラノ 13:15 着 → その日のうちに終日扱いの移動でスイスへ → スイスに泊まる」の形。
+    // 終日の移動を滞在と同じ時刻に寄せると、この 3 つの順序が決まらない
+    const arrival = booking({
+      id: 'arrival',
+      kind: 'flight',
+      title: 'パリ → ローマ',
+      start: at('2026-06-12', '11:15', PARIS),
+      end: at('2026-06-12', '13:15', ROME),
+      from: place('パリ'),
+      to: place('ローマ'),
+    })
+    const onward = booking({
+      id: 'onward',
+      kind: 'train',
+      title: 'ローマ → チューリッヒ',
+      start: allDay('2026-06-12', ROME),
+      end: allDay('2026-06-12', ZURICH),
+      from: place('ローマ'),
+      to: place('チューリッヒ'),
+    })
+    const zurichStay = booking({
+      id: 'zurich-stay',
+      kind: 'lodging',
+      title: 'チューリッヒ滞在',
+      start: allDay('2026-06-12', ZURICH),
+      end: allDay('2026-06-14', ZURICH),
+      place: place('チューリッヒ'),
+    })
+    expect(issuesOf([arrival, onward, zurichStay])).toEqual([])
+  })
+
+  it('終日の滞在の翌朝に発つ移動は、これまでどおり滞在の後ろに来る', () => {
+    const outbound = booking({
+      id: 'outbound',
+      kind: 'flight',
+      title: 'パリ → 東京',
+      start: at('2026-06-14', '12:00', PARIS),
+      end: at('2026-06-15', '08:00', TOKYO),
+      from: place('パリ'),
+      to: place('東京'),
+    })
+    expect(issuesOf([parisStay, outbound])).toEqual([])
   })
 })
 
