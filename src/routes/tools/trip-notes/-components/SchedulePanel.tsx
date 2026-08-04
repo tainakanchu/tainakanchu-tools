@@ -2,18 +2,16 @@
  * 日程タイムライン。旅のしおりの中心画面。
  *
  * groupByDay で日付ごとに束ねた予約を縦積みで表示しつつ、
- * computeNights を別途呼んで「寝る場所がない夜」を洗い出し、
- * 連続する未確保の夜は 1 枚の GapAlertCard にまとめて差し込む。
- * groupByDay 自身も night フィールドを持つが、日をまたいだ連続判定は
- * night 単体では分からないため、ここでは computeNights の結果を
- * 日付順に自前で走査してグルーピングする。
+ * 未確保の夜は computeGapAlerts で洗い出して各日のセクションに差し込む。
+ * 連続する未確保でも滞在地が同じ区間の初日は目立つカード、
+ * 2 日目以降は控えめな 1 行にして、同じ警告を毎日フルサイズで並べない。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Check, Plus } from 'lucide-react'
-import { addDays, formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { groupByDay } from '../../../../lib/trip-notes/derive'
-import { computeNights } from '../../../../lib/trip-notes/nights'
+import { computeGapAlerts } from '../../../../lib/trip-notes/uncovered-gaps'
 import {
   cardClass,
   primaryButtonClass,
@@ -27,7 +25,6 @@ import { GapAlertCard } from './GapAlertCard'
 import type {
   Booking,
   BookingKind,
-  NightSlot,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
 import type { TripNotesDispatch } from '../-lib/reducer'
@@ -53,69 +50,6 @@ type ModalState =
   | { mode: 'closed' }
   | { mode: 'add'; date: string | null; kind?: BookingKind }
   | { mode: 'edit'; bookingId: string }
-
-interface GapGroup {
-  dates: Array<string>
-  areaLabel?: string
-}
-
-/** 未確保の夜の直前・直後にある宿泊予約から、大まかな滞在エリア名を推測する */
-function guessAreaLabel(
-  state: TripNotesState,
-  nightsByDate: Map<string, NightSlot>,
-  firstDate: string,
-  lastDate: string,
-): string | undefined {
-  const before = nightsByDate.get(addDays(firstDate, -1))
-  const after = nightsByDate.get(addDays(lastDate, 1))
-  const beforeBooking =
-    before?.covered === 'lodging'
-      ? state.bookings.find((b) => b.id === before.bookingId)
-      : undefined
-  const afterBooking =
-    after?.covered === 'lodging'
-      ? state.bookings.find((b) => b.id === after.bookingId)
-      : undefined
-  return (
-    beforeBooking?.place?.name ??
-    beforeBooking?.title ??
-    afterBooking?.place?.name ??
-    afterBooking?.title
-  )
-}
-
-/**
- * 未確保の夜を日付順にまとめる。8/4・8/5 のように連続して空いているなら
- * バラバラに2枚出さず1枚のカードにまとめて、警告の数に慣れさせない。
- */
-function computeGapGroups(state: TripNotesState): Array<GapGroup> {
-  const nights = computeNights(state)
-  const nightsByDate = new Map(nights.map((n) => [n.date, n]))
-  const groups: Array<GapGroup> = []
-  let current: Array<string> = []
-
-  const flush = () => {
-    if (current.length === 0) return
-    groups.push({
-      dates: current,
-      areaLabel: guessAreaLabel(
-        state,
-        nightsByDate,
-        current[0],
-        current[current.length - 1],
-      ),
-    })
-    current = []
-  }
-
-  for (const night of nights) {
-    if (night.covered === null) current.push(night.date)
-    else flush()
-  }
-  flush()
-
-  return groups
-}
 
 const HIGHLIGHT_DURATION_MS = 2600
 
@@ -149,10 +83,10 @@ export function SchedulePanel({
     () => groupByDay(state.bookings, state, displayTz),
     [state, displayTz],
   )
-  const gapGroups = useMemo(() => computeGapGroups(state), [state])
-  const gapByStartDate = useMemo(
-    () => new Map(gapGroups.map((gap) => [gap.dates[0], gap])),
-    [gapGroups],
+  const gapAlerts = useMemo(() => computeGapAlerts(state), [state])
+  const gapByDate = useMemo(
+    () => new Map(gapAlerts.map((alert) => [alert.date, alert])),
+    [gapAlerts],
   )
 
   const editingBooking =
@@ -258,7 +192,7 @@ export function SchedulePanel({
       ) : (
         <ol className="space-y-6">
           {dayGroups.map((day) => {
-            const gap = gapByStartDate.get(day.date)
+            const gap = gapByDate.get(day.date)
             const highlighted = highlightDate === day.date
             return (
               <li
@@ -312,12 +246,13 @@ export function SchedulePanel({
 
                   {gap !== undefined ? (
                     <GapAlertCard
-                      dates={gap.dates}
+                      rangeDates={gap.rangeDates}
                       areaLabel={gap.areaLabel}
+                      variant={gap.variant}
                       onAddLodging={() =>
                         setModalState({
                           mode: 'add',
-                          date: gap.dates[0],
+                          date: gap.date,
                           kind: 'lodging',
                         })
                       }
