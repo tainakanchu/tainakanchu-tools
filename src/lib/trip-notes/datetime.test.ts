@@ -15,7 +15,6 @@ import {
   makeStamp,
   parseStamp,
   stampDate,
-  stampDateInTz,
   stampToEndEpoch,
   stampToEpoch,
   stampTz,
@@ -238,21 +237,9 @@ describe('formatDualTime', () => {
   })
 })
 
-describe('stampDateInTz', () => {
-  it('終日は日付をずらさない', () => {
-    const stamp = makeAllDayStamp('2026-06-12', 'Asia/Tokyo')
-    expect(stampDateInTz(stamp, 'Europe/Paris')).toBe('2026-06-12')
-  })
-
-  it('時刻ありはタイムゾーン基準の日付を返す(日付が進む/戻るケース)', () => {
-    const morning = makeStamp('2026-06-12', '07:00', 'Asia/Tokyo')
-    const lateNight = makeStamp('2026-06-12', '01:00', 'Asia/Tokyo')
-    // Tokyo 07:00 JST(UTC+9) = 6/11 22:00 UTC = Paris 6/12 00:00 CEST(UTC+2) → 同じ日付
-    expect(stampDateInTz(morning, 'Europe/Paris')).toBe('2026-06-12')
-    // Tokyo 01:00 JST(UTC+9) = 6/11 16:00 UTC = Paris 6/11 18:00 CEST(UTC+2) → 前日
-    expect(stampDateInTz(lateNight, 'Europe/Paris')).toBe('2026-06-11')
-  })
-})
+// stampDateInTz(表示タイムゾーンに変換した日付)の一連のテストはここにあったが、
+// 「その予定が何日のものか」は常にその予約自身の現地日付で決めることにしたので、
+// 関数ごと削除した(datetime.ts の stampDate 参照)。
 
 describe('検証系', () => {
   it('isValidTz', () => {

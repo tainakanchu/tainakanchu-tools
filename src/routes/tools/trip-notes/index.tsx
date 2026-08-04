@@ -146,10 +146,7 @@ function TripNotesPage() {
     () => state.pinnedTz ?? getDeviceTz(),
     [state.pinnedTz],
   )
-  const summary = useMemo(
-    () => computeSummary(state, nowMs, displayTz),
-    [state, nowMs, displayTz],
-  )
+  const summary = useMemo(() => computeSummary(state, nowMs), [state, nowMs])
 
   // 予約を入力してから旅行に出るまで数ヶ月空くのが普通で、
   // その間 iOS Safari に localStorage を消される可能性がある。ダメ元で永続化を頼む

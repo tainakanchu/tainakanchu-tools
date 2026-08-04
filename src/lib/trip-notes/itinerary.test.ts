@@ -651,6 +651,31 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
     expect(issuesOf([arrival, undecided, zurichStay])).toEqual([])
   })
 
+  it('夜に着く便とその晩の終日の宿でも「着いてから泊まる」順になる', () => {
+    // 終日の滞在を現地 18:00 とみなしていたころは、20:15 発 21:50 着のような
+    // 夜の便より宿のほうが先に並び、「ローマに泊まる → パリ発ローマ行き」の順になって
+    // missing-transport と departure-mismatch がペアで誤検出されていた。
+    // 終日の宿をその日の終わりに置いたことで、朝の便でも夜の便でも順序が安定する
+    const eveningFlight = booking({
+      id: 'evening',
+      kind: 'flight',
+      title: 'パリ → ローマ(夜行)',
+      start: at('2026-06-14', '20:15', PARIS),
+      end: at('2026-06-14', '21:50', ROME),
+      from: place('パリ'),
+      to: place('ローマ'),
+    })
+    const romeStay = booking({
+      id: 'rome-stay',
+      kind: 'lodging',
+      title: 'ローマ滞在',
+      start: allDay('2026-06-14', ROME),
+      end: allDay('2026-06-16', ROME),
+      place: place('ローマ'),
+    })
+    expect(issuesOf([parisStay, eveningFlight, romeStay])).toEqual([])
+  })
+
   it('終日の滞在の翌朝に発つ移動は、これまでどおり滞在の後ろに来る', () => {
     const outbound = booking({
       id: 'outbound',

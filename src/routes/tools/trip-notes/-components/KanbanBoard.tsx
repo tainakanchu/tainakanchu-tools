@@ -28,10 +28,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { GripVertical } from 'lucide-react'
-import {
-  formatDateJa,
-  stampDateInTz,
-} from '../../../../lib/trip-notes/datetime'
+import { formatDateJa, stampDate } from '../../../../lib/trip-notes/datetime'
 import { formatMoney } from '../-lib/format'
 import {
   KANBAN_AXIS_LABELS,
@@ -135,19 +132,13 @@ const columnCoordinateGetter: KeyboardCoordinateGetter = (
 interface KanbanBoardProps {
   bookings: Array<Booking>
   axis: KanbanAxis
-  displayTz: string
   dispatch: TripNotesDispatch
 }
 
-export function KanbanBoard({
-  bookings,
-  axis,
-  displayTz,
-  dispatch,
-}: KanbanBoardProps) {
+export function KanbanBoard({ bookings, axis, dispatch }: KanbanBoardProps) {
   const columns = useMemo(
-    () => buildKanbanColumns(bookings, axis, displayTz),
-    [bookings, axis, displayTz],
+    () => buildKanbanColumns(bookings, axis),
+    [bookings, axis],
   )
   const options = useMemo(() => axisOptions(axis), [axis])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -237,7 +228,6 @@ export function KanbanBoard({
             key={column.dropId}
             column={column}
             axis={axis}
-            displayTz={displayTz}
             options={options}
             dispatch={dispatch}
           />
@@ -262,7 +252,6 @@ export function KanbanBoard({
 interface KanbanColumnViewProps {
   column: KanbanColumn
   axis: KanbanAxis
-  displayTz: string
   options: Array<{ value: string; label: string }>
   dispatch: TripNotesDispatch
 }
@@ -270,7 +259,6 @@ interface KanbanColumnViewProps {
 function KanbanColumnView({
   column,
   axis,
-  displayTz,
   options,
   dispatch,
 }: KanbanColumnViewProps) {
@@ -329,7 +317,6 @@ function KanbanColumnView({
               key={booking.id}
               booking={booking}
               axis={axis}
-              displayTz={displayTz}
               options={options}
               dispatch={dispatch}
             />
@@ -343,18 +330,11 @@ function KanbanColumnView({
 interface KanbanCardProps {
   booking: Booking
   axis: KanbanAxis
-  displayTz: string
   options: Array<{ value: string; label: string }>
   dispatch: TripNotesDispatch
 }
 
-function KanbanCard({
-  booking,
-  axis,
-  displayTz,
-  options,
-  dispatch,
-}: KanbanCardProps) {
+function KanbanCard({ booking, axis, options, dispatch }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
     useDraggable({
       id: booking.id,
@@ -362,7 +342,9 @@ function KanbanCard({
     })
 
   const price = booking.price
-  const dateLabel = formatDateJa(stampDateInTz(booking.start, displayTz))
+  // 日付は日程タブの見出しと同じその予約自身の現地日付。
+  // カードの日付だけ端末のタイムゾーンで出すと、日程タブへ移ったときに 1 日ずれる
+  const dateLabel = formatDateJa(stampDate(booking.start))
 
   /** ドラッグでもセレクトでも同じ読み替えを通す */
   const applyDropId = (dropId: string) => {

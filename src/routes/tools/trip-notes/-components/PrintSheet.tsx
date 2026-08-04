@@ -11,7 +11,7 @@ import { groupByDay } from '../../../../lib/trip-notes/derive'
 import {
   formatDateJa,
   formatStamp,
-  stampDateInTz,
+  stampDate,
 } from '../../../../lib/trip-notes/datetime'
 import { todayISO } from '../-lib/format'
 import { KindIcon } from './KindIcon'
@@ -73,17 +73,9 @@ function BookingLine({
  * 情報を積む意味が薄い。「この日もまだそこにいる」と分かれば十分なので、
  * 状態は「チェックアウト/到着」と「継続中」だけに絞って印字を軽くする。
  */
-function OngoingLine({
-  booking,
-  date,
-  displayTz,
-}: {
-  booking: Booking
-  date: string
-  displayTz: string
-}) {
-  const isEndDate =
-    booking.end !== null && stampDateInTz(booking.end, displayTz) === date
+function OngoingLine({ booking, date }: { booking: Booking; date: string }) {
+  // date は groupByDay が現地日付で作った見出しなので、終了日も現地日付で見る
+  const isEndDate = booking.end !== null && stampDate(booking.end) === date
   const label = isEndDate
     ? booking.kind === 'lodging'
       ? 'チェックアウト'
@@ -102,7 +94,7 @@ function OngoingLine({
 export function PrintSheet({ state, displayTz }: PrintSheetProps) {
   // キャンセル済みは紙に残す価値がないので、印刷時だけ取り除く
   // (画面側のタイムライン表示には影響しない、この関数内だけの絞り込み)。
-  const days = groupByDay(state.bookings, state, displayTz).map((day) => ({
+  const days = groupByDay(state.bookings, state).map((day) => ({
     ...day,
     bookings: day.bookings.filter((b) => b.status !== 'cancelled'),
   }))
@@ -134,7 +126,6 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
                       key={booking.id}
                       booking={booking}
                       date={day.date}
-                      displayTz={displayTz}
                     />
                   ))}
                 </div>

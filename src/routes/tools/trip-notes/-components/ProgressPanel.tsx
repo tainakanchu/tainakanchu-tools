@@ -424,7 +424,6 @@ export function ProgressPanel({
           <KanbanBoard
             bookings={state.bookings}
             axis={axis}
-            displayTz={displayTz}
             dispatch={dispatch}
           />
         </div>

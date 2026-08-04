@@ -115,8 +115,8 @@ export function NowPanel({
   }, [])
 
   const { current, next, upcoming } = useMemo(
-    () => findCurrentAndNext(state.bookings, nowMs, displayTz),
-    [state.bookings, nowMs, displayTz],
+    () => findCurrentAndNext(state.bookings, nowMs),
+    [state.bookings, nowMs],
   )
 
   const hasAnyBooking = state.bookings.length > 0

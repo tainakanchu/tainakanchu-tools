@@ -4,10 +4,16 @@
  * 設計原則:
  * - 並び順は必ず epoch(絶対時刻)で決める。タイムゾーンの違う予定が混ざるので、
  *   現地の壁時計時刻で並べると「パリ 23:00 発の次が東京 07:00 着」のような
- *   逆転が起きる。
- * - 一方で「何日の予定か」は表示タイムゾーン基準で決める。
- *   利用者が見ている時計の日付で束ねないと、画面の日付とスマホの日付がずれる。
- * - 終日の予定だけは例外で、暦の日付そのものを事実として扱う。
+ *   逆転が起きる。終日の予定のみなしの時刻を含め、並び順の決め方は
+ *   ordering.ts に集めてある(旅程の判定と 1 つの基準を共有するため)。
+ * - 「何日の予定か」は、その予約自身の現地日付で決める。
+ *   旅程は現地の暦で読むものだからである。「9/23 20:15 パリ発」の便は、
+ *   日本時間では 9/24 03:15 になるが、利用者にとってはあくまで 9/23 の予定であって、
+ *   9/24 の見出しの下に出てきたら旅程が 1 日ずれて見える。
+ *   nights.ts の「寝る場所がある夜」も itinerary.ts の「何日の問題か」も
+ *   もともとその予約自身の現地日付で動いており、画面だけが表示タイムゾーン基準だった。
+ *   判定と画面で日付の定義が食い違っていたので、画面側をそろえた。
+ * - 終日の予定も同じで、暦の日付そのものを事実として扱う。
  *   「6/12 は終日フリー」はどのタイムゾーンで見ても 6/12 の話。
  */
 
@@ -15,13 +21,14 @@ import {
   addDays,
   diffDays,
   parseStamp,
-  stampDateInTz,
+  stampDate,
   stampToEndEpoch,
   stampToEpoch,
   tryParseStamp,
 } from './datetime'
-import { findItineraryIssues } from './itinerary'
+import { findItineraryIssues, isMoveBooking } from './itinerary'
 import { computeNights, countUncoveredNights, isTransportKind } from './nights'
+import { sortEpochOf } from './ordering'
 import type {
   Booking,
   BookingStatus,
@@ -54,32 +61,25 @@ function zeroByPaymentStatus(): Record<PaymentStatus, number> {
 }
 
 /**
- * 並べ替えの基準になる瞬間。
- * 終日の予定は表示タイムゾーンでのその日の 00:00 に置く。
- * 現地 00:00 のまま並べると、時差の大きい国の終日予定が
- * 画面上で前日の夕方あたりに紛れ込んでしまう。
+ * 並べ替えの基準になる瞬間。終日のみなしの時刻を含めて ordering.ts に任せる。
+ * 画面の並びと旅程の判定(itinerary.ts)で基準が違うと、
+ * 「画面では着いてから泊まっているのに、警告は泊まってから着くと言う」ことになる。
  */
-function sortKey(booking: Booking, displayTz: string): number {
+function sortKey(booking: Booking): number {
   const zdt = tryParseStamp(booking.start)
   if (zdt === null) return Number.NaN
-  if (!booking.start.allDay) return zdt.epochMilliseconds
-  const date = stampDateInTz(booking.start, displayTz)
-  return Temporal.PlainDate.from(date).toZonedDateTime(displayTz)
-    .epochMilliseconds
+  return sortEpochOf(booking, zdt, isMoveBooking(booking))
 }
 
 /** 開始が早い順。壊れた Stamp は末尾に寄せて、画面から消えないようにする */
-export function sortBookings(
-  bookings: Array<Booking>,
-  displayTz: string,
-): Array<Booking> {
+export function sortBookings(bookings: Array<Booking>): Array<Booking> {
   return bookings.toSorted((a, b) => {
-    const ka = sortKey(a, displayTz)
-    const kb = sortKey(b, displayTz)
+    const ka = sortKey(a)
+    const kb = sortKey(b)
     if (Number.isNaN(ka)) return Number.isNaN(kb) ? 0 : 1
     if (Number.isNaN(kb)) return -1
     if (ka !== kb) return ka - kb
-    // 同時刻なら終日を先に(その日の見出しのように振る舞わせる)
+    // 同時刻なら終日を先に(終日は「その日の見出し」の側なので前に出す)
     if (a.start.allDay !== b.start.allDay) return a.start.allDay ? -1 : 1
     return a.title.localeCompare(b.title, 'ja')
   })
@@ -100,7 +100,6 @@ interface OngoingCandidate {
  */
 function findOngoingCandidates(
   sorted: Array<Booking>,
-  displayTz: string,
 ): Array<OngoingCandidate> {
   const candidates: Array<OngoingCandidate> = []
   for (const booking of sorted) {
@@ -110,15 +109,17 @@ function findOngoingCandidates(
     if (tryParseStamp(booking.end) === null) continue
     candidates.push({
       booking,
-      startDate: stampDateInTz(booking.start, displayTz),
-      endDate: stampDateInTz(booking.end, displayTz),
+      // 開始も終了もその予約自身の現地日付。日付の見出し側と同じ物差しで比べないと、
+      // 「継続中」の行が 1 日ずれた見出しの下に出る
+      startDate: stampDate(booking.start),
+      endDate: stampDate(booking.end),
     })
   }
   return candidates
 }
 
 /**
- * 表示タイムゾーン基準の日付で束ねる。
+ * その予約自身の現地日付で束ねる。
  *
  * 予約は「開始日」の 1 か所にだけ置く。3 泊の宿を 3 日分に複製すると
  * 一覧が宿で埋まって当日の予定が読めなくなるため。
@@ -128,7 +129,7 @@ function findOngoingCandidates(
  * 「その日は何もない」ように見えてしまう。実際にはその宿に滞在中/その移動の
  * 途中なので、bookings とは別に ongoing として同じ日に添える。
  * ongoing は「その日開始日ではないが、その日も continue している」もの
- * (開始日 < その日 <= 終了日、表示タイムゾーン基準)で、終了日当日
+ * (開始日 < その日 <= 終了日、いずれもその予約自身の現地日付)で、終了日当日
  * (チェックアウト・到着の日)も含む。bookings 側と重複しないよう、
  * 開始日そのものは ongoing に含めない。
  *
@@ -138,20 +139,19 @@ function findOngoingCandidates(
 export function groupByDay(
   bookings: Array<Booking>,
   state: TripNotesState,
-  displayTz: string,
 ): Array<DayGroup> {
-  const sorted = sortBookings(bookings, displayTz)
+  const sorted = sortBookings(bookings)
   const byDate = new Map<string, Array<Booking>>()
   for (const booking of sorted) {
     if (tryParseStamp(booking.start) === null) continue
-    const date = stampDateInTz(booking.start, displayTz)
+    const date = stampDate(booking.start)
     const list = byDate.get(date)
     if (list) list.push(booking)
     else byDate.set(date, [booking])
   }
 
   const nightByDate = new Map(computeNights(state).map((n) => [n.date, n]))
-  const ongoingCandidates = findOngoingCandidates(sorted, displayTz)
+  const ongoingCandidates = findOngoingCandidates(sorted)
 
   const dates = new Set<string>(byDate.keys())
   const tripDays = Math.max(0, diffDays(state.startDate, state.endDate))
@@ -195,12 +195,8 @@ function intervalOf(booking: Booking): { from: number; to: number } | null {
 export function findCurrentAndNext(
   bookings: Array<Booking>,
   nowMs: number,
-  displayTz: string,
 ): CurrentAndNext {
-  const alive = sortBookings(
-    bookings.filter((b) => b.status !== 'cancelled'),
-    displayTz,
-  )
+  const alive = sortBookings(bookings.filter((b) => b.status !== 'cancelled'))
 
   const current: Array<Booking> = []
   const upcoming: Array<Booking> = []
@@ -377,7 +373,6 @@ export function countUnverified(bookings: Array<Booking>): number {
 export function computeSummary(
   state: TripNotesState,
   nowMs: number,
-  displayTz: string,
 ): TripSummary {
   const nights: Array<NightSlot> = computeNights(state)
 
@@ -395,6 +390,6 @@ export function computeSummary(
     itineraryIssues: findItineraryIssues(state),
     cancelDeadlines: computeCancelDeadlines(state.bookings, nowMs),
     budget: summarizeBudget(state.bookings),
-    currentAndNext: findCurrentAndNext(state.bookings, nowMs, displayTz),
+    currentAndNext: findCurrentAndNext(state.bookings, nowMs),
   }
 }

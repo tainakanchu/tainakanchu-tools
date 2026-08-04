@@ -18,7 +18,7 @@ import {
   diffDays,
   formatDateJa,
   formatStamp,
-  stampDateInTz,
+  stampDate,
 } from '../../../../lib/trip-notes/datetime'
 import { groupByDay } from '../../../../lib/trip-notes/derive'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
@@ -66,18 +66,21 @@ type ModalState =
 const HIGHLIGHT_DURATION_MS = 2600
 
 /**
- * その日の状態ラベル。終了日(表示タイムゾーン基準)なら「チェックアウト/到着」、
+ * その日の状態ラベル。終了日なら「チェックアウト/到着」、
  * それ以外は種別ごとに「滞在中(N泊目)/移動中/継続中」を返す。
  * N泊目のNは、チェックイン当日を 1 泊目として数える(利用者が宿の予約サイトで
  * 見慣れている数え方に合わせる)。
+ *
+ * 日付はその予約自身の現地日付で見る。date は groupByDay が現地日付で作った
+ * 見出しなので、ここだけ表示タイムゾーンに変換すると、日をまたぐ移動の
+ * 「到着」が 1 日ずれた見出しの下に出たり、泊数が 1 泊ずれたりする。
  */
 function ongoingStatusLabel(
   booking: Booking,
   date: string,
   displayTz: string,
 ): string {
-  const endDate =
-    booking.end !== null ? stampDateInTz(booking.end, displayTz) : null
+  const endDate = booking.end !== null ? stampDate(booking.end) : null
   const isLodging = booking.kind === 'lodging'
 
   if (endDate === date) {
@@ -89,7 +92,7 @@ function ongoingStatusLabel(
   }
 
   if (isLodging) {
-    const nights = diffDays(stampDateInTz(booking.start, displayTz), date) + 1
+    const nights = diffDays(stampDate(booking.start), date) + 1
     return `滞在中(${nights}泊目)`
   }
   if (isTransportKind(booking.kind)) return '移動中'
@@ -169,10 +172,7 @@ export function SchedulePanel({
     [state.bookings],
   )
 
-  const dayGroups = useMemo(
-    () => groupByDay(state.bookings, state, displayTz),
-    [state, displayTz],
-  )
+  const dayGroups = useMemo(() => groupByDay(state.bookings, state), [state])
   const gapAlerts = useMemo(() => computeGapAlerts(state), [state])
   const gapByDate = useMemo(
     () => new Map(gapAlerts.map((alert) => [alert.date, alert])),

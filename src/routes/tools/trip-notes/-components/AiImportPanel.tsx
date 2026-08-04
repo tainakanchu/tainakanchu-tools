@@ -17,7 +17,7 @@ import { useMemo, useState } from 'react'
 import { CalendarDays, ListChecks, RefreshCw, Sparkles, X } from 'lucide-react'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
-import { formatStamp, stampDateInTz } from '../../../../lib/trip-notes/datetime'
+import { formatStamp, stampDate } from '../../../../lib/trip-notes/datetime'
 import { planImport } from '../../../../lib/trip-notes/importMerge'
 import {
   cardClass,
@@ -235,9 +235,11 @@ export function AiImportPanel({
       .filter((b) => b.unverified !== undefined && b.unverified.length > 0)
       .map((b) => b.id)
     // 「日程で確認する」の飛び先。複数日にまたがる取り込みでも、
-    // 一番早い日へ飛べば残りは日程タブのスクロールで自然に見える
+    // 一番早い日へ飛べば残りは日程タブのスクロールで自然に見える。
+    // 日付は日程タブの見出しと同じ「その予約自身の現地日付」で出す。
+    // ここだけ物差しが違うと、飛んだ先の日に何も無いということが起きる
     const focusDate = finalBookings.reduce<string | null>((earliest, b) => {
-      const date = stampDateInTz(b.start, displayTz)
+      const date = stampDate(b.start)
       return earliest === null || date < earliest ? date : earliest
     }, null)
 

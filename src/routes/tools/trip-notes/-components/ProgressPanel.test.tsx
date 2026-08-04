@@ -63,7 +63,7 @@ function renderPanel(
   return render(
     <ProgressPanel
       state={state}
-      summary={computeSummary(state, NOW_MS, TZ)}
+      summary={computeSummary(state, NOW_MS)}
       displayTz={TZ}
       dispatch={dispatch}
       onSelectDate={noop}
@@ -274,7 +274,7 @@ describe('旅程の整合性チェックの表示', () => {
     render(
       <ProgressPanel
         state={stateWithGap}
-        summary={computeSummary(stateWithGap, NOW_MS, TZ)}
+        summary={computeSummary(stateWithGap, NOW_MS)}
         displayTz={TZ}
         dispatch={noop}
         onSelectDate={onSelectDate}

@@ -134,7 +134,14 @@ export interface TripNotesState {
   /** 旅行期間。「寝る場所がない夜」の計算に使う */
   startDate: string // YYYY-MM-DD
   endDate: string // YYYY-MM-DD
-  /** 表示タイムゾーンの手動固定。null ならデバイスのタイムゾーン */
+  /**
+   * 表示タイムゾーンの手動固定。null ならデバイスのタイムゾーン。
+   *
+   * 効くのは「時刻の見せ方」(日本時間を併記するか)と、予約を追加するときの
+   * 既定のタイムゾーン、そして「今日」の判定まで。
+   * 予定がどの日付に属するかは動かさない。旅程は現地の暦で読むものなので、
+   * 日付は常にその予約自身の現地日付で決める(derive.ts 参照)。
+   */
   pinnedTz: string | null
   bookings: Array<Booking>
   emergencyContacts: Array<EmergencyContact>

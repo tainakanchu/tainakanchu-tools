@@ -166,9 +166,8 @@ function makeColumn(
 export function buildKanbanColumns(
   bookings: Array<Booking>,
   axis: KanbanAxis,
-  displayTz: string,
 ): Array<KanbanColumn> {
-  const target = sortBookings(bookingsForAxis(bookings, axis), displayTz)
+  const target = sortBookings(bookingsForAxis(bookings, axis))
 
   if (axis === 'status') {
     return BOOKING_STATUS_COLUMNS.map((value) =>

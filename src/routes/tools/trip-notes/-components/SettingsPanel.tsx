@@ -477,6 +477,14 @@ export function SettingsPanel({
             現在の表示タイムゾーン:{' '}
             <span className="font-mono">{displayTz}</span>
           </p>
+          {/*
+            この設定で日付が動くと思われると、日程が 1 日ずれて見えたときに
+            ここを触って直そうとしてしまう。効く範囲を先に書いておく
+          */}
+          <p className="text-xs text-gray-500">
+            日程の日付はいつも現地の日付で並びます。この設定が効くのは、時刻の見せ方
+            (日本時間を併記するかどうか)と、予約を追加するときの既定のタイムゾーンです。
+          </p>
         </div>
       </section>
 

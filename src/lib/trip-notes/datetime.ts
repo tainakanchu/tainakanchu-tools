@@ -93,19 +93,16 @@ export function stampTz(stamp: Stamp): string {
   return parseStamp(stamp).timeZoneId
 }
 
-/** 現地タイムゾーンでの日付 (YYYY-MM-DD) */
+/**
+ * 現地タイムゾーンでの日付 (YYYY-MM-DD)。
+ *
+ * 「その予定が何日のものか」は常にこれで決める。以前は表示タイムゾーンに変換して
+ * 日付を出す stampDateInTz() もあったが、それだと日本にいる利用者の画面で
+ * 「9/23 20:15 パリ発」が 9/24 の予定として並び、旅程が 1 日ずれて見えた。
+ * 旅程は現地の暦で読むものなので、変換する側の関数ごと落としてある。
+ */
 export function stampDate(stamp: Stamp): string {
   return parseStamp(stamp).toPlainDate().toString()
-}
-
-/**
- * その予定が表示タイムゾーンではどの日付に属するか。
- * 終日は「暦の日付」そのものが事実なので、タイムゾーン変換で日付をずらさない。
- */
-export function stampDateInTz(stamp: Stamp, displayTz: string): string {
-  const zdt = parseStamp(stamp)
-  if (stamp.allDay) return zdt.toPlainDate().toString()
-  return zdt.withTimeZone(displayTz).toPlainDate().toString()
 }
 
 // --- タイムゾーン ---

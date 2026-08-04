@@ -66,7 +66,7 @@ function idsByLabel(
 
 describe('buildKanbanColumns / 予約状況の軸', () => {
   it('4つの列がラベル込みで常に返る(空の列も消えない)', () => {
-    const columns = buildKanbanColumns([], 'status', TZ)
+    const columns = buildKanbanColumns([], 'status')
     expect(columns.map((c) => c.label)).toEqual([
       '検討中',
       '仮押さえ',
@@ -85,7 +85,6 @@ describe('buildKanbanColumns / 予約状況の軸', () => {
         makeBooking('b4', { status: 'cancelled' }),
       ],
       'status',
-      TZ,
     )
     expect(idsByLabel(columns)).toEqual({
       検討中: ['b1'],
@@ -112,7 +111,6 @@ describe('buildKanbanColumns / 予約状況の軸', () => {
         }),
       ],
       'status',
-      TZ,
     )
     expect(idsByLabel(columns)['確定']).toEqual(['early', 'late'])
   })
@@ -128,7 +126,6 @@ describe('buildKanbanColumns / 支払状況の軸', () => {
         makeBooking('b4', { payment: 'onsite' }),
       ],
       'payment',
-      TZ,
     )
     expect(idsByLabel(columns)).toEqual({
       未払: ['b1'],
@@ -149,7 +146,7 @@ describe('buildKanbanColumns / 支払状況の軸', () => {
     // 予約状況の軸では「キャンセル」が列そのものなので外さない
     expect(bookingsForAxis(bookings, 'status')).toHaveLength(2)
 
-    const columns = buildKanbanColumns(bookings, 'payment', TZ)
+    const columns = buildKanbanColumns(bookings, 'payment')
     expect(idsByLabel(columns)['未払']).toEqual(['alive'])
   })
 })
@@ -172,7 +169,6 @@ describe('buildKanbanColumns / 列見出しの集計', () => {
         }),
       ],
       'payment',
-      TZ,
     )
     const unpaid = columns.find((c) => c.label === '未払')
     expect(unpaid?.totals).toEqual([
@@ -192,7 +188,6 @@ describe('buildKanbanColumns / 列見出しの集計', () => {
         makeBooking('b2', { payment: 'unpaid' }),
       ],
       'payment',
-      TZ,
     )
     const unpaid = columns.find((c) => c.label === '未払')
     expect(unpaid?.totals).toEqual([{ currency: 'EUR', amount: 120 }])
@@ -214,7 +209,6 @@ describe('buildKanbanColumns / 列見出しの集計', () => {
         }),
       ],
       'payment',
-      TZ,
     )
     expect(columns.find((c) => c.label === '未払')?.totals).toEqual([
       { currency: 'EUR', amount: 100 },
@@ -247,7 +241,7 @@ describe('列のドロップ先 id', () => {
   })
 
   it('<select> の選択肢は列と同じ順・同じ値になる', () => {
-    const columns = buildKanbanColumns([], 'payment', TZ)
+    const columns = buildKanbanColumns([], 'payment')
     expect(axisOptions('payment')).toEqual(
       columns.map((c) => ({ value: c.dropId, label: c.label })),
     )

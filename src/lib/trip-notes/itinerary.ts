@@ -49,11 +49,12 @@
  *   一方「何日の問題か」は、その予約の現地日付で答える。
  *   「6/15 にローマを発つ」は現地の暦の話なので、日本時間に直す意味がない。
  *
- *   ただし終日の予定だけは、そのままの epoch では並べない(ALL_DAY_* 参照)。
+ *   ただし終日の予定だけは、そのままの epoch では並べない(ordering.ts 参照)。
  */
 
 import { addDays, diffDays, formatDateJa, tryParseStamp } from './datetime'
 import { isTransportKind } from './nights'
+import { sortEpochOf } from './ordering'
 import type {
   Booking,
   ItineraryIssue,
@@ -89,36 +90,6 @@ const MIN_PARTIAL_MATCH_LENGTH = 2
 const MAX_STAY_NIGHTS = 366
 
 /**
- * 終日の予定を並べるときの、みなしの開始時刻(現地の時)。
- *
- * ■ なぜ必要か
- *   終日は現地 00:00 の ZonedDateTime として保存される(types.ts の Stamp 参照)。
- *   epoch そのままで並べると「9/6 からコペンハーゲンに泊まる」は 9/5 22:00 UTC、
- *   「9/6 12:20 デリー発コペンハーゲン行き」は 9/6 06:50 UTC になり、
- *   泊まる予定のほうが、そこへ向かう便より前に来てしまう。
- *   結果、到着地の食い違いと出発地の食い違いが必ずペアで誤検出される。
- *
- * ■ なぜこの方針か
- *   候補は 3 つあった。
- *   (a) 同一日なら「移動 → 滞在」の順に並べ替える
- *   (b) 終日は「その日の遅い時刻に始まる」とみなす ← これを採った
- *   (c) 終日を区間として扱い、区間と点の重なりで判定する
- *   (a) は日付が主キーになるので、時差をまたいで現地日付が前後する区間
- *   (東京 6/12 23:00 発 → パリ 6/13 05:30 着)で並びが崩れる。
- *   (c) は「点の列」という前提で書かれた連続性の判定と宿の判定を両方作り直すことになり、
- *   壊す範囲が広すぎる。
- *   (b) は並び替えの鍵を作る 1 か所で閉じるうえ、実態にも合っている
- *   (チェックインは午後、その日のうちの移動は日中に済ませる)。
- *
- * ■ 移動と滞在で時刻を分けるのは、終日の移動があるため
- *   「ミラノ→スイス」のように手段未定で終日の移動があると、
- *   同じ日の「時刻付きの到着便 → 終日の移動 → 夕方チェックインの宿」を
- *   正しい順に並べる必要がある。移動を昼、滞在を夕方に置けばこれが素直に決まる。
- */
-const ALL_DAY_MOVE_HOUR = 12
-const ALL_DAY_STAY_HOUR = 18
-
-/**
  * 乗り継ぎとみなす、到着から次の出発までの上限。
  * これを超えるなら、同じ空港に戻ってくるだけの往復であっても
  * 街に出て泊まるのが普通なので、宿が無いことを警告として扱う。
@@ -150,6 +121,9 @@ function placeAt(booking: Booking, edge: 'start' | 'end'): Place | null {
 /**
  * 連続性の判定で「移動」として扱うか。
  *
+ * 並び順(ordering.ts)もこの判定を使う。終日の移動と終日の滞在ではみなしの時刻が
+ * 違うので、画面と判定で「これは移動か」の答えが割れると並びも割れる。
+ *
  * 種別が移動系であるか、from と to の両方が入っていれば移動とみなす。
  * isTransportKind() だけで判定すると、AI が手段未定として kind: 'other' に
  * 分類した移動が「移動ではない」ことになり、その前後が直接つながって
@@ -159,7 +133,7 @@ function placeAt(booking: Booking, edge: 'start' | 'end'): Place | null {
  * その夜を寝られるか」の判定で、手段の決まっていない移動を夜行扱いすると
  * 寝る場所がない夜を見逃す。見逃しより誤警告に倒すという方針に反する。
  */
-function isMoveBooking(booking: Booking): boolean {
+export function isMoveBooking(booking: Booking): boolean {
   if (isTransportKind(booking.kind)) return true
   return usablePlace(booking.from) !== null && usablePlace(booking.to) !== null
 }
@@ -432,7 +406,7 @@ interface Entry {
   startEpochMs: number
   /** 終了の絶対時刻。end が無ければ開始と同じ */
   endEpochMs: number
-  /** 並び替えの鍵。終日はみなしの時刻に寄せてあるので実際の epoch とは違う */
+  /** 並び替えの鍵。終日はみなしの時刻に寄せてあるので実際の epoch とは違う(ordering.ts) */
   sortEpochMs: number
   /** 現地時間での開始日 (YYYY-MM-DD) */
   startDate: string
@@ -441,21 +415,6 @@ interface Entry {
   placeStart: Place | null
   placeEnd: Place | null
   isMove: boolean
-}
-
-/**
- * 並び替えに使う時刻。終日なら現地のみなしの時刻に寄せる。
- * startOfDay() から時を足すので、その日が 23 時間や 25 時間になる
- * 夏時間の切替日でも例外を投げず、必ずその日の中に収まる。
- */
-function sortEpochOf(
-  start: Temporal.ZonedDateTime,
-  allDay: boolean,
-  isMove: boolean,
-): number {
-  if (!allDay) return start.epochMilliseconds
-  const hours = isMove ? ALL_DAY_MOVE_HOUR : ALL_DAY_STAY_HOUR
-  return start.startOfDay().add({ hours }).epochMilliseconds
 }
 
 function toEntry(booking: Booking): Entry | null {
@@ -467,7 +426,7 @@ function toEntry(booking: Booking): Entry | null {
     booking,
     startEpochMs: start.epochMilliseconds,
     endEpochMs: (end ?? start).epochMilliseconds,
-    sortEpochMs: sortEpochOf(start, booking.start.allDay, isMove),
+    sortEpochMs: sortEpochOf(booking, start, isMove),
     startDate: start.toPlainDate().toString(),
     endDate: (end ?? start).toPlainDate().toString(),
     placeStart: placeAt(booking, 'start'),

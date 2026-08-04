@@ -15,6 +15,8 @@ import type { Booking, TripNotesState } from './types'
 const TOKYO = 'Asia/Tokyo'
 const PARIS = 'Europe/Paris'
 const ROME = 'Europe/Rome'
+const COPENHAGEN = 'Europe/Copenhagen'
+const MALTA = 'Europe/Malta'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
   return {
@@ -56,15 +58,13 @@ describe('sortBookings', () => {
       title: '東京発',
       start: at('2026-06-13', '07:00', TOKYO),
     })
-    expect(sortBookings([tokyo, paris], TOKYO).map((b) => b.id)).toEqual([
-      'p',
-      't',
-    ])
+    expect(sortBookings([tokyo, paris]).map((b) => b.id)).toEqual(['p', 't'])
   })
 
-  it('終日の予定は表示タイムゾーンでのその日の先頭に置かれる', () => {
-    // パリの終日 6/13 を現地 00:00 のまま並べると東京では 6/13 07:00 相当になり、
-    // 東京 6/13 09:00 の予定より後ろに紛れ込んでしまう
+  it('終日のアクティビティはその日の先頭に置かれる', () => {
+    // 「6/13 は終日フリー」はその日の見出しのように読まれるので、
+    // 現地 6/13 の始まりに置く(ordering.ts)。
+    // 時差の都合で、パリの終日 6/13 の始まりは東京 6/13 09:00 より前になる
     const free = booking({
       id: 'free',
       kind: 'activity',
@@ -77,9 +77,55 @@ describe('sortBookings', () => {
       title: '朝の予定',
       start: at('2026-06-13', '09:00', TOKYO),
     })
-    expect(sortBookings([morning, free], TOKYO).map((b) => b.id)).toEqual([
+    expect(sortBookings([morning, free]).map((b) => b.id)).toEqual([
       'free',
       'morning',
+    ])
+  })
+
+  it('終日の宿は、同じ日の時刻付きの移動より後ろに並ぶ(着いてから泊まる)', () => {
+    // 利用者からの報告: 9/9 が「マルタの知人宅(終日)」→「08:55 コペンハーゲン発」の
+    // 順に並んでいた。終日をその日の 00:00 に置いていたので、着く前に泊まることになる
+    const flight = booking({
+      id: 'd83530',
+      kind: 'flight',
+      title: 'D83530 コペンハーゲン → マルタ',
+      start: at('2026-09-09', '08:55', COPENHAGEN),
+      end: at('2026-09-09', '11:55', MALTA),
+    })
+    const stay = booking({
+      id: 'malta-stay',
+      kind: 'lodging',
+      title: 'マルタの知人宅',
+      start: allDay('2026-09-09', MALTA),
+      end: allDay('2026-09-12', MALTA),
+    })
+    expect(sortBookings([stay, flight]).map((b) => b.id)).toEqual([
+      'd83530',
+      'malta-stay',
+    ])
+  })
+
+  it('夕方に着く便でも、終日の宿はその後ろに並ぶ', () => {
+    // 終日の宿を現地 18:00 とみなしていたころは、20:15 発 21:50 着の便より
+    // 宿のほうが先に来て、同じ「着く前に泊まる」並びが夕方以降の便で再発していた
+    const evening = booking({
+      id: 'evening',
+      kind: 'flight',
+      title: '夜の便',
+      start: at('2026-09-23', '20:15', PARIS),
+      end: at('2026-09-23', '21:50', PARIS),
+    })
+    const stay = booking({
+      id: 'stay',
+      kind: 'lodging',
+      title: '知人宅',
+      start: allDay('2026-09-23', PARIS),
+      end: allDay('2026-09-25', PARIS),
+    })
+    expect(sortBookings([stay, evening]).map((b) => b.id)).toEqual([
+      'evening',
+      'stay',
     ])
   })
 
@@ -96,7 +142,7 @@ describe('sortBookings', () => {
       title: '正常',
       start: at('2026-06-13', '09:00', TOKYO),
     })
-    expect(sortBookings([broken, normal], TOKYO).map((b) => b.id)).toEqual([
+    expect(sortBookings([broken, normal]).map((b) => b.id)).toEqual([
       'ok',
       'broken',
     ])
@@ -106,7 +152,7 @@ describe('sortBookings', () => {
 describe('groupByDay', () => {
   it('旅行期間の全日が、予約がなくても並ぶ', () => {
     const state = makeState()
-    const groups = groupByDay([], state, TOKYO)
+    const groups = groupByDay([], state)
     expect(groups.map((g) => g.date)).toEqual([
       '2026-06-12',
       '2026-06-13',
@@ -117,13 +163,15 @@ describe('groupByDay', () => {
   })
 
   it('最終日以外の日には夜が付き、最終日には付かない', () => {
-    const groups = groupByDay([], makeState(), TOKYO)
+    const groups = groupByDay([], makeState())
     expect(groups.slice(0, 4).every((g) => g.night !== null)).toBe(true)
     expect(groups[4].night).toBeNull()
   })
 
-  it('表示タイムゾーン基準の日付で束ねる', () => {
-    // パリ 6/12 20:00 は東京では 6/13 03:00
+  it('その予約自身の現地日付で束ねる', () => {
+    // パリ 6/12 20:00 は日本時間では 6/13 03:00 だが、現地の暦では 6/12 の予定。
+    // 端末のタイムゾーンで束ねていた頃は、日本にいる利用者の画面で
+    // 6/13 の見出しの下に出ていた
     const b = booking({
       id: 'x',
       kind: 'activity',
@@ -132,21 +180,16 @@ describe('groupByDay', () => {
     })
     const state = makeState({ bookings: [b] })
 
-    const inTokyo = groupByDay([b], state, TOKYO)
-    expect(inTokyo.find((g) => g.date === '2026-06-13')?.bookings).toHaveLength(
+    const groups = groupByDay([b], state)
+    expect(groups.find((g) => g.date === '2026-06-12')?.bookings).toHaveLength(
       1,
     )
-    expect(inTokyo.find((g) => g.date === '2026-06-12')?.bookings).toHaveLength(
+    expect(groups.find((g) => g.date === '2026-06-13')?.bookings).toHaveLength(
       0,
-    )
-
-    const inParis = groupByDay([b], state, PARIS)
-    expect(inParis.find((g) => g.date === '2026-06-12')?.bookings).toHaveLength(
-      1,
     )
   })
 
-  it('終日の予定は表示タイムゾーンを変えても日付が動かない', () => {
+  it('終日の予定はその暦の日付に置かれる', () => {
     const b = booking({
       id: 'x',
       kind: 'activity',
@@ -154,12 +197,31 @@ describe('groupByDay', () => {
       start: allDay('2026-06-13', PARIS),
     })
     const state = makeState({ bookings: [b] })
-    for (const tz of [TOKYO, PARIS, 'America/Los_Angeles']) {
-      const group = groupByDay([b], state, tz).find(
-        (g) => g.date === '2026-06-13',
-      )
-      expect(group?.bookings.map((x) => x.id)).toEqual(['x'])
-    }
+    const group = groupByDay([b], state).find((g) => g.date === '2026-06-13')
+    expect(group?.bookings.map((x) => x.id)).toEqual(['x'])
+  })
+
+  it('夜に発つ便は、日本時間で翌日になっても現地の当日に並ぶ', () => {
+    // 利用者からの報告: 9/23 20:15 パリ発の便が 9/24(木)の見出しの下に出ていた。
+    // 端末が Asia/Tokyo だと 9/24 03:15 になるため、表示タイムゾーンで束ねると
+    // 旅程が丸ごと 1 日ずれて読める
+    const flight = booking({
+      id: 'evening',
+      kind: 'flight',
+      title: '夜の便',
+      start: at('2026-09-23', '20:15', PARIS),
+      end: at('2026-09-23', '21:50', PARIS),
+    })
+    const state = makeState({
+      startDate: '2026-09-23',
+      endDate: '2026-09-25',
+      bookings: [flight],
+    })
+    const groups = groupByDay([flight], state)
+    expect(
+      groups.find((g) => g.date === '2026-09-23')?.bookings.map((b) => b.id),
+    ).toEqual(['evening'])
+    expect(groups.find((g) => g.date === '2026-09-24')?.bookings).toEqual([])
   })
 
   it('旅行期間外の予約もその日を作って表示する(期間の指定ミスで消えない)', () => {
@@ -170,7 +232,7 @@ describe('groupByDay', () => {
       start: at('2026-06-10', '15:00', TOKYO),
     })
     const state = makeState({ bookings: [b] })
-    const groups = groupByDay([b], state, TOKYO)
+    const groups = groupByDay([b], state)
     expect(groups[0].date).toBe('2026-06-10')
     expect(groups[0].bookings.map((x) => x.id)).toEqual(['pre'])
     expect(groups[0].night).toBeNull()
@@ -186,7 +248,7 @@ describe('groupByDay', () => {
       end: at('2026-06-15', '10:00', TOKYO),
     })
     const state = makeState({ bookings: [b] })
-    const groups = groupByDay([b], state, TOKYO)
+    const groups = groupByDay([b], state)
     expect(
       groups.filter((g) => g.bookings.length > 0).map((g) => g.date),
     ).toEqual(['2026-06-12'])
@@ -203,7 +265,7 @@ describe('groupByDay', () => {
 
     it('開始日は bookings 側にだけ出て、ongoing には出ない(重複させない)', () => {
       const state = makeState({ bookings: [hotel] })
-      const groups = groupByDay([hotel], state, TOKYO)
+      const groups = groupByDay([hotel], state)
       const day12 = groups.find((g) => g.date === '2026-06-12')
       expect(day12?.bookings.map((b) => b.id)).toEqual(['hotel'])
       expect(day12?.ongoing).toEqual([])
@@ -211,7 +273,7 @@ describe('groupByDay', () => {
 
     it('連泊中の中日には ongoing として出る', () => {
       const state = makeState({ bookings: [hotel] })
-      const groups = groupByDay([hotel], state, TOKYO)
+      const groups = groupByDay([hotel], state)
       const day13 = groups.find((g) => g.date === '2026-06-13')
       const day14 = groups.find((g) => g.date === '2026-06-14')
       expect(day13?.bookings).toEqual([])
@@ -221,14 +283,14 @@ describe('groupByDay', () => {
 
     it('チェックアウト日にも ongoing として出る', () => {
       const state = makeState({ bookings: [hotel] })
-      const groups = groupByDay([hotel], state, TOKYO)
+      const groups = groupByDay([hotel], state)
       const day15 = groups.find((g) => g.date === '2026-06-15')
       expect(day15?.ongoing.map((b) => b.id)).toEqual(['hotel'])
     })
 
     it('チェックアウト日の翌日には出ない', () => {
       const state = makeState({ bookings: [hotel] })
-      const groups = groupByDay([hotel], state, TOKYO)
+      const groups = groupByDay([hotel], state)
       const day16 = groups.find((g) => g.date === '2026-06-16')
       expect(day16?.ongoing).toEqual([])
     })
@@ -236,7 +298,7 @@ describe('groupByDay', () => {
     it('キャンセル済みの予約は ongoing に出ない', () => {
       const cancelled = { ...hotel, status: 'cancelled' as const }
       const state = makeState({ bookings: [cancelled] })
-      const groups = groupByDay([cancelled], state, TOKYO)
+      const groups = groupByDay([cancelled], state)
       expect(groups.every((g) => g.ongoing.length === 0)).toBe(true)
     })
 
@@ -248,7 +310,7 @@ describe('groupByDay', () => {
         start: at('2026-06-12', '09:00', TOKYO),
       })
       const state = makeState({ bookings: [meeting] })
-      const groups = groupByDay([meeting], state, TOKYO)
+      const groups = groupByDay([meeting], state)
       expect(groups.every((g) => g.ongoing.length === 0)).toBe(true)
     })
   })
@@ -272,7 +334,7 @@ describe('findCurrentAndNext', () => {
 
   it('期間の途中なら current、まだなら upcoming', () => {
     const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
-    const result = findCurrentAndNext([hotel, train], now, TOKYO)
+    const result = findCurrentAndNext([hotel, train], now)
     expect(result.current.map((b) => b.id)).toEqual(['hotel'])
     expect(result.next?.id).toBe('train')
     expect(result.upcoming.map((b) => b.id)).toEqual(['train'])
@@ -280,13 +342,13 @@ describe('findCurrentAndNext', () => {
 
   it('開始のちょうどその瞬間は current に入る', () => {
     const now = stampToEpoch(at('2026-06-12', '15:00', PARIS))
-    const result = findCurrentAndNext([hotel], now, TOKYO)
+    const result = findCurrentAndNext([hotel], now)
     expect(result.current.map((b) => b.id)).toEqual(['hotel'])
   })
 
   it('終了のちょうどその瞬間は current から外れる', () => {
     const now = stampToEpoch(at('2026-06-14', '10:00', PARIS))
-    const result = findCurrentAndNext([hotel], now, TOKYO)
+    const result = findCurrentAndNext([hotel], now)
     expect(result.current).toEqual([])
     expect(result.upcoming).toEqual([])
   })
@@ -299,7 +361,7 @@ describe('findCurrentAndNext', () => {
       start: at('2026-06-13', '09:00', PARIS),
     })
     const now = stampToEpoch(at('2026-06-13', '09:30', PARIS))
-    expect(findCurrentAndNext([meeting], now, TOKYO).current).toEqual([])
+    expect(findCurrentAndNext([meeting], now).current).toEqual([])
   })
 
   it('終了時刻のない終日の予定はその日いっぱい current', () => {
@@ -310,24 +372,24 @@ describe('findCurrentAndNext', () => {
       start: allDay('2026-06-13', PARIS),
     })
     const noon = stampToEpoch(at('2026-06-13', '12:00', PARIS))
-    expect(
-      findCurrentAndNext([free], noon, TOKYO).current.map((b) => b.id),
-    ).toEqual(['free'])
+    expect(findCurrentAndNext([free], noon).current.map((b) => b.id)).toEqual([
+      'free',
+    ])
     const nextDay = stampToEpoch(at('2026-06-14', '00:00', PARIS))
-    expect(findCurrentAndNext([free], nextDay, TOKYO).current).toEqual([])
+    expect(findCurrentAndNext([free], nextDay).current).toEqual([])
   })
 
   it('キャンセル済みは current にも next にも出ない', () => {
     const cancelled = { ...hotel, status: 'cancelled' as const }
     const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
-    const result = findCurrentAndNext([cancelled, train], now, TOKYO)
+    const result = findCurrentAndNext([cancelled, train], now)
     expect(result.current).toEqual([])
     expect(result.next?.id).toBe('train')
   })
 
   it('next は upcoming の先頭と一致する', () => {
     const now = stampToEpoch(at('2026-06-10', '00:00', PARIS))
-    const result = findCurrentAndNext([train, hotel], now, TOKYO)
+    const result = findCurrentAndNext([train, hotel], now)
     expect(result.upcoming.map((b) => b.id)).toEqual(['hotel', 'train'])
     expect(result.next).toBe(result.upcoming[0])
   })
@@ -607,7 +669,7 @@ describe('computeSummary', () => {
     })
     const state = makeState({ bookings: [hotel, cancelled] })
     const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
-    const summary = computeSummary(state, now, TOKYO)
+    const summary = computeSummary(state, now)
 
     expect(summary.totalNights).toBe(4)
     // 6/12・6/13 はホテルがカバー、6/14・6/15 は寝る場所がない
@@ -641,7 +703,7 @@ describe('computeSummary', () => {
     })
     const state = makeState({ bookings: [hotel] })
     const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
-    const summary = computeSummary(state, now, TOKYO)
+    const summary = computeSummary(state, now)
     expect(summary.transportGaps).toEqual([])
     expect(summary.uncoveredNights).toBe(0)
   })
@@ -665,7 +727,7 @@ describe('computeSummary', () => {
     })
     const state = makeState({ bookings: [paris, rome] })
     const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
-    const summary = computeSummary(state, now, TOKYO)
+    const summary = computeSummary(state, now)
 
     // transportGaps は従来どおりの内容を保つ
     expect(summary.transportGaps.map((gap) => gap.toBookingId)).toEqual([

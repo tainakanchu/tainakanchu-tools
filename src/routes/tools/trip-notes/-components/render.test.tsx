@@ -79,7 +79,7 @@ const empty: TripNotesState = {
 const tz = 'Europe/Paris'
 
 describe('旅のしおりの各パネルが初回描画で落ちない', () => {
-  const summary = computeSummary(state, Date.parse('2026-06-13T12:00:00Z'), tz)
+  const summary = computeSummary(state, Date.parse('2026-06-13T12:00:00Z'))
 
   it('NightCoverageStrip (通常 / 30泊 / 空)', () => {
     expect(() =>
