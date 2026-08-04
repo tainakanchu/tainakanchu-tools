@@ -49,11 +49,13 @@
  *   一方「何日の問題か」は、その予約の現地日付で答える。
  *   「6/15 にローマを発つ」は現地の暦の話なので、日本時間に直す意味がない。
  *
- *   ただし終日の予定だけは、そのままの epoch では並べない(ordering.ts 参照)。
+ *   ただし終日の予定と宿泊は、そのままの epoch では並べない(ordering.ts 参照)。
+ *   宿泊は「その日の最後に泊まる」ものとして並べる。チェックイン時刻は
+ *   「その時刻から入れる」という意味しか持たず、そこにいる時刻ではないためである。
  */
 
 import { addDays, diffDays, formatDateJa, tryParseStamp } from './datetime'
-import { isTransportKind } from './nights'
+import { isTransportKind, lodgingCoversNight } from './nights'
 import { sortEpochOf } from './ordering'
 import type {
   Booking,
@@ -406,7 +408,7 @@ interface Entry {
   startEpochMs: number
   /** 終了の絶対時刻。end が無ければ開始と同じ */
   endEpochMs: number
-  /** 並び替えの鍵。終日はみなしの時刻に寄せてあるので実際の epoch とは違う(ordering.ts) */
+  /** 並び替えの鍵。終日と宿泊はみなしの時刻に寄せてあるので実際の epoch とは違う(ordering.ts) */
   sortEpochMs: number
   /** 現地時間での開始日 (YYYY-MM-DD) */
   startDate: string
@@ -526,18 +528,6 @@ function findContinuityIssues(entries: Array<Entry>): Array<ItineraryIssue> {
 }
 
 // --- 移動と移動の間の宿 ---
-
-/** その宿がその夜をカバーするか。nights.ts と同じ「チェックイン <= 夜 < チェックアウト」 */
-function lodgingCoversNight(booking: Booking, nightDate: string): boolean {
-  const start = tryParseStamp(booking.start)
-  if (start === null) return false
-  const from = start.toPlainDate().toString()
-
-  const end = booking.end === null ? null : tryParseStamp(booking.end)
-  const rawTo = end === null ? null : end.toPlainDate().toString()
-  const to = rawTo !== null && rawTo > from ? rawTo : addDays(from, 1)
-  return from <= nightDate && nightDate < to
-}
 
 /**
  * 到着と次の出発が「乗り継ぎ」か。

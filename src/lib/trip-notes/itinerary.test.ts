@@ -690,6 +690,82 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
   })
 })
 
+describe('findItineraryIssues: 時刻付きの宿の並び', () => {
+  const TAIPEI = 'Asia/Taipei'
+  const HONG_KONG = 'Asia/Hong_Kong'
+
+  it('チェックイン時刻がその日の便より早くても、出発地の食い違いを出さない', () => {
+    // 利用者からの報告: 8/16 の日程が
+    // 「King's Mansion チェックアウト 12:00」→「台北の宿 16:00 チェックイン」→
+    // 「HX282 香港 18:50 発 台北 20:45 着」の順に並んでいた。
+    // チェックイン時刻で並べていたので「台北に泊まる → 香港発の便」の順になり、
+    // 香港からの出発が departure-mismatch として誤検出されていた
+    const hkHotel = booking({
+      id: 'hk-hotel',
+      kind: 'lodging',
+      title: "King's Mansion",
+      start: at('2026-08-14', '15:00', HONG_KONG),
+      end: at('2026-08-16', '12:00', HONG_KONG),
+      place: place('香港'),
+    })
+    const flight = booking({
+      id: 'hx282',
+      kind: 'flight',
+      title: 'HX282 HKG→TPE',
+      start: at('2026-08-16', '18:50', HONG_KONG),
+      end: at('2026-08-16', '20:45', TAIPEI),
+      from: place('香港'),
+      to: place('台北'),
+    })
+    const taipeiHotel = booking({
+      id: 'taipei-hotel',
+      kind: 'lodging',
+      title: 'セレクト新北三重水漾館',
+      start: at('2026-08-16', '16:00', TAIPEI),
+      end: at('2026-08-18', '11:00', TAIPEI),
+      place: place('台北'),
+    })
+
+    const issues = issuesOf([hkHotel, taipeiHotel, flight])
+    expect(issues.map((issue) => issue.kind)).toEqual([])
+  })
+
+  it('深夜着の便とその足でのチェックインは、前夜の宿として扱われる', () => {
+    // 8/16 23:40 に着いて 8/17 01:00 にチェックイン。埋まっているのは 8/16 の夜。
+    // 暦の日付どおり 8/17 から数えると、8/16 の夜だけ宿が無いことになって
+    // missing-lodging が誤検出される(nights.ts の lodgingCoversNight を共有しているので、
+    // 進捗タブの「寝る場所がない夜」とここの判定は必ず同じ答えになる)
+    const inbound = booking({
+      id: 'inbound',
+      kind: 'flight',
+      title: '香港 → 台北(深夜着)',
+      start: at('2026-08-16', '20:00', HONG_KONG),
+      end: at('2026-08-16', '23:40', TAIPEI),
+      from: place('香港'),
+      to: place('台北'),
+    })
+    const hotel = booking({
+      id: 'late-hotel',
+      kind: 'lodging',
+      title: '台北の宿',
+      start: at('2026-08-17', '01:00', TAIPEI),
+      end: at('2026-08-18', '11:00', TAIPEI),
+      place: place('台北'),
+    })
+    const outbound = booking({
+      id: 'outbound',
+      kind: 'flight',
+      title: '台北 → 東京',
+      start: at('2026-08-18', '13:00', TAIPEI),
+      end: at('2026-08-18', '17:30', TOKYO),
+      from: place('台北'),
+      to: place('東京'),
+    })
+
+    expect(issuesOf([inbound, hotel, outbound])).toEqual([])
+  })
+})
+
 describe('findItineraryIssues: 手段未定の移動', () => {
   const undecided = booking({
     id: 'undecided',

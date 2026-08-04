@@ -4,7 +4,7 @@
  * 設計原則:
  * - 並び順は必ず epoch(絶対時刻)で決める。タイムゾーンの違う予定が混ざるので、
  *   現地の壁時計時刻で並べると「パリ 23:00 発の次が東京 07:00 着」のような
- *   逆転が起きる。終日の予定のみなしの時刻を含め、並び順の決め方は
+ *   逆転が起きる。終日の予定と宿泊のみなしの時刻を含め、並び順の決め方は
  *   ordering.ts に集めてある(旅程の判定と 1 つの基準を共有するため)。
  * - 「何日の予定か」は、その予約自身の現地日付で決める。
  *   旅程は現地の暦で読むものだからである。「9/23 20:15 パリ発」の便は、
@@ -39,6 +39,7 @@ import type {
   CancelDeadline,
   CurrentAndNext,
   DayGroup,
+  DayTimelineRow,
   NightSlot,
   PaymentStatus,
   TransportGap,
@@ -64,7 +65,7 @@ function zeroByPaymentStatus(): Record<PaymentStatus, number> {
 }
 
 /**
- * 並べ替えの基準になる瞬間。終日のみなしの時刻を含めて ordering.ts に任せる。
+ * 並べ替えの基準になる瞬間。終日と宿泊のみなしの時刻を含めて ordering.ts に任せる。
  * 画面の並びと旅程の判定(itinerary.ts)で基準が違うと、
  * 「画面では着いてから泊まっているのに、警告は泊まってから着くと言う」ことになる。
  */
@@ -169,6 +170,61 @@ export function groupByDay(
       .map((c) => c.booking),
     night: nightByDate.get(date) ?? null,
   }))
+}
+
+/**
+ * 継続行(ongoing)の並び順の鍵。分からなければ null。
+ *
+ * その日が終了日の行は「チェックアウト 12:00」「到着 06:00」と時刻まで出るので、
+ * その終了時刻が並び順の根拠になる。まだ継続中の行(滞在中・移動中・継続中)は
+ * その日のどこにも点を持たないので鍵を作らず、その日の先頭に置く。
+ */
+function ongoingSortKey(booking: Booking, date: string): number | null {
+  const end = booking.end
+  // 終日の終了は時刻を持たない(画面にも時刻が出ない)ので、先頭側に寄せる
+  if (end === null || end.allDay) return null
+  const zdt = tryParseStamp(end)
+  if (zdt === null) return null
+  // その日が終了日でなければ、この日はまだ滞在/移動の途中
+  if (zdt.toPlainDate().toString() !== date) return null
+  return zdt.epochMilliseconds
+}
+
+/**
+ * その日に表示する行を、時刻順に 1 本の列にまとめる。
+ *
+ * 継続行をまとめて先頭に出していたころは、「12:00 チェックアウト」の行が
+ * その日の朝 09:00 の予定より前に並んでいた。前日から続いているという事実と、
+ * その行がその日のいつの出来事かは別の話なので、同じ時間軸に載せる。
+ *
+ * 時刻の鍵を持たない継続行(まだ滞在中・移動中)はその日の先頭に固める。
+ * 同じ時刻に並んだときは継続行を先に出す(入力の順を保つ安定ソート)。
+ * 「12:00 にチェックアウトして、12:00 の列車に乗る」は、出てから乗る順に読める。
+ */
+export function dayTimeline(day: DayGroup): Array<DayTimelineRow> {
+  const rows: Array<DayTimelineRow & { sortKey: number | null }> = [
+    ...day.ongoing.map((booking) => ({
+      row: 'ongoing' as const,
+      booking,
+      sortKey: ongoingSortKey(booking, day.date),
+    })),
+    // groupByDay が壊れた Stamp の予約を落としているので、ここに NaN は来ない
+    ...day.bookings.map((booking) => ({
+      row: 'booking' as const,
+      booking,
+      sortKey: sortKey(booking),
+    })),
+  ]
+
+  return rows
+    .toSorted((a, b) => {
+      if (a.sortKey === null || b.sortKey === null) {
+        if (a.sortKey === b.sortKey) return 0
+        return a.sortKey === null ? -1 : 1
+      }
+      return a.sortKey - b.sortKey
+    })
+    .map(({ row, booking }) => ({ row, booking }))
 }
 
 /**

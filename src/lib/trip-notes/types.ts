@@ -227,7 +227,7 @@ export interface NightSlot {
   bookingId?: string
 }
 
-/** 表示タイムゾーン基準の日付で束ねた 1 日分 */
+/** その予約自身の現地日付で束ねた 1 日分 */
 export interface DayGroup {
   date: string
   /** その日に始まる予約(開始日基準)。終了側は各カードの end で示す */
@@ -239,6 +239,19 @@ export interface DayGroup {
   ongoing: Array<Booking>
   /** その日の晩の夜。旅行最終日と旅行期間外の日は null */
   night: NightSlot | null
+}
+
+/**
+ * 日程タイムラインの 1 行。その日に始まる予約と、前日から続いている予約が
+ * 同じ 1 本の列に混ざる(derive.ts の dayTimeline)。
+ */
+export interface DayTimelineRow {
+  /**
+   * 'booking' = その日に始まる予約(カードで出す)
+   * 'ongoing' = 前日から続いている予約(控えめな 1 行で出す)
+   */
+  row: 'booking' | 'ongoing'
+  booking: Booking
 }
 
 /** 「今」と「次」。旅行中トップ画面の主役 */

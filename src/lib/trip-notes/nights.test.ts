@@ -188,6 +188,100 @@ describe('computeNights: 宿によるカバー', () => {
   })
 })
 
+describe('computeNights: 深夜チェックインの宿', () => {
+  const TAIPEI = 'Asia/Taipei'
+
+  /** 8/15〜8/20 の 5 泊。深夜チェックインの前後の夜が両方入るように取ってある */
+  function augustState(bookings: Array<Booking>): TripNotesState {
+    return makeState({
+      startDate: '2026-08-15',
+      endDate: '2026-08-20',
+      bookings,
+    })
+  }
+
+  function timedLodging(
+    id: string,
+    checkIn: [string, string],
+    checkOut: [string, string],
+  ): Booking {
+    return booking(
+      id,
+      'lodging',
+      makeStamp(checkIn[0], checkIn[1], TAIPEI),
+      makeStamp(checkOut[0], checkOut[1], TAIPEI),
+    )
+  }
+
+  it('8/17 02:00 チェックイン・8/17 11:00 チェックアウトは 8/16 の夜を埋める', () => {
+    // 深夜 02:00 に着いてそのまま入り、朝に出る。寝たのは 8/16 の夜であって、
+    // 暦の日付どおり 8/17 の夜を埋めたことにすると、実際に寝ている夜が
+    // 「寝る場所がない夜」として警告に出て、まだ空いている 8/17 の夜は埋まってしまう
+    const nights = computeNights(
+      augustState([
+        timedLodging('late', ['2026-08-17', '02:00'], ['2026-08-17', '11:00']),
+      ]),
+    )
+    const night16 = nights.find((n) => n.date === '2026-08-16')
+    expect(night16?.covered).toBe('lodging')
+    expect(night16?.bookingId).toBe('late')
+    expect(nights.find((n) => n.date === '2026-08-17')?.covered).toBe(null)
+  })
+
+  it('8/17 02:00 チェックイン・8/19 チェックアウトは 8/16・8/17・8/18 の 3 泊を埋める', () => {
+    const nights = computeNights(
+      augustState([
+        timedLodging('late', ['2026-08-17', '02:00'], ['2026-08-19', '11:00']),
+      ]),
+    )
+    expect(
+      nights.filter((n) => n.bookingId === 'late').map((n) => n.date),
+    ).toEqual(['2026-08-16', '2026-08-17', '2026-08-18'])
+    expect(nights.find((n) => n.date === '2026-08-15')?.covered).toBe(null)
+    expect(nights.find((n) => n.date === '2026-08-19')?.covered).toBe(null)
+  })
+
+  it('しきい値の手前(04:59)は前夜、しきい値(05:00)からはその日の夜', () => {
+    // 5 時を過ぎた到着は「朝に着いて、その日から泊まる」と読むほうが自然
+    const before = computeNights(
+      augustState([
+        timedLodging('a', ['2026-08-17', '04:59'], ['2026-08-19', '11:00']),
+      ]),
+    )
+    expect(before.find((n) => n.date === '2026-08-16')?.covered).toBe('lodging')
+
+    const after = computeNights(
+      augustState([
+        timedLodging('b', ['2026-08-17', '05:00'], ['2026-08-19', '11:00']),
+      ]),
+    )
+    expect(after.find((n) => n.date === '2026-08-16')?.covered).toBe(null)
+    expect(after.find((n) => n.date === '2026-08-17')?.covered).toBe('lodging')
+  })
+
+  it('通常の 15:00 チェックインはこれまでどおりその日の夜から埋める', () => {
+    const nights = computeNights(
+      augustState([
+        timedLodging('n', ['2026-08-17', '15:00'], ['2026-08-19', '11:00']),
+      ]),
+    )
+    expect(
+      nights.filter((n) => n.bookingId === 'n').map((n) => n.date),
+    ).toEqual(['2026-08-17', '2026-08-18'])
+  })
+
+  it('終日の宿は 00:00 として保存されるだけなので、深夜チェックイン扱いにしない', () => {
+    // ここを時刻として読むと、終日の宿がすべて前日の夜から始まってしまう
+    const nights = computeNights(
+      augustState([lodging('all-day', '2026-08-17', '2026-08-19')]),
+    )
+    expect(
+      nights.filter((n) => n.bookingId === 'all-day').map((n) => n.date),
+    ).toEqual(['2026-08-17', '2026-08-18'])
+    expect(nights.find((n) => n.date === '2026-08-16')?.covered).toBe(null)
+  })
+})
+
 describe('computeNights: 夜行移動によるカバー', () => {
   it('夜行列車がその夜をカバーする', () => {
     const state = makeState({

@@ -4,6 +4,7 @@ import {
   computeCancelDeadlines,
   computeSummary,
   countUnverified,
+  dayTimeline,
   findCurrentAndNext,
   findTransportGaps,
   groupByDay,
@@ -17,6 +18,8 @@ const PARIS = 'Europe/Paris'
 const ROME = 'Europe/Rome'
 const COPENHAGEN = 'Europe/Copenhagen'
 const MALTA = 'Europe/Malta'
+const TAIPEI = 'Asia/Taipei'
+const HONG_KONG = 'Asia/Hong_Kong'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
   return {
@@ -126,6 +129,139 @@ describe('sortBookings', () => {
     expect(sortBookings([stay, evening]).map((b) => b.id)).toEqual([
       'evening',
       'stay',
+    ])
+  })
+
+  it('時刻付きの宿も、同じ日の便より後ろに並ぶ(チェックイン時刻では並べない)', () => {
+    // 利用者からの報告: 8/16 が「台北の宿 16:00 チェックイン」→
+    // 「HX282 香港 18:50 発 台北 20:45 着」の順に並んでいた。
+    // 16:00 は「その時刻から入れる」であって、そこにいる時刻ではない
+    const flight = booking({
+      id: 'hx282',
+      kind: 'flight',
+      title: 'HX282 HKG→TPE',
+      start: at('2026-08-16', '18:50', HONG_KONG),
+      end: at('2026-08-16', '20:45', TAIPEI),
+    })
+    const hotel = booking({
+      id: 'taipei-hotel',
+      kind: 'lodging',
+      title: 'セレクト新北三重水漾館',
+      start: at('2026-08-16', '16:00', TAIPEI),
+      end: at('2026-08-18', '11:00', TAIPEI),
+    })
+    expect(sortBookings([hotel, flight]).map((b) => b.id)).toEqual([
+      'hx282',
+      'taipei-hotel',
+    ])
+  })
+
+  it('日をまたぐ便でも、着いた日の宿はその後ろに並ぶ', () => {
+    // 8/16 23:30 発 → 8/17 06:00 着。宿は着いた日の 16:00 チェックイン。
+    // 宿を「その日の終わり」に置いても、朝に着く便との前後は崩れない
+    const redEye = booking({
+      id: 'red-eye',
+      kind: 'flight',
+      title: '深夜便',
+      start: at('2026-08-16', '23:30', TOKYO),
+      end: at('2026-08-17', '06:00', TAIPEI),
+    })
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: '台北の宿',
+      start: at('2026-08-17', '16:00', TAIPEI),
+      end: at('2026-08-19', '11:00', TAIPEI),
+    })
+    expect(sortBookings([hotel, redEye]).map((b) => b.id)).toEqual([
+      'red-eye',
+      'hotel',
+    ])
+  })
+
+  it('チェックアウトが当日の宿(デイユース)は実時刻の位置に並ぶ', () => {
+    // 夜を表していないので「その日の終わり」の規則から外れる。
+    // 10:00〜18:00 の休憩利用なら、20:00 の夕食より前に読めないとおかしい
+    const dayUse = booking({
+      id: 'day-use',
+      kind: 'lodging',
+      title: 'デイユース',
+      start: at('2026-08-16', '10:00', TAIPEI),
+      end: at('2026-08-16', '18:00', TAIPEI),
+    })
+    const dinner = booking({
+      id: 'dinner',
+      kind: 'activity',
+      title: '夕食',
+      start: at('2026-08-16', '20:00', TAIPEI),
+    })
+    expect(sortBookings([dinner, dayUse]).map((b) => b.id)).toEqual([
+      'day-use',
+      'dinner',
+    ])
+  })
+
+  it('深夜チェックインの宿は、同じ日の昼の予定より前に並ぶ', () => {
+    // 02:00 に入る宿を「その日の終わり」に送ると、もう入っているのに
+    // その日の最後の予定として並ぶ(nights.ts の isLateNightCheckIn)
+    const hotel = booking({
+      id: 'late-hotel',
+      kind: 'lodging',
+      title: '深夜着の宿',
+      start: at('2026-08-17', '02:00', TAIPEI),
+      end: at('2026-08-19', '11:00', TAIPEI),
+    })
+    const lunch = booking({
+      id: 'lunch',
+      kind: 'activity',
+      title: '昼食',
+      start: at('2026-08-17', '12:00', TAIPEI),
+    })
+    expect(sortBookings([lunch, hotel]).map((b) => b.id)).toEqual([
+      'late-hotel',
+      'lunch',
+    ])
+  })
+
+  it('深夜着の便と、その足でのチェックインは「便 → 宿」の順になる', () => {
+    const flight = booking({
+      id: 'night-flight',
+      kind: 'flight',
+      title: '深夜着の便',
+      start: at('2026-08-16', '22:00', HONG_KONG),
+      end: at('2026-08-17', '02:00', TAIPEI),
+    })
+    const hotel = booking({
+      id: 'late-hotel',
+      kind: 'lodging',
+      title: '深夜着の宿',
+      start: at('2026-08-17', '02:00', TAIPEI),
+      end: at('2026-08-19', '11:00', TAIPEI),
+    })
+    expect(sortBookings([hotel, flight]).map((b) => b.id)).toEqual([
+      'night-flight',
+      'late-hotel',
+    ])
+  })
+
+  it('通常の 15:00 チェックインの宿はその日の終わりに並ぶ', () => {
+    // 深夜チェックインの例外がしきい値の向こう側まで効いていないことの確認
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: '台北の宿',
+      start: at('2026-08-17', '15:00', TAIPEI),
+      end: at('2026-08-19', '11:00', TAIPEI),
+    })
+    const dinner = booking({
+      id: 'dinner',
+      kind: 'activity',
+      title: '夕食',
+      start: at('2026-08-17', '20:00', TAIPEI),
+    })
+    expect(sortBookings([hotel, dinner]).map((b) => b.id)).toEqual([
+      'dinner',
+      'hotel',
     ])
   })
 
@@ -313,6 +449,103 @@ describe('groupByDay', () => {
       const groups = groupByDay([meeting], state)
       expect(groups.every((g) => g.ongoing.length === 0)).toBe(true)
     })
+  })
+})
+
+describe('dayTimeline', () => {
+  /** その日の表示行を '種類:id' の並びで取り出す */
+  function timelineOf(bookings: Array<Booking>, date: string): Array<string> {
+    const state = makeState({
+      startDate: '2026-08-14',
+      endDate: '2026-08-18',
+      bookings,
+    })
+    const day = groupByDay(bookings, state).find((g) => g.date === date)
+    if (day === undefined) throw new Error(`${date} の日が作られていない`)
+    return dayTimeline(day).map((row) => `${row.row}:${row.booking.id}`)
+  }
+
+  const hkHotel = booking({
+    id: 'hk-hotel',
+    kind: 'lodging',
+    title: "King's Mansion",
+    start: at('2026-08-14', '15:00', HONG_KONG),
+    end: at('2026-08-16', '12:00', HONG_KONG),
+  })
+
+  it('チェックアウトの継続行は、その終了時刻の位置に混ざる', () => {
+    // 継続行をまとめて先頭に出していたころは、12:00 チェックアウトが
+    // 09:00 の予定より前に並んでいた
+    const morning = booking({
+      id: 'morning',
+      kind: 'activity',
+      title: '朝の街歩き',
+      start: at('2026-08-16', '09:00', HONG_KONG),
+    })
+    const flight = booking({
+      id: 'hx282',
+      kind: 'flight',
+      title: 'HX282 HKG→TPE',
+      start: at('2026-08-16', '18:50', HONG_KONG),
+      end: at('2026-08-16', '20:45', TAIPEI),
+    })
+    const taipeiHotel = booking({
+      id: 'taipei-hotel',
+      kind: 'lodging',
+      title: 'セレクト新北三重水漾館',
+      start: at('2026-08-16', '16:00', TAIPEI),
+      end: at('2026-08-18', '11:00', TAIPEI),
+    })
+
+    expect(
+      timelineOf([hkHotel, morning, flight, taipeiHotel], '2026-08-16'),
+    ).toEqual([
+      'booking:morning',
+      'ongoing:hk-hotel',
+      'booking:hx282',
+      'booking:taipei-hotel',
+    ])
+  })
+
+  it('まだ継続中の行は、時刻を持たないのでその日の先頭に置く', () => {
+    const taipeiHotel = booking({
+      id: 'taipei-hotel',
+      kind: 'lodging',
+      title: '台北の宿',
+      start: at('2026-08-16', '16:00', TAIPEI),
+      end: at('2026-08-18', '11:00', TAIPEI),
+    })
+    const breakfast = booking({
+      id: 'breakfast',
+      kind: 'activity',
+      title: '朝食',
+      start: at('2026-08-17', '08:00', TAIPEI),
+    })
+    expect(timelineOf([taipeiHotel, breakfast], '2026-08-17')).toEqual([
+      'ongoing:taipei-hotel',
+      'booking:breakfast',
+    ])
+  })
+
+  it('同じ時刻なら継続行が先(出てから乗る順に読める)', () => {
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: '台北の宿',
+      start: at('2026-08-14', '15:00', TAIPEI),
+      end: at('2026-08-16', '12:00', TAIPEI),
+    })
+    const train = booking({
+      id: 'train',
+      kind: 'train',
+      title: '高鉄',
+      start: at('2026-08-16', '12:00', TAIPEI),
+      end: at('2026-08-16', '14:00', TAIPEI),
+    })
+    expect(timelineOf([hotel, train], '2026-08-16')).toEqual([
+      'ongoing:hotel',
+      'booking:train',
+    ])
   })
 })
 

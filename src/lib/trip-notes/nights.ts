@@ -12,6 +12,8 @@
  *   チェックイン日 <= 夜の日付 < チェックアウト日。
  *   チェックアウト日の晩はもうその宿にいないのでカバーしない。
  *   end が無い(または end <= start の壊れた)宿は 1 泊とみなす。
+ *   ただし深夜のチェックインだけは、暦の日付ではなく前日の夜から数える
+ *   (LATE_NIGHT_CHECKIN_HOUR 参照)。
  *
  * ■ 夜行移動のカバー判定
  *   出発地のタイムゾーンにおける出発日と、到着地のタイムゾーンにおける到着日を
@@ -31,7 +33,13 @@
  */
 
 import { addDays, diffDays, tryParseStamp } from './datetime'
-import type { Booking, BookingKind, NightSlot, TripNotesState } from './types'
+import type {
+  Booking,
+  BookingKind,
+  NightSlot,
+  Stamp,
+  TripNotesState,
+} from './types'
 
 /** 移動系の予約種別。夜行判定と「移動の穴」検出の対象 */
 export const TRANSPORT_KINDS: Array<BookingKind> = [
@@ -46,22 +54,73 @@ export function isTransportKind(kind: BookingKind): boolean {
   return TRANSPORT_KINDS.includes(kind)
 }
 
-/** 予約が占める日付の範囲 [開始日, 終了日)。終了日が無効なら開始日の翌日 */
-function occupiedRange(
+/**
+ * 深夜のチェックインを「前日の夜の続き」とみなす上限(その宿の現地の時)。
+ * この時刻より前に始まる宿泊が対象。
+ *
+ * 深夜 02:00 に着いてそのまま入る旅程は珍しくないが、暦の上ではチェックイン日が
+ * 翌日になる。人が寝たのは前の日の夜なので、暦の日付をそのまま最初の夜として数えると
+ * 判定が両方向に狂う。実際に寝ている夜が「寝る場所がない夜」として警告に出て、
+ * まだ空いている翌日の夜は埋まったことになり、本当の穴が見えなくなる。
+ * ここは一番重要な判定なので、暦ではなく夜の側に寄せる。
+ * (宿の側の慣行も同じで、深夜着はふつう前日からの 1 泊として扱われる)
+ *
+ * 5 時で切るのは、深夜便の到着が 0 時台〜4 時台に集中する一方、
+ * 5 時を過ぎた到着は「朝に着いて、その日から泊まる」と読むほうが自然になるためである。
+ * これより遅い時刻まで前夜扱いを広げると、朝に入る宿が前の夜を埋めたことになり、
+ * 本当に空いている夜を見逃す。見逃しより誤警告に倒す方針からも、広げるほうが危ない。
+ */
+export const LATE_NIGHT_CHECKIN_HOUR = 5
+
+/**
+ * チェックインが深夜(= 前日の夜の続き)か。
+ *
+ * 終日の宿泊は対象外。終日は時刻を持たず現地 00:00 として保存されるだけなので
+ * (types.ts の Stamp 参照)、0 時ちょうどとして扱うと終日の宿がすべて
+ * 前日から始まることになる。
+ *
+ * 並び順(ordering.ts)もこの判定を使う。夜の数え方と並び順で答えが割れると、
+ * 画面では 8/17 の頭に泊まっているのに進捗タブは 8/16 の夜を埋めたと言う、
+ * という説明のつかない食い違いになる。
+ */
+export function isLateNightCheckIn(start: Stamp): boolean {
+  if (start.allDay) return false
+  const zdt = tryParseStamp(start)
+  return zdt !== null && zdt.hour < LATE_NIGHT_CHECKIN_HOUR
+}
+
+/**
+ * その宿がカバーする夜の範囲 [最初の夜, 最後の夜の翌日)。開始が壊れていれば undefined。
+ * チェックアウト側は暦の日付をそのまま使う。「11:00 チェックアウト」は
+ * 11:00 に出る以上の意味を持たないので、深夜側のような読み替えは要らない。
+ */
+function lodgingNightRange(
   booking: Booking,
 ): { from: string; to: string } | undefined {
   const start = tryParseStamp(booking.start)
   if (start === null) return undefined
-  const from = start.toPlainDate().toString()
+  const checkInDate = start.toPlainDate().toString()
+  const from = isLateNightCheckIn(booking.start)
+    ? addDays(checkInDate, -1)
+    : checkInDate
 
   const end = booking.end === null ? null : tryParseStamp(booking.end)
   const to = end === null ? undefined : end.toPlainDate().toString()
   return { from, to: to !== undefined && to > from ? to : addDays(from, 1) }
 }
 
-/** その宿がその夜をカバーするか */
-function lodgingCoversNight(booking: Booking, nightDate: string): boolean {
-  const range = occupiedRange(booking)
+/**
+ * その宿がその夜をカバーするか。
+ *
+ * itinerary.ts の「移動と移動の間に宿があるか」もこれを使う。
+ * 同じ問いに 2 つの実装があると、進捗タブの「寝る場所がない夜」と
+ * 旅程の指摘とで言うことが食い違い、どちらを信じればよいのか分からなくなる。
+ */
+export function lodgingCoversNight(
+  booking: Booking,
+  nightDate: string,
+): boolean {
+  const range = lodgingNightRange(booking)
   if (range === undefined) return false
   return range.from <= nightDate && nightDate < range.to
 }

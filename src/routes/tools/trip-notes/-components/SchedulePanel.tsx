@@ -10,6 +10,10 @@
  * 出るので、2 日目以降は day.ongoing から OngoingRow という控えめな 1 行だけ
  * 出す。「この宿は今日も継続している」と分かればよく、詳細まで毎日繰り返す
  * 必要はない。
+ *
+ * その簡易行とカードは、見た目は別物でも同じ 1 本の時間軸に並べる
+ * (derive.ts の dayTimeline)。行の種類でまとめて出すと、12:00 チェックアウトの
+ * 簡易行が朝 09:00 のカードより前に出て、書いてある時刻と並び順が食い違う。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -20,7 +24,7 @@ import {
   formatStamp,
   stampDate,
 } from '../../../../lib/trip-notes/datetime'
-import { groupByDay } from '../../../../lib/trip-notes/derive'
+import { dayTimeline, groupByDay } from '../../../../lib/trip-notes/derive'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { computeGapAlerts } from '../../../../lib/trip-notes/uncovered-gaps'
 import {
@@ -284,6 +288,7 @@ export function SchedulePanel({
           {dayGroups.map((day) => {
             const gap = gapByDate.get(day.date)
             const highlighted = highlightDate === day.date
+            const timeline = dayTimeline(day)
             return (
               <li
                 key={day.date}
@@ -313,17 +318,19 @@ export function SchedulePanel({
                 </div>
 
                 <div className="mt-2 space-y-2">
-                  {day.bookings.length === 0 && day.ongoing.length === 0 ? (
+                  {timeline.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-400">
                       この日の予定はまだありません
                     </p>
                   ) : (
-                    <>
-                      {/*
-                        滞在の継続 → その日の新しい予定、の順。
-                        「今日はどこにいるか」が先に分かったほうが読みやすい
-                      */}
-                      {day.ongoing.map((booking) => (
+                    /*
+                      継続の簡易行とその日のカードは、見た目も要素も違うが
+                      同じ 1 本の時間軸に並べる(dayTimeline)。継続行を先頭に
+                      まとめていたころは、12:00 チェックアウトの行が朝の予定より
+                      前に出て、時刻の前後と表示順が食い違っていた
+                    */
+                    timeline.map(({ row, booking }) =>
+                      row === 'ongoing' ? (
                         <OngoingRow
                           key={booking.id}
                           booking={booking}
@@ -336,8 +343,7 @@ export function SchedulePanel({
                             })
                           }
                         />
-                      ))}
-                      {day.bookings.map((booking) => (
+                      ) : (
                         <BookingCard
                           key={booking.id}
                           booking={booking}
@@ -350,11 +356,14 @@ export function SchedulePanel({
                           }
                           onDelete={() => handleDelete(booking)}
                           onVerifyAll={() =>
-                            dispatch({ type: 'verifyAllFields', id: booking.id })
+                            dispatch({
+                              type: 'verifyAllFields',
+                              id: booking.id,
+                            })
                           }
                         />
-                      ))}
-                    </>
+                      ),
+                    )
                   )}
 
                   {gap !== undefined ? (
