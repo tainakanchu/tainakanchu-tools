@@ -18,6 +18,16 @@ function labels(links: Array<{ label: string }>): Array<string> {
   return links.map((link) => link.label)
 }
 
+/** 指定したリンクの URL パスをデコードして返す(Rome2Rio は地名をパスに載せる) */
+function pathOf(
+  links: Array<{ label: string; url: string }>,
+  label: string,
+): string {
+  const link = links.find((item) => item.label === label)
+  if (link === undefined) throw new Error('リンクが生成されなかった')
+  return decodeURIComponent(new URL(link.url).pathname)
+}
+
 describe('lodgingSearchLinks', () => {
   it('Booking.com と Google ホテルへのリンクを返す', () => {
     const links = lodgingSearchLinks('パリ', '2026-06-12', '2026-06-15')
@@ -299,9 +309,7 @@ describe('bookingSearchLinks / train・bus・ferry・car', () => {
     expect(rome2rio.url).toBe(
       `https://www.rome2rio.com/map/${encodeURIComponent('パリ')}/${encodeURIComponent('アムステルダム')}`,
     )
-    expect(new URL(rome2rio.url).searchParams.has('departureDate')).toBe(
-      false,
-    )
+    expect(new URL(rome2rio.url).searchParams.has('departureDate')).toBe(false)
   })
 
   it('Google マップの URL は origin/destination/travelmode=transit を持つ', () => {
@@ -332,6 +340,81 @@ describe('bookingSearchLinks / train・bus・ferry・car', () => {
       from: { name: 'パリ' },
     })
     expect(bookingSearchLinks(b)).toEqual([])
+  })
+})
+
+describe('bookingSearchLinks / Rome2Rio に渡す地名だけ都市名に寄せる', () => {
+  function transit(from: string, to: string): Booking {
+    return booking({
+      id: 'transit',
+      kind: 'train',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: from },
+      to: { name: to },
+    })
+  }
+
+  it('施設名・ターミナル番号を落とした都市名をパスに載せる', () => {
+    // Rome2Rio は都市間の移動手段を比べるサービスなので、
+    // 「香港国際空港 T2」のままでは地点として解決できない見込みが高い
+    const links = bookingSearchLinks(
+      transit('香港国際空港 T2', '台湾桃園国際空港 T2'),
+    )
+    expect(pathOf(links, 'Rome2Rio')).toBe('/map/香港/台湾桃園')
+  })
+
+  it('もともと都市名の入力は変えない', () => {
+    const links = bookingSearchLinks(transit('Milan', 'Interlaken'))
+    expect(pathOf(links, 'Rome2Rio')).toBe('/map/Milan/Interlaken')
+  })
+
+  it('落とすと短くなりすぎる地名は元の文字列のまま渡す', () => {
+    // 空文字や 1 文字を渡すくらいなら、施設名のままのほうがまだ見込みがある
+    const links = bookingSearchLinks(transit('駅', '香港'))
+    expect(pathOf(links, 'Rome2Rio')).toBe('/map/駅/香港')
+  })
+
+  it('Google マップ(経路)には施設名をそのまま渡す', () => {
+    // Google は施設名を解決できるうえ、空港のターミナルまで指定できたほうが
+    // 出てくる経路が正確になる。都市名に寄せるのは Rome2Rio だけ
+    const links = bookingSearchLinks(
+      transit('香港国際空港 T2', '台湾桃園国際空港 T2'),
+    )
+    const maps = links.find((link) => link.label === 'Google マップ(経路)')
+    if (maps === undefined) throw new Error('リンクが生成されなかった')
+    const url = new URL(maps.url)
+    expect(url.searchParams.get('origin')).toBe('香港国際空港 T2')
+    expect(url.searchParams.get('destination')).toBe('台湾桃園国際空港 T2')
+  })
+
+  it('宿・フライト・検索のリンクは施設名のまま(適用は Rome2Rio だけ)', () => {
+    const flight = booking({
+      id: 'flight',
+      kind: 'flight',
+      title: '移動',
+      start: at('2026-06-16', '10:00', PARIS),
+      from: { name: '香港国際空港 T2' },
+      to: { name: '台湾桃園国際空港 T2' },
+    })
+    const google = bookingSearchLinks(flight).find(
+      (link) => link.label === 'Google フライト',
+    )
+    if (google === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(google.url).searchParams.get('q')).toBe(
+      'Flights from 香港国際空港 T2 to 台湾桃園国際空港 T2 on 2026-06-16',
+    )
+
+    const lodging = lodgingSearchLinks(
+      '香港国際空港 T2',
+      '2026-06-12',
+      '2026-06-15',
+    )
+    const bookingCom = lodging.find((link) => link.label === 'Booking.com')
+    if (bookingCom === undefined) throw new Error('リンクが生成されなかった')
+    expect(new URL(bookingCom.url).searchParams.get('ss')).toBe(
+      '香港国際空港 T2',
+    )
   })
 })
 
