@@ -584,4 +584,34 @@ describe('computeSummary', () => {
     expect(summary.transportGaps).toEqual([])
     expect(summary.uncoveredNights).toBe(0)
   })
+
+  it('旅程の場所の連続性から出た不整合も併せて返す', () => {
+    const paris = booking({
+      id: 'paris',
+      kind: 'lodging',
+      title: 'パリのホテル',
+      start: at('2026-06-12', '15:00', PARIS),
+      end: at('2026-06-14', '10:00', PARIS),
+      place: { name: 'パリ' },
+    })
+    const rome = booking({
+      id: 'rome',
+      kind: 'lodging',
+      title: 'ローマのホテル',
+      start: at('2026-06-14', '15:00', ROME),
+      end: at('2026-06-16', '10:00', ROME),
+      place: { name: 'ローマ' },
+    })
+    const state = makeState({ bookings: [paris, rome] })
+    const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
+    const summary = computeSummary(state, now, TOKYO)
+
+    // transportGaps は従来どおりの内容を保つ
+    expect(summary.transportGaps.map((gap) => gap.toBookingId)).toEqual([
+      'rome',
+    ])
+    expect(summary.itineraryIssues.map((issue) => issue.kind)).toEqual([
+      'missing-transport',
+    ])
+  })
 })

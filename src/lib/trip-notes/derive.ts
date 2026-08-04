@@ -20,6 +20,7 @@ import {
   stampToEpoch,
   tryParseStamp,
 } from './datetime'
+import { findItineraryIssues } from './itinerary'
 import { computeNights, countUncoveredNights, isTransportKind } from './nights'
 import type {
   Booking,
@@ -349,6 +350,7 @@ export function computeSummary(
     statusCounts,
     unverifiedCount: countUnverified(state.bookings),
     transportGaps: findTransportGaps(state),
+    itineraryIssues: findItineraryIssues(state),
     cancelDeadlines: computeCancelDeadlines(state.bookings, nowMs),
     budget: summarizeBudget(state.bookings),
     currentAndNext: findCurrentAndNext(state.bookings, nowMs, displayTz),
