@@ -77,6 +77,24 @@ export type TripNotesAction =
    */
   | { type: 'setBookingStatus'; id: string; status: Booking['status'] }
   | { type: 'setBookingPayment'; id: string; payment: Booking['payment'] }
+  /**
+   * カンバンで複数選択したカードの、まとめての状態変更。
+   *
+   * 単数版を件数ぶん dispatch するのではなく 1 アクションにするのは、
+   * verifyAllUnverified と同じ理由で、Undo 1 回で全部を元に戻せるようにするため。
+   * 10 枚まとめて動かしたあとに取り消しを 10 回押させるのでは、
+   * まとめて動かす機能そのものが「取り返しの付かない操作」になってしまう。
+   *
+   * 未確認マークの扱いを含めて、規則は単数版とまったく同じにする。
+   * 1 件ずつやるかまとめてやるかで結果が変わると、利用者は
+   * 「まとめると何か違うことが起きるのでは」と疑いながら使うことになる。
+   */
+  | { type: 'setBookingsStatus'; ids: Array<string>; status: Booking['status'] }
+  | {
+      type: 'setBookingsPayment'
+      ids: Array<string>
+      payment: Booking['payment']
+    }
 
 export type HistoryAction =
   | TripNotesAction
@@ -365,6 +383,39 @@ export function tripNotesReducer(
         { ...current, payment: action.payment },
         ['payment'],
       )
+      return { ...state, bookings }
+    }
+
+    case 'setBookingsStatus': {
+      const targets = new Set(action.ids)
+      const bookings = state.bookings.map((booking) =>
+        !targets.has(booking.id) || booking.status === action.status
+          ? booking
+          : // 単数版とまったく同じ規則で、選び直した軸の未確認マークだけを外す
+            withoutUnverified({ ...booking, status: action.status }, [
+              'status',
+            ]),
+      )
+      // すでに移動先の列にいたカードだけが選ばれていた場合など、1 件も変わらないなら
+      // 同一参照を返して Undo 履歴に空の 1 手を積まない(verifyAllUnverified と同じ)
+      if (bookings.every((booking, i) => booking === state.bookings[i])) {
+        return state
+      }
+      return { ...state, bookings }
+    }
+
+    case 'setBookingsPayment': {
+      const targets = new Set(action.ids)
+      const bookings = state.bookings.map((booking) =>
+        !targets.has(booking.id) || booking.payment === action.payment
+          ? booking
+          : withoutUnverified({ ...booking, payment: action.payment }, [
+              'payment',
+            ]),
+      )
+      if (bookings.every((booking, i) => booking === state.bookings[i])) {
+        return state
+      }
       return { ...state, bookings }
     }
   }

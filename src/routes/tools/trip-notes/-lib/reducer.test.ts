@@ -439,6 +439,147 @@ describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
   })
 })
 
+describe('tripNotesReducer / カンバンのまとめて移動', () => {
+  it('1 アクションで複数の予約の状態が変わる(選ばれていない予約は動かない)', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('b1', { status: 'idea' }),
+        makeBooking('b2', { status: 'held' }),
+        makeBooking('b3', { status: 'idea' }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'setBookingsStatus',
+      ids: ['b1', 'b2'],
+      status: 'confirmed',
+    })
+    expect(next.bookings.map((b) => b.status)).toEqual([
+      'confirmed',
+      'confirmed',
+      'idea',
+    ])
+  })
+
+  it('支払状況も同じくまとめて変わる', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('b1', { payment: 'unpaid' }),
+        makeBooking('b2', { payment: 'deposit' }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'setBookingsPayment',
+      ids: ['b1', 'b2'],
+      payment: 'paid',
+    })
+    expect(next.bookings.map((b) => b.payment)).toEqual(['paid', 'paid'])
+  })
+
+  it('カードが持たないフィールドは巻き添えで消えない', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('b1', {
+          status: 'idea',
+          confirmationNumber: 'ABC-123',
+          note: '朝食付き',
+        }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'setBookingsStatus',
+      ids: ['b1'],
+      status: 'confirmed',
+    })
+    expect(next.bookings[0].confirmationNumber).toBe('ABC-123')
+    expect(next.bookings[0].note).toBe('朝食付き')
+    expect(next.bookings[0].payment).toBe('paid')
+  })
+
+  it('自分で選び直した軸の未確認マークだけが外れる(単数版と同じ規則)', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('b1', {
+          status: 'idea',
+          unverified: ['status', 'payment', 'start'],
+        }),
+        makeBooking('b2', {
+          status: 'idea',
+          unverified: ['status', 'title'],
+        }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'setBookingsStatus',
+      ids: ['b1', 'b2'],
+      status: 'confirmed',
+    })
+    expect(next.bookings[0].unverified).toEqual(['payment', 'start'])
+    expect(next.bookings[1].unverified).toEqual(['title'])
+  })
+
+  it('すでに移動先にいる予約と、存在しない id は状態を変えない(同一参照)', () => {
+    // 一括の選択には「動かす必要のないカード」が普通に混ざる。
+    // それだけを選んだ操作で空の1手を積むと、「元に戻す」が空振りに消費される
+    const base = makeState({
+      bookings: [
+        makeBooking('b1', { status: 'confirmed' }),
+        makeBooking('b2', { status: 'confirmed' }),
+      ],
+    })
+    expect(
+      tripNotesReducer(base, {
+        type: 'setBookingsStatus',
+        ids: ['b1', 'b2'],
+        status: 'confirmed',
+      }),
+    ).toBe(base)
+    expect(
+      tripNotesReducer(base, {
+        type: 'setBookingsPayment',
+        ids: ['いない'],
+        payment: 'unpaid',
+      }),
+    ).toBe(base)
+    // 選択が空のまま届いても同じ
+    expect(
+      tripNotesReducer(base, {
+        type: 'setBookingsStatus',
+        ids: [],
+        status: 'idea',
+      }),
+    ).toBe(base)
+  })
+
+  it('動く予約が1件でもあれば、動かない予約を巻き込まずに更新される', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('already', { status: 'confirmed' }),
+        makeBooking('moves', { status: 'idea' }),
+      ],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'setBookingsStatus',
+      ids: ['already', 'moves'],
+      status: 'confirmed',
+    })
+    // 変わらない予約は元の参照のまま(無用な差分を作らない)
+    expect(next.bookings[0]).toBe(base.bookings[0])
+    expect(next.bookings[1].status).toBe('confirmed')
+  })
+
+  it('元の状態は書き換わらない(Undo で戻せる前提)', () => {
+    const booking = makeBooking('b1', { status: 'idea' })
+    const base = makeState({ bookings: [booking] })
+    tripNotesReducer(base, {
+      type: 'setBookingsStatus',
+      ids: ['b1'],
+      status: 'confirmed',
+    })
+    expect(booking.status).toBe('idea')
+    expect(base.bookings[0].status).toBe('idea')
+  })
+})
+
 describe('historyReducer / Undo・Redo', () => {
   it('編集を取り消して、やり直せる', () => {
     const history = createHistory(makeState())
@@ -536,6 +677,51 @@ describe('historyReducer / Undo・Redo', () => {
       ['title'],
       ['note'],
     ])
+  })
+
+  it('カンバンのまとめて移動は件数によらず undo 1 回で全部戻る', () => {
+    // 未確認の一括解除と同じ理由。まとめて動かせるのに戻すのは1件ずつ、では
+    // 「まとめて動かす」こと自体が取り返しの付かない操作になってしまう
+    const history = createHistory(
+      makeState({
+        bookings: [
+          makeBooking('b1', { payment: 'unpaid' }),
+          makeBooking('b2', { payment: 'deposit' }),
+          makeBooking('b3', { payment: 'unpaid' }),
+        ],
+      }),
+    )
+    const moved = historyReducer(history, {
+      type: 'setBookingsPayment',
+      ids: ['b1', 'b2', 'b3'],
+      payment: 'paid',
+    })
+    expect(moved.past).toHaveLength(1)
+    expect(moved.present.bookings.map((b) => b.payment)).toEqual([
+      'paid',
+      'paid',
+      'paid',
+    ])
+
+    const undone = historyReducer(moved, { type: 'undo' })
+    expect(undone.present.bookings.map((b) => b.payment)).toEqual([
+      'unpaid',
+      'deposit',
+      'unpaid',
+    ])
+  })
+
+  it('1 件も動かないまとめて移動は履歴を積まない', () => {
+    const history = createHistory(
+      makeState({ bookings: [makeBooking('b1', { status: 'confirmed' })] }),
+    )
+    expect(
+      historyReducer(history, {
+        type: 'setBookingsStatus',
+        ids: ['b1'],
+        status: 'confirmed',
+      }),
+    ).toBe(history)
   })
 
   it('旅程の切り替え(loadTrip)は past も future も捨てる', () => {

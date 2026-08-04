@@ -19,6 +19,7 @@ import {
   columnDropId,
   currentDropId,
   dropToAction,
+  dropToBulkAction,
   isColumnDropId,
   paymentStatusOfDropId,
 } from './kanban'
@@ -288,6 +289,117 @@ describe('dropToAction / ドロップの読み替え', () => {
     expect(
       dropToAction(booking, 'status', columnDropId('payment', 'unpaid')),
     ).toBeNull()
+  })
+})
+
+describe('dropToBulkAction / まとめて動かすときの読み替え', () => {
+  it('予約状況の軸では ids をまとめた setBookingsStatus 1 つになる', () => {
+    expect(
+      dropToBulkAction(
+        [
+          makeBooking('b1', { status: 'idea' }),
+          makeBooking('b2', { status: 'held' }),
+        ],
+        'status',
+        columnDropId('status', 'confirmed'),
+      ),
+    ).toEqual({
+      type: 'setBookingsStatus',
+      ids: ['b1', 'b2'],
+      status: 'confirmed',
+    })
+  })
+
+  it('支払状況の軸では setBookingsPayment になる', () => {
+    expect(
+      dropToBulkAction(
+        [
+          makeBooking('b1', { payment: 'unpaid' }),
+          makeBooking('b2', { payment: 'deposit' }),
+        ],
+        'payment',
+        columnDropId('payment', 'paid'),
+      ),
+    ).toEqual({
+      type: 'setBookingsPayment',
+      ids: ['b1', 'b2'],
+      payment: 'paid',
+    })
+  })
+
+  it('すでに移動先の列にいるカードは対象から外れる(選択に混ざっても壊れない)', () => {
+    expect(
+      dropToBulkAction(
+        [
+          makeBooking('already', { status: 'confirmed' }),
+          makeBooking('moves', { status: 'idea' }),
+        ],
+        'status',
+        columnDropId('status', 'confirmed'),
+      ),
+    ).toEqual({
+      type: 'setBookingsStatus',
+      ids: ['moves'],
+      status: 'confirmed',
+    })
+  })
+
+  it('全員がすでに移動先にいるなら何もしない(空の 1 手を履歴に積まない)', () => {
+    expect(
+      dropToBulkAction(
+        [
+          makeBooking('b1', { payment: 'paid' }),
+          makeBooking('b2', { payment: 'paid' }),
+        ],
+        'payment',
+        columnDropId('payment', 'paid'),
+      ),
+    ).toBeNull()
+  })
+
+  it('選択が空のときは何もしない', () => {
+    expect(
+      dropToBulkAction([], 'status', columnDropId('status', 'confirmed')),
+    ).toBeNull()
+  })
+
+  it('列以外の id と軸違いの列には反応しない(単数版と同じ)', () => {
+    const bookings = [makeBooking('b1', { status: 'idea' })]
+    expect(dropToBulkAction(bookings, 'status', 'bk-9')).toBeNull()
+    expect(
+      dropToBulkAction(bookings, 'status', columnDropId('payment', 'unpaid')),
+    ).toBeNull()
+  })
+
+  it('1 枚だけでも単数版と同じ結果になる(操作手段で挙動が変わらない)', () => {
+    const booking = makeBooking('b1', { status: 'idea' })
+    const dropId = columnDropId('status', 'held')
+    expect(dropToAction(booking, 'status', dropId)).toEqual({
+      type: 'setBookingStatus',
+      id: 'b1',
+      status: 'held',
+    })
+    expect(dropToBulkAction([booking], 'status', dropId)).toEqual({
+      type: 'setBookingsStatus',
+      ids: ['b1'],
+      status: 'held',
+    })
+
+    // アクションの形は違っても、通したあとの状態は同じでなければならない
+    const before = makeState([booking])
+    expect(
+      tripNotesReducer(before, {
+        type: 'setBookingStatus',
+        id: 'b1',
+        status: 'held',
+      }),
+    ).toEqual(
+      tripNotesReducer(before, {
+        type: 'setBookingsStatus',
+        ids: ['b1'],
+        status: 'held',
+      }),
+    )
   })
 })
 

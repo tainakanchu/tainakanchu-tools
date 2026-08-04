@@ -210,6 +210,45 @@ export function dropToAction(
   return { type: 'setBookingPayment', id: booking.id, payment }
 }
 
+/**
+ * 複数の予約をまとめて動かすときの読み替え。
+ * カードを選択したままドラッグしたときも、一括操作バーで移動先を選んだときも、
+ * この 1 つの関数を通す。dropToAction が「ドラッグとカード内の <select> で
+ * 食い違いようがない」ことを保証しているのと同じ理由で、
+ * 複数選択の 2 つの操作手段も 1 か所に集める。
+ *
+ * 何件動かしても返すアクションは 1 つにする。まとめて動かした結果を
+ * Undo 1 回で戻せないと、10 件動かした人は 10 回取り消しを押すことになり、
+ * それは実質「戻せない」のと変わらない(reducer.ts の verifyAllUnverified と同じ判断)。
+ *
+ * すでに移動先の列にいる予約は対象から外す。「この列のカードを全部選ぶ」を通ると
+ * 動かす必要のないカードが選択に混ざるのはむしろ普通の使い方であり、
+ * それでも結果は「動くものだけが動く」に落ち着かせる。
+ * 動くものが 1 件も無ければ null を返し、空の 1 手を Undo 履歴に積ませない。
+ */
+export function dropToBulkAction(
+  bookings: Array<Booking>,
+  axis: KanbanAxis,
+  dropId: string,
+): TripNotesAction | null {
+  if (axis === 'status') {
+    const status = bookingStatusOfDropId(dropId)
+    if (status === null) return null
+    const ids = bookings
+      .filter((booking) => booking.status !== status)
+      .map((booking) => booking.id)
+    if (ids.length === 0) return null
+    return { type: 'setBookingsStatus', ids, status }
+  }
+  const payment = paymentStatusOfDropId(dropId)
+  if (payment === null) return null
+  const ids = bookings
+    .filter((booking) => booking.payment !== payment)
+    .map((booking) => booking.id)
+  if (ids.length === 0) return null
+  return { type: 'setBookingsPayment', ids, payment }
+}
+
 /** カードの <select> に出す選択肢。列と同じ順・同じ値にする */
 export function axisOptions(
   axis: KanbanAxis,
