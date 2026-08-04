@@ -165,6 +165,29 @@ async function fillAndSaveBookingForm(
   await user.click(within(form).getByRole('button', { name: '保存' }))
 }
 
+/**
+ * 予約フォームの「AI に読ませて貼り付ける」を開いて JSON を貼り、
+ * 「読み取る」まで押す。開いたままの状態で二度呼んでもよい
+ */
+async function pasteAndParseInBookingForm(
+  user: UserEvent,
+  form: HTMLElement,
+  json: string,
+): Promise<void> {
+  const section = within(form)
+    .getByText('AI に読ませて貼り付ける')
+    .closest('details')
+  if (section === null) throw new Error('AI セクションが見つからない')
+  if (!section.open) {
+    await user.click(within(form).getByText('AI に読ませて貼り付ける'))
+  }
+  const textarea = within(form).getByLabelText('AI が返した JSON を貼り付ける')
+  await user.clear(textarea)
+  await user.click(textarea)
+  await user.paste(json)
+  await user.click(within(form).getByRole('button', { name: '読み取る' }))
+}
+
 /** オンボーディングから予約追加フォームまで開く */
 async function openAddFormFromOnboarding(
   user: UserEvent,
@@ -596,6 +619,241 @@ describe('AI インポートの一括承認', () => {
     ).toBeTruthy()
     await goToTab(user, '日程')
     expect(within(main()).queryByText(/^未確認 \d+件$/)).toBeNull()
+  })
+})
+
+describe('予約追加フォームからの AI 貼り付け', () => {
+  /** 航空券 1 件ぶん。前後に散文が付いた、AI が普通に返してくる形 */
+  const ONE_FLIGHT = [
+    '以下が読み取れました。',
+    '```json',
+    JSON.stringify([
+      {
+        kind: 'flight',
+        title: 'AI357 羽田→ニューデリー',
+        start: { date: '2030-06-13', time: '11:30', tz: 'Asia/Tokyo' },
+        end: { date: '2030-06-13', time: '17:40', tz: 'Asia/Kolkata' },
+        status: 'confirmed',
+        payment: 'paid',
+        confirmationNumber: 'JL-778899',
+        evidence: { start: '11:30 羽田発' },
+      },
+    ]),
+    '```',
+  ].join('\n')
+
+  /** 2 件。フォームには収まらないので一括取り込みへ回るはず */
+  const TWO_BOOKINGS = JSON.stringify([
+    {
+      kind: 'lodging',
+      title: 'デリーの宿',
+      start: { date: '2030-06-13', time: '20:00', tz: 'Asia/Kolkata' },
+      end: { date: '2030-06-15', time: '10:00', tz: 'Asia/Kolkata' },
+      status: 'confirmed',
+      payment: 'paid',
+      evidence: { start: 'チェックイン 20:00' },
+    },
+    {
+      kind: 'activity',
+      title: '市内観光',
+      start: { date: '2030-06-14', time: '09:00', tz: 'Asia/Kolkata' },
+      status: 'idea',
+      payment: 'unpaid',
+      evidence: { start: '09:00 集合' },
+    },
+  ])
+
+  it('既定では畳まれていて、手入力の邪魔をしない', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const form = await openAddFormFromOnboarding(user)
+    const section = within(form)
+      .getByText('AI に読ませて貼り付ける')
+      .closest('details')
+    if (section === null) throw new Error('AI セクションが見つからない')
+    expect(section.open).toBe(false)
+
+    await user.click(within(form).getByText('AI に読ませて貼り付ける'))
+    expect(section.open).toBe(true)
+  })
+
+  it('1件だけ読み取れたら、そのままフォームの各欄に反映される', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const form = await openAddFormFromOnboarding(user)
+    await pasteAndParseInBookingForm(user, form, ONE_FLIGHT)
+
+    expect(within(form).getByText(/1件を読み取って/)).toBeTruthy()
+
+    const kind = within(form).getByLabelText<HTMLSelectElement>(/^種別/)
+    expect(kind.value).toBe('flight')
+    const title = within(form).getByLabelText<HTMLInputElement>(/^タイトル/)
+    expect(title.value).toBe('AI357 羽田→ニューデリー')
+    const startGroup = within(form).getByRole('group', { name: '開始日時' })
+    expect(
+      within(startGroup).getByLabelText<HTMLInputElement>(/^日付/).value,
+    ).toBe('2030-06-13')
+    expect(
+      within(startGroup).getByLabelText<HTMLInputElement>(/^時刻/).value,
+    ).toBe('11:30')
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^確認番号/).value,
+    ).toBe('JL-778899')
+
+    // AI 由来なので、確認するまで黄色い下線が残る
+    expect(title.className).toContain('border-amber-400')
+    expect(
+      within(form).getAllByText(/^AI が入力した値です/).length,
+    ).toBeGreaterThan(0)
+
+    // 人が書き換えた欄は、その場で未確認から外れる
+    await user.clear(title)
+    await user.type(title, '手で直した便名')
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).className,
+    ).not.toContain('border-amber-400')
+
+    // そのまま保存すれば 1 件として入る
+    await user.click(within(form).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(within(main()).getByText('手で直した便名')).toBeTruthy(),
+    )
+    expect(within(main()).getByText(/^未確認 \d+件$/)).toBeTruthy()
+  })
+
+  it('複数件なら、日時レビューを経る一括取り込みに流れる', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const form = await openAddFormFromOnboarding(user)
+    await pasteAndParseInBookingForm(user, form, TWO_BOOKINGS)
+
+    // フォームには入れず、まとめて取り込むかを尋ねる
+    expect(
+      within(form).getByText('2件見つかりました。まとめて取り込みますか?'),
+    ).toBeTruthy()
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).value,
+    ).toBe('')
+
+    await user.click(
+      within(form).getByRole('button', { name: '2件をまとめて取り込む' }),
+    )
+
+    // 日時とタイムゾーンの確認を飛ばさない
+    const dialog = await screen.findByRole('dialog', {
+      name: '日時とタイムゾーンの確認',
+    })
+    expect(
+      within(dialog).getByText('2030-06-13 20:00 / Asia/Kolkata'),
+    ).toBeTruthy()
+
+    // Esc はレビューだけを閉じる。下敷きの予約フォームまで一緒に消えない
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: '日時とタイムゾーンの確認' }),
+      ).toBeNull(),
+    )
+    expect(screen.getByRole('dialog', { name: '予約を追加' })).toBeTruthy()
+
+    await user.click(
+      within(form).getByRole('button', { name: '2件をまとめて取り込む' }),
+    )
+    const reopened = await screen.findByRole('dialog', {
+      name: '日時とタイムゾーンの確認',
+    })
+    await user.click(
+      within(reopened).getByRole('button', {
+        name: '2件すべての日時とタイムゾーンを確認済みとして取り込む',
+      }),
+    )
+
+    // 取り込んだらフォームごと閉じ、2件が日程に並ぶ
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(within(main()).getByText('デリーの宿')).toBeTruthy()
+    expect(within(main()).getByText('市内観光')).toBeTruthy()
+  })
+
+  it('読み取れなかったときは問題の詳細が残る', async () => {
+    const user = userEvent.setup()
+    seed(makeState())
+    await renderPage()
+
+    const form = await openAddFormFromOnboarding(user)
+    await pasteAndParseInBookingForm(
+      user,
+      form,
+      'すみません、読み取れませんでした',
+    )
+
+    expect(within(form).getByText(/予約を読み取れませんでした/)).toBeTruthy()
+    expect(within(form).getByText(/^問題の詳細/)).toBeTruthy()
+  })
+
+  it('宿泊の穴の「予約を追加」から開いたフォームでもそのまま使える', async () => {
+    const user = userEvent.setup()
+    // 宿があるのは 6/12・6/13 の夜だけ。6/14 が未確保の穴として残る
+    seed(makeState({ bookings: [lodging()] }))
+    await renderPage()
+    await goToTab(user, '日程')
+
+    // 穴のカードから追加フォームを開く(種別は宿泊で開く)
+    await user.click(
+      within(main()).getAllByRole('button', { name: /の宿泊予約を追加$/ })[0],
+    )
+    const form = await screen.findByRole('dialog', { name: '予約を追加' })
+    expect(within(form).getByLabelText<HTMLSelectElement>(/^種別/).value).toBe(
+      'lodging',
+    )
+
+    await pasteAndParseInBookingForm(user, form, ONE_FLIGHT)
+    expect(within(form).getByLabelText<HTMLSelectElement>(/^種別/).value).toBe(
+      'flight',
+    )
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).value,
+    ).toBe('AI357 羽田→ニューデリー')
+  })
+
+  it('編集モードでは、上書きの確認を挟んでから反映する', async () => {
+    const user = userEvent.setup()
+    seed(makeState({ bookings: [lodging()] }))
+    await renderPage()
+    await goToTab(user, '日程')
+
+    await user.click(
+      within(main()).getByRole('button', { name: '東京の宿 を編集' }),
+    )
+    const form = await screen.findByRole('dialog', { name: '予約を編集' })
+    await pasteAndParseInBookingForm(user, form, ONE_FLIGHT)
+
+    // 確認を出すだけで、入力中の値はまだ触らない
+    expect(
+      within(form).getByText(/AI が読み取った値で置き換わります/),
+    ).toBeTruthy()
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).value,
+    ).toBe('東京の宿')
+
+    // やめれば元のまま
+    await user.click(within(form).getByRole('button', { name: 'やめる' }))
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).value,
+    ).toBe('東京の宿')
+
+    await pasteAndParseInBookingForm(user, form, ONE_FLIGHT)
+    await user.click(
+      within(form).getByRole('button', { name: '上書きして反映する' }),
+    )
+    expect(
+      within(form).getByLabelText<HTMLInputElement>(/^タイトル/).value,
+    ).toBe('AI357 羽田→ニューデリー')
   })
 })
 
