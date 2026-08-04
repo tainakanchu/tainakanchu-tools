@@ -1,6 +1,15 @@
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Drum, Home, Map, Menu, Printer, Sparkles, X } from 'lucide-react'
+import {
+  Drum,
+  Home,
+  Luggage,
+  Map,
+  Menu,
+  Printer,
+  Sparkles,
+  X,
+} from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -18,6 +27,12 @@ export default function Header() {
         description:
           'ヨーロッパ周遊の泊数と移動手段をパズルのように決めるツール',
         icon: Map,
+      },
+      {
+        to: '/tools/trip-notes',
+        title: '旅のしおり',
+        description: '旅行の予約状況を管理し、旅先で予約情報をすぐ出すツール',
+        icon: Luggage,
       },
       {
         to: '/tools/drum-roll',

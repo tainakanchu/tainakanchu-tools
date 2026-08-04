@@ -19,6 +19,12 @@ function App() {
       to: '/tools/trip-scheduler',
     },
     {
+      title: '旅のしおり',
+      description:
+        '予約の抜けを旅行前に潰し、旅行中は確認番号や集合時刻だけをすぐ取り出せる予約ダッシュボード。',
+      to: '/tools/trip-notes',
+    },
+    {
       title: 'ドラムロール',
       description:
         'スペースキーを押している間ドラムロールが鳴り、放すとシンバル＋キックで「ジャーン！」と締まる演出ツール。',

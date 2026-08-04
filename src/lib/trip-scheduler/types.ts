@@ -14,11 +14,7 @@ export type TravelMode = 'train' | 'flight' | 'bus' | 'nightTrain'
  * 'continental' = 欧州大陸本土(海底トンネル・橋で繋がる範囲を含む)
  */
 export type Landmass =
-  | 'continental'
-  | 'britain'
-  | 'ireland'
-  | 'malta'
-  | 'santorini'
+  'continental' | 'britain' | 'ireland' | 'malta' | 'santorini'
 
 export interface City {
   id: string
