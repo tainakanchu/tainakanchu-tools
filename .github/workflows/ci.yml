@@ -34,3 +34,6 @@ jobs:
 
       - name: Type check
         run: pnpm run typecheck
+
+      - name: Validate Cloudflare Workers config
+        run: pnpm exec wrangler deploy --dry-run
