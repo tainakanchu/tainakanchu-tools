@@ -426,6 +426,12 @@ export interface TripSummary {
   nights: Array<NightSlot>
   /** 寝る場所がない夜の数。0 でないなら最優先の警告 */
   uncoveredNights: number
+  /**
+   * 仮(検討中・仮押さえ)の予約でしか埋まっていない夜の数。
+   * uncoveredNights とは別枠で、警告を出すかどうかではなく
+   * 「確保できたと言い切ってよいか」の判断に使う(nights.ts の findTentativeNights 参照)。
+   */
+  tentativeNights: number
   /** キャンセル済みを除いた予約数 */
   bookingCount: number
   /** 予約状況別の件数 */

@@ -19,6 +19,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
+  CircleDashed,
   CircleHelp,
   ClipboardList,
   Columns3,
@@ -29,9 +30,10 @@ import {
 } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { warningIssuesOf } from '../../../../lib/trip-notes/itinerary'
+import { findTentativeNights } from '../../../../lib/trip-notes/nights'
 import { formatDaysLeft, formatMoney } from '../-lib/format'
 import { KANBAN_AXIS_LABELS } from '../-lib/kanban'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { cardClass, sectionTitleClass, subtleButtonClass } from '../-lib/styles'
 import { ItineraryIssueList } from './ItineraryIssueList'
 import { KanbanBoard } from './KanbanBoard'
 import { NightCoverageStrip } from './NightCoverageStrip'
@@ -301,6 +303,15 @@ function SegmentedToggle<T extends string>({
   )
 }
 
+/**
+ * 仮のままの夜がある琥珀のアラートに添える一言。
+ * 「あと何をすればよいか」まで書くのは、この段階が警告ではなく
+ * 「割り当ては済んだが、まだ取っていない」という途中経過だからで、
+ * 何をすれば緑になるのかが分からないと、琥珀のまま放置される
+ */
+const TENTATIVE_NIGHTS_HINT =
+  '移動のつながりに不整合はありません。仮の予約を取って確定にすれば、寝る場所が確保できます'
+
 export function ProgressPanel({
   state,
   summary,
@@ -323,6 +334,17 @@ export function ProgressPanel({
   // 「旅程は完璧なのに手続き待ちで赤くなる」のような読み違えが起きる
   const warningIssues = warningIssuesOf(summary.itineraryIssues)
   const hasHoles = summary.uncoveredNights > 0 || warningIssues.length > 0
+
+  // 穴が無くても「確保できています」と言い切れるとは限らない。
+  // 検討中・仮押さえの宿で埋めただけの夜は、割り当てがあるだけで何も取れていない。
+  // 未確保(赤)とは別の段階として琥珀で出す。赤と同じ強さで出すと、
+  // 本当に寝る場所がない夜の警告と区別が付かなくなる
+  const hasTentativeNights = !hasHoles && summary.tentativeNights > 0
+  // 「日程で確定させる」の飛び先。件数は summary から取れるので、
+  // ここで一覧が要るのは最初の 1 泊の日付を知るためだけ
+  const firstTentativeDate = hasTentativeNights
+    ? findTentativeNights(summary.nights, state.bookings)[0]?.date
+    : undefined
 
   // 1 件も登録していなければフィールドごと存在しない(types.ts 参照)
   const travelDocs = state.travelDocs ?? []
@@ -363,6 +385,12 @@ export function ProgressPanel({
               className="text-rose-600"
               aria-hidden="true"
             />
+          ) : hasTentativeNights ? (
+            <CircleDashed
+              size={18}
+              className="text-amber-600"
+              aria-hidden="true"
+            />
           ) : (
             <CheckCircle2
               size={18}
@@ -383,7 +411,16 @@ export function ProgressPanel({
         />
       </div>
 
-      {/* 1段目: 穴アラート(最大サイズ・単独配置)。表示方法によらず常に出す */}
+      {/*
+        1段目: 穴アラート(最大サイズ・単独配置)。表示方法によらず常に出す。
+
+        3 段階にしているのは、「割り当てが無い」と「割り当てはあるが仮のまま」を
+        同じ言葉で片付けると嘘になるため。仮の宿しか置いていないのに
+        「すべて確保できています」と言われると、この画面を見て安心した人が
+        何も予約しないまま出発することになる。かといって仮を未確保と同じ赤で出すと、
+        警告が旅程じゅうに広がって本当の穴が埋もれる(nights.ts の
+        findTentativeNights 参照)。危険度の順に 赤 → 琥珀 → 緑 と落とす
+      */}
       {hasHoles ? (
         <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-rose-800">
@@ -406,6 +443,38 @@ export function ProgressPanel({
               件
             </span>
           </p>
+        </div>
+      ) : hasTentativeNights ? (
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex min-w-0 items-start gap-2 text-amber-900">
+            <CircleDashed
+              size={20}
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              {/*
+                数字を span で囲まないのは、1 つの文として読み上げさせたいため。
+                「N泊」だけが独立した塊になると、前後の文と切れて意味が変わる
+              */}
+              <p className="text-sm font-semibold">
+                {`寝る場所の割り当てはすべての夜にありますが、${summary.tentativeNights}泊は検討中・仮押さえのままです`}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                {TENTATIVE_NIGHTS_HINT}
+              </p>
+            </div>
+          </div>
+          {firstTentativeDate === undefined ? null : (
+            <button
+              type="button"
+              onClick={() => onSelectDate(firstTentativeDate)}
+              className={`${subtleButtonClass} shrink-0 bg-white`}
+              aria-label={`${formatDateJa(firstTentativeDate)}の日程を開いて予約を確定させる`}
+            >
+              日程で確定させる
+            </button>
+          )}
         </div>
       ) : (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">

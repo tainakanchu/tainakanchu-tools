@@ -3,7 +3,9 @@ import { diffDays, makeAllDayStamp, makeStamp } from './datetime'
 import {
   TRANSPORT_KINDS,
   computeNights,
+  countTentativeNights,
   countUncoveredNights,
+  findTentativeNights,
   isTransportKind,
 } from './nights'
 import type { Booking, BookingKind, Stamp, TripNotesState } from './types'
@@ -446,6 +448,112 @@ describe('computeNights: 夜行移動によるカバー', () => {
     })
     const nights = computeNights(state)
     expect(nights.every((n) => n.covered === null)).toBe(true)
+  })
+})
+
+describe('findTentativeNights / countTentativeNights: まだ仮のままの夜', () => {
+  it("status: 'idea' / 'held' の宿でカバーされた夜は仮として数える", () => {
+    const state = makeState({
+      startDate: '2026-06-12',
+      endDate: '2026-06-16',
+      bookings: [
+        lodging('l1', '2026-06-12', '2026-06-14', { status: 'idea' }),
+        lodging('l2', '2026-06-14', '2026-06-16', { status: 'held' }),
+      ],
+    })
+    const nights = computeNights(state)
+
+    // カバー判定そのものは変えない(仮でも夜は埋まっている扱いのまま)。
+    // 変わるのは「確保できたと言い切ってよいか」だけ
+    expect(countUncoveredNights(nights)).toBe(0)
+    expect(countTentativeNights(nights, state.bookings)).toBe(4)
+    expect(
+      findTentativeNights(nights, state.bookings).map((n) => n.date),
+    ).toEqual(['2026-06-12', '2026-06-13', '2026-06-14', '2026-06-15'])
+  })
+
+  it("status: 'confirmed' の宿でカバーされた夜は数えない", () => {
+    const state = makeState({
+      startDate: '2026-06-12',
+      endDate: '2026-06-16',
+      bookings: [
+        lodging('l1', '2026-06-12', '2026-06-16', { status: 'confirmed' }),
+      ],
+    })
+    const nights = computeNights(state)
+    expect(countTentativeNights(nights, state.bookings)).toBe(0)
+  })
+
+  it('確定と仮が混ざる旅程では、仮の夜だけを数える', () => {
+    const state = makeState({
+      startDate: '2026-06-12',
+      endDate: '2026-06-16',
+      bookings: [
+        lodging('l1', '2026-06-12', '2026-06-14', { status: 'confirmed' }),
+        lodging('l2', '2026-06-14', '2026-06-16', { status: 'idea' }),
+      ],
+    })
+    const nights = computeNights(state)
+    expect(
+      findTentativeNights(nights, state.bookings).map((n) => n.date),
+    ).toEqual(['2026-06-14', '2026-06-15'])
+  })
+
+  it('寝る場所がない夜は仮ではなく未確保として数える(二重に数えない)', () => {
+    const state = makeState({ startDate: '2026-06-12', endDate: '2026-06-14' })
+    const nights = computeNights(state)
+    expect(countUncoveredNights(nights)).toBe(2)
+    expect(countTentativeNights(nights, state.bookings)).toBe(0)
+  })
+
+  it('夜行移動でカバーされた夜も、その移動が確定していなければ仮として数える', () => {
+    const state = makeState({
+      startDate: '2026-06-13',
+      endDate: '2026-06-14',
+      bookings: [
+        transport(
+          't1',
+          'train',
+          makeStamp('2026-06-13', '21:00', 'Europe/Paris'),
+          makeStamp('2026-06-14', '08:00', 'Europe/Paris'),
+          { status: 'held' },
+        ),
+      ],
+    })
+    const nights = computeNights(state)
+    expect(nights[0].covered).toBe('overnight')
+    expect(countTentativeNights(nights, state.bookings)).toBe(1)
+  })
+
+  it('確定した夜行移動でカバーされた夜は数えない', () => {
+    const state = makeState({
+      startDate: '2026-06-13',
+      endDate: '2026-06-14',
+      bookings: [
+        transport(
+          't1',
+          'train',
+          makeStamp('2026-06-13', '21:00', 'Europe/Paris'),
+          makeStamp('2026-06-14', '08:00', 'Europe/Paris'),
+          { status: 'confirmed' },
+        ),
+      ],
+    })
+    const nights = computeNights(state)
+    expect(countTentativeNights(nights, state.bookings)).toBe(0)
+  })
+
+  it('bookingId から予約が引けない夜は、確定と誤表示するより仮に倒す', () => {
+    const state = makeState({
+      startDate: '2026-06-12',
+      endDate: '2026-06-14',
+      bookings: [
+        lodging('l1', '2026-06-12', '2026-06-14', { status: 'confirmed' }),
+      ],
+    })
+    const nights = computeNights(state)
+    // 予約が消えた・id が食い違ったなどで status が読めない状況
+    expect(countTentativeNights(nights, [])).toBe(2)
   })
 })
 

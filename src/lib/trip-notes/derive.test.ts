@@ -941,6 +941,39 @@ describe('computeSummary', () => {
     expect(summary.uncoveredNights).toBe(0)
   })
 
+  it('仮の宿でしか埋まっていない夜は tentativeNights に出る(穴としては数えない)', () => {
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: '候補のホテル',
+      start: at('2026-06-12', '15:00', PARIS),
+      end: at('2026-06-16', '10:00', PARIS),
+      status: 'idea',
+    })
+    const state = makeState({ bookings: [hotel] })
+    const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
+    const summary = computeSummary(state, now)
+
+    // 割り当てはあるので穴ではない。ただし「確保できている」とも言えない
+    expect(summary.uncoveredNights).toBe(0)
+    expect(summary.tentativeNights).toBe(4)
+  })
+
+  it('全泊が確定した宿で埋まっていれば tentativeNights は 0 になる', () => {
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start: at('2026-06-12', '15:00', PARIS),
+      end: at('2026-06-16', '10:00', PARIS),
+      status: 'confirmed',
+    })
+    const state = makeState({ bookings: [hotel] })
+    const now = stampToEpoch(at('2026-06-13', '09:00', PARIS))
+    const summary = computeSummary(state, now)
+    expect(summary.tentativeNights).toBe(0)
+  })
+
   it('旅程の場所の連続性から出た不整合も併せて返す', () => {
     const paris = booking({
       id: 'paris',
