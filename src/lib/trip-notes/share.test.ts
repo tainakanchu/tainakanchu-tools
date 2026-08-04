@@ -345,6 +345,31 @@ describe('share', () => {
     expect(decoded).not.toHaveProperty('placeAliases')
   })
 
+  describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
+    it('締切がラウンドトリップで保たれる', async () => {
+      const state = buildFullState()
+      // bookings[1] は flight(JL415)。締切は移動の予約にしか意味を持たない
+      state.bookings[1] = {
+        ...state.bookings[1],
+        checkInClosesMinutesBefore: 45,
+        bagDropClosesMinutesBefore: 60,
+      }
+      expect(await roundTrip(state)).toEqual(expected(state))
+    })
+
+    it('締切が無い予約では payload にキーが現れない', async () => {
+      // buildFullState() の予約はどれも締切を入力していない。
+      // travelDocs/placeAliases と同じく「値が無ければキーごと省く」ことを見る
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL)
+      const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('checkInClosesMinutesBefore')
+        expect(booking).not.toHaveProperty('bagDropClosesMinutesBefore')
+      }
+    })
+  })
+
   it('# を付けても付けなくても同じ結果になる', async () => {
     const state = buildFullState()
     const url = await encodeShareUrl(state, BASE_URL)
@@ -759,6 +784,22 @@ describe('share', () => {
       expect(decoded).not.toHaveProperty('travelDocs')
       expect(decoded.bookings).toHaveLength(2)
       expect(decoded.emergencyContacts).toHaveLength(1)
+    })
+
+    /**
+     * 同じ payload は締切 2 種(h / b)のキーも持っていない
+     * (締切を足す前のビルドが出した URL のため)。placeAliases/travelDocs と
+     * 同じ理由で、キーが無い予約に締切のプロパティが生えてはいけない。
+     */
+    it('marker "2" の既存URL(締切のキーが無い)が今も読める。予約に締切のプロパティは生えない', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded.bookings).toHaveLength(2)
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('checkInClosesMinutesBefore')
+        expect(booking).not.toHaveProperty('bagDropClosesMinutesBefore')
+      }
     })
 
     it('marker "0" / "1" の既存URLにも travelDocs は生えない', async () => {

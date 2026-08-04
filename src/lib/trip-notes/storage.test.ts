@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { makeStamp } from './datetime'
 import {
+  FIELD_KEYS,
   createInitialState,
   loadFromStorage,
   parseTripNotesState,
@@ -360,6 +361,77 @@ describe('parseTripNotesState', () => {
       parseTripNotesState({ ...fullState(), travelDocs: 'なにか' }),
     ).not.toHaveProperty('travelDocs')
     expect(parseTripNotesState(fullState())).not.toHaveProperty('travelDocs')
+  })
+
+  describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
+    it('妥当な締切(整数・1〜1440)は保持される', () => {
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            checkInClosesMinutesBefore: 45,
+            bagDropClosesMinutesBefore: 1440,
+          },
+        ],
+      }
+      const booking = parseTripNotesState(state)?.bookings[0]
+      expect(booking?.checkInClosesMinutesBefore).toBe(45)
+      expect(booking?.bagDropClosesMinutesBefore).toBe(1440)
+    })
+
+    // 0・負数・小数・上限超え・文字列・NaN はいずれも「怪しい値」として
+    // そのフィールドだけ落とす(isDeadlineMinutesBefore 参照)。予約自体は残る
+    it.each([
+      ['0', 0],
+      ['負の数', -10],
+      ['小数', 45.5],
+      ['1441(上限超え)', 1441],
+      ['文字列', '45'],
+      ['NaN', Number.NaN],
+    ])(
+      '%s の締切はそのフィールドだけ落ちて、予約自体は残る',
+      (_label, value) => {
+        const state = {
+          ...fullState(),
+          bookings: [
+            {
+              ...fullBooking(),
+              checkInClosesMinutesBefore: value,
+              bagDropClosesMinutesBefore: value,
+            },
+          ],
+        }
+        const parsed = parseTripNotesState(state)
+        expect(parsed?.bookings).toHaveLength(1)
+        const booking = parsed?.bookings[0]
+        expect(booking?.checkInClosesMinutesBefore).toBeUndefined()
+        expect(booking?.bagDropClosesMinutesBefore).toBeUndefined()
+      },
+    )
+
+    it('1 と 1440(境界値)はどちらも保持される', () => {
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            checkInClosesMinutesBefore: 1,
+            bagDropClosesMinutesBefore: 1440,
+          },
+        ],
+      }
+      const booking = parseTripNotesState(state)?.bookings[0]
+      expect(booking?.checkInClosesMinutesBefore).toBe(1)
+      expect(booking?.bagDropClosesMinutesBefore).toBe(1440)
+    })
+  })
+})
+
+describe('FIELD_KEYS', () => {
+  it('締切2種のキーが含まれる(unverified に載せられる)', () => {
+    expect(FIELD_KEYS).toContain('checkInClosesMinutesBefore')
+    expect(FIELD_KEYS).toContain('bagDropClosesMinutesBefore')
   })
 })
 

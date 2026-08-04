@@ -178,6 +178,8 @@ function mergeUpdatedBooking(previous: Booking, next: Booking): Booking {
     'provider',
     'price',
     'freeCancelUntil',
+    'checkInClosesMinutesBefore',
+    'bagDropClosesMinutesBefore',
     'note',
   ]
   for (const key of keys) {

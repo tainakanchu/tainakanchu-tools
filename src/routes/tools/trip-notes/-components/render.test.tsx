@@ -272,6 +272,56 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
 })
 
 /**
+ * 締切の入力欄は移動系のときだけ出す。宿泊で出しても入れるものが無く、
+ * 詳細の丈が伸びるだけなので、種別で出し分けていることを固定しておく。
+ * 既存の値がフォームに戻ることも一緒に見る(FormState と Booking の
+ * 対応を取り違えると、編集して保存するたびに締切が消える)。
+ */
+describe('BookingForm の締切の入力欄', () => {
+  const formProps = {
+    initialDate: null,
+    state,
+    displayTz: tz,
+    dispatch: noop,
+    onClose: noop,
+  }
+
+  it('移動系では出て、既存の値が入力欄に戻る', () => {
+    const flight = bk('form-flight', {
+      kind: 'flight',
+      title: 'AF276',
+      checkInClosesMinutesBefore: 45,
+      bagDropClosesMinutesBefore: 60,
+    })
+    const { container } = render(
+      <BookingForm booking={flight} {...formProps} />,
+    )
+    const scope = within(container)
+
+    expect(scope.getByText('搭乗手続きの締切')).toBeTruthy()
+    expect(scope.getByText('受託手荷物を預ける締切')).toBeTruthy()
+    // プリセットは押せるボタンとして出す(自由入力も残っている)
+    expect(scope.getAllByText('60分前').length).toBeGreaterThan(0)
+    const deadlineInputs = container.querySelectorAll<HTMLInputElement>(
+      'input[type="number"][max="1440"]',
+    )
+    expect(deadlineInputs).toHaveLength(2)
+    // 並びは画面と同じ「手荷物 → 搭乗手続き」(先に締まるほうが上)
+    expect([...deadlineInputs].map((input) => input.value)).toEqual([
+      '60',
+      '45',
+    ])
+  })
+
+  it('宿泊では出さない', () => {
+    const { container } = render(
+      <BookingForm booking={bk('form-stay')} {...formProps} />,
+    )
+    expect(within(container).queryByText('搭乗手続きの締切')).toBeNull()
+  })
+})
+
+/**
  * 上の describe はあくまで「初回描画で落ちない」ことしか見ないが、
  * ここだけは例外的に見た目まで踏み込む。検討中(idea)・仮押さえ(held)の
  * 予約が確定済みとほぼ同じ見た目になり、一覧を流し見しても
@@ -372,8 +422,10 @@ describe('日程タブの継続行は締切のあるイベントだけを持ち�
  * 2 ケースで挟んで動かせないようにするのがこの節の主眼。
  */
 describe('「今」タブは進行中の予約に終了までのカウントダウンを出す', () => {
-  // 予約を 1 件だけにすると next が null になり、cyan の「次」のカウントダウンが
-  // 出ない。強調の判定に別のカウントダウンが混ざらないようにするため
+  // 予約を 1 件だけにすると、進行中のこの 1 件からはマイルストーンが作られず
+  // (milestones.ts の「進行中の予約からは作らない」規則)、画面に出る
+  // カウントダウンがこのチップだけになる。強調の判定に別の数字が
+  // 混ざらないようにするため
   const lodgingOnly: TripNotesState = {
     ...stateWithoutTravelDocs,
     bookings: [bk('now-stay')],
@@ -414,6 +466,90 @@ describe('「今」タブは進行中の予約に終了までのカウントダ�
     const after = renderAt('2026-06-14T06:00:00Z')
     expect(after.scope.getByText('あと2時間')).toBeTruthy()
     expect(after.container.querySelector('.border-rose-400')).toBeTruthy()
+    vi.useRealTimers()
+  })
+})
+
+/**
+ * 「今」タブの主役が予約からマイルストーン(次に来る時刻)に変わったので、
+ * 画面に出ることを固定しておく。とくに見たいのは 2 点。
+ * - 締切が入っていない予約から締切を捏造していないこと
+ * - 大きなカウントダウンが画面にただ 1 つであること(進行中カードの
+ *   「終了まで」と二重に同じ数字を出さない、が守られているかはここで気付ける)
+ */
+describe('「今」タブは次に来る時刻をマイルストーンとして出す', () => {
+  const flight = bk('flight-1', {
+    kind: 'flight',
+    title: 'AF276 CDG→HND',
+    start: { zdt: '2026-06-14T13:00:00+02:00[Europe/Paris]', allDay: false },
+    end: { zdt: '2026-06-15T08:00:00+09:00[Asia/Tokyo]', allDay: false },
+    bagDropClosesMinutesBefore: 60,
+    checkInClosesMinutesBefore: 45,
+  })
+
+  function renderAt(iso: string, bookings: Array<Booking>) {
+    vi.setSystemTime(Date.parse(iso))
+    const { container } = render(
+      <NowPanel
+        state={{ ...stateWithoutTravelDocs, bookings, emergencyContacts: [] }}
+        displayTz={tz}
+        dispatch={noop}
+        onGoToSchedule={noop}
+      />,
+    )
+    return { container, scope: within(container) }
+  }
+
+  it('締切・出発・到着が近い順に並び、いちばん近いものが主役になる', () => {
+    vi.useFakeTimers()
+    // 出発は 13:00+02:00 = 11:00Z。手荷物は 10:00Z、搭乗手続きは 10:15Z
+    const { scope } = renderAt('2026-06-14T06:00:00Z', [flight])
+
+    expect(scope.getByText('次に来る時刻')).toBeTruthy()
+    // いちばん近いのは手荷物の締切(4 時間後)
+    expect(scope.getByText('あと4時間')).toBeTruthy()
+    expect(scope.getByText('手荷物を預ける締切')).toBeTruthy()
+    expect(scope.getByText('搭乗手続きの締切')).toBeTruthy()
+    expect(scope.getByText('出発')).toBeTruthy()
+    expect(scope.getByText('到着')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('締切が入っていない予約からは締切を作らない', () => {
+    vi.useFakeTimers()
+    const noDeadlines = bk('flight-2', {
+      kind: 'flight',
+      title: 'NH216 HND→CDG',
+      start: { zdt: '2026-06-14T13:00:00+02:00[Europe/Paris]', allDay: false },
+      end: null,
+    })
+    const { scope } = renderAt('2026-06-14T06:00:00Z', [noDeadlines])
+
+    expect(scope.getByText('出発')).toBeTruthy()
+    expect(scope.queryByText('手荷物を預ける締切')).toBeNull()
+    expect(scope.queryByText('搭乗手続きの締切')).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('締切が迫ると強調に切り替わる(境界は強調側)', () => {
+    vi.useFakeTimers()
+    // 手荷物の締切は 10:00Z。DEADLINE_SOON_MS は 45 分なので 09:15Z が境界
+    const before = renderAt('2026-06-14T09:14:00Z', [flight])
+    expect(before.container.querySelector('.border-rose-400')).toBeNull()
+
+    const after = renderAt('2026-06-14T09:15:00Z', [flight])
+    expect(after.container.querySelector('.border-rose-400')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('進行中の宿泊のチェックイン開始は「受付中」に言い換える', () => {
+    vi.useFakeTimers()
+    // bk() の既定は 6/12 15:00 → 6/14 10:00(Europe/Paris)の宿泊
+    const { scope } = renderAt('2026-06-13T12:00:00Z', [bk('stay-2')])
+
+    expect(scope.getByText('チェックイン受付中')).toBeTruthy()
+    // 過ぎた「チェックイン開始」はマイルストーンとして出さない
+    expect(scope.queryByText('チェックイン開始')).toBeNull()
     vi.useRealTimers()
   })
 })

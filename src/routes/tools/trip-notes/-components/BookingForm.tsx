@@ -32,7 +32,9 @@ import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import {
   BOOKING_KINDS,
   BOOKING_STATUSES,
+  MAX_DEADLINE_MINUTES_BEFORE,
   PAYMENT_STATUSES,
+  isDeadlineMinutesBefore,
 } from '../../../../lib/trip-notes/storage'
 import { useDialogFocus } from '../-lib/focusTrap'
 import {
@@ -122,6 +124,10 @@ interface FormState {
   priceAmount: string
   priceCurrency: string
   freeCancelUntil: string
+  /** 搭乗手続きの締切(出発の何分前か)。空文字は「入力なし」 */
+  checkInMinutes: string
+  /** 受託手荷物の預け締切(出発の何分前か)。空文字は「入力なし」 */
+  bagDropMinutes: string
   note: string
   placeName: string
   placeLocalName: string
@@ -158,6 +164,8 @@ const FIELD_OF: Record<keyof FormState, FieldKey> = {
   priceAmount: 'price',
   priceCurrency: 'price',
   freeCancelUntil: 'freeCancelUntil',
+  checkInMinutes: 'checkInClosesMinutesBefore',
+  bagDropMinutes: 'bagDropClosesMinutesBefore',
   note: 'note',
   placeName: 'place',
   placeLocalName: 'place',
@@ -215,6 +223,14 @@ function buildInitialForm(
         booking.price !== undefined ? String(booking.price.amount) : '',
       priceCurrency: booking.price?.currency ?? '',
       freeCancelUntil: booking.freeCancelUntil ?? '',
+      checkInMinutes:
+        booking.checkInClosesMinutesBefore !== undefined
+          ? String(booking.checkInClosesMinutesBefore)
+          : '',
+      bagDropMinutes:
+        booking.bagDropClosesMinutesBefore !== undefined
+          ? String(booking.bagDropClosesMinutesBefore)
+          : '',
       note: booking.note ?? '',
       placeName: booking.place?.name ?? '',
       placeLocalName: booking.place?.localName ?? '',
@@ -245,6 +261,8 @@ function buildInitialForm(
     priceAmount: '',
     priceCurrency: '',
     freeCancelUntil: '',
+    checkInMinutes: '',
+    bagDropMinutes: '',
     note: '',
     placeName: '',
     placeLocalName: '',
@@ -264,6 +282,30 @@ function tzOptionsFor(current: string) {
   if (COMMON_TIMEZONES.some((opt) => opt.tz === current))
     return COMMON_TIMEZONES
   return [{ tz: current, label: `${current}(現在の設定)` }, ...COMMON_TIMEZONES]
+}
+
+/**
+ * 締切の入力欄に並べる「よくある値」。実在する規定に多いものから選んである。
+ * 30/45 分前は国内線、60 分前は国際線の標準、90 分前は大型機や
+ * 混む空港に多い。ここに無い値(75 分前など)も現実にあるので、
+ * プリセットだけにせず自由入力を必ず残す。
+ */
+const DEADLINE_PRESETS = [30, 45, 60, 90]
+
+/**
+ * 締切の入力欄の値を Booking の値に変換する。
+ * 空欄は「入力なし」(undefined)、妥当でない値は 'invalid' を返して
+ * 呼び出し元に入力の修正を促させる。
+ *
+ * 妥当性の判定を storage.ts と共有しているのは、ここで通した値が
+ * そのまま保存されるため。フォームの許す範囲が保存側より広いと
+ * 「入力できたのに次回起動で消えている締切」ができてしまう。
+ */
+function parseDeadlineInput(raw: string): number | undefined | 'invalid' {
+  const trimmed = raw.trim()
+  if (trimmed === '') return undefined
+  const value = Number(trimmed)
+  return isDeadlineMinutesBefore(value) ? value : 'invalid'
 }
 
 function endLabelFor(kind: BookingKind): string {
@@ -455,6 +497,22 @@ export function BookingForm({
       }
     }
 
+    // 締切は移動系のときだけ効く。空欄は「入力なし」としてそのまま通すが、
+    // 入っているのに妥当でない値は黙って落とさず入力を直してもらう。
+    // 締切は過ぎると取り返しがつかない情報なので、「保存したのに入っていない」に
+    // 気付けないまま当日を迎えるのがいちばん困る
+    const checkInCloses = parseDeadlineInput(form.checkInMinutes)
+    const bagDropCloses = parseDeadlineInput(form.bagDropMinutes)
+    if (
+      isTransportKind(form.kind) &&
+      (checkInCloses === 'invalid' || bagDropCloses === 'invalid')
+    ) {
+      setError(
+        `締切は 1〜${MAX_DEADLINE_MINUTES_BEFORE} 分の整数(出発の何分前か)で入力してください`,
+      )
+      return
+    }
+
     const next: Booking = {
       id: booking?.id ?? newId('bk'),
       kind: form.kind,
@@ -470,6 +528,14 @@ export function BookingForm({
       const to = buildPlace(form.toName, '', form.toAddress)
       if (from !== undefined) next.from = from
       if (to !== undefined) next.to = to
+      // 種別を宿泊などに変えたときは、入力欄が消えるのと一緒に値も落とす。
+      // 見えない欄に値が残り続けると、消したつもりの締切が生き残る
+      if (typeof checkInCloses === 'number') {
+        next.checkInClosesMinutesBefore = checkInCloses
+      }
+      if (typeof bagDropCloses === 'number') {
+        next.bagDropClosesMinutesBefore = bagDropCloses
+      }
     } else {
       const place = buildPlace(
         form.placeName,
@@ -521,6 +587,9 @@ export function BookingForm({
   }
 
   const showPlace = !isTransportKind(form.kind)
+  // 締切は移動系だけの概念。宿やアクティビティにこの欄を出しても
+  // 入れるものが無く、詳細の丈だけが伸びる
+  const showDeadlines = isTransportKind(form.kind)
   const parsedCount = aiResult?.bookings.length ?? 0
 
   return (
@@ -943,6 +1012,38 @@ export function BookingForm({
                 {unverifiedNote('freeCancelUntil')}
               </label>
 
+              {showDeadlines && (
+                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
+                  <legend className="px-1 text-xs font-semibold text-gray-500">
+                    締切(出発の何分前か)
+                  </legend>
+                  {/*
+                    時刻ではなく「何分前か」を入れてもらう。予約確認書も
+                    航空会社の規定も「出発の 60 分前まで」という書き方をしており、
+                    絶対時刻に直させると、出発時刻を直したときに締切だけが
+                    古いまま残る(types.ts の Booking を参照)
+                  */}
+                  <p className="text-xs text-gray-500">
+                    空港・航空会社・路線(国内線/国際線)によって違います。
+                    予約確認書に書かれていれば、その値を優先してください。
+                  </p>
+                  <DeadlineField
+                    label="受託手荷物を預ける締切"
+                    value={form.bagDropMinutes}
+                    onChange={(value) => set('bagDropMinutes', value)}
+                    unverifiedClass={ufc('bagDropClosesMinutesBefore')}
+                    note={unverifiedNote('bagDropClosesMinutesBefore')}
+                  />
+                  <DeadlineField
+                    label="搭乗手続きの締切"
+                    value={form.checkInMinutes}
+                    onChange={(value) => set('checkInMinutes', value)}
+                    unverifiedClass={ufc('checkInClosesMinutesBefore')}
+                    note={unverifiedNote('checkInClosesMinutesBefore')}
+                  />
+                </fieldset>
+              )}
+
               <label className="block space-y-1">
                 <span className={labelClass}>メモ</span>
                 <textarea
@@ -1086,5 +1187,83 @@ export function BookingForm({
         />
       ) : null}
     </>
+  )
+}
+
+/**
+ * 締切の入力欄 1 つ。よくある値のボタンと自由入力を並べる。
+ *
+ * ボタンだけにしないのは、締切が空港・航空会社ごとに違い、プリセットに
+ * 収まらない値が現実にあるため(DEADLINE_PRESETS のコメント参照)。
+ * 逆に自由入力だけにすると、旅行前の忙しいときに数字を打つ手間で
+ * 入力そのものを諦める。両方置いて、押しても打ってもよい形にする。
+ *
+ * 「分前」の単位は入力欄の外に文字として置く。placeholder に入れると
+ * 値を打った瞬間に消えてしまい、あとから見返したときに
+ * 「60」が分なのか時刻なのか分からなくなる。
+ */
+function DeadlineField({
+  label,
+  value,
+  onChange,
+  unverifiedClass,
+  note,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  /** AI が埋めたまま未確認なら黄色い下線のクラス */
+  unverifiedClass: string
+  note: ReactNode
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block space-y-1">
+        <span className={labelClass}>{label}</span>
+        <span className="flex items-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_DEADLINE_MINUTES_BEFORE}
+            step={1}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className={`${fieldClass} max-w-28 ${unverifiedClass}`}
+          />
+          <span className="shrink-0 text-sm text-gray-600">分前</span>
+        </span>
+      </label>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {DEADLINE_PRESETS.map((preset) => {
+          const selected = value.trim() === String(preset)
+          return (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => onChange(String(preset))}
+              aria-pressed={selected}
+              className={`min-h-9 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                selected
+                  ? 'border-cyan-600 bg-cyan-600 text-white'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {preset}分前
+            </button>
+          )
+        })}
+        {value !== '' && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="min-h-9 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+          >
+            クリア
+          </button>
+        )}
+      </div>
+      {note}
+    </div>
   )
 }

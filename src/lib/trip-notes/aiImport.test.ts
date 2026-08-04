@@ -390,6 +390,8 @@ describe('parseImportedJson: unverified', () => {
     "provider": "Booking.com",
     "price": { "amount": 45000, "currency": "JPY" },
     "freeCancelUntil": "2026-09-01",
+    "checkInClosesMinutesBefore": 45,
+    "bagDropClosesMinutesBefore": 60,
     "note": "エレベーターなし",
     "evidence": { "start": "Check-in: 12 Sep 2026 15:00" }
   }
@@ -413,5 +415,61 @@ describe('parseImportedJson: unverified', () => {
       'payment',
     ])
     expect(booking.unverified).not.toContain('end')
+  })
+})
+
+describe('parseImportedJson: 締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
+  it('AI の JSON に締切があれば取り込まれる', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":45,"bagDropClosesMinutesBefore":60}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.checkInClosesMinutesBefore).toBe(45)
+    expect(booking.bagDropClosesMinutesBefore).toBe(60)
+  })
+
+  it("'60' のような数字だけの文字列でも取り込まれる", () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":"45","bagDropClosesMinutesBefore":"60"}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.checkInClosesMinutesBefore).toBe(45)
+    expect(booking.bagDropClosesMinutesBefore).toBe(60)
+  })
+
+  it("'60分前' のような単位付きの文字列は落ちるが、予約自体は取り込まれる", () => {
+    // toMinutesBefore が数字だけの文字列しか受けないので undefined になり、
+    // その先の parseBooking では「フィールドが無い」として扱われる
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":"60分前"}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.checkInClosesMinutesBefore).toBeUndefined()
+  })
+
+  it('小数の締切は落ちるが、予約自体は取り込まれる', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":45.5}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.checkInClosesMinutesBefore).toBeUndefined()
+  })
+
+  it('負の数の締切は落ちるが、予約自体は取り込まれる', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":-10}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.checkInClosesMinutesBefore).toBeUndefined()
+  })
+
+  it('大きすぎる値(1441以上)の締切は落ちるが、予約自体は取り込まれる', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"bagDropClosesMinutesBefore":1441}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.bagDropClosesMinutesBefore).toBeUndefined()
+  })
+
+  it('取り込んだ締切は unverified に入る', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"checkInClosesMinutesBefore":45,"bagDropClosesMinutesBefore":60}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.unverified).toContain('checkInClosesMinutesBefore')
+    expect(booking.unverified).toContain('bagDropClosesMinutesBefore')
   })
 })

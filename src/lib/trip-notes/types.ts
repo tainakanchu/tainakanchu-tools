@@ -79,6 +79,8 @@ export type FieldKey =
   | 'provider'
   | 'price'
   | 'freeCancelUntil'
+  | 'checkInClosesMinutesBefore'
+  | 'bagDropClosesMinutesBefore'
   | 'note'
 
 export interface Booking {
@@ -98,6 +100,31 @@ export interface Booking {
   price?: Money
   /** 無料キャンセル期限 (YYYY-MM-DD)。カウントダウンの元 */
   freeCancelUntil?: string
+  /**
+   * 搭乗手続き(チェックイン)の締切。出発の何分前かを分で持つ。
+   *
+   * ■ なぜ絶対時刻(Stamp)ではなく「出発の何分前」なのか
+   *   予約確認書にも航空会社の規定にも、この締切は必ず「出発の 60 分前まで」という
+   *   相対の形で書かれている。読み取った人が暗算で 14:20 - 60分 = 13:20 に直して
+   *   保存すると、そのあと出発時刻を 14:20 → 16:05 に直したときに締切だけが 13:20 に
+   *   取り残される。しかも画面には「13:20 搭乗手続きの締切」という、もっともらしい
+   *   時刻が出続ける。直したつもりで嘘の締切が残るのが、この壊れ方のたちの悪いところで、
+   *   時刻がずれていることに空港で気付くまで誰も気付けない。
+   *   相対値で持てば、出発時刻を直した瞬間に締切も一緒に動く。表示のたびに
+   *   出発時刻から引き算するので、両者が食い違う状態が構造的に作れない。
+   *
+   * 妥当な範囲(整数・1 分以上・上限)の検証は storage.ts の parseBooking に置いてある。
+   */
+  checkInClosesMinutesBefore?: number
+  /**
+   * 受託手荷物の預け締切(バッグドロップ)。出発の何分前かを分で持つ。
+   * 相対値で持つ理由は checkInClosesMinutesBefore と同じ。
+   *
+   * 搭乗手続きの締切とは別に持つ。同じ便でも「手荷物は 60 分前まで、
+   * 搭乗手続きは 45 分前まで」のように締切が 2 段になっていることが多く、
+   * 預ける荷物があるかどうかで人が動くべき時刻が変わるため。
+   */
+  bagDropClosesMinutesBefore?: number
   note?: string
   /** AI が埋めたまま人間が未確認のフィールド。確認したら取り除く */
   unverified?: Array<FieldKey>

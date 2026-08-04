@@ -46,8 +46,45 @@ export const FIELD_KEYS: Array<FieldKey> = [
   'provider',
   'price',
   'freeCancelUntil',
+  'checkInClosesMinutesBefore',
+  'bagDropClosesMinutesBefore',
   'note',
 ]
+
+/**
+ * 締切(出発の何分前か)として受け付ける上限。24 時間 = 1440 分。
+ *
+ * 実在する搭乗手続きの締切は国際線でも出発の 60〜90 分前で、いちばん早い
+ * 「前日預け入れ」の類を数えても出発の 24 時間より前に閉まる手続きは無い
+ * (むしろオンラインチェックインの *開始* が 24〜48 時間前)。
+ * それを超える値が入るのは、分と時間を取り違えた(60 のつもりで 3600)か
+ * 桁を打ち間違えたときで、そのまま採用すると「あと 2 日」で締切が来ると
+ * 主張するマイルストーンが画面の先頭に居座る。
+ * 締切は過ぎると取り返しがつかないぶん強調して見せる情報なので、
+ * 疑わしい値は表示しない側に倒す。
+ */
+export const MAX_DEADLINE_MINUTES_BEFORE = 24 * 60
+
+/**
+ * 締切の分数として妥当か。
+ *
+ * - 整数だけを認める。「45.5 分前」という締切は現実に存在せず、
+ *   小数が入るのは単位の取り違えか計算ミスのとき。
+ * - 0 と負の数を弾く。0 は「出発時刻そのものが締切」を意味してしまい、
+ *   出発のマイルストーンと同じ時刻に二重に並ぶだけで締切として機能しない。
+ *   負の数(出発より後に閉まる締切)はそもそも意味を成さない。
+ *
+ * storage だけでなく入力フォームからも呼ぶ。保存時と入力時で許す範囲が
+ * 食い違うと「入力できたのに保存されない値」が生まれるので、判定は 1 本にする。
+ */
+export function isDeadlineMinutesBefore(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= MAX_DEADLINE_MINUTES_BEFORE
+  )
+}
 
 export const BOOKING_KINDS: Array<BookingKind> = [
   'lodging',
@@ -210,7 +247,8 @@ function parseEvidence(
  *   その booking ごと黙って落とす。1 件の壊れた予約のために保存全体を諦めるよりは、
  *   直せる予約だけでも表示できたほうが利用者にとって実利がある。
  * - 任意フィールド(from/to/place/confirmationNumber/provider/price/
- *   freeCancelUntil/note/unverified/evidence)は不正でもそのフィールドだけを
+ *   freeCancelUntil/checkInClosesMinutesBefore/bagDropClosesMinutesBefore/
+ *   note/unverified/evidence)は不正でもそのフィールドだけを
  *   落として undefined にする。booking 自体は残す。
  * - end は Stamp として妥当なら採用し、それ以外(欠落・不正)は null にする
  *   (end は「単発の予定なら null」が正常値なので、start と違って落とす理由にならない)。
@@ -276,6 +314,18 @@ export function parseBooking(raw: unknown): Booking | null {
   ) {
     booking.freeCancelUntil = value.freeCancelUntil
   }
+
+  // 締切の分数は、不正なら「そのフィールドだけ落とす」(予約は残す)。
+  // 落とせばマイルストーンが 1 つ出なくなるだけで、利用者は自分で
+  // 締切を確かめに行く。逆に怪しい値を通すと、確かめずに済むと思わせる
+  // 嘘の締切を出してしまう。無いより悪い。
+  if (isDeadlineMinutesBefore(value.checkInClosesMinutesBefore)) {
+    booking.checkInClosesMinutesBefore = value.checkInClosesMinutesBefore
+  }
+  if (isDeadlineMinutesBefore(value.bagDropClosesMinutesBefore)) {
+    booking.bagDropClosesMinutesBefore = value.bagDropClosesMinutesBefore
+  }
+
   if (typeof value.note === 'string') {
     booking.note = value.note
   }

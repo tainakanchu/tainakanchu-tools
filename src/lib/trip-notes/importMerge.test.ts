@@ -3,7 +3,10 @@ import { mergeBooking, planImport } from './importMerge'
 import type { Booking } from './types'
 
 /** 既存の予約(手入力・すでに確認済み想定)の既定値 */
-function existingBooking(id: string, overrides: Partial<Booking> = {}): Booking {
+function existingBooking(
+  id: string,
+  overrides: Partial<Booking> = {},
+): Booking {
   return {
     id,
     kind: 'lodging',
@@ -19,7 +22,10 @@ function existingBooking(id: string, overrides: Partial<Booking> = {}): Booking 
 }
 
 /** AI 取り込み側の既定値。aiImport.ts の既定値(idea/unpaid)を模す */
-function incomingBooking(id: string, overrides: Partial<Booking> = {}): Booking {
+function incomingBooking(
+  id: string,
+  overrides: Partial<Booking> = {},
+): Booking {
   return {
     id,
     kind: 'lodging',
@@ -230,15 +236,24 @@ describe('mergeBooking / マージ規則', () => {
       status: 'confirmed',
       payment: 'paid',
     })
-    const incoming = incomingBooking('tmp', { status: 'idea', payment: 'unpaid' })
+    const incoming = incomingBooking('tmp', {
+      status: 'idea',
+      payment: 'unpaid',
+    })
     const merged = mergeBooking(existing, incoming)
     expect(merged.status).toBe('confirmed')
     expect(merged.payment).toBe('paid')
   })
 
   it('status/payment が既定値でなければ取り込み側を採用する', () => {
-    const existing = existingBooking('e1', { status: 'idea', payment: 'unpaid' })
-    const incoming = incomingBooking('tmp', { status: 'held', payment: 'deposit' })
+    const existing = existingBooking('e1', {
+      status: 'idea',
+      payment: 'unpaid',
+    })
+    const incoming = incomingBooking('tmp', {
+      status: 'held',
+      payment: 'deposit',
+    })
     const merged = mergeBooking(existing, incoming)
     expect(merged.status).toBe('held')
     expect(merged.payment).toBe('deposit')
@@ -298,6 +313,33 @@ describe('mergeBooking / マージ規則', () => {
     const merged = mergeBooking(existing, incoming)
     expect(merged.note).toBe('確認済みのメモ')
     expect(merged.unverified ?? []).not.toContain('note')
+  })
+
+  it('締切は取り込み側にあれば採用する', () => {
+    // 締切は「出発の何分前か」の相対値なので、start を上書きする再取り込みでも
+    // 意味がずれない。他の任意フィールドと同じ「値があれば採用」規則でよい
+    const existing = existingBooking('e1')
+    const incoming = incomingBooking('tmp', {
+      checkInClosesMinutesBefore: 45,
+      bagDropClosesMinutesBefore: 60,
+    })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.checkInClosesMinutesBefore).toBe(45)
+    expect(merged.bagDropClosesMinutesBefore).toBe(60)
+  })
+
+  it('締切は取り込み側に無ければ既存の値を維持する', () => {
+    const existing = existingBooking('e1', {
+      checkInClosesMinutesBefore: 45,
+      bagDropClosesMinutesBefore: 60,
+    })
+    const incoming = incomingBooking('tmp', {
+      checkInClosesMinutesBefore: undefined,
+      bagDropClosesMinutesBefore: undefined,
+    })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.checkInClosesMinutesBefore).toBe(45)
+    expect(merged.bagDropClosesMinutesBefore).toBe(60)
   })
 
   it('evidence はキーごとにマージし、取り込み側を優先する', () => {
