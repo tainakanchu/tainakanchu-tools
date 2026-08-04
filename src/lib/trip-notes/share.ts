@@ -47,8 +47,11 @@ export const QR_SAFE_LENGTH = 1500
 const BASE64_CHUNK_SIZE = 0x8000
 
 // --- 短縮キー形式の型定義 ---
-// JSON.parse 直後は unknown なので、ここでの型は「こう解釈して組み立てる」という
-// 宣言に過ぎない。値の妥当性検証は二重に書かず、最終的に parseTripNotesState に委ねる。
+// JSON.parse 直後は何が入っているか分からないので、ここでの型は
+// 「こう解釈して組み立てる」という宣言に過ぎない。値の妥当性検証は二重に書かず、
+// 最終的に parseTripNotesState に委ねる。
+// kind/status/payment などを BookingKind といった具体的な型で宣言しているのも
+// 同じ意味で、「検証済み」ではなく「そう解釈する」という宣言でしかない。
 
 interface ShortStamp {
   z: string
@@ -71,21 +74,21 @@ interface ShortMoney {
 
 interface ShortBooking {
   i: string
-  k: string
+  k: BookingKind
   t: string
   s: ShortStamp
   e?: ShortStamp
   f?: ShortPlace
   o?: ShortPlace
   p?: ShortPlace
-  a: string
-  y: string
+  a: BookingStatus
+  y: PaymentStatus
   c?: string
   v?: string
   r?: ShortMoney
   x?: string
   n?: string
-  q?: Array<string>
+  q?: Array<FieldKey>
 }
 
 interface ShortContact {
@@ -96,7 +99,7 @@ interface ShortContact {
 }
 
 interface ShortState {
-  v: number
+  v: 1
   t: string
   s: string
   e: string
@@ -207,23 +210,21 @@ function fromShortMoney(short: ShortMoney): Money {
 function fromShortBooking(short: ShortBooking): Booking {
   return {
     id: short.i,
-    kind: short.k as BookingKind,
+    kind: short.k,
     title: short.t,
     start: fromShortStamp(short.s),
     end: short.e !== undefined ? fromShortStamp(short.e) : null,
     ...(short.f !== undefined ? { from: fromShortPlace(short.f) } : {}),
     ...(short.o !== undefined ? { to: fromShortPlace(short.o) } : {}),
     ...(short.p !== undefined ? { place: fromShortPlace(short.p) } : {}),
-    status: short.a as BookingStatus,
-    payment: short.y as PaymentStatus,
+    status: short.a,
+    payment: short.y,
     ...(short.c !== undefined ? { confirmationNumber: short.c } : {}),
     ...(short.v !== undefined ? { provider: short.v } : {}),
     ...(short.r !== undefined ? { price: fromShortMoney(short.r) } : {}),
     ...(short.x !== undefined ? { freeCancelUntil: short.x } : {}),
     ...(short.n !== undefined ? { note: short.n } : {}),
-    ...(short.q !== undefined
-      ? { unverified: short.q as Array<FieldKey> }
-      : {}),
+    ...(short.q !== undefined ? { unverified: short.q } : {}),
   }
 }
 
@@ -238,7 +239,7 @@ function fromShortContact(short: ShortContact): EmergencyContact {
 
 function fromShortState(short: ShortState): TripNotesState {
   return {
-    schemaVersion: short.v as 1,
+    schemaVersion: short.v,
     tripTitle: short.t,
     startDate: short.s,
     endDate: short.e,
@@ -411,7 +412,11 @@ export async function decodeShareState(
     }
 
     const json = new TextDecoder().decode(jsonBytes)
-    const short = JSON.parse(json) as ShortState
+    // ShortState として受けるが、URL の中身を信用しているわけではない。
+    // 型は組み立て方を決めるためだけのもので、実際の値の妥当性は直後の
+    // parseTripNotesState が検証する(壊れていれば null になる)。
+    // JSON.parse 自体が失敗した場合も、この関数全体の catch で null に落ちる。
+    const short: ShortState = JSON.parse(json)
     return parseTripNotesState(fromShortState(short))
   } catch {
     return null

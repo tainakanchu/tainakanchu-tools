@@ -15,6 +15,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -29,12 +30,20 @@ import {
 } from '../../../../lib/trip-notes/share'
 import { loadFromStorage } from '../../../../lib/trip-notes/storage'
 import { Route } from '../index'
-import type { ComponentType } from 'react'
 import type { RenderResult } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import type { Booking, TripNotesState } from '../../../../lib/trip-notes/types'
 
-const TripNotesPage = Route.options.component as ComponentType
+// component は RouteOptions では省略可能なので、型の上では undefined を含む。
+// index.tsx が必ず渡しているので実際には来ないが、取り違えて空のまま
+// 「何も落ちなかった」テストが通るほうが怖いので、無ければここで止める。
+// 絞り込んだ値を別の const に受け直しているのは、if の絞り込みは
+// 後続の関数の中まで届かず、renderPage() の JSX でまた undefined 込みに戻るため
+const routeComponent = Route.options.component
+if (routeComponent === undefined) {
+  throw new Error('trip-notes のルートに component が設定されていません')
+}
+const TripNotesPage = routeComponent
 
 /** storage.ts の STORAGE_KEY。テストから状態を仕込むためだけに複製する */
 const STORAGE_KEY = 'trip-notes:v1'
@@ -78,9 +87,17 @@ function seed(state: TripNotesState): void {
  * ページを描画する。
  * autoCodeSplitting でルートの component は遅延読み込みになっているため、
  * 最初の描画が終わる(= <main> が現れる)まで待ってから返す。
+ *
+ * render() を await した act() で包むのは、遅延読み込みが React 19 の use() で
+ * サスペンドするため。render() 自身の act() は同期版なので、その中で発生した
+ * サスペンドの再開はキューに積まれたまま流れず、<main> が永遠に現れない。
  */
 async function renderPage(): Promise<RenderResult> {
-  const view = render(<TripNotesPage />)
+  let view!: RenderResult
+  await act(async () => {
+    view = render(<TripNotesPage />)
+    await Promise.resolve()
+  })
   await screen.findByRole('main')
   return view
 }

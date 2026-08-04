@@ -38,18 +38,20 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-const BOOKING_STATUS_LIST: Array<BookingStatus> = [
-  'idea',
-  'held',
-  'confirmed',
-  'cancelled',
-]
-const PAYMENT_STATUS_LIST: Array<PaymentStatus> = [
-  'unpaid',
-  'deposit',
-  'paid',
-  'onsite',
-]
+/**
+ * 集計の器。キーを並べたリテラルで作る。
+ * 空オブジェクトを Record として押し込む書き方だと、状態の種類が増えたときに
+ * 初期化漏れが undefined のまま素通りして「合計だけ NaN」のような壊れ方をする。
+ * リテラルで書いておけば、型が増えた時点で tsc がここを指してくれる。
+ * 並び順は画面での列挙順にそのまま出るので、軽い順 → 重い順で固定しておく。
+ */
+function zeroByBookingStatus(): Record<BookingStatus, number> {
+  return { idea: 0, held: 0, confirmed: 0, cancelled: 0 }
+}
+
+function zeroByPaymentStatus(): Record<PaymentStatus, number> {
+  return { unpaid: 0, deposit: 0, paid: 0, onsite: 0 }
+}
 
 /**
  * 並べ替えの基準になる瞬間。
@@ -71,7 +73,7 @@ export function sortBookings(
   bookings: Array<Booking>,
   displayTz: string,
 ): Array<Booking> {
-  return [...bookings].sort((a, b) => {
+  return bookings.toSorted((a, b) => {
     const ka = sortKey(a, displayTz)
     const kb = sortKey(b, displayTz)
     if (Number.isNaN(ka)) return Number.isNaN(kb) ? 0 : 1
@@ -114,7 +116,7 @@ export function groupByDay(
   const tripDays = Math.max(0, diffDays(state.startDate, state.endDate))
   for (let i = 0; i <= tripDays; i++) dates.add(addDays(state.startDate, i))
 
-  return [...dates].sort().map((date) => ({
+  return [...dates].toSorted().map((date) => ({
     date,
     bookings: byDate.get(date) ?? [],
     night: nightByDate.get(date) ?? null,
@@ -185,7 +187,7 @@ export function findTransportGaps(state: TripNotesState): Array<TransportGap> {
   const alive = state.bookings.filter((b) => b.status !== 'cancelled')
   const lodgings = alive
     .filter((b) => b.kind === 'lodging' && tryParseStamp(b.start) !== null)
-    .sort((a, b) => stampToEpoch(a.start) - stampToEpoch(b.start))
+    .toSorted((a, b) => stampToEpoch(a.start) - stampToEpoch(b.start))
   const transports = alive.filter(
     (b) => isTransportKind(b.kind) && tryParseStamp(b.start) !== null,
   )
@@ -266,19 +268,15 @@ export function computeCancelDeadlines(
       daysLeft: Math.max(0, Math.floor((endOfDay - nowMs) / DAY_MS)),
     })
   }
-  return deadlines.sort((a, b) => a.date.localeCompare(b.date))
+  return deadlines.toSorted((a, b) => a.date.localeCompare(b.date))
 }
 
 function emptyBudget(currency: string): BudgetByCurrency {
-  const byStatus = {} as Record<BookingStatus, number>
-  for (const s of BOOKING_STATUS_LIST) byStatus[s] = 0
-  const byPayment = {} as Record<PaymentStatus, number>
-  for (const p of PAYMENT_STATUS_LIST) byPayment[p] = 0
   return {
     currency,
     total: 0,
-    byStatus,
-    byPayment,
+    byStatus: zeroByBookingStatus(),
+    byPayment: zeroByPaymentStatus(),
     confirmed: 0,
     paid: 0,
     outstanding: 0,
@@ -315,7 +313,7 @@ export function summarizeBudget(
     else entry.outstanding += price.amount
   }
 
-  return [...byCurrency.values()].sort((a, b) =>
+  return [...byCurrency.values()].toSorted((a, b) =>
     a.currency.localeCompare(b.currency),
   )
 }
@@ -338,8 +336,7 @@ export function computeSummary(
 ): TripSummary {
   const nights: Array<NightSlot> = computeNights(state)
 
-  const statusCounts = {} as Record<BookingStatus, number>
-  for (const s of BOOKING_STATUS_LIST) statusCounts[s] = 0
+  const statusCounts = zeroByBookingStatus()
   for (const booking of state.bookings) statusCounts[booking.status] += 1
 
   return {

@@ -368,8 +368,8 @@ describe('isTransportKind / TRANSPORT_KINDS', () => {
   })
 
   it('TRANSPORT_KINDS の内容', () => {
-    expect([...TRANSPORT_KINDS].sort()).toEqual(
-      ['bus', 'car', 'ferry', 'flight', 'train'].sort(),
+    expect(TRANSPORT_KINDS.toSorted()).toEqual(
+      ['bus', 'car', 'ferry', 'flight', 'train'].toSorted(),
     )
   })
 })

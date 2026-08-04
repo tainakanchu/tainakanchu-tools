@@ -103,6 +103,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/**
+ * 未知の値を issues のメッセージに埋め込むための表現に変える。
+ *
+ * 文字列・数値・真偽値はそのまま見せる(LLM が返す値のほとんどはこれで、
+ * 利用者は元の出力と突き合わせて原因を追える)。
+ * オブジェクトや配列を素朴に String() すると '[object Object]' に潰れて
+ * 何が来たのか分からなくなるので、JSON 表現にして中身を残す。
+ */
+function describeValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  if (typeof value === 'object') {
+    try {
+      // 循環参照では例外が飛ぶ。表示のためだけの処理なので握りつぶす
+      return JSON.stringify(value)
+    } catch {
+      return '不明な値'
+    }
+  }
+  // symbol や bigint など、JSON でも文字列でも素直に表せない値
+  return '不明な値'
+}
+
 // --- 寛容なテキスト → JSON 変換 ---
 
 /** ```json ... ``` のフェンス。言語指定は任意で、閉じていることを前提とする */
@@ -455,7 +480,9 @@ function convertBooking(
   if (isBookingKind(raw.kind)) {
     kind = raw.kind
   } else if (raw.kind !== null && raw.kind !== undefined) {
-    push(`kind '${String(raw.kind)}' は未知の種別なので 'other' にしました`)
+    push(
+      `kind '${describeValue(raw.kind)}' は未知の種別なので 'other' にしました`,
+    )
   }
 
   const startResult = toStamp(raw.start, 'start', fallbackTz)
@@ -484,7 +511,7 @@ function convertBooking(
     status = raw.status
   } else if (raw.status !== null && raw.status !== undefined) {
     push(
-      `status '${String(raw.status)}' は未知の値なので '${DEFAULT_STATUS}' にしました`,
+      `status '${describeValue(raw.status)}' は未知の値なので '${DEFAULT_STATUS}' にしました`,
     )
   }
 
@@ -493,7 +520,7 @@ function convertBooking(
     payment = raw.payment
   } else if (raw.payment !== null && raw.payment !== undefined) {
     push(
-      `payment '${String(raw.payment)}' は未知の値なので '${DEFAULT_PAYMENT}' にしました`,
+      `payment '${describeValue(raw.payment)}' は未知の値なので '${DEFAULT_PAYMENT}' にしました`,
     )
   }
 

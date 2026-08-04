@@ -117,9 +117,13 @@ function coordsOf(place: Place): Coords | null {
   return { lat, lng }
 }
 
+/** 度をラジアンに直す。距離計算のたびに作り直す必要はないのでモジュール側に置く */
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180
+}
+
 /** Haversine 距離 (km) */
 function distanceKm(a: Coords, b: Coords): number {
-  const toRad = (deg: number): number => (deg * Math.PI) / 180
   const lat1 = toRad(a.lat)
   const lat2 = toRad(b.lat)
   const dLat = toRad(b.lat - a.lat)
@@ -389,12 +393,12 @@ export function findItineraryIssues(
   const entries = alive
     .map(toEntry)
     .filter((entry): entry is Entry => entry !== null)
-    .sort(compareEntries)
+    .toSorted(compareEntries)
 
   const issues = [
     ...findContinuityIssues(entries),
     ...findMissingLodgingIssues(entries, alive),
   ]
-  // 同じ日に複数出る場合の並びは検出順のまま(sort は安定)
-  return issues.sort((a, b) => a.date.localeCompare(b.date))
+  // 同じ日に複数出る場合の並びは検出順のまま(toSorted も安定ソート)
+  return issues.toSorted((a, b) => a.date.localeCompare(b.date))
 }

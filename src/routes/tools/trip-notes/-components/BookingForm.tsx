@@ -52,6 +52,31 @@ import type {
 } from '../../../../lib/trip-notes/types'
 import type { TripNotesDispatch } from '../-lib/reducer'
 
+/**
+ * <select> から返る値を型に戻すための番人。
+ *
+ * option は BOOKING_KINDS などから生成しているので、実際には妥当な値しか来ない。
+ * それでも event.target.value の型は string でしかないので、アサーションで
+ * 押し込むと、将来 option を手書きしたり値を打ち間違えたりしたときに、
+ * 型としては通るのに実体は不正、という状態がそのまま Booking に入ってしまう。
+ * 該当しない値が来たら「何もしない(今の選択を保つ)」に倒しておく。
+ */
+const BOOKING_KIND_SET = new Set<string>(BOOKING_KINDS)
+const BOOKING_STATUS_SET = new Set<string>(BOOKING_STATUSES)
+const PAYMENT_STATUS_SET = new Set<string>(PAYMENT_STATUSES)
+
+function isBookingKind(value: string): value is BookingKind {
+  return BOOKING_KIND_SET.has(value)
+}
+
+function isBookingStatus(value: string): value is BookingStatus {
+  return BOOKING_STATUS_SET.has(value)
+}
+
+function isPaymentStatus(value: string): value is PaymentStatus {
+  return PAYMENT_STATUS_SET.has(value)
+}
+
 interface BookingFormProps {
   /** 編集なら既存の予約、新規なら null */
   booking: Booking | null
@@ -411,9 +436,10 @@ export function BookingForm({
             <span className={labelClass}>種別</span>
             <select
               value={form.kind}
-              onChange={(event) =>
-                set('kind', event.target.value as BookingKind)
-              }
+              onChange={(event) => {
+                const next = event.target.value
+                if (isBookingKind(next)) set('kind', next)
+              }}
               className={`${fieldClass} ${ufc('kind')}`}
             >
               {BOOKING_KINDS.map((kind) => (
@@ -561,9 +587,10 @@ export function BookingForm({
                 <span className={labelClass}>予約状況</span>
                 <select
                   value={form.status}
-                  onChange={(event) =>
-                    set('status', event.target.value as BookingStatus)
-                  }
+                  onChange={(event) => {
+                    const next = event.target.value
+                    if (isBookingStatus(next)) set('status', next)
+                  }}
                   className={`${fieldClass} ${ufc('status')}`}
                 >
                   {BOOKING_STATUSES.map((status) => (
@@ -579,9 +606,10 @@ export function BookingForm({
                 <span className={labelClass}>支払状況</span>
                 <select
                   value={form.payment}
-                  onChange={(event) =>
-                    set('payment', event.target.value as PaymentStatus)
-                  }
+                  onChange={(event) => {
+                    const next = event.target.value
+                    if (isPaymentStatus(next)) set('payment', next)
+                  }}
                   className={`${fieldClass} ${ufc('payment')}`}
                 >
                   {PAYMENT_STATUSES.map((payment) => (

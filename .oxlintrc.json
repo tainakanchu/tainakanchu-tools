@@ -63,7 +63,13 @@
     "import/no-duplicates": "error",
     // suspicious カテゴリで有効になる。CSS の side-effect import (main.tsx の
     // `import './styles.css'`) は正当なパターンなので allow で明示的に許可する。
-    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    // temporal-polyfill/types/global (src/temporal.d.ts) も同様。こちらは
+    // Temporal のグローバル型宣言を読み込むためだけの import で、実体は 0 バイトの
+    // .js。実行時のコードは 1 バイトも含まないので副作用の心配がない。
+    "import/no-unassigned-import": [
+      "error",
+      { "allow": ["**/*.css", "temporal-polyfill/types/global"] }
+    ],
 
     // eslint-plugin-n の node/prefer-node-protocol 相当 (oxlint では unicorn plugin 所属)
     "unicorn/prefer-node-protocol": "error",

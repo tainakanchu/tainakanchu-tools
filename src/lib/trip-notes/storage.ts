@@ -92,6 +92,19 @@ function isPaymentStatus(value: unknown): value is PaymentStatus {
 }
 
 /**
+ * unknown を「プロパティを読める形」に絞るための門番。
+ * 外部由来 JSON を扱う各 parse 関数が最初に通す。
+ *
+ * typeof 'object' で見ているだけなので配列もここは通過する。
+ * 意図的にそうしている: 各 parse 関数は必須プロパティの型
+ * (name が文字列、id が文字列……)で弾くので、配列が来ても結局落ちる。
+ * ここで配列を除外しても結果は変わらず、判定条件が二重になるだけになる。
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
  * Stamp の妥当性を検証する。
  * zdt が文字列、allDay が真偽値であることに加えて、tryParseStamp が実際に
  * Temporal.ZonedDateTime として解釈できることを要求する。
@@ -102,9 +115,8 @@ function isPaymentStatus(value: unknown): value is PaymentStatus {
  *  各フィールド単体では妥当でも組み合わせると不正、というケースが構造的に起きない)。
  */
 function isStamp(value: unknown): value is Stamp {
-  if (typeof value !== 'object' || value === null) return false
-  const record = value as Record<string, unknown>
-  const { zdt, allDay } = record
+  if (!isRecord(value)) return false
+  const { zdt, allDay } = value
   if (typeof zdt !== 'string') return false
   if (typeof allDay !== 'boolean') return false
   return tryParseStamp({ zdt, allDay }) !== null
@@ -116,9 +128,8 @@ function isStamp(value: unknown): value is Stamp {
  * 地図表示が赤道とグリニッジ子午線の交点というまったく見当違いの位置を指してしまう。
  */
 function parsePlace(raw: unknown): Place | undefined {
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const value = raw as Record<string, unknown>
-  const { name, localName, address, lat, lng } = value
+  if (!isRecord(raw)) return undefined
+  const { name, localName, address, lat, lng } = raw
   if (typeof name !== 'string') return undefined
 
   const place: Place = { name }
@@ -131,9 +142,8 @@ function parsePlace(raw: unknown): Place | undefined {
 
 /** Money は amount が有限数、currency が文字列であることを要求する */
 function parseMoney(raw: unknown): Money | undefined {
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const value = raw as Record<string, unknown>
-  const { amount, currency } = value
+  if (!isRecord(raw)) return undefined
+  const { amount, currency } = raw
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return undefined
   if (typeof currency !== 'string') return undefined
   return { amount, currency }
@@ -154,10 +164,9 @@ function parseUnverified(raw: unknown): Array<FieldKey> | undefined {
 function parseEvidence(
   raw: unknown,
 ): Partial<Record<FieldKey, string>> | undefined {
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const value = raw as Record<string, unknown>
+  if (!isRecord(raw)) return undefined
   const evidence: Partial<Record<FieldKey, string>> = {}
-  for (const [key, v] of Object.entries(value)) {
+  for (const [key, v] of Object.entries(raw)) {
     if (isFieldKey(key) && typeof v === 'string') {
       evidence[key] = v
     }
@@ -188,8 +197,8 @@ function parseEvidence(
  * 静かにずれた時刻には気づけない。だから「(気づける形で)消える」ほうを選ぶ。
  */
 export function parseBooking(raw: unknown): Booking | null {
-  if (typeof raw !== 'object' || raw === null) return null
-  const value = raw as Record<string, unknown>
+  if (!isRecord(raw)) return null
+  const value = raw
 
   const { id, kind, title, status, payment } = value
   if (typeof id !== 'string') return null
@@ -252,9 +261,8 @@ export function parseBooking(raw: unknown): Booking | null {
 
 /** EmergencyContact: id/label/value が必須。note は文字列のときだけ採用する */
 function parseEmergencyContact(raw: unknown): EmergencyContact | null {
-  if (typeof raw !== 'object' || raw === null) return null
-  const record = raw as Record<string, unknown>
-  const { id, label, value, note } = record
+  if (!isRecord(raw)) return null
+  const { id, label, value, note } = raw
   if (typeof id !== 'string') return null
   if (typeof label !== 'string') return null
   if (typeof value !== 'string') return null
@@ -286,8 +294,8 @@ export function createInitialState(today: string): TripNotesState {
  * bookings / emergencyContacts は要素単位で検証し、不正な要素だけを黙って落とす。
  */
 export function parseTripNotesState(raw: unknown): TripNotesState | null {
-  if (typeof raw !== 'object' || raw === null) return null
-  const data = raw as Record<string, unknown>
+  if (!isRecord(raw)) return null
+  const data = raw
   if (data.schemaVersion !== 1) return null
   if (
     typeof data.startDate !== 'string' ||
