@@ -2,7 +2,7 @@
  * 進捗ダッシュボード。「あと何を予約すればいいか」を1画面で伝える3段構成。
  *
  * 1段目(穴アラート)を最優先で最大サイズにしているのは、
- * 「寝る場所がない夜」と「移動の穴」が旅行の破綻に直結する一方、
+ * 「寝る場所がない夜」と「旅程の不整合」が旅行の破綻に直結する一方、
  * 支払い漏れなどは(気まずいが)現地で何とかなることが多いため。
  * 情報の重大度と画面上の面積を一致させる。
  */
@@ -16,12 +16,12 @@ import {
   CircleHelp,
   ClipboardList,
   PiggyBank,
-  Route,
   Wallet,
 } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { formatDaysLeft, formatMoney } from '../-lib/format'
-import { cardClass, sectionTitleClass, subtleButtonClass } from '../-lib/styles'
+import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { ItineraryIssueList } from './ItineraryIssueList'
 import { NightCoverageStrip } from './NightCoverageStrip'
 import type {
   BudgetByCurrency,
@@ -34,7 +34,7 @@ interface ProgressPanelProps {
   state: TripNotesState
   summary: TripSummary
   displayTz: string
-  /** 夜カバレッジ帯のセル・移動の穴カードから、日程タブの該当日へ飛ぶ */
+  /** 夜カバレッジ帯・不整合カードから、日程タブの該当日へ飛ぶ */
   onSelectDate: (date: string) => void
   /** 「要確認 N件」から未確認の予約がある日へ飛ぶ */
   onJumpToUnverified: () => void
@@ -244,7 +244,7 @@ export function ProgressPanel({
   onJumpToUnverified,
 }: ProgressPanelProps) {
   const hasHoles =
-    summary.uncoveredNights > 0 || summary.transportGaps.length > 0
+    summary.uncoveredNights > 0 || summary.itineraryIssues.length > 0
 
   const confirmedCount = summary.statusCounts.confirmed
   const tentativeCount = summary.statusCounts.idea + summary.statusCounts.held
@@ -304,9 +304,9 @@ export function ProgressPanel({
               ／
             </span>
             <span className="text-sm font-medium">
-              移動の穴:{' '}
+              旅程の不整合:{' '}
               <span className="text-2xl font-bold tabular-nums">
-                {summary.transportGaps.length}
+                {summary.itineraryIssues.length}
               </span>
               件
             </span>
@@ -316,7 +316,7 @@ export function ProgressPanel({
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
           <CheckCircle2 size={20} aria-hidden="true" />
           <p className="text-sm font-semibold">
-            穴はありません。寝る場所も移動もすべて確保できています
+            穴はありません。寝る場所も移動のつながりもすべて確保できています
           </p>
         </div>
       )}
@@ -379,39 +379,16 @@ export function ProgressPanel({
         </div>
       ) : null}
 
-      {/* 移動の穴: 宿は取れているのに間の移動手段が未登録の箇所 */}
-      {summary.transportGaps.length > 0 ? (
-        <div className="mt-4">
-          <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
-            <Route size={13} aria-hidden="true" />
-            移動の穴
-          </p>
-          <ul className="space-y-2">
-            {summary.transportGaps.map((gap) => (
-              <li
-                key={`${gap.fromBookingId}-${gap.toBookingId}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium text-amber-900">
-                    {gap.fromLabel} → {gap.toLabel} の移動が未登録です
-                  </p>
-                  <p className="text-xs text-amber-700">
-                    {formatDateJa(gap.date)} に移動が必要
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectDate(gap.date)}
-                  className={subtleButtonClass}
-                >
-                  日程で追加する
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      {/*
+        旅程の不整合。移動の穴(derive.ts の findTransportGaps)だけを出していた
+        場所を置き換えたもので、宿と宿の間に加えて、到着地と次の予約の食い違いや
+        移動と移動の間の宿抜けまで拾う。lib 側の findTransportGaps は
+        後方互換のため残っているが、画面はこちらだけを見る
+      */}
+      <ItineraryIssueList
+        issues={summary.itineraryIssues}
+        onSelectDate={onSelectDate}
+      />
     </section>
   )
 }
