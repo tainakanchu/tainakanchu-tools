@@ -169,6 +169,35 @@ export interface TransportGap {
   toLabel: string
 }
 
+/**
+ * 旅程の場所の連続性が壊れている箇所の種別。
+ * TransportGap が宿と宿の間だけを見るのに対し、こちらは
+ * 「予約の終わりにいる場所」と「次の予約の始まりにいる場所」を通しで見る。
+ */
+export type ItineraryIssueKind =
+  /** 場所が変わるのに、その間に移動の予約がない */
+  | 'missing-transport'
+  /** 移動の到着地と、次の予約の場所が食い違う */
+  | 'location-mismatch'
+  /** 移動と移動の間に夜をまたぐのに、宿泊予約がない */
+  | 'missing-lodging'
+  /** 移動の出発地が、直前にいた場所と食い違う */
+  | 'departure-mismatch'
+
+export interface ItineraryIssue {
+  kind: ItineraryIssueKind
+  /** 問題が起きる日 (YYYY-MM-DD) */
+  date: string
+  /** 手前側の予約。旅程の先頭など該当がなければ null */
+  fromBookingId: string | null
+  /** 後ろ側の予約。該当がなければ null */
+  toBookingId: string | null
+  fromLabel: string
+  toLabel: string
+  /** 利用者向けの説明文。「次に何をすればよいか」まで含める */
+  message: string
+}
+
 export interface CancelDeadline {
   bookingId: string
   title: string
@@ -212,6 +241,11 @@ export interface TripSummary {
   /** 未確認フィールドが残っている予約数 */
   unverifiedCount: number
   transportGaps: Array<TransportGap>
+  /**
+   * 旅程全体の場所の連続性から出た不整合。
+   * transportGaps(宿と宿の間だけ)の上位互換だが、UI の移行が済むまで両方持つ。
+   */
+  itineraryIssues: Array<ItineraryIssue>
   cancelDeadlines: Array<CancelDeadline>
   budget: Array<BudgetByCurrency>
   currentAndNext: CurrentAndNext
