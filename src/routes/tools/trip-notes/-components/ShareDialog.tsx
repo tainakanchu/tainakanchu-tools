@@ -6,18 +6,16 @@
  * URLの生成自体は完全にクライアント側で完結する。
  *
  * QRコードは常に出すわけではない。予約が増えるとpayloadが伸び、
- * QRの実用上限(QR_SAFE_LENGTH)を超えることがあるため、超えた場合は
+ * QRの実用上限(QR_SAFE_BYTES)を超えることがあるため、超えた場合は
  * QRを諦めてURLコピーに誘導する(中途半端に読み取れないQRを出すほうが有害)。
+ * 判定に使うのは文字数ではなく圧縮後のバイト数。漢字URLだと1文字が14bitを運ぶうえ
+ * URL上では1文字3バイトに膨らむので、文字数はQR容量とまったく相関しない。
  */
 
 import { useEffect, useId, useState } from 'react'
 import { Check, Copy, Loader2, Share2, X } from 'lucide-react'
 import QRCode from 'qrcode'
-import {
-  QR_SAFE_LENGTH,
-  encodeShareUrl,
-  estimateShareSize,
-} from '../../../../lib/trip-notes/share'
+import { QR_SAFE_BYTES, buildShare } from '../../../../lib/trip-notes/share'
 import { copyText } from '../-lib/format'
 import { useDialogFocus } from '../-lib/focusTrap'
 import {
@@ -41,9 +39,12 @@ type ShareResult =
 export function ShareDialog({ state, onClose }: ShareDialogProps) {
   const titleId = useId()
   const urlInputId = useId()
+  const kanjiToggleId = useId()
 
   const [result, setResult] = useState<ShareResult>({ status: 'loading' })
   const [copied, setCopied] = useState(false)
+  // 漢字URLはネタなので既定はオフ。明示的に選んだときだけ marker '3' で作る
+  const [kanji, setKanji] = useState(false)
   const panelRef = useDialogFocus<HTMLDivElement>({ onClose })
   const shareSupported =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function'
@@ -62,36 +63,48 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
     async function run() {
       try {
         const baseUrl = `${window.location.origin}${window.location.pathname}`
-        const [url, size] = await Promise.all([
-          encodeShareUrl(state, baseUrl),
-          estimateShareSize(state),
-        ])
+        const share = await buildShare(state, baseUrl, { cjk: kanji })
         if (!isAlive()) return
 
         let qrDataUrl: string | null = null
-        if (size <= QR_SAFE_LENGTH) {
+        // 漢字URLはQRに載せない。qrcode は漢字モードが有効な環境で
+        // SJIS に無い CJK 文字を渡すと throw するうえ、%エンコード後の
+        // バイト数が3倍になってそもそも容量に収まらない
+        if (!kanji && share.byteLength <= QR_SAFE_BYTES) {
           try {
-            qrDataUrl = await QRCode.toDataURL(url, { width: 256, margin: 1 })
+            qrDataUrl = await QRCode.toDataURL(share.url, {
+              width: 256,
+              margin: 1,
+            })
           } catch {
             // QR化に失敗しても共有URL自体は使えるので、QRを諦めるだけに留める
             qrDataUrl = null
           }
         }
         if (!isAlive()) return
-        setResult({ status: 'ready', url, size, qrDataUrl })
+        setResult({
+          status: 'ready',
+          url: share.url,
+          size: share.length,
+          qrDataUrl,
+        })
       } catch {
         if (isAlive()) setResult({ status: 'error' })
       }
     }
 
+    setResult({ status: 'loading' })
     void run()
     return () => {
       alive.current = false
     }
-  }, [state])
+  }, [state, kanji])
 
   const handleCopy = async () => {
     if (result.status !== 'ready') return
+    // アプリが持っている文字列そのものをコピーする。
+    // アドレスバーからコピーすると %E8%B2%9E... の形に戻ってしまうので、
+    // 漢字のまま渡せるのはこの経路だけ
     const ok = await copyText(result.url)
     setCopied(ok)
     if (ok) {
@@ -195,17 +208,18 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
                   同行者のスマホのカメラで読み取ってもらえます。
                 </p>
               </div>
-            ) : (
+            ) : null}
+
+            {result.qrDataUrl === null && !kanji ? (
               <p
                 role="alert"
                 className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
               >
                 予約が多いためQRコードは使えません(
-                {result.size.toLocaleString('ja-JP')}文字 / 上限
-                {QR_SAFE_LENGTH.toLocaleString('ja-JP')}文字)。
+                {result.size.toLocaleString('ja-JP')}文字)。
                 URLをコピーして共有してください。
               </p>
-            )}
+            ) : null}
 
             {shareSupported ? (
               <button
@@ -218,6 +232,44 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
                 <Share2 size={16} />
                 共有する
               </button>
+            ) : null}
+
+            <div className="rounded-lg border border-gray-200 px-3 py-2">
+              <label
+                htmlFor={kanjiToggleId}
+                className="flex items-center gap-2 text-sm text-gray-700"
+              >
+                <input
+                  id={kanjiToggleId}
+                  type="checkbox"
+                  checked={kanji}
+                  onChange={(e) => setKanji(e.currentTarget.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                />
+                URLを漢字にする(ネタ)
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                同じ内容を漢字だけで書き表します。文字数は半分以下になりますが、
+                実際に送れる量が増えるわけではありません。
+              </p>
+            </div>
+
+            {kanji ? (
+              <ul
+                role="alert"
+                className="list-disc space-y-1 rounded-lg bg-amber-50 px-3 py-2 pl-7 text-xs text-amber-900"
+              >
+                <li>LINEなどでリンクが途中で切れることがあります。</li>
+                <li>
+                  ブラウザのアドレスバーからコピーすると
+                  <span className="font-mono">%E8%B2%9E…</span>
+                  のような形式に戻ります。このダイアログのコピーボタンを使ってください。
+                </li>
+                <li>
+                  SMSでは送らないでください(文字数制限が一気に厳しくなります)。
+                </li>
+                <li>QRコードは作れません。</li>
+              </ul>
             ) : null}
 
             <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-900">
