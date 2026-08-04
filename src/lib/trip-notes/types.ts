@@ -183,9 +183,24 @@ export type ItineraryIssueKind =
   | 'missing-lodging'
   /** 移動の出発地が、直前にいた場所と食い違う */
   | 'departure-mismatch'
+  /**
+   * 同じ場所に着いて同じ場所から発つ、夜をまたぐ乗り継ぎ。
+   * 空港で夜を明かす前提なら宿は要らないので警告ではないが、
+   * 「長い待ち時間なので宿を取りたい」人のために存在だけ知らせる。
+   */
+  | 'layover'
+
+/**
+ * 指摘の強さ。
+ * 'warning' は旅程が壊れている(直さないと現地で困る)、
+ * 'info' は壊れてはいないが利用者に判断してほしいもの。
+ * 画面の「穴アラート」の点灯や件数は warning だけで数える。
+ */
+export type ItineraryIssueSeverity = 'warning' | 'info'
 
 export interface ItineraryIssue {
   kind: ItineraryIssueKind
+  severity: ItineraryIssueSeverity
   /** 問題が起きる日 (YYYY-MM-DD) */
   date: string
   /** 手前側の予約。旅程の先頭など該当がなければ null */

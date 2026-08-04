@@ -27,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
+import { warningIssuesOf } from '../../../../lib/trip-notes/itinerary'
 import { formatDaysLeft, formatMoney } from '../-lib/format'
 import { KANBAN_AXIS_LABELS } from '../-lib/kanban'
 import { cardClass, sectionTitleClass } from '../-lib/styles'
@@ -311,8 +312,10 @@ export function ProgressPanel({
   const [view, setView] = useState<ProgressView>('list')
   const [axis, setAxis] = useState<KanbanAxis>('status')
 
-  const hasHoles =
-    summary.uncoveredNights > 0 || summary.itineraryIssues.length > 0
+  // 乗り継ぎの案内(severity: 'info')は直す対象ではないので、
+  // 赤いアラートの点灯にも件数にも数えない
+  const warningIssues = warningIssuesOf(summary.itineraryIssues)
+  const hasHoles = summary.uncoveredNights > 0 || warningIssues.length > 0
 
   const confirmedCount = summary.statusCounts.confirmed
   const tentativeCount = summary.statusCounts.idea + summary.statusCounts.held
@@ -385,7 +388,7 @@ export function ProgressPanel({
             <span className="text-sm font-medium">
               旅程の不整合:{' '}
               <span className="text-2xl font-bold tabular-nums">
-                {summary.itineraryIssues.length}
+                {warningIssues.length}
               </span>
               件
             </span>

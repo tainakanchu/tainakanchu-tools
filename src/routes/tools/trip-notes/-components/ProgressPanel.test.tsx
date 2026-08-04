@@ -294,6 +294,44 @@ describe('旅程の整合性チェックの表示', () => {
     expect(banner?.textContent).toContain('1')
   })
 
+  it('乗り継ぎの案内は不整合として数えず、別の見出しで出す', () => {
+    // 同じ空港に着いて同じ空港から発つ乗り継ぎ。宿は無いが直す対象ではないので、
+    // 赤いアラートを点けず「確認しておきたい点」として出す。
+    // 旅行期間を 6/13 の 1 日だけにして、寝る場所の穴のほうでアラートが
+    // 点かないようにしてある(点くと severity の切り分けが見えない)
+    const layover = makeState([
+      makeBooking('leg1', {
+        kind: 'flight',
+        title: '羽田 → ニューデリー',
+        start: { zdt: '2026-06-12T11:15:00+09:00[Asia/Tokyo]', allDay: false },
+        end: { zdt: '2026-06-12T17:35:00+05:30[Asia/Kolkata]', allDay: false },
+        from: { name: '羽田空港' },
+        to: { name: 'インディラ・ガンディー国際空港 T3' },
+      }),
+      makeBooking('leg2', {
+        kind: 'flight',
+        title: 'ニューデリー → パリ',
+        start: {
+          zdt: '2026-06-13T12:20:00+05:30[Asia/Kolkata]',
+          allDay: false,
+        },
+        end: { zdt: '2026-06-13T17:20:00+02:00[Europe/Paris]', allDay: false },
+        from: { name: 'インディラ・ガンディー国際空港 T3' },
+        to: { name: 'パリ' },
+      }),
+    ])
+    const { container } = renderPanel({
+      ...layover,
+      startDate: '2026-06-13',
+      endDate: '2026-06-13',
+    })
+
+    expect(screen.getByText('確認しておきたい点')).toBeTruthy()
+    expect(screen.getByText('乗り継ぎ')).toBeTruthy()
+    expect(screen.queryByText('旅程の不整合')).toBeNull()
+    expect(container.querySelector('.bg-rose-50')).toBeNull()
+  })
+
   it('不整合が無ければアラートも一覧も出ない', () => {
     // 寝る場所の穴も無い状態にする(どちらか片方でもアラートは点く)
     const clean = makeState([

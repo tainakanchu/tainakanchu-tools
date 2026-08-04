@@ -105,6 +105,13 @@ const MAX_STAY_NIGHTS = 366
 const ALL_DAY_MOVE_HOUR = 12
 const ALL_DAY_STAY_HOUR = 18
 
+/**
+ * 乗り継ぎとみなす、到着から次の出発までの上限。
+ * これを超えるなら、同じ空港に戻ってくるだけの往復であっても
+ * 街に出て泊まるのが普通なので、宿が無いことを警告として扱う。
+ */
+const LAYOVER_MAX_MS = 24 * 60 * 60 * 1000
+
 // --- 場所の取り出し ---
 
 /** 中身が空の Place は「場所が入っていない」として扱う */
@@ -244,6 +251,10 @@ export function isSamePlace(a: Place, b: Place): boolean {
 
 interface Entry {
   booking: Booking
+  /** 開始の絶対時刻。乗り継ぎ時間の計算に使う実際の値 */
+  startEpochMs: number
+  /** 終了の絶対時刻。end が無ければ開始と同じ */
+  endEpochMs: number
   /** 並び替えの鍵。終日はみなしの時刻に寄せてあるので実際の epoch とは違う */
   sortEpochMs: number
   /** 現地時間での開始日 (YYYY-MM-DD) */
@@ -277,6 +288,8 @@ function toEntry(booking: Booking): Entry | null {
   const isMove = isMoveBooking(booking)
   return {
     booking,
+    startEpochMs: start.epochMilliseconds,
+    endEpochMs: (end ?? start).epochMilliseconds,
     sortEpochMs: sortEpochOf(start, booking.start.allDay, isMove),
     startDate: start.toPlainDate().toString(),
     endDate: (end ?? start).toPlainDate().toString(),
@@ -364,6 +377,7 @@ function findContinuityIssues(entries: Array<Entry>): Array<ItineraryIssue> {
     const toLabel = placeLabel(to, next.booking)
     issues.push({
       kind,
+      severity: 'warning',
       date,
       fromBookingId: prev.booking.id,
       toBookingId: next.booking.id,
@@ -390,6 +404,27 @@ function lodgingCoversNight(booking: Booking, nightDate: string): boolean {
 }
 
 /**
+ * 到着と次の出発が「乗り継ぎ」か。
+ *
+ * 空港で夜を明かす乗り継ぎに「宿泊が未予約」と出しても直しようがないので、
+ * 次の 3 つがそろったときだけ乗り継ぎとみなす。
+ * - 到着地と次の出発地が同じ場所
+ * - その間に他の予約が 1 つも無い(街に出る予定があるなら乗り継ぎではない)
+ * - 到着から出発まで LAYOVER_MAX_MS 未満
+ *
+ * 時間の条件が要るのは、場所が同じだけでは往復の起点と区別できないため。
+ * 「パリに着いて 2 日後にパリから発つ」は同じ場所だが、
+ * これは乗り継ぎではなくパリ滞在であって、宿が要る。
+ */
+function isLayover(arrive: Entry, depart: Entry, adjacent: boolean): boolean {
+  if (!adjacent) return false
+  if (arrive.placeEnd === null || depart.placeStart === null) return false
+  if (!isSamePlace(arrive.placeEnd, depart.placeStart)) return false
+  const waitMs = depart.startEpochMs - arrive.endEpochMs
+  return waitMs >= 0 && waitMs < LAYOVER_MAX_MS
+}
+
+/**
  * 移動と移動に挟まれた滞在に、宿泊の予約があるか。
  *
  * nights.ts も「寝る場所がない夜」を出すが、あちらは旅行期間の全夜を走査する。
@@ -399,18 +434,26 @@ function lodgingCoversNight(booking: Booking, nightDate: string): boolean {
  *
  * 到着日と出発日はそれぞれの現地日付で数える。時差のある区間では
  * 絶対時刻の差から泊数を割り出すと 1 泊ずれるが、人が寝るのは現地の夜だからである。
+ *
+ * 同一地点での乗り継ぎだけは警告ではなく情報として出す(isLayover 参照)。
+ * 黙って消さないのは、待ち時間が長ければ空港近くの宿を取りたい人がいるためで、
+ * 「ここは乗り継ぎです」と見えていれば利用者自身が判断できる。
  */
 function findMissingLodgingIssues(
   entries: Array<Entry>,
   alive: Array<Booking>,
 ): Array<ItineraryIssue> {
-  const moves = entries.filter((entry) => entry.isMove)
+  // 「間に他の予約が無いか」を見たいので、元の並びでの位置も持ち歩く
+  const moves: Array<{ entry: Entry; index: number }> = []
+  for (const [index, entry] of entries.entries()) {
+    if (entry.isMove) moves.push({ entry, index })
+  }
   const lodgings = alive.filter((booking) => booking.kind === 'lodging')
 
   const issues: Array<ItineraryIssue> = []
   for (let i = 0; i + 1 < moves.length; i++) {
-    const arrive = moves[i]
-    const depart = moves[i + 1]
+    const arrive = moves[i].entry
+    const depart = moves[i + 1].entry
     // 同日中に乗り継ぐだけなら夜をまたがないので宿は要らない
     const nightCount = diffDays(arrive.endDate, depart.startDate)
     if (nightCount <= 0) continue
@@ -429,21 +472,38 @@ function findMissingLodgingIssues(
 
     const fromLabel = placeLabel(arrive.placeEnd, arrive.booking)
     const toLabel = placeLabel(depart.placeStart, depart.booking)
+    const adjacent = moves[i + 1].index === moves[i].index + 1
+    const layover = isLayover(arrive, depart, adjacent)
+    const span = `${formatDateJa(arrive.endDate)} に到着してから ${formatDateJa(depart.startDate)} の出発まで`
     const area = arrive.placeEnd === null ? '' : `${fromLabel} 周辺の`
     issues.push({
-      kind: 'missing-lodging',
+      kind: layover ? 'layover' : 'missing-lodging',
+      severity: layover ? 'info' : 'warning',
       date: firstUncovered,
       fromBookingId: arrive.booking.id,
       toBookingId: depart.booking.id,
       fromLabel,
       toLabel,
-      message: `${formatDateJa(arrive.endDate)} に到着してから ${formatDateJa(depart.startDate)} の出発まで、宿泊の予約がありません。${area}宿を追加してください`,
+      message: layover
+        ? `${span}、${fromLabel} での乗り継ぎです。空港で待つなら宿は要りませんが、休みたい場合は${area}宿を追加してください`
+        : `${span}、宿泊の予約がありません。${area}宿を追加してください`,
     })
   }
   return issues
 }
 
 // --- 公開 API ---
+
+/**
+ * 警告として扱う指摘だけを残す。
+ * 乗り継ぎの案内(severity: 'info')まで「旅程の不整合」として数えると、
+ * 直しようのない件数がアラートに乗って、本当の穴が埋もれる。
+ */
+export function warningIssuesOf(
+  issues: Array<ItineraryIssue>,
+): Array<ItineraryIssue> {
+  return issues.filter((issue) => issue.severity === 'warning')
+}
 
 /**
  * 旅程の不整合を日付順に返す。

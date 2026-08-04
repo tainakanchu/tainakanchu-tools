@@ -12,6 +12,7 @@ import type { Booking, Place, TripNotesState } from './types'
 const TOKYO = 'Asia/Tokyo'
 const PARIS = 'Europe/Paris'
 const ROME = 'Europe/Rome'
+const DELHI = 'Asia/Kolkata'
 const ZURICH = 'Europe/Zurich'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
@@ -569,8 +570,8 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
       from: place('パリ'),
       to: place('ローマ'),
     })
-    const onward = booking({
-      id: 'onward',
+    const undecided = booking({
+      id: 'undecided',
       kind: 'other',
       title: 'ローマ → チューリッヒ',
       start: allDay('2026-06-12', ROME),
@@ -586,7 +587,7 @@ describe('findItineraryIssues: 終日の予定の並び', () => {
       end: allDay('2026-06-14', ZURICH),
       place: place('チューリッヒ'),
     })
-    expect(issuesOf([arrival, onward, zurichStay])).toEqual([])
+    expect(issuesOf([arrival, undecided, zurichStay])).toEqual([])
   })
 
   it('終日の滞在の翌朝に発つ移動は、これまでどおり滞在の後ろに来る', () => {
@@ -624,6 +625,7 @@ describe('findItineraryIssues: 手段未定の移動', () => {
     expect(issues).toHaveLength(1)
     expect(issues[0]).toMatchObject({
       kind: 'location-mismatch',
+      severity: 'warning',
       fromBookingId: 'undecided',
       toBookingId: 'rome-hotel',
     })
@@ -652,8 +654,96 @@ describe('findItineraryIssues: 手段未定の移動', () => {
     expect(issues).toHaveLength(1)
     expect(issues[0]).toMatchObject({
       kind: 'missing-lodging',
+      severity: 'warning',
       date: '2026-06-12',
     })
+  })
+})
+
+describe('findItineraryIssues: 同一地点での乗り継ぎ', () => {
+  // 座標を持たせて、空港と市内を同じ場所として扱わせる(約 11km)
+  const airport = place('インディラ・ガンディー国際空港 T3', {
+    lat: 28.5562,
+    lng: 77.1,
+  })
+  const city = place('ニューデリー', { lat: 28.6139, lng: 77.209 })
+
+  const leg1 = booking({
+    id: 'leg1',
+    kind: 'flight',
+    title: '羽田 → ニューデリー',
+    start: at('2026-06-12', '11:15', TOKYO),
+    end: at('2026-06-12', '17:35', DELHI),
+    from: place('羽田空港'),
+    to: airport,
+  })
+  const leg2 = booking({
+    id: 'leg2',
+    kind: 'flight',
+    title: 'ニューデリー → パリ',
+    start: at('2026-06-13', '12:20', DELHI),
+    end: at('2026-06-13', '17:20', PARIS),
+    from: airport,
+    to: place('パリ'),
+  })
+
+  it('夜をまたいでも同じ空港での待ち合わせなら layover として情報で出す', () => {
+    // 空港で夜を明かす前提なら宿は要らない。ただし「長い待ち時間なので宿を取りたい」
+    // 人もいるので、黙って消さずに乗り継ぎであることだけ伝える
+    const issues = issuesOf([leg1, leg2])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({
+      kind: 'layover',
+      severity: 'info',
+      date: '2026-06-12',
+      fromBookingId: 'leg1',
+      toBookingId: 'leg2',
+    })
+    expect(issues[0].message).toContain('乗り継ぎです')
+  })
+
+  it('24 時間以上空くなら乗り継ぎではなく宿の抜けとして警告する', () => {
+    // 6/12 17:35 着 → 6/13 19:00 発 = 25 時間 25 分。同じ空港でも街に出て泊まる長さ
+    const later = {
+      ...leg2,
+      start: at('2026-06-13', '19:00', DELHI),
+      end: at('2026-06-14', '00:20', PARIS),
+    }
+    const issues = issuesOf([leg1, later])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({
+      kind: 'missing-lodging',
+      severity: 'warning',
+    })
+  })
+
+  it('間に別の予約が挟まれば乗り継ぎとみなさない', () => {
+    // 空港を出る予定が入っているなら「待つだけ」ではないので、安全側に倒す
+    const sightseeing = booking({
+      id: 'sightseeing',
+      kind: 'activity',
+      title: '市内観光',
+      start: at('2026-06-12', '20:00', DELHI),
+      place: city,
+    })
+    const issues = issuesOf([leg1, sightseeing, leg2])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({
+      kind: 'missing-lodging',
+      severity: 'warning',
+    })
+  })
+
+  it('間の夜が宿で埋まっていれば乗り継ぎとしても報告しない', () => {
+    const hotel = booking({
+      id: 'transit-hotel',
+      kind: 'lodging',
+      title: 'ターミナル内のトランジットホテル',
+      start: at('2026-06-12', '19:00', DELHI),
+      end: at('2026-06-13', '09:00', DELHI),
+      place: airport,
+    })
+    expect(issuesOf([leg1, leg2, hotel])).toEqual([])
   })
 })
 
