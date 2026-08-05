@@ -840,4 +840,54 @@ describe('日程タブの予約カードはタップでその場に展開する'
     expect(container.querySelector('button a')).toBeNull()
     expect(container.querySelector('a button')).toBeNull()
   })
+
+  /**
+   * カレンダーへの 1 件登録リンク。
+   * 折りたたみ時に出さないのは、確定済みでも消えないリンクなので
+   * 常時出すと全カードに 1 行増えてしまうため(BookingCard の CalendarAddLink)。
+   */
+  function renderCard(booking: Booking, expanded: boolean) {
+    const { container } = render(
+      <BookingCard
+        booking={booking}
+        displayTz={tz}
+        expanded={expanded}
+        onToggleExpand={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onVerifyAll={noop}
+        onVerifyField={noop}
+      />,
+    )
+    return within(container)
+  }
+
+  it('Googleカレンダーに追加のリンクは展開したときだけ出る', () => {
+    const booking = bk('cal-1')
+    expect(
+      renderCard(booking, false).queryByRole('link', {
+        name: 'Googleカレンダーに追加',
+      }),
+    ).toBeNull()
+
+    const link = renderCard(booking, true).getByRole('link', {
+      name: 'Googleカレンダーに追加',
+    })
+    expect(link.getAttribute('href')).toContain(
+      'calendar.google.com/calendar/render',
+    )
+    // 外部リンクの流儀(SearchLinks と同じ)
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('キャンセル済みの予約には出さない', () => {
+    // 行かないと決めた予定をカレンダーに入れる意味はない(.ics 側の扱いと揃える)
+    expect(
+      renderCard(bk('cal-2', { status: 'cancelled' }), true).queryByRole(
+        'link',
+        { name: 'Googleカレンダーに追加' },
+      ),
+    ).toBeNull()
+  })
 })
