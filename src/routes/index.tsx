@@ -7,10 +7,10 @@ export const Route = createFileRoute('/')({
 function App() {
   const tools = [
     {
-      title: '免許証レイアウトメーカー',
+      title: '原寸レイアウトメーカー',
       description:
-        '免許証の画像を原寸大でA4に配置して印刷・PDF出力できるレイアウトツール。',
-      to: '/tools/license-layout',
+        '免許証やパスポートなどの書類画像を原寸大でA4に配置して印刷・PDF出力できるレイアウトツール。',
+      to: '/tools/actual-size-layout',
     },
     {
       title: '旅程パズル',

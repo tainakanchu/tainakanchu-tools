@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ToolsActualSizeLayoutIndexRouteImport } from './routes/tools/actual-size-layout/index'
 import { Route as ToolsDrumRollIndexRouteImport } from './routes/tools/drum-roll/index'
 import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/license-layout/index'
 import { Route as ToolsTripNotesIndexRouteImport } from './routes/tools/trip-notes/index'
@@ -20,6 +21,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsActualSizeLayoutIndexRoute =
+  ToolsActualSizeLayoutIndexRouteImport.update({
+    id: '/tools/actual-size-layout/',
+    path: '/tools/actual-size-layout/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ToolsDrumRollIndexRoute = ToolsDrumRollIndexRouteImport.update({
   id: '/tools/drum-roll/',
   path: '/tools/drum-roll/',
@@ -43,6 +50,7 @@ const ToolsTripSchedulerIndexRoute = ToolsTripSchedulerIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/tools/actual-size-layout/': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll/': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
@@ -50,6 +58,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/tools/actual-size-layout': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-notes': typeof ToolsTripNotesIndexRoute
@@ -58,6 +67,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/tools/actual-size-layout/': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll/': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
@@ -67,6 +77,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/tools/actual-size-layout/'
     | '/tools/drum-roll/'
     | '/tools/license-layout/'
     | '/tools/trip-notes/'
@@ -74,6 +85,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/tools/actual-size-layout'
     | '/tools/drum-roll'
     | '/tools/license-layout'
     | '/tools/trip-notes'
@@ -81,6 +93,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/tools/actual-size-layout/'
     | '/tools/drum-roll/'
     | '/tools/license-layout/'
     | '/tools/trip-notes/'
@@ -89,6 +102,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ToolsActualSizeLayoutIndexRoute: typeof ToolsActualSizeLayoutIndexRoute
   ToolsDrumRollIndexRoute: typeof ToolsDrumRollIndexRoute
   ToolsLicenseLayoutIndexRoute: typeof ToolsLicenseLayoutIndexRoute
   ToolsTripNotesIndexRoute: typeof ToolsTripNotesIndexRoute
@@ -102,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/actual-size-layout/': {
+      id: '/tools/actual-size-layout/'
+      path: '/tools/actual-size-layout'
+      fullPath: '/tools/actual-size-layout/'
+      preLoaderRoute: typeof ToolsActualSizeLayoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools/drum-roll/': {
@@ -137,6 +158,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ToolsActualSizeLayoutIndexRoute: ToolsActualSizeLayoutIndexRoute,
   ToolsDrumRollIndexRoute: ToolsDrumRollIndexRoute,
   ToolsLicenseLayoutIndexRoute: ToolsLicenseLayoutIndexRoute,
   ToolsTripNotesIndexRoute: ToolsTripNotesIndexRoute,
