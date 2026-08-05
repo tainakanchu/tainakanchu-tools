@@ -10,6 +10,7 @@ import {
 import { CityPool } from './-components/CityPool'
 import { ConstraintPanel } from './-components/ConstraintPanel'
 import { DataPanel } from './-components/DataPanel'
+import { HandoffPanel } from './-components/HandoffPanel'
 import { MetricsPanel } from './-components/MetricsPanel'
 import { NightsBudget } from './-components/NightsBudget'
 import { RouteMap } from './-components/RouteMap'
@@ -157,6 +158,12 @@ function TripSchedulerPage() {
                   dispatch={dispatch}
                 />
                 <MetricsPanel derived={derived} />
+                {/*
+                  指標のすぐ下に置く。「この案でよさそう」と納得した直後が、
+                  しおりへ渡したくなる瞬間だからである
+                  (データ書き出しより前に目に入る位置でもある)
+                */}
+                <HandoffPanel state={state} />
                 <DataPanel state={state} dispatch={dispatch} />
               </div>
             </div>
