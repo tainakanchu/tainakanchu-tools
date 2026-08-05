@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   activeStateOf,
+  addTripToLibrary,
   createInitialLibrary,
   loadLibrary,
   parseTripLibrary,
@@ -242,6 +243,28 @@ describe('saveLibrary / loadLibrary のラウンドトリップ', () => {
     // @ts-expect-error 保存できない環境(プライベートモード等)の再現
     delete globalThis.window
     expect(() => saveLibrary(makeLibrary())).not.toThrow()
+  })
+})
+
+describe('addTripToLibrary', () => {
+  it('末尾に足して、足した旅程がアクティブになる', () => {
+    const added = makeState({ tripTitle: 'パリ・ローマの旅' })
+    const next = addTripToLibrary(makeLibrary(), added)
+
+    expect(next.trips).toHaveLength(3)
+    expect(next.trips[2].state).toEqual(added)
+    expect(next.activeTripId).toBe(next.trips[2].id)
+    expect(activeStateOf(next)).toEqual(added)
+  })
+
+  it('既存の旅程には触れない(旅程パズルからの引き継ぎで消えないこと)', () => {
+    const before = makeLibrary()
+    const next = addTripToLibrary(before, makeState({ tripTitle: '追加分' }))
+
+    expect(next.trips.slice(0, 2)).toEqual(before.trips)
+    // 元の入れ物も書き換えない
+    expect(before.trips).toHaveLength(2)
+    expect(before.activeTripId).toBe('trip-b')
   })
 })
 

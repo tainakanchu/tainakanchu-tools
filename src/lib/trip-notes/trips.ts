@@ -142,6 +142,30 @@ export function saveLibrary(library: TripLibrary): void {
   }
 }
 
+/**
+ * 旅程を 1 件足して、それを開いた状態の入れ物を返す。
+ *
+ * 既存の旅程には一切触れない(並びも中身も保つ)。外から旅程を持ち込む導線
+ * (旅程パズルからの引き継ぎ、共有URL や JSON の取り込み)は、
+ * 「いまのデータが消えるかもしれない」と利用者に思わせた時点で使われなくなる。
+ * 追加しかしないと決めておけば、押す前に迷う理由が無くなる。
+ *
+ * 末尾に足すのは、旅程セレクタが作った順に並ぶほうが「さっき足したのはこれ」と
+ * 探しやすいため。足した旅程をそのまま開くのは、持ち込んだ直後に見たいのが
+ * その旅程だからで、開かずに足すと「押したのに何も起きていない」ように見える。
+ */
+export function addTripToLibrary(
+  library: TripLibrary,
+  state: TripNotesState,
+): TripLibrary {
+  const entry: TripEntry = { id: newId('trip'), state }
+  return {
+    ...library,
+    activeTripId: entry.id,
+    trips: [...library.trips, entry],
+  }
+}
+
 /** いま開いている旅程の状態 */
 export function activeStateOf(library: TripLibrary): TripNotesState {
   const active = library.trips.find((trip) => trip.id === library.activeTripId)
