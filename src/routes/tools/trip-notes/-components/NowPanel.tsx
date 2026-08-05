@@ -40,18 +40,23 @@ import {
   CircleDot,
   Clock,
   Copy,
+  ExternalLink,
   Flag,
   Globe,
+  Heart,
   IdCard,
   ListChecks,
   LogIn,
   LogOut,
   Luggage,
   MapPin,
+  Plus,
   Smartphone,
   TicketCheck,
   Timer,
+  X,
 } from 'lucide-react'
+import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { findCurrentAndNext } from '../../../../lib/trip-notes/derive'
 import {
@@ -70,6 +75,12 @@ import {
   tryParseStamp,
 } from '../../../../lib/trip-notes/datetime'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
+import { newId } from '../../../../lib/trip-notes/id'
+import { estimateCurrentPlaces } from '../../../../lib/trip-notes/whereabouts'
+import {
+  sortWishesForDisplay,
+  splitWishesForNow,
+} from '../../../../lib/trip-notes/wishes'
 import { copyText, formatCountdown, mapsUrl } from '../-lib/format'
 import {
   cardClass,
@@ -84,6 +95,7 @@ import type {
   Milestone,
   MilestoneKind,
 } from '../../../../lib/trip-notes/milestones'
+import type { CurrentPlaceGuess } from '../../../../lib/trip-notes/whereabouts'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
   Booking,
@@ -92,6 +104,7 @@ import type {
   Stamp,
   TravelDoc,
   TripNotesState,
+  Wish,
 } from '../../../../lib/trip-notes/types'
 
 interface NowPanelProps {
@@ -244,6 +257,12 @@ export function NowPanel({
     [state.bookings, nowMs],
   )
 
+  // いまどの町にいるか。やりたいことの持ち上げと、クイック追加のプリセットの両方が使う
+  const placeGuess = useMemo(
+    () => estimateCurrentPlaces(state, nowMs),
+    [state, nowMs],
+  )
+
   const hasAnyBooking = state.bookings.length > 0
   const hasNothingToShow = current.length === 0 && upcoming.length === 0
 
@@ -326,6 +345,20 @@ export function NowPanel({
         </>
       )}
 
+      {/*
+        やりたいこと。予約の有無と関係なく成り立つので、上の3分岐の外側に置く
+        (下の 2 つの控えと同じ理由)。控えより上にあるのは、こちらだけが
+        「その場で押して状態が変わる」ものだからである。プラグ形状や参照番号は
+        必要になったときに開けばよいが、やりたいことは歩きながら思い出して
+        1 行足す道具なので、開く手間の手前に置く。
+        マイルストーンのヒーローより下なのは変えない。この画面の主役は
+        あくまで「次に来る時刻」で、そこは動かさない
+      */}
+      <WishSection
+        wishes={state.wishes ?? []}
+        guess={placeGuess}
+        dispatch={dispatch}
+      />
       {/*
         手続きの控え(取得済みかつ参照番号があるものだけ)。予約の有無や
         現在地の判定と関係なく成り立つ情報なので、上の3分岐(空/期間外/
@@ -1023,6 +1056,341 @@ function UpcomingList({
         ))}
       </ul>
     </section>
+  )
+}
+
+// --- やりたいこと ---
+
+/**
+ * 滞在先でやりたいこと。
+ *
+ * ■ この画面が答えるべきこと
+ *   「いま滞在中の町でやりたいことが『今』のところで見られる」ことと、
+ *   「思い付いたその場で足せる」ことの 2 つだけである。編集(メモ・URL・場所の
+ *   付け替え)はここではやらない。歩きながら片手で使う画面に編集フォームを置くと、
+ *   1 行足すための入口が編集画面と紛れて、いちばん多い操作が遠くなる。
+ *   編集は設定タブが受け持つ。
+ *
+ * ■ 当たらなかったぶんを隠さない
+ *   いまの町の推定(whereabouts.ts)は外れることがある。だから他の町のぶんも
+ *   場所を書いていないぶんも <details> で必ず開ける形で残す。件数を summary に
+ *   出すのは、畳まれた中に何件あるかが見えないと「消えた」と読めてしまうため。
+ *   詳しくは wishes.ts の「マッチは持ち上げであってフィルタではない」を参照。
+ *
+ * ■ 推定できないときは束ねない
+ *   旅行前や移動中は突き合わせる相手がいない。そこで「ここでやりたいこと(0件)」と
+ *   空の見出しを出すと、画面はやりたいことが無いように見えるのに、折りたたみの中には
+ *   全部入っている、といういちばん分かりにくい状態になる。推定できないときは
+ *   素直に 1 本の列にする。
+ */
+function WishSection({
+  wishes,
+  guess,
+  dispatch,
+}: {
+  wishes: Array<Wish>
+  guess: CurrentPlaceGuess
+  dispatch: TripNotesDispatch
+}) {
+  const { here, elsewhere, anywhere } = splitWishesForNow(wishes, guess)
+  // area は candidates が空でない限り必ず入る(whereabouts.ts)。
+  // ここで見たいのは「いまの町として名乗れる名前があるか」なので area で判定する
+  const area = guess.area
+  const grouped = area !== null
+
+  return (
+    <section className={cardClass}>
+      <h2 className={sectionTitleClass}>
+        <Heart size={16} className="text-rose-500" aria-hidden="true" />
+        やりたいこと
+      </h2>
+
+      {grouped ? (
+        /*
+          推定した町を必ず文字で出す。見出しに埋め込まず 1 行に分けているのは、
+          これが事実ではなく推定だからである。「いまは〜とみて」と書いてあれば、
+          外れているときに利用者が「だから出ていないのか」と自力で辿り着ける。
+          黙って並べ替えるだけだと、何を基準に選ばれた一覧なのか分からない
+        */
+        <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+          <MapPin size={12} className="shrink-0" aria-hidden="true" />
+          いまは<span className="font-medium text-gray-700">{area}</span>
+          とみて、この町の分を先に出しています
+        </p>
+      ) : null}
+
+      {grouped ? (
+        <WishList
+          wishes={here}
+          dispatch={dispatch}
+          listLabel="いまの町のやりたいこと"
+          emptyText="この町のやりたいことはまだありません。下の欄から1行足せます"
+        />
+      ) : (
+        <WishList
+          wishes={sortWishesForDisplay(wishes)}
+          dispatch={dispatch}
+          listLabel="やりたいこと"
+          showArea
+          emptyText="行きたい店や見たいものを1行だけ書いておくと、その町にいるときに上に出ます"
+        />
+      )}
+
+      <QuickAddWish presetArea={area} dispatch={dispatch} />
+
+      {/*
+        折りたたみを出すのは束ねているときだけ。推定できていないときは
+        上の 1 本の一覧に全部入っているので、ここで足すと同じ行が二度出る
+      */}
+      {grouped && elsewhere.length > 0 ? (
+        <WishDetails
+          label="他の町のやりたいこと"
+          wishes={elsewhere}
+          dispatch={dispatch}
+          showArea
+        />
+      ) : null}
+      {grouped && anywhere.length > 0 ? (
+        <WishDetails
+          label="場所を決めていないもの"
+          wishes={anywhere}
+          dispatch={dispatch}
+        />
+      ) : null}
+    </section>
+  )
+}
+
+/** 折りたたみに入れた束。件数は必ず summary に出す(畳んだ中身が見えないため) */
+function WishDetails({
+  label,
+  wishes,
+  dispatch,
+  showArea = false,
+}: {
+  label: string
+  wishes: Array<Wish>
+  dispatch: TripNotesDispatch
+  showArea?: boolean
+}) {
+  const undone = wishes.filter((wish) => !wish.done).length
+
+  return (
+    <details className="group mt-3 border-t border-gray-100 pt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+        <ChevronDown
+          size={14}
+          className="shrink-0 transition group-open:rotate-180"
+          aria-hidden="true"
+        />
+        {label}
+        {/* 総数ではなく未完了の数を先に出す。ここで知りたいのは「まだ残っているか」 */}
+        <span className="text-xs font-normal text-gray-400">
+          未完了{undone}件 / 全{wishes.length}件
+        </span>
+      </summary>
+      <WishList
+        wishes={wishes}
+        dispatch={dispatch}
+        listLabel={label}
+        showArea={showArea}
+      />
+    </details>
+  )
+}
+
+function WishList({
+  wishes,
+  dispatch,
+  listLabel,
+  showArea = false,
+  emptyText,
+}: {
+  wishes: Array<Wish>
+  dispatch: TripNotesDispatch
+  /** 一覧の名前。束が 3 つ並ぶので、読み上げでどれを聞いているのか分かるようにする */
+  listLabel: string
+  showArea?: boolean
+  emptyText?: string
+}) {
+  if (wishes.length === 0) {
+    return emptyText === undefined ? null : (
+      <p className="mt-2 text-sm text-gray-500">{emptyText}</p>
+    )
+  }
+
+  return (
+    <ul aria-label={listLabel} className="mt-2 flex flex-col gap-1">
+      {wishes.map((wish) => (
+        <WishRow
+          key={wish.id}
+          wish={wish}
+          dispatch={dispatch}
+          showArea={showArea}
+        />
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * 1 行。行そのものをチェックボックスのラベルにして、どこを押しても済みが切り替わるようにする。
+ * 歩きながら片手で押す操作なので、当たり判定は大きいほどよい。
+ * 押し間違えても Undo が効く(reducer.ts の履歴)ので、確認は挟まない。
+ *
+ * 参考リンクだけはラベルの外に出す。中に入れるとリンクを押したつもりで
+ * 済みが切り替わる(label の中のリンクはブラウザによって挙動が割れる)。
+ */
+function WishRow({
+  wish,
+  dispatch,
+  showArea,
+}: {
+  wish: Wish
+  dispatch: TripNotesDispatch
+  showArea: boolean
+}) {
+  const area = wish.area?.trim() ?? ''
+
+  return (
+    <li className="flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-gray-50">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+        <input
+          type="checkbox"
+          checked={wish.done}
+          onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+        />
+        <span className="min-w-0 flex-1">
+          <span
+            className={
+              wish.done
+                ? 'text-sm text-gray-400 line-through'
+                : 'text-sm text-gray-800'
+            }
+          >
+            {wish.title}
+          </span>
+          {showArea && area !== '' ? (
+            <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-gray-500">
+              <MapPin size={11} aria-hidden="true" />
+              {area}
+            </span>
+          ) : null}
+          {wish.note !== undefined && wish.note.length > 0 ? (
+            <span className="block text-xs text-gray-500">{wish.note}</span>
+          ) : null}
+        </span>
+      </label>
+      {wish.url !== undefined && wish.url.length > 0 ? (
+        <a
+          href={wish.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${wish.title} のリンクを開く`}
+          className="mt-0.5 shrink-0 rounded-lg p-1 text-gray-500 transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        >
+          <ExternalLink size={14} aria-hidden="true" />
+        </a>
+      ) : null}
+    </li>
+  )
+}
+
+/**
+ * クイック追加。
+ *
+ * ■ 1 行で終わらせる
+ *   「追加しやすさ」がこの機能の半分なので、入力欄・場所・保存を別々の手順にしない。
+ *   欄に打って改行(または＋)で 1 件入る。場所の欄も種別の欄も出さない。
+ *   足りない情報はあとから設定タブで足せるが、思い付いた瞬間に足せなかったものは
+ *   二度と入らない。
+ *
+ * ■ 場所は自動で入れる。ただし黙って入れない
+ *   いまの町の推定(whereabouts.ts)を場所の既定値にする。ここが自動でないと、
+ *   「今」タブで足したのに「今」タブに出てこないという裏切りが起きる。
+ *   一方で、推定は外れることがあるうえ、外れたまま保存されると
+ *   本人にも気付けない。だから何が入るのかをチップで見せ、1 タップで外せるようにする。
+ *   外した状態は「場所なし = どこでも」で、これはこれで正しい選択肢である
+ *   (「本屋に入る」に町の指定は要らない)。
+ *   推定できないときはチップごと出さない。選べない既定値の存在を説明しても、
+ *   画面が 1 行増えるだけになる。
+ */
+function QuickAddWish({
+  presetArea,
+  dispatch,
+}: {
+  presetArea: string | null
+  dispatch: TripNotesDispatch
+}) {
+  const [title, setTitle] = useState('')
+  const [useArea, setUseArea] = useState(true)
+
+  const area = presetArea !== null && useArea ? presetArea : null
+
+  const handleAdd = (e: FormEvent) => {
+    e.preventDefault()
+    const trimmed = title.trim()
+    if (trimmed.length === 0) return
+    dispatch({
+      type: 'addWish',
+      wish: {
+        id: newId('w'),
+        title: trimmed,
+        ...(area !== null ? { area } : {}),
+        done: false,
+      },
+    })
+    setTitle('')
+    // 場所の入り切りは次の 1 件にも引き継ぐ。同じ町のことを続けて足す場面のほうが多い
+  }
+
+  return (
+    <form onSubmit={handleAdd} className="mt-3 flex flex-col gap-1.5">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          aria-label="やりたいことを追加"
+          placeholder="やりたいことを追加"
+          className={fieldClass}
+        />
+        <button
+          type="submit"
+          className={primaryButtonClass}
+          disabled={title.trim().length === 0}
+        >
+          <Plus size={16} aria-hidden="true" />
+          追加
+        </button>
+      </div>
+      {presetArea !== null ? (
+        <div>
+          {useArea ? (
+            <button
+              type="button"
+              onClick={() => setUseArea(false)}
+              aria-label={`場所の指定「${presetArea}」を外す`}
+              className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            >
+              <MapPin size={11} aria-hidden="true" />
+              {presetArea}
+              <X size={11} aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setUseArea(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+            >
+              <MapPin size={11} aria-hidden="true" />
+              場所を{presetArea}にする
+            </button>
+          )}
+        </div>
+      ) : null}
+    </form>
   )
 }
 

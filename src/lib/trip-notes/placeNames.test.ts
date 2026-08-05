@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   MIN_PARTIAL_MATCH_LENGTH,
+  addressMatchCandidates,
+  nameMatchCandidates,
+  nameMatches,
+  namesOverlap,
   normalizeName,
   toCityName,
   withoutFacilitySuffix,
@@ -125,5 +129,70 @@ describe('toCityName: 削りすぎるなら元の文字列に戻す', () => {
     expect(MIN_PARTIAL_MATCH_LENGTH).toBe(2)
     expect(toCityName('AB駅')).toBe('AB')
     expect(toCityName('A駅')).toBe('A駅')
+  })
+})
+
+describe('nameMatchCandidates', () => {
+  it('施設の語を落とした形を「足す」(元の名前を消さない)', () => {
+    // 「羽田空港」を「羽田」に置き換えてしまうと、空港名どうしの素直な一致を失う
+    expect(nameMatchCandidates(['羽田空港'])).toEqual(['羽田空港', '羽田'])
+  })
+
+  it('空の名前と重複は落とす', () => {
+    expect(nameMatchCandidates(['パリ', undefined, '', ' ', 'パリ'])).toEqual([
+      'パリ',
+    ])
+  })
+
+  it('複数の表記を同じ土俵に載せる', () => {
+    expect(nameMatchCandidates(['香港国際空港', 'Hong Kong Airport'])).toEqual([
+      '香港国際空港',
+      'hongkongairport',
+      '香港',
+      'hongkong',
+    ])
+  })
+})
+
+describe('nameMatches / namesOverlap', () => {
+  it('一方が他方を含んでいれば同じ場所とみなす', () => {
+    expect(nameMatches('パリ', 'パリシャルルドゴール空港')).toBe(true)
+    expect(nameMatches('パリ', 'ローマ')).toBe(false)
+  })
+
+  it('短すぎる名前は包含では一致させない', () => {
+    // 1 文字の地名を包含判定に載せると、ほぼ何にでも一致してしまう
+    expect(nameMatches('香', '香港国際空港')).toBe(false)
+    expect(nameMatches('香', '香')).toBe(true)
+  })
+
+  it('namesOverlap は候補どうしを総当たりする', () => {
+    expect(
+      namesOverlap(
+        nameMatchCandidates(['ミラノ']),
+        nameMatchCandidates(['ミラノ・リナーテ空港']),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('addressMatchCandidates', () => {
+  it('カンマで割ったトークンを候補にする', () => {
+    expect(
+      addressMatchCandidates('Bharat Nagar, Paharganj, New Delhi, India'),
+    ).toEqual(['bharatnagar', 'paharganj', 'newdelhi', 'india'])
+  })
+
+  it('郵便番号(数字だけ)と短すぎるトークンは落とす', () => {
+    // 何にでも一致する候補を作ると、持ち上げが「全部持ち上げ」になる
+    expect(addressMatchCandidates('New Delhi, India, 110001, A')).toEqual([
+      'newdelhi',
+      'india',
+    ])
+  })
+
+  it('住所が無ければ何も返さない', () => {
+    expect(addressMatchCandidates(undefined)).toEqual([])
+    expect(addressMatchCandidates('')).toEqual([])
   })
 })

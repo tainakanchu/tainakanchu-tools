@@ -57,11 +57,7 @@
 import { addDays, diffDays, formatDateJa, tryParseStamp } from './datetime'
 import { isTransportKind, lodgingCoversNight } from './nights'
 import { sortEpochOf } from './ordering'
-import {
-  MIN_PARTIAL_MATCH_LENGTH,
-  normalizeName,
-  withoutFacilitySuffix,
-} from './placeNames'
+import { nameMatchCandidates, namesOverlap, normalizeName } from './placeNames'
 import type {
   Booking,
   ItineraryIssue,
@@ -183,30 +179,15 @@ function distanceKm(a: Coords, b: Coords): number {
 
 /**
  * 比較に使う名前の候補。localName も同じ土俵に載せる。
- * 施設の語を落とした形は元の名前を消さずに「足す」。
- * 「羽田空港」を「羽田」に置き換えてしまうと、空港名どうしの比較
- * (「羽田空港」と「東京国際空港(羽田空港)」)のような素直な一致を失う。
+ * 候補の作り方(施設の語を落とした形を足す)は placeNames.ts に置いてあり、
+ * 「いまの町」の推定(whereabouts.ts)と同じ手続きを共有している。
+ *
+ * latinName は載せない。あれは外部の検索サイトに渡す機械向けの表記であって、
+ * 旅程が壊れていると警告する根拠にする欄ではない(types.ts の Place 参照)。
+ * 判定の対象を広げると、そのぶん誤検出も広がる。
  */
 function nameCandidates(place: Place): Array<string> {
-  const names = [place.name, place.localName ?? '']
-    .map(normalizeName)
-    .filter((name) => name !== '')
-  const bases = names
-    .map(withoutFacilitySuffix)
-    .filter((name): name is string => name !== null)
-  return [...new Set([...names, ...bases])]
-}
-
-/**
- * 一方が他方を含んでいれば同じ場所とみなす。
- * 「パリ」と「パリ シャルル・ド・ゴール空港」を別の街として扱わないための緩さで、
- * 代わりに「ローマ」と「ローマ字博物館」のような無関係な包含も通してしまう。
- */
-function nameMatches(a: string, b: string): boolean {
-  if (a === b) return true
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a]
-  if (short.length < MIN_PARTIAL_MATCH_LENGTH) return false
-  return long.includes(short)
+  return nameMatchCandidates([place.name, place.localName])
 }
 
 /**
@@ -223,12 +204,7 @@ export function isSamePlace(a: Place, b: Place): boolean {
     return distanceKm(ca, cb) <= SAME_PLACE_RADIUS_KM
   }
 
-  for (const na of nameCandidates(a)) {
-    for (const nb of nameCandidates(b)) {
-      if (nameMatches(na, nb)) return true
-    }
-  }
-  return false
+  return namesOverlap(nameCandidates(a), nameCandidates(b))
 }
 
 // --- 利用者が「同じ場所」と教えた組 ---
@@ -334,6 +310,31 @@ function toEntry(booking: Booking): Entry | null {
     placeEnd: placeAt(booking, 'end'),
     isMove,
   }
+}
+
+/**
+ * 旅程の並び順に整列した Entry の列。開始時刻が壊れている予約は並べようがないので落とす。
+ * キャンセル済みを除くかどうかは呼び出し側の判断なので、ここではやらない。
+ */
+function sortedEntries(bookings: Array<Booking>): Array<Entry> {
+  return bookings
+    .map(toEntry)
+    .filter((entry): entry is Entry => entry !== null)
+    .toSorted(compareEntries)
+}
+
+/**
+ * 旅程の並び順に整列した予約。
+ *
+ * 「いまどこにいるか」の推定(whereabouts.ts)がこれを使う。あちらが自前で
+ * 並べ直すと、宿泊と終日の予定のみなしの時刻(ordering.ts)を写す羽目になり、
+ * 警告の見ている順と画面の見ている順が割れる。並べ方は旅程という 1 つの概念なので、
+ * 決め方も出口もここに集める。
+ */
+export function sortItineraryBookings(
+  bookings: Array<Booking>,
+): Array<Booking> {
+  return sortedEntries(bookings).map((entry) => entry.booking)
 }
 
 function compareEntries(a: Entry, b: Entry): number {
@@ -548,10 +549,7 @@ export function findItineraryIssues(
   const alive = state.bookings.filter(
     (booking) => booking.status !== 'cancelled',
   )
-  const entries = alive
-    .map(toEntry)
-    .filter((entry): entry is Entry => entry !== null)
-    .toSorted(compareEntries)
+  const entries = sortedEntries(alive)
 
   const aliases = state.placeAliases ?? []
   const issues = [

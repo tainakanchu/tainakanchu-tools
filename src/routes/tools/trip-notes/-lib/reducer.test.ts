@@ -6,6 +6,7 @@ import type {
   EmergencyContact,
   TravelDoc,
   TripNotesState,
+  Wish,
 } from '../../../../lib/trip-notes/types'
 
 function makeState(overrides: Partial<TripNotesState> = {}): TripNotesState {
@@ -54,6 +55,75 @@ function countryInfo(
 ): CountryInfo {
   return { id, name: `国 ${id}`, ...overrides }
 }
+
+function wish(id: string, overrides: Partial<Wish> = {}): Wish {
+  return { id, title: `やりたいこと ${id}`, done: false, ...overrides }
+}
+
+describe('tripNotesReducer / やりたいことの CRUD', () => {
+  it('1 件も無い状態から追加すると wishes が生える', () => {
+    const next = tripNotesReducer(makeState(), {
+      type: 'addWish',
+      wish: wish('w1'),
+    })
+    expect(next.wishes).toEqual([wish('w1')])
+  })
+
+  it('更新は id が一致するものだけを置き換える', () => {
+    const base = makeState({ wishes: [wish('w1'), wish('w2')] })
+    const next = tripNotesReducer(base, {
+      type: 'updateWish',
+      wish: wish('w2', { title: '夜市を歩く', area: '台北' }),
+    })
+    expect(next.wishes?.[0]).toEqual(wish('w1'))
+    expect(next.wishes?.[1].title).toBe('夜市を歩く')
+  })
+
+  it('存在しない id の更新・削除・切り替えは何もしない(同一参照を返す)', () => {
+    const base = makeState({ wishes: [wish('w1')] })
+    expect(
+      tripNotesReducer(base, { type: 'updateWish', wish: wish('none') }),
+    ).toBe(base)
+    expect(tripNotesReducer(base, { type: 'removeWish', id: 'none' })).toBe(
+      base,
+    )
+    expect(tripNotesReducer(base, { type: 'toggleWishDone', id: 'none' })).toBe(
+      base,
+    )
+  })
+
+  it('toggleWishDone は済みを裏返し、他の欄は保つ', () => {
+    const base = makeState({
+      wishes: [wish('w1', { area: '台北', note: '日曜は休み' })],
+    })
+    const done = tripNotesReducer(base, { type: 'toggleWishDone', id: 'w1' })
+    expect(done.wishes?.[0].done).toBe(true)
+    expect(done.wishes?.[0].note).toBe('日曜は休み')
+
+    const undone = tripNotesReducer(done, {
+      type: 'toggleWishDone',
+      id: 'w1',
+    })
+    expect(undone.wishes?.[0].done).toBe(false)
+  })
+
+  it('最後の 1 件を削除すると wishes のフィールドごと消える', () => {
+    // 使っていない人の JSON や共有URLを空配列で膨らませない(types.ts の方針)
+    const base = makeState({ wishes: [wish('w1')] })
+    const next = tripNotesReducer(base, { type: 'removeWish', id: 'w1' })
+    expect(next).not.toHaveProperty('wishes')
+  })
+
+  it('やりたいことの削除は Undo で戻る', () => {
+    const base = makeState({ wishes: [wish('w1'), wish('w2')] })
+    const removed = historyReducer(createHistory(base), {
+      type: 'removeWish',
+      id: 'w1',
+    })
+    expect(removed.present.wishes?.map((w) => w.id)).toEqual(['w2'])
+    expect(historyReducer(removed, { type: 'undo' }).present).toBe(base)
+  })
+})
 
 describe('tripNotesReducer / 予約の CRUD', () => {
   it('追加した予約が末尾に積まれる', () => {
@@ -518,6 +588,64 @@ describe('tripNotesReducer / 旅程の合流', () => {
       countryInfo('ci1', { name: 'マルタ', emergencyPolice: '112' }),
     )
     expect(next.countryInfos?.[1].name).toBe('イタリア')
+  })
+
+  it('同じやりたいことは既存が残り、相手の done で自分の進捗が巻き戻らない', () => {
+    // 行ったはずの店がまた「やりたいこと」に戻ってくると、この一覧が
+    // 「自分がどこまでやったか」の記録として信用できなくなる
+    const base = makeState({
+      wishes: [wish('w1', { title: '夜市を歩く', area: '台北', done: true })],
+    })
+    const incoming = makeState({
+      wishes: [
+        // 半角カナと前後の空白の違いしかない、同じやりたいこと
+        wish('w9', { title: ' 夜市を歩く ', area: '台北', done: false }),
+        // 場所が違えば別のやりたいこととして足す
+        wish('w10', { title: '夜市を歩く', area: '高雄', done: false }),
+        // incoming の中の重複も 1 件に畳む
+        wish('w11', { title: '夜市を歩く', area: '高雄', done: false }),
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.wishes).toHaveLength(2)
+    expect(next.wishes?.[0]).toEqual(
+      wish('w1', { title: '夜市を歩く', area: '台北', done: true }),
+    )
+    expect(next.wishes?.[1].area).toBe('高雄')
+  })
+
+  it('新規として足すやりたいことの id が既存と衝突するときは振り直す', () => {
+    const base = makeState({ wishes: [wish('w-1', { title: '夜市' })] })
+    const incoming = makeState({ wishes: [wish('w-1', { title: '温泉' })] })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.wishes).toHaveLength(2)
+    expect(next.wishes?.[1].id).not.toBe('w-1')
+    expect(new Set(next.wishes?.map((w) => w.id)).size).toBe(2)
+  })
+
+  it('やりたいことだけが増える合流も 1 手として履歴に積まれる', () => {
+    const base = makeState({ bookings: [makeBooking('mine1')] })
+    const incoming = makeState({ bookings: [], wishes: [wish('w9')] })
+
+    const merged = historyReducer(createHistory(base), {
+      type: 'mergeTrip',
+      incoming,
+    })
+    expect(merged.past).toHaveLength(1)
+    expect(merged.present.wishes).toHaveLength(1)
+    expect(historyReducer(merged, { type: 'undo' }).present).toBe(base)
+  })
+
+  it('相手が同じやりたいことしか持たない合流は履歴を積まない', () => {
+    const base = makeState({ wishes: [wish('w1', { title: '夜市を歩く' })] })
+    const incoming = makeState({
+      wishes: [wish('w9', { title: '夜市を歩く' })],
+    })
+    expect(tripNotesReducer(base, { type: 'mergeTrip', incoming })).toBe(base)
   })
 
   it('新規として足す国の基本情報の id が既存と衝突するときは振り直す', () => {

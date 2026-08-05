@@ -211,6 +211,14 @@ function normalizeIds(state: TripNotesState): TripNotesState {
             id: `g${index}`,
           })),
         }),
+    ...(state.wishes === undefined
+      ? {}
+      : {
+          wishes: state.wishes.map((wish, index) => ({
+            ...wish,
+            id: `w${index}`,
+          })),
+        }),
   }
 }
 
@@ -407,6 +415,64 @@ describe('share', () => {
       'マルタ',
       '台湾',
     ])
+  })
+
+  it('wishes がラウンドトリップで保たれる(任意フィールド全部入り)', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      wishes: [
+        {
+          id: 'w-1',
+          title: 'ポワラーヌのパンを買う',
+          area: 'パリ',
+          done: true,
+          note: '日曜は休み',
+          url: 'https://example.com/poilane',
+        },
+        {
+          // 題名だけのやりたいこと。任意キーが省略されたまま往復することを見る
+          id: 'w-2',
+          title: '本屋に入る',
+          done: false,
+        },
+      ],
+    }
+    expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('wishes が無ければ payload にも復元結果にもフィールドが現れない', async () => {
+    // やりたいことを使っていない人の共有URLをこの機能で膨らませない
+    const state = buildFullState()
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    expect(decoded).not.toHaveProperty('wishes')
+  })
+
+  it('wishes の id は復元側で振り直される', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      wishes: [
+        { id: 'w-original-1', title: '夜市を歩く', area: '台北', done: false },
+        { id: 'w-original-2', title: '温泉に入る', area: '北投', done: true },
+      ],
+    }
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    const ids = decoded.wishes?.map((wish) => wish.id) ?? []
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
+    for (const id of ids) {
+      expect(id.startsWith('w-')).toBe(true)
+      expect(id.startsWith('w-original')).toBe(false)
+    }
+    // done は「自分の進捗」なので、往復で裏返ってはいけない
+    expect(decoded.wishes?.map((wish) => wish.done)).toEqual([false, true])
   })
 
   it('placeAliases が無ければ payload にも復元結果にもフィールドが現れない', async () => {
@@ -967,6 +1033,19 @@ describe('share', () => {
     })
 
     /**
+     * 同じ payload は wishes(やりたいこと)のキーも持っていない。
+     * countryInfos と同じ理由で、任意キーを足すたびにここを増やす。
+     */
+    it('marker "2" の既存URL(wishes のキーが無い)が今も読める', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded).not.toHaveProperty('wishes')
+      expect(decoded.bookings).toHaveLength(2)
+      expect(decoded.emergencyContacts).toHaveLength(1)
+    })
+
+    /**
      * 同じ payload はオンラインチェックインの開放(w)のキーも持っていない。
      * 締切 2 種と同じ理由で、キーが無い予約に開放時刻のプロパティが生えてはいけない
      * (生えると「入力していない時刻」が入力済みとして扱われる)。
@@ -1014,6 +1093,16 @@ describe('share', () => {
       expect(
         await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
       ).not.toHaveProperty('travelDocs')
+    })
+
+    it('marker "0" / "1" の既存URLにも wishes は生えない', async () => {
+      // やりたいことも v2 にだけ載せたので、v1 形式にはキーが無い
+      expect(
+        await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
+      ).not.toHaveProperty('wishes')
+      expect(
+        await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
+      ).not.toHaveProperty('wishes')
     })
 
     it('marker "0" / "1" の既存URLにも countryInfos は生えない', async () => {

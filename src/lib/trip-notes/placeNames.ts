@@ -7,6 +7,9 @@
  * - itinerary.ts の場所の同一判定
  *   normalizeName() を通した後の形(小文字化 + 記号除去)どうしを突き合わせる。
  *   表記ゆれを潰したいだけで、元の表記は誰にも見えないので要らない。
+ * - whereabouts.ts / wishes.ts の「いまの町」の推定と、やりたいことの持ち上げ
+ *   突き合わせ方は itinerary.ts とまったく同じで、載せる名前の集め方だけが違う
+ *   (あちらは Place 1 つ、こちらは旅程から集めた複数の名前と住所)。
  * - searchLinks.ts の Rome2Rio リンク
  *   組み立てた URL を利用者がそのまま開くので、元の表記(大文字小文字・中黒・
  *   文字種)を保ったまま語尾だけを落とす必要がある。小文字化して記号を消した
@@ -19,6 +22,11 @@
  *   両方を揃えること」というコメントで担保しようとしたことがあるが、
  *   実際には片方だけ変わって静かに壊れた。コメントで守るしかない約束は、
  *   最初から作らないようにする。
+ *   突き合わせの手続き(nameMatchCandidates / nameMatches)をここに置いたのも
+ *   同じ理由による。もとは itinerary.ts の中にあったが、「いまの町」の推定でも
+ *   同じ判定が要るようになった時点で、写して 2 本にするのではなく引き上げた。
+ *   「同じ場所とみなす条件」が 2 か所にあると、片方だけ緩めたときに
+ *   画面と警告で答えが割れる。
  */
 
 /**
@@ -132,6 +140,95 @@ export function withoutFacilitySuffix(name: string): string | null {
     return base.length < MIN_PARTIAL_MATCH_LENGTH ? null : base
   }
   return null
+}
+
+// --- 突き合わせ ---
+
+/**
+ * 比較に使う名前の候補を作る。空の名前は落とし、重複は畳む。
+ *
+ * 施設の語を落とした形は元の名前を消さずに「足す」。
+ * 「羽田空港」を「羽田」に置き換えてしまうと、空港名どうしの比較
+ * (「羽田空港」と「東京国際空港(羽田空港)」)のような素直な一致を失う。
+ *
+ * 何を渡すかは呼び出し側が決める。itinerary.ts は Place の name と localName だけを
+ * 渡し、latinName は渡さない(latinName は外部サービスに渡す機械向けの表記で、
+ * 旅程の警告の根拠にする欄ではない。types.ts の Place 参照)。
+ * 逆に wishes.ts の持ち上げは latinName も住所も渡す。あちらは外しても
+ * 折りたたみに残るだけなので、拾える手掛かりは全部載せるほうが得になる。
+ */
+export function nameMatchCandidates(
+  names: ReadonlyArray<string | undefined>,
+): Array<string> {
+  const normalized = names
+    .map((name) => normalizeName(name ?? ''))
+    .filter((name) => name !== '')
+  const bases = normalized
+    .map(withoutFacilitySuffix)
+    .filter((name): name is string => name !== null)
+  return [...new Set([...normalized, ...bases])]
+}
+
+/**
+ * 一方が他方を含んでいれば同じ場所とみなす。
+ * 「パリ」と「パリ シャルル・ド・ゴール空港」を別の街として扱わないための緩さで、
+ * 代わりに「ローマ」と「ローマ字博物館」のような無関係な包含も通してしまう。
+ *
+ * 入力はどちらも normalizeName() を通した形であることを前提にする。
+ */
+export function nameMatches(a: string, b: string): boolean {
+  if (a === b) return true
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a]
+  if (short.length < MIN_PARTIAL_MATCH_LENGTH) return false
+  return long.includes(short)
+}
+
+/** 候補の集合どうしを総当たりで突き合わせる。1 組でも一致すれば同じ場所 */
+export function namesOverlap(
+  a: ReadonlyArray<string>,
+  b: ReadonlyArray<string>,
+): boolean {
+  return a.some((na) => b.some((nb) => nameMatches(na, nb)))
+}
+
+/**
+ * 住所を突き合わせ用のトークンに割る。
+ *
+ * ■ なぜ住所まで見るのか
+ *   空港名に都市名が入っていないことがある。「インディラ・ガンディー国際空港」は
+ *   施設の語を落としても「インディラガンディー」にしかならず、ニューデリーには
+ *   どうやっても届かない。一方その晩の宿の住所には
+ *   「... Paharganj, New Delhi, India, 110001」のように都市名が必ず入っている。
+ *   名前から取れないものが住所には書いてある、というだけの話なので、住所も候補に足す。
+ *
+ * ■ 精密なパースはしない(寛容に倒す)
+ *   国・州・市・番地の並びは国ごとに違い、区切りも一定しない。正しく市だけを
+ *   取り出そうとすると、当たらない国が必ず残る。ここでは区切り記号で割って
+ *   全部を候補にする。この突き合わせは「やりたいことを画面の上に持ち上げる」ためだけの
+ *   もので、外しても elsewhere の折りたたみに残る(何も失わない)。逆に見逃すと
+ *   「いまの町のやりたいこと」がどこにも出てこない。害の大きさが釣り合っていないので、
+ *   拾いすぎる側に倒す。
+ *
+ * ■ 落とすもの
+ *   郵便番号のような数字だけのトークンと、短すぎるトークン。
+ *   どちらも残すと何にでも一致して、持ち上げが「全部持ち上げ」になる。
+ */
+export function addressMatchCandidates(
+  address: string | undefined,
+): Array<string> {
+  if (address === undefined) return []
+  return [
+    ...new Set(
+      address
+        .split(/[,、，/|\n]/u)
+        .map(normalizeName)
+        .filter(
+          (token) =>
+            token.length >= MIN_PARTIAL_MATCH_LENGTH &&
+            !/^\p{N}+$/u.test(token),
+        ),
+    ),
+  ]
 }
 
 // --- 元の表記を保ったまま都市名に寄せる ---

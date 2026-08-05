@@ -35,7 +35,7 @@
  *   - タイムゾーン名を辞書の添字に置き換える(辞書に無ければ生文字列)
  *   - zdt(40文字前後の文字列)を「分単位 epoch + タイムゾーン」に分解する
  *
- * その後に足したフィールド(placeAliases / travelDocs / countryInfos /
+ * その後に足したフィールド(placeAliases / travelDocs / countryInfos / wishes /
  * 予約の締切 2 種とオンラインチェックインの開放時刻)は v2 にだけ載せる。
  * v1 の形式は発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
  *
@@ -67,6 +67,7 @@ import type {
   TravelDocKind,
   TravelDocStatus,
   TripNotesState,
+  Wish,
 } from './types'
 
 /**
@@ -451,6 +452,28 @@ interface ShortCountryInfoV2 {
   n?: string
 }
 
+/**
+ * やりたいこと(Wish)。id は v2 の方針どおり載せない。
+ * キーは意味が重なる既存の短縮型にそろえてある
+ * (t = 題名、g = 地域、l = URL、n = メモ。g と l は ShortTravelDocV2 と同じ意味)。
+ *
+ * done は false なら省く。ShortStamp の allDay と同じ流儀で、共有されるのは
+ * たいてい未完了の行なので、既定値のほうを省略形に選ぶ。'd' はこの型の中では
+ * 未使用の文字で、トップレベルの 'd'(travelDocs)とは別の階層の話。
+ */
+interface ShortWishV2 {
+  /** title */
+  t: string
+  /** area */
+  g?: string
+  /** done。false なら省く */
+  d?: true
+  /** url */
+  l?: string
+  /** note */
+  n?: string
+}
+
 interface ShortStateV2 {
   v: 1
   t: string
@@ -477,6 +500,11 @@ interface ShortStateV2 {
    * 埋まっているので、地域 = geography の 'g' を割り当てた。
    */
   g?: Array<ShortCountryInfoV2>
+  /**
+   * wishes。travelDocs / countryInfos と同じで、1 件も無ければ丸ごと省く。
+   * トップレベルで w はまだ使っていない文字で、wish の頭文字がそのまま空いていた。
+   */
+  w?: Array<ShortWishV2>
 }
 
 /**
@@ -675,10 +703,32 @@ function fromShortCountryInfoV2(short: ShortCountryInfoV2): CountryInfo {
   }
 }
 
+function toShortWishV2(wish: Wish): ShortWishV2 {
+  return {
+    t: wish.title,
+    ...(wish.area !== undefined ? { g: wish.area } : {}),
+    ...(wish.done ? { d: true } : {}),
+    ...(wish.url !== undefined ? { l: wish.url } : {}),
+    ...(wish.note !== undefined ? { n: wish.note } : {}),
+  }
+}
+
+function fromShortWishV2(short: ShortWishV2): Wish {
+  return {
+    id: newId('w'),
+    title: short.t,
+    ...(short.g !== undefined ? { area: short.g } : {}),
+    done: short.d === true,
+    ...(short.l !== undefined ? { url: short.l } : {}),
+    ...(short.n !== undefined ? { note: short.n } : {}),
+  }
+}
+
 function toShortStateV2(state: TripNotesState): ShortStateV2 {
   const aliases = state.placeAliases ?? []
   const docs = state.travelDocs ?? []
   const countries = state.countryInfos ?? []
+  const wishes = state.wishes ?? []
   return {
     v: state.schemaVersion,
     t: state.tripTitle,
@@ -690,6 +740,7 @@ function toShortStateV2(state: TripNotesState): ShortStateV2 {
     ...(aliases.length > 0 ? { p: aliases.map((alias) => alias.names) } : {}),
     ...(docs.length > 0 ? { d: docs.map(toShortTravelDocV2) } : {}),
     ...(countries.length > 0 ? { g: countries.map(toShortCountryInfoV2) } : {}),
+    ...(wishes.length > 0 ? { w: wishes.map(toShortWishV2) } : {}),
   }
 }
 
@@ -719,6 +770,9 @@ function fromShortStateV2(short: ShortStateV2): TripNotesState {
     ...(short.g !== undefined
       ? { countryInfos: short.g.map(fromShortCountryInfoV2) }
       : {}),
+    // やりたいことも同じ。キーが無い payload は「1 件も登録していない」を意味する
+    // (このキーを足す前に発行されたURLもここを通る)
+    ...(short.w !== undefined ? { wishes: short.w.map(fromShortWishV2) } : {}),
   }
 }
 
