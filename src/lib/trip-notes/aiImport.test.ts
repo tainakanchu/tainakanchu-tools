@@ -154,6 +154,78 @@ describe('parseImportedJson: 汚れた入力の許容', () => {
   })
 })
 
+describe('parseImportedJson: AI の引用マーカーの除去', () => {
+  // ":contentReference[oaicite:1]{index=1}" は ChatGPT がブラウザ上でだけ
+  // リンクとして描画する内部マーカーで、コピー時にはレンダリングされず
+  // テキストとして漏れてくる。evidence は原文の引用として読むものなので、
+  // このマーカーは根拠の説得力を落とすノイズでしかなく取り除く。
+  it('実例そのままの文字列からマーカーだけが消え、前後の本文は 1 文字も変わらない', () => {
+    const text = JSON.stringify([
+      {
+        kind: 'flight',
+        title: 'AF276',
+        start: { date: '2026-09-12', time: '14:20', tz: 'Asia/Tokyo' },
+        evidence: {
+          checkInClosesMinutesBefore:
+            'Norwegian公式の国際線規定では、通常の国際線チェックインは出発45分前に終了。 :contentReference[oaicite:1]{index=1}',
+        },
+      },
+    ])
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.evidence?.checkInClosesMinutesBefore).toBe(
+      'Norwegian公式の国際線規定では、通常の国際線チェックインは出発45分前に終了。',
+    )
+  })
+
+  it('複数のマーカーがあってもすべて消える', () => {
+    const text = JSON.stringify([
+      {
+        kind: 'other',
+        title: 'メモ',
+        start: { date: '2026-09-12', time: '10:00', tz: 'Asia/Tokyo' },
+        note:
+          '出発45分前に終了。 :contentReference[oaicite:1]{index=1}変更の場合は24時間前まで。 :contentReference[oaicite:2]{index=2}',
+      },
+    ])
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.note).toBe(
+      '出発45分前に終了。変更の場合は24時間前まで。',
+    )
+  })
+
+  it('マーカーだけの値は除去後に空文字になり、値なしとして扱われる', () => {
+    const text = JSON.stringify([
+      {
+        kind: 'other',
+        title: 'メモ',
+        start: { date: '2026-09-12', time: '10:00', tz: 'Asia/Tokyo' },
+        note: ' :contentReference[oaicite:1]{index=1} ',
+        evidence: {
+          note: ':contentReference[oaicite:2]{index=2}',
+        },
+      },
+    ])
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.note).toBeUndefined()
+    expect(booking.evidence).toBeUndefined()
+  })
+
+  it('マーカーを含まない普通のテキストは変わらない', () => {
+    const text = JSON.stringify([
+      {
+        kind: 'other',
+        title: 'メモ',
+        start: { date: '2026-09-12', time: '10:00', tz: 'Asia/Tokyo' },
+        note: '{index=1} という記法や oaicite という単語が出てくる資料だった',
+      },
+    ])
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.note).toBe(
+      '{index=1} という記法や oaicite という単語が出てくる資料だった',
+    )
+  })
+})
+
 describe('parseImportedJson: 部分成功', () => {
   it('3 件中 1 件が壊れていても残り 2 件は取り込む', () => {
     const text = `\`\`\`json

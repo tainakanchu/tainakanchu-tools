@@ -475,10 +475,8 @@ function toEvidence(
   if (!isRecord(raw)) return undefined
   const evidence: Partial<Record<FieldKey, string>> = {}
   for (const key of FIELD_KEYS) {
-    const value = raw[key]
-    if (typeof value === 'string' && value.trim().length > 0) {
-      evidence[key] = value.trim()
-    }
+    const value = toOptionalString(raw[key])
+    if (value !== undefined) evidence[key] = value
   }
   return Object.keys(evidence).length > 0 ? evidence : undefined
 }
@@ -507,9 +505,30 @@ function toMinutesBefore(raw: unknown): number | undefined {
   return Number.isFinite(value) ? value : undefined
 }
 
+/**
+ * ChatGPT がウェブ検索の出典を差し込む内部引用マーカー
+ * (":contentReference[oaicite:1]{index=1}" 等)。
+ *
+ * これはブラウザ上でだけリンクとして描画される内部表現で、テキストとしてコピーすると
+ * 記号列がそのまま漏れてくる。evidence は「原文のどこにその記述があったか」を人間が
+ * 読むための引用なので、この漏れは根拠の説得力を落とすノイズでしかない。
+ * 一方 evidence の値自体が原文の引用である以上、このマーカー以外を 1 文字でも
+ * 変えてはならない。そのため "contentReference" / "oaicite" / "index" という
+ * 固定語と "[]" "{}" の構造は必須にしつつ、前置きの ":" の有無や空白の入り方の
+ * 揺れだけを許容する、狭いパターンに留める(過剰に緩めると原文の一部を誤って
+ * 消しかねない)。前後の空白も込みで消すのは、この空白自体がマーカーを
+ * 差し込むために ChatGPT が挿入したもので、原文の一部ではないため。
+ */
+const AI_CITATION_MARKER_RE =
+  /[ \t\u3000]*:?contentReference\[[ \t\u3000]*oaicite[ \t\u3000]*:[ \t\u3000]*\d+[ \t\u3000]*\][ \t\u3000]*\{[ \t\u3000]*index[ \t\u3000]*=[ \t\u3000]*\d+[ \t\u3000]*\}[ \t\u3000]*/g
+
+function stripAiCitationMarkers(text: string): string {
+  return text.replace(AI_CITATION_MARKER_RE, '')
+}
+
 function toOptionalString(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
+  const trimmed = stripAiCitationMarkers(raw).trim()
   return trimmed.length > 0 ? trimmed : undefined
 }
 
