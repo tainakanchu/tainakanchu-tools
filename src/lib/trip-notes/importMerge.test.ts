@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { mergeBooking, planImport } from './importMerge'
-import type { Booking } from './types'
+import {
+  mergeBooking,
+  mergeCountryInfo,
+  planCountryInfoImport,
+  planImport,
+} from './importMerge'
+import type { Booking, CountryInfo } from './types'
 
 /** 既存の予約(手入力・すでに確認済み想定)の既定値 */
 function existingBooking(
@@ -315,31 +320,71 @@ describe('mergeBooking / マージ規則', () => {
     expect(merged.unverified ?? []).not.toContain('note')
   })
 
-  it('締切は取り込み側にあれば採用する', () => {
-    // 締切は「出発の何分前か」の相対値なので、start を上書きする再取り込みでも
+  it('開放・締切は取り込み側にあれば採用する', () => {
+    // 開放も締切も「出発の何分前か」の相対値なので、start を上書きする再取り込みでも
     // 意味がずれない。他の任意フィールドと同じ「値があれば採用」規則でよい
     const existing = existingBooking('e1')
     const incoming = incomingBooking('tmp', {
+      onlineCheckInOpensMinutesBefore: 2880,
       checkInClosesMinutesBefore: 45,
       bagDropClosesMinutesBefore: 60,
     })
     const merged = mergeBooking(existing, incoming)
+    expect(merged.onlineCheckInOpensMinutesBefore).toBe(2880)
     expect(merged.checkInClosesMinutesBefore).toBe(45)
     expect(merged.bagDropClosesMinutesBefore).toBe(60)
   })
 
-  it('締切は取り込み側に無ければ既存の値を維持する', () => {
+  it('開放・締切は取り込み側に無ければ既存の値を維持する', () => {
     const existing = existingBooking('e1', {
+      onlineCheckInOpensMinutesBefore: 2880,
       checkInClosesMinutesBefore: 45,
       bagDropClosesMinutesBefore: 60,
     })
     const incoming = incomingBooking('tmp', {
+      onlineCheckInOpensMinutesBefore: undefined,
       checkInClosesMinutesBefore: undefined,
       bagDropClosesMinutesBefore: undefined,
     })
     const merged = mergeBooking(existing, incoming)
+    expect(merged.onlineCheckInOpensMinutesBefore).toBe(2880)
     expect(merged.checkInClosesMinutesBefore).toBe(45)
     expect(merged.bagDropClosesMinutesBefore).toBe(60)
+  })
+
+  it('開放の未確認状態は、値を採用した側から引き継ぐ', () => {
+    // 締切と同じ扱い。取り込み側で上書きしたなら取り込み側の未確認状態を、
+    // 既存を維持したなら既存の未確認状態を引き継ぐ
+    const existing = existingBooking('e1', {
+      onlineCheckInOpensMinutesBefore: 1440,
+      unverified: ['onlineCheckInOpensMinutesBefore'],
+    })
+
+    const overwritten = mergeBooking(
+      existing,
+      incomingBooking('tmp', {
+        onlineCheckInOpensMinutesBefore: 2880,
+        unverified: ['onlineCheckInOpensMinutesBefore'],
+      }),
+    )
+    expect(overwritten.onlineCheckInOpensMinutesBefore).toBe(2880)
+    expect(overwritten.unverified).toContain('onlineCheckInOpensMinutesBefore')
+
+    // 既存側が確認済みなら、取り込み側で上書きされない限り未確認に戻らない
+    const verified = existingBooking('e2', {
+      onlineCheckInOpensMinutesBefore: 1440,
+    })
+    const untouched = mergeBooking(
+      verified,
+      incomingBooking('tmp', {
+        onlineCheckInOpensMinutesBefore: undefined,
+        unverified: ['onlineCheckInOpensMinutesBefore'],
+      }),
+    )
+    expect(untouched.onlineCheckInOpensMinutesBefore).toBe(1440)
+    expect(untouched.unverified ?? []).not.toContain(
+      'onlineCheckInOpensMinutesBefore',
+    )
   })
 
   it('場所は Place ごと差し替えず、フィールド単位でマージする', () => {
@@ -445,5 +490,173 @@ describe('mergeBooking / マージ規則', () => {
       note: '既存のメモ根拠',
       confirmationNumber: '新しい確認番号の根拠',
     })
+  })
+})
+
+/** 既存の国情報(利用者が国名だけ入れて、残りが空の状態を既定にする) */
+function existingCountry(
+  id: string,
+  overrides: Partial<CountryInfo> = {},
+): CountryInfo {
+  return { id, name: 'マルタ', ...overrides }
+}
+
+/** AI の穴埋めパッチ側の国情報。id は取り込み時に採番し直された値を模す */
+function incomingCountry(
+  id: string,
+  overrides: Partial<CountryInfo> = {},
+): CountryInfo {
+  return { id, name: 'マルタ', ...overrides }
+}
+
+describe('mergeCountryInfo / マージ規則', () => {
+  it('空の欄だけが埋まる', () => {
+    const existing = existingCountry('c1', { plugTypes: 'G' })
+    const incoming = incomingCountry('tmp', {
+      voltage: '230V 50Hz',
+      emergencyPolice: '112',
+    })
+    const merged = mergeCountryInfo(existing, incoming)
+    expect(merged.plugTypes).toBe('G')
+    expect(merged.voltage).toBe('230V 50Hz')
+    expect(merged.emergencyPolice).toBe('112')
+  })
+
+  it('取り込み側に値があれば既存を上書きする', () => {
+    const existing = existingCountry('c1', { plugTypes: 'C' })
+    const incoming = incomingCountry('tmp', { plugTypes: 'G' })
+    expect(mergeCountryInfo(existing, incoming).plugTypes).toBe('G')
+  })
+
+  it('既存の値は取り込み側の空文字や空白では潰れない', () => {
+    // AI は空欄のつもりで '' を返してくることがある。それで既存の記入が消えると、
+    // 埋めるための操作で情報が減ることになる
+    const existing = existingCountry('c1', {
+      plugTypes: 'G',
+      voltage: '230V 50Hz',
+      note: '水道水は飲用可',
+    })
+    const incoming = incomingCountry('tmp', {
+      plugTypes: '',
+      voltage: '   ',
+      note: undefined,
+    })
+    const merged = mergeCountryInfo(existing, incoming)
+    expect(merged.plugTypes).toBe('G')
+    expect(merged.voltage).toBe('230V 50Hz')
+    expect(merged.note).toBe('水道水は飲用可')
+  })
+
+  it('name と id は既存のものを保つ', () => {
+    // 利用者が自分の言葉で書いた見出しを、AI の返した表記で黙って書き換えない
+    const existing = existingCountry('c1', { name: 'マルタ' })
+    const incoming = incomingCountry('tmp', {
+      name: 'マルタ共和国',
+      plugTypes: 'G',
+    })
+    const merged = mergeCountryInfo(existing, incoming)
+    expect(merged.id).toBe('c1')
+    expect(merged.name).toBe('マルタ')
+    expect(merged.plugTypes).toBe('G')
+  })
+
+  it('latinName も他の欄と同じ規則で扱う(空なら埋め、あれば維持しない)', () => {
+    const empty = mergeCountryInfo(
+      existingCountry('c1'),
+      incomingCountry('tmp', { latinName: 'Malta' }),
+    )
+    expect(empty.latinName).toBe('Malta')
+
+    const kept = mergeCountryInfo(
+      existingCountry('c1', { latinName: 'Malta' }),
+      incomingCountry('tmp', { latinName: '' }),
+    )
+    expect(kept.latinName).toBe('Malta')
+  })
+})
+
+describe('planCountryInfoImport / マッチ条件', () => {
+  it('国名の正規化が一致すれば更新になる(全角/半角・空白・大小文字の揺れを吸収)', () => {
+    const existing = [existingCountry('c1', { name: 'Malta' })]
+    const incoming = [
+      incomingCountry('tmp', { name: ' ｍａｌｔａ ', plugTypes: 'G' }),
+    ]
+    const plan = planCountryInfoImport(existing, incoming)
+    expect(plan.entries[0].replacesId).toBe('c1')
+    expect(plan.entries[0].country.id).toBe('c1')
+    expect(plan.entries[0].country.name).toBe('Malta')
+    expect(plan.entries[0].country.plugTypes).toBe('G')
+    expect(plan.updatedCount).toBe(1)
+    expect(plan.addedCount).toBe(0)
+  })
+
+  it('半角カナや余分な空白で書かれた国名も同じ国とみなす', () => {
+    const existing = [existingCountry('c1', { name: 'マルタ' })]
+    const incoming = [incomingCountry('tmp', { name: ' ﾏﾙﾀ ' })]
+    expect(
+      planCountryInfoImport(existing, incoming).entries[0].replacesId,
+    ).toBe('c1')
+  })
+
+  it('国名が一致しなければ新規追加になる(latinName が一致していても)', () => {
+    // latinName は照合の手掛かりとして AI に渡すだけで、同一判定の根拠にはしない
+    const existing = [
+      existingCountry('c1', { name: 'マルタ', latinName: 'Malta' }),
+    ]
+    const incoming = [
+      incomingCountry('tmp', { name: 'フランス', latinName: 'Malta' }),
+    ]
+    const plan = planCountryInfoImport(existing, incoming)
+    expect(plan.entries[0].replacesId).toBeNull()
+    expect(plan.entries[0].country.name).toBe('フランス')
+    expect(plan.addedCount).toBe(1)
+    expect(plan.updatedCount).toBe(0)
+  })
+
+  it('1つの既存の国情報は1件の取り込みにしかマッチしない(二重マッチしない)', () => {
+    const existing = [existingCountry('c1', { name: 'マルタ' })]
+    const incoming = [
+      incomingCountry('tmp1', { name: 'マルタ', plugTypes: 'G' }),
+      incomingCountry('tmp2', { name: 'マルタ', voltage: '230V 50Hz' }),
+    ]
+    const plan = planCountryInfoImport(existing, incoming)
+    expect(plan.entries[0].replacesId).toBe('c1')
+    expect(plan.entries[1].replacesId).toBeNull()
+    expect(plan.updatedCount).toBe(1)
+    expect(plan.addedCount).toBe(1)
+  })
+
+  it('新規と更新が混ざっていても件数が正しく数えられ、順序と件数は取り込み側のまま', () => {
+    const existing = [
+      existingCountry('c1', { name: 'マルタ' }),
+      existingCountry('c2', { name: 'フランス' }),
+    ]
+    const incoming = [
+      incomingCountry('tmp1', { name: 'フランス', emergencyPolice: '17' }),
+      incomingCountry('tmp2', { name: '台湾', emergencyPolice: '110' }),
+      incomingCountry('tmp3', { name: 'マルタ', plugTypes: 'G' }),
+    ]
+    const plan = planCountryInfoImport(existing, incoming)
+    expect(plan.entries.map((entry) => entry.replacesId)).toEqual([
+      'c2',
+      null,
+      'c1',
+    ])
+    expect(plan.entries.map((entry) => entry.country.name)).toEqual([
+      'フランス',
+      '台湾',
+      'マルタ',
+    ])
+    expect(plan.updatedCount).toBe(2)
+    expect(plan.addedCount).toBe(1)
+  })
+
+  it('既存が空なら全件が新規になる', () => {
+    const plan = planCountryInfoImport(
+      [],
+      [incomingCountry('tmp', { name: 'マルタ' })],
+    )
+    expect(plan.entries[0].replacesId).toBeNull()
+    expect(plan.addedCount).toBe(1)
   })
 })

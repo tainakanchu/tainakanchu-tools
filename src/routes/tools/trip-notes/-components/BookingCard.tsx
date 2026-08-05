@@ -114,6 +114,7 @@ const FIELD_LABELS: Record<FieldKey, string> = {
   provider: '予約先/会社名',
   price: '金額',
   freeCancelUntil: '無料キャンセル期限',
+  onlineCheckInOpensMinutesBefore: 'オンラインチェックイン開始',
   checkInClosesMinutesBefore: '搭乗手続きの締切',
   bagDropClosesMinutesBefore: '受託手荷物を預ける締切',
   note: 'メモ',
@@ -180,6 +181,24 @@ function placeText(place: Place | undefined): string {
 }
 
 /**
+ * オンラインチェックインが開く時刻の読み。60 で割り切れて 2 時間以上なら
+ * 時間に直す(1440 →「出発の24時間前」)。
+ *
+ * ■ なぜこの項目だけ時間で出すのか
+ *   締切の 2 項目は 45 / 60 / 90 分前という 1 時間前後の値で、時間に直すと
+ *   「1.5時間前」のような読みにくい数になるだけなので分のままがいちばん短い。
+ *   一方この項目は 24 / 48 / 72 時間前が実在する値で、分のまま
+ *   「出発の1440分前」と出されても桁を数えないと何時間前か読めない。
+ *   保存する単位は分でそろえたまま(項目ごとに単位を変えると同じ 60 が
+ *   別の意味を持つ。types.ts と BookingForm を参照)、読みだけをここで切り替える。
+ */
+function checkInOpensText(minutes: number): string {
+  return minutes >= 120 && minutes % 60 === 0
+    ? `出発の${minutes / 60}時間前`
+    : `出発の${minutes}分前`
+}
+
+/**
  * 未確認フィールドの「いま画面に入っている値」。
  *
  * 確認行はこの値と evidence の引用を並べるためのものなので、
@@ -224,6 +243,10 @@ function fieldValueText(
       return booking.freeCancelUntil === undefined
         ? EMPTY_VALUE
         : formatDateJa(booking.freeCancelUntil)
+    case 'onlineCheckInOpensMinutesBefore':
+      return booking.onlineCheckInOpensMinutesBefore === undefined
+        ? EMPTY_VALUE
+        : checkInOpensText(booking.onlineCheckInOpensMinutesBefore)
     case 'checkInClosesMinutesBefore':
       return booking.checkInClosesMinutesBefore === undefined
         ? EMPTY_VALUE

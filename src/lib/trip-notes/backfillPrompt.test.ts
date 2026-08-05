@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   BACKFILL_FIELDS,
+  COUNTRY_INFO_FILL_FIELDS,
   buildBackfillPrompt,
   findBackfillGaps,
 } from './backfillPrompt'
 import { parseImportedJson } from './aiImport'
 import {
-  DEADLINE_FILL_RULE,
+  AIRLINE_TIMING_FILL_RULE,
   LATIN_NAME_FILL_RULE,
   buildImportPrompt,
 } from './aiPrompt'
 import { makeStamp } from './datetime'
-import { planImport } from './importMerge'
-import type { Booking, TripNotesState } from './types'
+import { planCountryInfoImport, planImport } from './importMerge'
+import type { Booking, CountryInfo, TripNotesState } from './types'
 
 /** 締切もラテン文字表記も入っていない、古いプロンプトで取り込まれた想定の移動 */
 function flight(overrides: Partial<Booking> = {}): Booking {
@@ -31,6 +32,18 @@ function flight(overrides: Partial<Booking> = {}): Booking {
   }
 }
 
+/** 穴が 1 つも無い移動。便の時刻 3 項目も場所のラテン文字表記も埋まっている */
+function filledFlight(overrides: Partial<Booking> = {}): Booking {
+  return flight({
+    onlineCheckInOpensMinutesBefore: 1440,
+    checkInClosesMinutesBefore: 60,
+    bagDropClosesMinutesBefore: 75,
+    from: { name: '羽田空港', latinName: 'Tokyo Haneda' },
+    to: { name: 'シャルル・ド・ゴール空港', latinName: 'Paris CDG' },
+    ...overrides,
+  })
+}
+
 /** 宿。締切の欄は無関係で、場所のラテン文字表記だけが穴になりうる */
 function lodging(overrides: Partial<Booking> = {}): Booking {
   return {
@@ -46,7 +59,31 @@ function lodging(overrides: Partial<Booking> = {}): Booking {
   }
 }
 
-function state(bookings: Array<Booking>): TripNotesState {
+/** 欄がまったく埋まっていない国。国名だけは人間が入れている前提 */
+function country(overrides: Partial<CountryInfo> = {}): CountryInfo {
+  return { id: 'country-1', name: 'マルタ', ...overrides }
+}
+
+/** 一般知識で埋める 5 欄がすべて入っている国 */
+function filledCountry(overrides: Partial<CountryInfo> = {}): CountryInfo {
+  return country({
+    plugTypes: 'G',
+    voltage: '230V 50Hz',
+    tipping: '基本は不要。高級店やホテルでは 5〜10% を置くこともある',
+    emergencyPolice: '112',
+    emergencyAmbulance: '112',
+    ...overrides,
+  })
+}
+
+/**
+ * countryInfos は任意フィールドなので、渡されなければキーごと省く
+ * (「1 件も登録していない」と「空配列を持っている」を作り分けられるようにする)。
+ */
+function state(
+  bookings: Array<Booking>,
+  countryInfos?: Array<CountryInfo>,
+): TripNotesState {
   return {
     schemaVersion: 1,
     tripTitle: 'ヨーロッパ周遊',
@@ -55,6 +92,7 @@ function state(bookings: Array<Booking>): TripNotesState {
     pinnedTz: 'Europe/Paris',
     bookings,
     emergencyContacts: [],
+    ...(countryInfos === undefined ? {} : { countryInfos }),
   }
 }
 
@@ -117,55 +155,106 @@ function asPayload(value: unknown): PromptPayload {
   return payload
 }
 
+/** プロンプトが AI に渡している国 1 件ぶん */
+interface PromptCountryPayload {
+  name: string
+  latinName?: string
+  missing: Array<string>
+}
+
+function asCountryPayload(value: unknown): PromptCountryPayload {
+  if (!isRecord(value)) throw new Error('国がオブジェクトではありません')
+  const missingRaw = value.missing
+  if (!isUnknownArray(missingRaw))
+    throw new Error('missing が配列ではありません')
+
+  const payload: PromptCountryPayload = {
+    name: asString(value.name),
+    missing: missingRaw.map(asString),
+  }
+  if (value.latinName !== undefined) {
+    payload.latinName = asString(value.latinName)
+  }
+  return payload
+}
+
+/**
+ * 見出しに続く ```json フェンスを配列として読む。
+ * 予約と国でフェンスが 2 つ並ぶので、どちらを読むかを見出しで指定する。
+ */
+function jsonAfterHeading(prompt: string, heading: string): Array<unknown> {
+  const index = prompt.indexOf(heading)
+  if (index < 0) throw new Error(`見出しがありません: ${heading}`)
+  const match = /```json\n([\s\S]*?)```/.exec(prompt.slice(index))
+  if (match === null) throw new Error('プロンプトに json フェンスがありません')
+  const parsed = JSON.parse(match[1]) as unknown
+  if (!isUnknownArray(parsed)) throw new Error('JSON 配列ではありません')
+  return parsed
+}
+
 /**
  * プロンプト中の ```json フェンスから、AI に渡している予約データを取り出す。
  * 生成された本文をそのまま読むので、プロンプトに何が載っているかを
  * 文字列の contains ではなく構造として確かめられる。
  */
 function payloadFromPrompt(prompt: string): Array<PromptPayload> {
-  const match = /```json\n([\s\S]*?)```/.exec(prompt)
-  if (match === null) throw new Error('プロンプトに json フェンスがありません')
-  const parsed = JSON.parse(match[1]) as unknown
-  if (!isUnknownArray(parsed)) throw new Error('JSON 配列ではありません')
-  return parsed.map(asPayload)
+  return jsonAfterHeading(prompt, '## 補う予約').map(asPayload)
+}
+
+function countryPayloadFromPrompt(prompt: string): Array<PromptCountryPayload> {
+  return jsonAfterHeading(prompt, '## 補う国・地域').map(asCountryPayload)
 }
 
 describe('findBackfillGaps: 対象の絞り込み', () => {
   it('埋めるべき穴が 1 つも無ければ対象が空になる', () => {
-    const filled = flight({
-      checkInClosesMinutesBefore: 60,
-      bagDropClosesMinutesBefore: 75,
-      from: { name: '羽田空港', latinName: 'Tokyo Haneda' },
-      to: { name: 'シャルル・ド・ゴール空港', latinName: 'Paris CDG' },
-    })
-    const gaps = findBackfillGaps(state([filled, lodging()]))
+    const gaps = findBackfillGaps(state([filledFlight(), lodging()]))
     expect(gaps.targets).toEqual([])
     expect(gaps.bookingCount).toBe(0)
     expect(gaps.countsByField).toEqual([])
   })
 
-  it('締切が両方とも入っている移動は、締切の対象にならない', () => {
+  it('便の時刻 3 項目が全部入っている移動は、その項目の対象にならない', () => {
     const filled = flight({
+      onlineCheckInOpensMinutesBefore: 1440,
       checkInClosesMinutesBefore: 60,
       bagDropClosesMinutesBefore: 75,
     })
     const gaps = findBackfillGaps(state([filled]))
     const ids = gaps.targets[0].fields.map((field) => field.id)
-    expect(ids).not.toContain('deadlines')
+    expect(ids).not.toContain('airlineTimings')
     // ラテン文字表記のほうはまだ空なので、そちらだけが残る
     expect(ids).toContain('placeLatinName')
   })
 
-  it('締切が片方だけ入っている移動は、欠けているほうだけが対象になる', () => {
-    const half = flight({ checkInClosesMinutesBefore: 60 })
+  it('便の時刻が一部だけ入っている移動は、欠けているものだけが対象になる', () => {
+    const half = flight({
+      onlineCheckInOpensMinutesBefore: 1440,
+      checkInClosesMinutesBefore: 60,
+    })
     const gaps = findBackfillGaps(state([half]))
     expect(gaps.targets[0].missingKeys).toContain('bagDropClosesMinutesBefore')
     expect(gaps.targets[0].missingKeys).not.toContain(
       'checkInClosesMinutesBefore',
     )
+    expect(gaps.targets[0].missingKeys).not.toContain(
+      'onlineCheckInOpensMinutesBefore',
+    )
   })
 
-  it('移動系でない予約には締切の穴を作らない', () => {
+  it('オンラインチェックインの開放時刻だけが空なら、それだけが穴になる', () => {
+    const half = flight({
+      checkInClosesMinutesBefore: 60,
+      bagDropClosesMinutesBefore: 75,
+      from: { name: '羽田空港', latinName: 'Tokyo Haneda' },
+      to: { name: 'シャルル・ド・ゴール空港', latinName: 'Paris CDG' },
+    })
+    const gaps = findBackfillGaps(state([half]))
+    expect(gaps.targets[0].missingKeys).toEqual([
+      'onlineCheckInOpensMinutesBefore',
+    ])
+  })
+
+  it('移動系でない予約には便の時刻の穴を作らない', () => {
     // 宿もアクティビティも搭乗手続きを持たない。ここを穴として数えると、
     // 永遠に埋まらない件数が画面に出続ける
     const gaps = findBackfillGaps(
@@ -180,7 +269,12 @@ describe('findBackfillGaps: 対象の絞り込み', () => {
       ]),
     )
     for (const target of gaps.targets) {
-      expect(target.fields.map((field) => field.id)).not.toContain('deadlines')
+      expect(target.fields.map((field) => field.id)).not.toContain(
+        'airlineTimings',
+      )
+      expect(target.missingKeys).not.toContain(
+        'onlineCheckInOpensMinutesBefore',
+      )
       expect(target.missingKeys).not.toContain('checkInClosesMinutesBefore')
       expect(target.missingKeys).not.toContain('bagDropClosesMinutesBefore')
     }
@@ -203,8 +297,8 @@ describe('findBackfillGaps: 対象の絞り込み', () => {
     const byId = new Map(
       gaps.countsByField.map((count) => [count.field.id, count.bookingCount]),
     )
-    // 締切が空なのは移動の 1 件だけ、ラテン文字表記が空なのは 2 件
-    expect(byId.get('deadlines')).toBe(1)
+    // 便の時刻が空なのは移動の 1 件だけ、ラテン文字表記が空なのは 2 件
+    expect(byId.get('airlineTimings')).toBe(1)
     expect(byId.get('placeLatinName')).toBe(2)
     expect(gaps.bookingCount).toBe(2)
   })
@@ -213,24 +307,84 @@ describe('findBackfillGaps: 対象の絞り込み', () => {
     // 「一般知識で埋められる項目」だけをここに登録する、という約束の見張り。
     // 座席や運賃クラスのように原本にしか無い項目が紛れ込んでいないことを確かめる
     expect(BACKFILL_FIELDS.map((field) => field.id)).toEqual([
-      'deadlines',
+      'airlineTimings',
       'placeLatinName',
     ])
   })
 })
 
-describe('buildBackfillPrompt: 出し分けと中身', () => {
-  it('穴が 1 つも無ければ null を返す', () => {
-    const filled = flight({
-      checkInClosesMinutesBefore: 60,
-      bagDropClosesMinutesBefore: 75,
-      from: { name: '羽田空港', latinName: 'Tokyo Haneda' },
-      to: { name: 'シャルル・ド・ゴール空港', latinName: 'Paris CDG' },
-    })
-    expect(buildBackfillPrompt(state([filled]))).toBeNull()
+describe('findBackfillGaps: 国の穴', () => {
+  it('欄が空の国が countries に入る', () => {
+    const gaps = findBackfillGaps(state([], [country()]))
+    expect(gaps.countries).toHaveLength(1)
+    expect(gaps.countries[0].country.name).toBe('マルタ')
+    expect(gaps.countries[0].missingKeys).toEqual(
+      COUNTRY_INFO_FILL_FIELDS.map((field) => field.key),
+    )
+    expect(gaps.countryCount).toBe(1)
   })
 
-  it('予約が 1 件も無ければ null を返す', () => {
+  it('欄が全部埋まっていれば countries に入らない', () => {
+    const gaps = findBackfillGaps(state([], [filledCountry()]))
+    expect(gaps.countries).toEqual([])
+    // 「埋まっている」と「1 件も登録が無い」を取り違えないよう、件数は別に返る
+    expect(gaps.countryCount).toBe(1)
+  })
+
+  it('空白だけの文字列も空とみなす', () => {
+    // 利用者が値を消したあと、フィールドごと消えずに空文字が残ることがある。
+    // undefined しか見ないと、画面では空なのに穴として数えられない欄ができる
+    const gaps = findBackfillGaps(
+      state([], [filledCountry({ plugTypes: '   ', emergencyPolice: '' })]),
+    )
+    expect(gaps.countries[0].missingKeys).toEqual([
+      'plugTypes',
+      'emergencyPolice',
+    ])
+  })
+
+  it('埋まっている欄は missing に載らない', () => {
+    const gaps = findBackfillGaps(
+      state([], [country({ plugTypes: 'G', voltage: '230V 50Hz' })]),
+    )
+    expect(gaps.countries[0].missingKeys).toEqual([
+      'tipping',
+      'emergencyPolice',
+      'emergencyAmbulance',
+    ])
+  })
+
+  it('1 件も登録されていなければ countries は空で countryCount は 0', () => {
+    // これは「穴が無い」ではなく「まだ何も教えてもらっていない」状態。
+    // 訪問国は推定しないので、ここから国を作り出すことはしない
+    const gaps = findBackfillGaps(state([flight()]))
+    expect(gaps.countries).toEqual([])
+    expect(gaps.countryCount).toBe(0)
+  })
+
+  it('埋めさせる欄に latinName と note を含めない', () => {
+    // latinName は埋め方の規則が場所のラテン文字表記と違い、note は自由記述で
+    // 埋めるべき正解が存在しない(ファイル冒頭の判断)
+    const keys = COUNTRY_INFO_FILL_FIELDS.map((field) => field.key)
+    expect(keys).toEqual([
+      'plugTypes',
+      'voltage',
+      'tipping',
+      'emergencyPolice',
+      'emergencyAmbulance',
+    ])
+    const gaps = findBackfillGaps(state([], [country()]))
+    expect(gaps.countries[0].missingKeys).not.toContain('latinName')
+    expect(gaps.countries[0].missingKeys).not.toContain('note')
+  })
+})
+
+describe('buildBackfillPrompt: 出し分けと中身', () => {
+  it('穴が 1 つも無ければ null を返す', () => {
+    expect(buildBackfillPrompt(state([filledFlight()]))).toBeNull()
+  })
+
+  it('予約も国も 1 件も無ければ null を返す', () => {
     expect(buildBackfillPrompt(state([]))).toBeNull()
   })
 
@@ -290,6 +444,7 @@ describe('buildBackfillPrompt: 出し分けと中身', () => {
       )!,
     )
     expect(payload[0].missing).toEqual([
+      'onlineCheckInOpensMinutesBefore',
       'checkInClosesMinutesBefore',
       'bagDropClosesMinutesBefore',
       'to.latinName',
@@ -315,51 +470,170 @@ describe('buildBackfillPrompt: 出し分けと中身', () => {
     // 見張る。両方のプロンプトが同じ文字列を丸ごと含んでいれば複製は起きていない
     const backfill = buildBackfillPrompt(state([flight()]))!
     const extraction = buildImportPrompt(state([]))
-    for (const rule of [DEADLINE_FILL_RULE, LATIN_NAME_FILL_RULE]) {
+    for (const rule of [AIRLINE_TIMING_FILL_RULE, LATIN_NAME_FILL_RULE]) {
       expect(backfill).toContain(rule)
       expect(extraction).toContain(rule)
     }
   })
 
   it('穴のある項目の規則だけを載せる', () => {
-    // 締切が埋まっている宿だけの状態なら、締切の規則は出てこない
+    // 便の時刻に穴が無い宿だけの状態なら、便の時刻の規則は出てこない
     const prompt = buildBackfillPrompt(
       state([lodging({ place: { name: 'パリ' } })]),
     )!
-    expect(prompt).not.toContain('締切は空港ごと・航空会社ごとに違います')
+    expect(prompt).not.toContain('空港ごと・航空会社ごとに違います')
     expect(prompt).toContain('都市名を優先してください')
+  })
+
+  it('開放時刻の穴があるときは、開放時刻のスキーマと規則が載る', () => {
+    const prompt = buildBackfillPrompt(state([flight()]))!
+    expect(prompt).toContain('onlineCheckInOpensMinutesBefore')
+    expect(prompt).toContain('出発の 24 時間前に開くなら 1440')
   })
 })
 
-describe('buildBackfillPrompt → parseImportedJson → planImport の往復', () => {
-  /**
-   * プロンプトが渡した識別情報をそのまま返し、欠けていた欄だけを足した
-   * AI の返答を組み立てる。素直な AI が返すはずの最小のパッチ。
-   */
-  function respond(prompt: string): string {
-    const patches = payloadFromPrompt(prompt).map((entry) => {
-      const patch: Record<string, unknown> = {
-        kind: entry.kind,
-        title: entry.title,
-        start: entry.start,
-        evidence: { checkInClosesMinutesBefore: 'ANA 羽田 国際線の規定' },
-      }
-      if (entry.missing.includes('checkInClosesMinutesBefore')) {
-        patch.checkInClosesMinutesBefore = 60
-      }
-      if (entry.missing.includes('bagDropClosesMinutesBefore')) {
-        patch.bagDropClosesMinutesBefore = 75
-      }
-      for (const slot of ['from', 'to', 'place'] as const) {
-        if (!entry.missing.includes(`${slot}.latinName`)) continue
-        const place = entry[slot]
-        if (place === undefined) continue
-        patch[slot] = { name: place.name, latinName: 'Tokyo' }
-      }
-      return patch
-    })
-    return `\`\`\`json\n${JSON.stringify(patches)}\n\`\`\``
+describe('buildBackfillPrompt: 予約と国の出し分け', () => {
+  it('予約の穴が 0 でも、国の穴があればプロンプトを出す', () => {
+    const prompt = buildBackfillPrompt(state([filledFlight()], [country()]))
+    expect(prompt).not.toBeNull()
+    expect(countryPayloadFromPrompt(prompt!)).toEqual([
+      {
+        name: 'マルタ',
+        missing: COUNTRY_INFO_FILL_FIELDS.map((field) => field.key),
+      },
+    ])
+  })
+
+  it('国の穴が 0 でも、予約の穴があればプロンプトを出す', () => {
+    const prompt = buildBackfillPrompt(state([flight()], [filledCountry()]))
+    expect(prompt).not.toBeNull()
+    expect(prompt).not.toContain('## 補う国・地域')
+  })
+
+  it('両方とも穴が無ければ null を返す', () => {
+    expect(
+      buildBackfillPrompt(state([filledFlight()], [filledCountry()])),
+    ).toBeNull()
+  })
+
+  it('国だけのときは CountryInfoPatch だけを載せ、BookingPatch は載せない', () => {
+    const prompt = buildBackfillPrompt(state([filledFlight()], [country()]))!
+    expect(prompt).toContain('interface CountryInfoPatch')
+    expect(prompt).not.toContain('BookingPatch')
+    expect(prompt).toContain('type Output = Array<CountryInfoPatch>')
+    // 予約の話が 1 つも無いので、書類の話も出さない(文脈から浮くため)
+    expect(prompt).not.toContain('予約確認書に記載があればそれを優先')
+    expect(prompt).not.toContain('## 補う予約')
+  })
+
+  it('予約だけのときは CountryInfoPatch を載せない', () => {
+    const prompt = buildBackfillPrompt(state([flight()]))!
+    expect(prompt).not.toContain('CountryInfoPatch')
+    expect(prompt).toContain('type Output = Array<BookingPatch>')
+  })
+
+  it('両方あるときは判別規則を本文に書く', () => {
+    const prompt = buildBackfillPrompt(state([flight()], [country()]))!
+    expect(prompt).toContain(
+      'type Output = Array<BookingPatch | CountryInfoPatch>',
+    )
+    expect(prompt).toContain('1 つの配列に混ぜて返してかまいません')
+    expect(prompt).toContain('予約のパッチには `kind` と `start` があり')
+    expect(prompt).toContain('国のパッチにはそのどちらも無く `name` があります')
+  })
+
+  it('国の name も「1 文字も変えるな」の約束の対象だと書く', () => {
+    const prompt = buildBackfillPrompt(state([], [country()]))!
+    expect(prompt).toContain('渡した国の **name も、1 文字も変えずにそのまま**')
+    expect(prompt).toContain('新しい国として二重に増えます')
+  })
+
+  it('国のペイロードは latinName があれば送り、無ければ省く', () => {
+    // 識別には使わないが、AI がどの国かを取り違えないための手掛かりになる
+    const withLatin = buildBackfillPrompt(
+      state([], [country({ latinName: 'Malta' })]),
+    )!
+    expect(countryPayloadFromPrompt(withLatin)[0].latinName).toBe('Malta')
+
+    const withoutLatin = buildBackfillPrompt(state([], [country()]))!
+    expect(countryPayloadFromPrompt(withoutLatin)[0].latinName).toBeUndefined()
+  })
+
+  it('国の規則に、緊急通報の分け方とチップの幅の書き方が入る', () => {
+    const prompt = buildBackfillPrompt(state([], [country()]))!
+    expect(prompt).toContain('緊急通報番号は警察と救急・消防を分けて')
+    expect(prompt).toContain('幅があること自体を書いてください')
+  })
+
+  it('規則の番号は載せたものに応じて連番になる(飛ばない)', () => {
+    // 国だけのときは、予約側の規則 2 つが落ちて 4 番が国の規則になる
+    const prompt = buildBackfillPrompt(state([], [country()]))!
+    expect(prompt).toContain('4. **国の基本情報')
+    expect(prompt).toContain('5. evidence には')
+    // 予約 2 項目 + 国で規則は 4/5/6、evidence が 7
+    const both = buildBackfillPrompt(state([flight()], [country()]))!
+    expect(both).toContain('6. **国の基本情報')
+    expect(both).toContain('7. evidence には')
+  })
+})
+
+/**
+ * プロンプトが渡した識別情報をそのまま返し、欠けていた欄だけを足した
+ * 予約のパッチを組み立てる。素直な AI が返すはずの最小のパッチ。
+ */
+function bookingPatches(prompt: string): Array<Record<string, unknown>> {
+  return payloadFromPrompt(prompt).map((entry) => {
+    const patch: Record<string, unknown> = {
+      kind: entry.kind,
+      title: entry.title,
+      start: entry.start,
+      evidence: { checkInClosesMinutesBefore: 'ANA 羽田 国際線の規定' },
+    }
+    if (entry.missing.includes('onlineCheckInOpensMinutesBefore')) {
+      patch.onlineCheckInOpensMinutesBefore = 1440
+    }
+    if (entry.missing.includes('checkInClosesMinutesBefore')) {
+      patch.checkInClosesMinutesBefore = 60
+    }
+    if (entry.missing.includes('bagDropClosesMinutesBefore')) {
+      patch.bagDropClosesMinutesBefore = 75
+    }
+    for (const slot of ['from', 'to', 'place'] as const) {
+      if (!entry.missing.includes(`${slot}.latinName`)) continue
+      const place = entry[slot]
+      if (place === undefined) continue
+      patch[slot] = { name: place.name, latinName: 'Tokyo' }
+    }
+    return patch
+  })
+}
+
+/** 国の穴について、missing に挙がった欄だけを埋めたパッチ */
+function countryPatches(prompt: string): Array<Record<string, unknown>> {
+  const answers: Record<string, string> = {
+    plugTypes: 'G',
+    voltage: '230V 50Hz',
+    tipping: '基本は不要。高級店やホテルでは 5〜10% を置くこともある',
+    emergencyPolice: '112',
+    emergencyAmbulance: '112',
   }
+  return countryPayloadFromPrompt(prompt).map((entry) => {
+    const patch: Record<string, unknown> = {
+      name: entry.name,
+      evidence: { plugTypes: 'マルタで一般に使われているプラグ形状' },
+    }
+    for (const key of entry.missing) patch[key] = answers[key]
+    return patch
+  })
+}
+
+/** AI の返答を模して ```json フェンスで包む */
+function fence(patches: Array<unknown>): string {
+  return `\`\`\`json\n${JSON.stringify(patches)}\n\`\`\``
+}
+
+describe('buildBackfillPrompt → parseImportedJson → planImport の往復', () => {
+  const respond = (prompt: string): string => fence(bookingPatches(prompt))
 
   it('既存の予約が増えずに更新される', () => {
     const existing = [flight(), lodging({ place: { name: 'パリ' } })]
@@ -383,6 +657,7 @@ describe('buildBackfillPrompt → parseImportedJson → planImport の往復', (
     const merged = planImport(existing, result.bookings).entries[0].booking
 
     expect(merged.id).toBe('flight-1')
+    expect(merged.onlineCheckInOpensMinutesBefore).toBe(1440)
     expect(merged.checkInClosesMinutesBefore).toBe(60)
     expect(merged.bagDropClosesMinutesBefore).toBe(75)
     expect(merged.from?.latinName).toBe('Tokyo')
@@ -402,5 +677,84 @@ describe('buildBackfillPrompt → parseImportedJson → planImport の往復', (
       (entry) => entry.booking,
     )
     expect(buildBackfillPrompt(state(merged))).toBeNull()
+  })
+})
+
+describe('buildBackfillPrompt → parseImportedJson → planCountryInfoImport の往復', () => {
+  const respond = (prompt: string): string => fence(countryPatches(prompt))
+
+  it('登録済みの国が増えずに更新され、id が保たれる', () => {
+    const existing = [country()]
+    const prompt = buildBackfillPrompt(state([], existing))!
+    const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
+    expect(result.countryInfos).toHaveLength(1)
+    // 国のパッチが予約に化けていないこと(判別が効いていることの確認)
+    expect(result.bookings).toEqual([])
+
+    const plan = planCountryInfoImport(existing, result.countryInfos)
+    expect(plan.addedCount).toBe(0)
+    expect(plan.updatedCount).toBe(1)
+    expect(plan.entries[0].replacesId).toBe('country-1')
+
+    const merged = plan.entries[0].country
+    expect(merged.id).toBe('country-1')
+    expect(merged.name).toBe('マルタ')
+    expect(merged.plugTypes).toBe('G')
+    expect(merged.voltage).toBe('230V 50Hz')
+    // 同じ番号で共通の国でも、警察と救急の両方に書かせる
+    expect(merged.emergencyPolice).toBe('112')
+    expect(merged.emergencyAmbulance).toBe('112')
+  })
+
+  it('埋まっていた欄はパッチに載らず、既存の値が残る', () => {
+    const existing = [country({ plugTypes: 'F' })]
+    const prompt = buildBackfillPrompt(state([], existing))!
+    const patches = countryPatches(prompt)
+    expect(patches[0]).not.toHaveProperty('plugTypes')
+
+    const result = parseImportedJson(fence(patches), 'Asia/Tokyo')
+    const merged = planCountryInfoImport(existing, result.countryInfos)
+      .entries[0].country
+    expect(merged.plugTypes).toBe('F')
+    expect(merged.voltage).toBe('230V 50Hz')
+  })
+
+  it('取り込んだあとは、同じ穴が再び対象にならない', () => {
+    const existing = [country()]
+    const prompt = buildBackfillPrompt(state([], existing))!
+    const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
+    const merged = planCountryInfoImport(
+      existing,
+      result.countryInfos,
+    ).entries.map((entry) => entry.country)
+    expect(buildBackfillPrompt(state([], merged))).toBeNull()
+  })
+
+  it('予約のパッチと国のパッチが 1 つの配列に混ざっていても振り分けられる', () => {
+    // プロンプトが「混ぜて返してよい」と書いている以上、混ざって返ってくる。
+    // 判別規則(kind / start があるか、name があるか)がそのとおり効くことを固定する
+    const existingBookings = [flight()]
+    const existingCountries = [country()]
+    const prompt = buildBackfillPrompt(
+      state(existingBookings, existingCountries),
+    )!
+    const mixed = [...countryPatches(prompt), ...bookingPatches(prompt)]
+
+    const result = parseImportedJson(fence(mixed), 'Asia/Tokyo')
+    expect(result.bookings).toHaveLength(1)
+    expect(result.countryInfos).toHaveLength(1)
+
+    const bookingPlan = planImport(existingBookings, result.bookings)
+    expect(bookingPlan.entries[0].replacesId).toBe('flight-1')
+    expect(bookingPlan.entries[0].booking.onlineCheckInOpensMinutesBefore).toBe(
+      1440,
+    )
+
+    const countryPlan = planCountryInfoImport(
+      existingCountries,
+      result.countryInfos,
+    )
+    expect(countryPlan.entries[0].replacesId).toBe('country-1')
+    expect(countryPlan.entries[0].country.plugTypes).toBe('G')
   })
 })

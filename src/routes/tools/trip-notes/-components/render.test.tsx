@@ -274,12 +274,44 @@ describe('旅のしおりの各パネルが初回描画で落ちない', () => {
 })
 
 /**
- * 締切の入力欄は移動系のときだけ出す。宿泊で出しても入れるものが無く、
- * 詳細の丈が伸びるだけなので、種別で出し分けていることを固定しておく。
- * 既存の値がフォームに戻ることも一緒に見る(FormState と Booking の
- * 対応を取り違えると、編集して保存するたびに締切が消える)。
+ * 「出発の何分前か」の入力欄を上限で見分ける。
+ * オンラインチェックイン開始の欄には 4320、締切の 2 欄には 1440 が入っている。
  */
-describe('BookingForm の締切の入力欄', () => {
+function minutesBeforeInputs(container: HTMLElement, max: number) {
+  return [
+    ...container.querySelectorAll<HTMLInputElement>(
+      `input[type="number"][max="${max}"]`,
+    ),
+  ]
+}
+
+/**
+ * 上限を超えた値の保存は、保存ボタンではなく submit イベントを直接投げて試す。
+ *
+ * ボタンを押す形にすると、入力欄の max 属性を見た jsdom(実ブラウザも同じ)が
+ * 手前で弾いてしまい、submit がそもそも起きない。確かめたいのはその先にある
+ * JavaScript 側の判定で、そちらこそが storage.ts と範囲を共有している本体である
+ * (max 属性は同じ範囲を先回りで見せているだけで、AI が貼り込んだ値のように
+ * 欄を経由しない値には効かない)。
+ */
+function submitForm(container: HTMLElement) {
+  const form = container.querySelector('form')
+  if (form === null) throw new Error('フォームが見つからない')
+  fireEvent.submit(form)
+}
+
+/**
+ * オンラインチェックイン開始と締切 2 つの入力欄は、移動系のときだけ出す。
+ * 宿泊で出しても入れるものが無く、詳細の丈が伸びるだけなので、
+ * 種別で出し分けていることを固定しておく。
+ * 既存の値がフォームに戻ることも一緒に見る(FormState と Booking の
+ * 対応を取り違えると、編集して保存するたびに値が消える)。
+ *
+ * 上限が項目で違う(締切 1440 分 / 開始 4320 分)ことも境界の値で固定する。
+ * ここを 1 本の判定にまとめると、正しい 4320(72時間前)が弾かれるか、
+ * ありえない 2000 分前の締切が通るかのどちらかになる。
+ */
+describe('BookingForm のオンラインチェックイン・締切の入力欄', () => {
   const formProps = {
     initialDate: null,
     state,
@@ -288,38 +320,115 @@ describe('BookingForm の締切の入力欄', () => {
     onClose: noop,
   }
 
-  it('移動系では出て、既存の値が入力欄に戻る', () => {
-    const flight = bk('form-flight', {
-      kind: 'flight',
-      title: 'AF276',
-      checkInClosesMinutesBefore: 45,
-      bagDropClosesMinutesBefore: 60,
-    })
-    const { container } = render(
-      <BookingForm booking={flight} {...formProps} />,
-    )
-    const scope = within(container)
+  const flight = () => bk('form-flight', { kind: 'flight', title: 'AF276' })
 
+  /** dispatch を覗ける形で開く。保存まで進むテストはこちらを使う */
+  function renderForm(booking: Booking) {
+    const dispatch = vi.fn()
+    const { container } = render(
+      <BookingForm booking={booking} {...formProps} dispatch={dispatch} />,
+    )
+    return { container, scope: within(container), dispatch }
+  }
+
+  it('移動系では 3 つとも出て、既存の値が入力欄に戻る', () => {
+    const { container, scope } = renderForm(
+      bk('form-flight', {
+        kind: 'flight',
+        title: 'AF276',
+        onlineCheckInOpensMinutesBefore: 1440,
+        checkInClosesMinutesBefore: 45,
+        bagDropClosesMinutesBefore: 60,
+      }),
+    )
+
+    expect(scope.getByText('オンラインチェックイン開始')).toBeTruthy()
     expect(scope.getByText('搭乗手続きの締切')).toBeTruthy()
     expect(scope.getByText('受託手荷物を預ける締切')).toBeTruthy()
-    // プリセットは押せるボタンとして出す(自由入力も残っている)
+    // プリセットは押せるボタンとして出す(自由入力も残っている)。
+    // 開始のプリセットだけは分ではなく時間で書く(1440 では何時間前か読めない)
     expect(scope.getAllByText('60分前').length).toBeGreaterThan(0)
-    const deadlineInputs = container.querySelectorAll<HTMLInputElement>(
-      'input[type="number"][max="1440"]',
+    expect(scope.getAllByText('24時間前').length).toBeGreaterThan(0)
+
+    expect(
+      minutesBeforeInputs(container, 4320).map((input) => input.value),
+    ).toEqual(['1440'])
+    // 締切の並びは画面と同じ「手荷物 → 搭乗手続き」(先に締まるほうが上)
+    expect(
+      minutesBeforeInputs(container, 1440).map((input) => input.value),
+    ).toEqual(['60', '45'])
+  })
+
+  it('大きい分数には時間の換算を添える(1440 のままでは読めない)', () => {
+    const { scope } = renderForm(
+      bk('form-flight', {
+        kind: 'flight',
+        title: 'AF276',
+        onlineCheckInOpensMinutesBefore: 2880,
+      }),
     )
-    expect(deadlineInputs).toHaveLength(2)
-    // 並びは画面と同じ「手荷物 → 搭乗手続き」(先に締まるほうが上)
-    expect([...deadlineInputs].map((input) => input.value)).toEqual([
-      '60',
-      '45',
-    ])
+    expect(scope.getByText('= 48時間前')).toBeTruthy()
   })
 
   it('宿泊では出さない', () => {
-    const { container } = render(
-      <BookingForm booking={bk('form-stay')} {...formProps} />,
+    const { scope } = renderForm(bk('form-stay'))
+    expect(scope.queryByText('搭乗手続きの締切')).toBeNull()
+    expect(scope.queryByText('オンラインチェックイン開始')).toBeNull()
+  })
+
+  it('オンラインチェックイン開始は 4320 分(72時間前)まで保存できる', () => {
+    const { container, scope, dispatch } = renderForm(flight())
+
+    fireEvent.change(minutesBeforeInputs(container, 4320)[0], {
+      target: { value: '4320' },
+    })
+    fireEvent.click(scope.getByRole('button', { name: '保存' }))
+
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'updateBooking',
+        booking: expect.objectContaining({
+          onlineCheckInOpensMinutesBefore: 4320,
+        }),
+      }),
     )
-    expect(within(container).queryByText('搭乗手続きの締切')).toBeNull()
+  })
+
+  it('4321 分は上限を超えているので、保存させずエラーを出す', () => {
+    const { container, scope, dispatch } = renderForm(flight())
+
+    fireEvent.change(minutesBeforeInputs(container, 4320)[0], {
+      target: { value: '4321' },
+    })
+    submitForm(container)
+
+    expect(dispatch).not.toHaveBeenCalled()
+    // どちらの欄を直せばよいか分かるよう、締切とはメッセージを分けてある
+    expect(scope.getByRole('alert').textContent).toContain(
+      'オンラインチェックイン開始は 1〜4320 分',
+    )
+  })
+
+  it('締切の上限は 1440 分のままで、1441 分はエラーになる', () => {
+    const { container, scope, dispatch } = renderForm(flight())
+
+    fireEvent.change(minutesBeforeInputs(container, 1440)[0], {
+      target: { value: '1441' },
+    })
+    submitForm(container)
+
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(scope.getByRole('alert').textContent).toContain('締切は 1〜1440 分')
+  })
+
+  it('プリセット「24時間前」を押すと分の値(1440)が入る', () => {
+    // 見せ方は時間でも、保存する単位は分のままにする。項目ごとに単位が
+    // 変わると、締切の 60 と開始の 60 が別の意味の同じ数字になる
+    const { container, scope } = renderForm(flight())
+
+    fireEvent.click(scope.getByRole('button', { name: '24時間前' }))
+
+    expect(minutesBeforeInputs(container, 4320)[0].value).toBe('1440')
   })
 })
 

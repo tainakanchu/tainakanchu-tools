@@ -20,6 +20,7 @@ import {
   Pencil,
   Phone,
   Plane,
+  Plug,
   Plus,
   Printer,
   Share2,
@@ -58,6 +59,7 @@ import { TRAVEL_DOC_STATUS_LABELS, TravelDocStatusBadge } from './StatusBadge'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
+  CountryInfo,
   EmergencyContact,
   TravelDoc,
   TravelDocKind,
@@ -714,6 +716,427 @@ function AddTravelDocSection({ dispatch }: { dispatch: TripNotesDispatch }) {
   )
 }
 
+/**
+ * 国・地域の情報フォームの入力状態。TravelDocFormState と同じ理由で、
+ * すべて文字列で持つ(<input> が返す値の型に素直に合わせる)。
+ *
+ * 並びは types.ts の CountryInfo の宣言順ではなく、画面に出す順にしてある。
+ * 緊急通報番号をわざわざ上に持ち上げている理由は CountryInfoFields のコメント参照。
+ */
+interface CountryInfoFormState {
+  name: string
+  emergencyPolice: string
+  emergencyAmbulance: string
+  latinName: string
+  plugTypes: string
+  voltage: string
+  tipping: string
+  note: string
+}
+
+/**
+ * 追加フォームの初期値。手続きの通貨コード(JPY)のような既定値は、ここには
+ * 一切入れない。「よくある値」をあらかじめ入れておくと、直し忘れたときに
+ * 自分で確かめた値と区別が付かなくなる。緊急通報番号でそれをやると、
+ * 現地で番号を押してから間違いに気付くことになる。
+ * 例示は placeholder に置く(placeholder は入力を促す例であって既定値ではない、
+ * というこのファイルの流儀)。
+ */
+function emptyCountryInfoForm(): CountryInfoFormState {
+  return {
+    name: '',
+    emergencyPolice: '',
+    emergencyAmbulance: '',
+    latinName: '',
+    plugTypes: '',
+    voltage: '',
+    tipping: '',
+    note: '',
+  }
+}
+
+function countryInfoToForm(info: CountryInfo): CountryInfoFormState {
+  return {
+    name: info.name,
+    emergencyPolice: info.emergencyPolice ?? '',
+    emergencyAmbulance: info.emergencyAmbulance ?? '',
+    latinName: info.latinName ?? '',
+    plugTypes: info.plugTypes ?? '',
+    voltage: info.voltage ?? '',
+    tipping: info.tipping ?? '',
+    note: info.note ?? '',
+  }
+}
+
+/**
+ * フォームの入力から CountryInfo を組み立てる。国・地域名が空なら null を返して
+ * 呼び出し側に追加/保存をやめさせる(buildTravelDoc と同じ流儀)。
+ * 空文字の任意フィールドはフィールドごと付けない(既存コードと同じ形)。
+ */
+function buildCountryInfo(
+  id: string,
+  form: CountryInfoFormState,
+): CountryInfo | null {
+  const name = form.name.trim()
+  if (name.length === 0) return null
+
+  const info: CountryInfo = { id, name }
+
+  const latinName = form.latinName.trim()
+  if (latinName.length > 0) info.latinName = latinName
+
+  const plugTypes = form.plugTypes.trim()
+  if (plugTypes.length > 0) info.plugTypes = plugTypes
+
+  const voltage = form.voltage.trim()
+  if (voltage.length > 0) info.voltage = voltage
+
+  const tipping = form.tipping.trim()
+  if (tipping.length > 0) info.tipping = tipping
+
+  const emergencyPolice = form.emergencyPolice.trim()
+  if (emergencyPolice.length > 0) info.emergencyPolice = emergencyPolice
+
+  const emergencyAmbulance = form.emergencyAmbulance.trim()
+  if (emergencyAmbulance.length > 0) {
+    info.emergencyAmbulance = emergencyAmbulance
+  }
+
+  const note = form.note.trim()
+  if (note.length > 0) info.note = note
+
+  return info
+}
+
+/**
+ * 国・地域1件ぶんの入力欄。TravelDocFields と同じく、追加フォームと編集フォームの
+ * 両方から使い、欄の並びを二重管理しない。
+ *
+ * 並びは types.ts の宣言順ではなく「旅行者にとっての優先度」で決めている。
+ * 国・地域名は必須(空だと保存できない)なので先頭に置くが、その次は必ず緊急通報番号にする。
+ * 現地でいちばん効くのがこの2つで、出発前に埋めておく優先度もいちばん高い。
+ * プラグ形状を調べ忘れても現地で買い直せるが、救急を呼ぶ番号は調べている余裕が
+ * 無い場面でこそ要る。
+ * 警察と救急・消防を必ず横に並べるのは、国によって番号の分かれ方が違う
+ * (米国は911で共通、イタリアは警察113と救急118で別)ため。1欄にまとめず、
+ * かつ2つ並べて見せておかないと、片方だけ入れて埋めた気になってしまう。
+ * ラテン文字表記は検索やAI照合の補助でしかないので、緊急通報番号より下に置く。
+ */
+function CountryInfoFields({
+  form,
+  onChange,
+}: {
+  form: CountryInfoFormState
+  onChange: <K extends keyof CountryInfoFormState>(
+    key: K,
+    value: CountryInfoFormState[K],
+  ) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <label className="text-xs text-gray-500">
+        国・地域名
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.name}
+          onChange={(e) => onChange('name', e.target.value)}
+          placeholder="例: マルタ"
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-gray-500">
+          警察(任意)
+          <input
+            className={`${fieldClass} mt-1`}
+            value={form.emergencyPolice}
+            onChange={(e) => onChange('emergencyPolice', e.target.value)}
+            placeholder="例: 112"
+          />
+        </label>
+        <label className="text-xs text-gray-500">
+          救急・消防(任意)
+          {/*
+            placeholder を警察と別の番号にしてあるのは、両者が同じとは限らないことを
+            例そのもので伝えるため。どちらも「例: 112」だと、共通番号の国だけを
+            想定した欄に見えてしまう
+          */}
+          <input
+            className={`${fieldClass} mt-1`}
+            value={form.emergencyAmbulance}
+            onChange={(e) => onChange('emergencyAmbulance', e.target.value)}
+            placeholder="例: 118"
+          />
+        </label>
+      </div>
+      <label className="text-xs text-gray-500">
+        ラテン文字表記(任意)
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.latinName}
+          onChange={(e) => onChange('latinName', e.target.value)}
+          placeholder="例: Malta"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        プラグ形状(任意)
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.plugTypes}
+          onChange={(e) => onChange('plugTypes', e.target.value)}
+          placeholder="例: G"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        電圧・周波数(任意)
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.voltage}
+          onChange={(e) => onChange('voltage', e.target.value)}
+          placeholder="例: 230V 50Hz"
+        />
+      </label>
+      <label className="text-xs text-gray-500">
+        チップの文化(任意)
+        <input
+          className={`${fieldClass} mt-1`}
+          value={form.tipping}
+          onChange={(e) => onChange('tipping', e.target.value)}
+          placeholder="例: 基本は不要。高級店では5〜10%"
+        />
+      </label>
+      <label className="text-xs text-gray-500 sm:col-span-2">
+        メモ(任意)
+        <textarea
+          rows={2}
+          className={`${fieldClass} mt-1`}
+          value={form.note}
+          onChange={(e) => onChange('note', e.target.value)}
+        />
+      </label>
+    </div>
+  )
+}
+
+/**
+ * 国・地域1件の表示・編集。TravelDocRow と同じ構造(行内で完結する編集モードと、
+ * 追加フォームと共有する入力欄)をそのまま踏襲する。
+ */
+function CountryInfoRow({
+  info,
+  dispatch,
+}: {
+  info: CountryInfo
+  dispatch: TripNotesDispatch
+}) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState<CountryInfoFormState>(() =>
+    countryInfoToForm(info),
+  )
+
+  function set<K extends keyof CountryInfoFormState>(
+    key: K,
+    value: CountryInfoFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSave = () => {
+    const updated = buildCountryInfo(info.id, form)
+    if (updated === null) return
+    dispatch({ type: 'updateCountryInfo', countryInfo: updated })
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setForm(countryInfoToForm(info))
+    setEditing(false)
+  }
+
+  const handleRemove = () => {
+    if (!window.confirm(`「${info.name}」を削除しますか?`)) return
+    dispatch({ type: 'removeCountryInfo', id: info.id })
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-xl border border-gray-200 p-3">
+        <CountryInfoFields form={form} onChange={set} />
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            className={primaryButtonClass}
+            disabled={form.name.trim().length === 0}
+            onClick={handleSave}
+          >
+            保存
+          </button>
+          <button
+            type="button"
+            className={subtleButtonClass}
+            onClick={handleCancel}
+          >
+            キャンセル
+          </button>
+        </div>
+      </li>
+    )
+  }
+
+  const hasEmergency =
+    info.emergencyPolice !== undefined || info.emergencyAmbulance !== undefined
+  /**
+   * 国名しか入っていない状態。AI の穴埋めで埋まることをこの行にも書いておく。
+   * 設定タブしか見ない人が AI インポートの穴埋め導線にたどり着けないと、
+   * 国名だけ入れたところで止まってしまい、この機能が半分も働かない。
+   */
+  const nameOnly =
+    !hasEmergency &&
+    info.plugTypes === undefined &&
+    info.voltage === undefined &&
+    info.tipping === undefined
+
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-gray-800">
+          {info.name}
+          {info.latinName !== undefined && info.latinName.length > 0 ? (
+            <span className="ml-1 font-normal text-gray-500">
+              ({info.latinName})
+            </span>
+          ) : null}
+        </p>
+        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+          {/*
+            緊急通報番号を先頭に出す。入力欄の並びと同じ理由で、いざというときに
+            探す順がそのまま上から下になる。
+            ContactRow のように tel: リンクにはしないのは、一覧の中でいちばん
+            押し間違えやすい位置にある番号だから。誤タップで警察や救急に
+            発信しかけるのは、番号を目で読んで自分の電話アプリに入れる手間より
+            はるかに高くつく。
+          */}
+          {hasEmergency ? (
+            <p>
+              緊急通報: 警察 {info.emergencyPolice ?? '未登録'} / 救急・消防{' '}
+              {info.emergencyAmbulance ?? '未登録'}
+            </p>
+          ) : null}
+          {info.plugTypes !== undefined ? (
+            <p>プラグ形状: {info.plugTypes}</p>
+          ) : null}
+          {info.voltage !== undefined ? <p>電圧: {info.voltage}</p> : null}
+          {info.tipping !== undefined ? <p>チップ: {info.tipping}</p> : null}
+          {info.note !== undefined ? <p>{info.note}</p> : null}
+          {nameOnly ? (
+            <p className="text-gray-500">
+              プラグ形状・電圧・チップ・緊急通報番号がまだ空です。上の「AI
+              インポート」の穴埋めでまとめて埋められます。
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <button
+          type="button"
+          aria-label={`${info.name}を編集`}
+          className={iconButtonClass}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          aria-label={`${info.name}を削除`}
+          className={iconButtonClass}
+          onClick={handleRemove}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * 「国・地域を追加」ボタンで開閉する追加フォーム。
+ * AddTravelDocSection と同じ理由(欄が8つあり、常時展開すると設定タブを開いた
+ * 瞬間に空欄だらけの大きなフォームが目に入る)で、既定はボタン1つの姿にしておく。
+ */
+function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState<CountryInfoFormState>(emptyCountryInfoForm)
+
+  function set<K extends keyof CountryInfoFormState>(
+    key: K,
+    value: CountryInfoFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleAdd = (e: FormEvent) => {
+    e.preventDefault()
+    const countryInfo = buildCountryInfo(newId('ci'), form)
+    if (countryInfo === null) return
+    dispatch({ type: 'addCountryInfo', countryInfo })
+    setForm(emptyCountryInfoForm())
+    setOpen(false)
+  }
+
+  const handleCancel = () => {
+    setForm(emptyCountryInfoForm())
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={subtleButtonClass}
+        onClick={() => setOpen(true)}
+      >
+        <Plus size={16} />
+        国・地域を追加
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={handleAdd}
+      className="rounded-xl border border-gray-200 p-3"
+    >
+      <CountryInfoFields form={form} onChange={set} />
+      {/*
+        この機能でいちばん伝えたいことなので、フォームの中にも書く。
+        欄が8つ並んでいると「全部調べてから登録するもの」に見えるが、実際は
+        国名の1行で足りる。空状態の案内を読んで開いた人が、ここで気を変えて
+        閉じてしまうのを防ぐ
+      */}
+      <p className="mt-2 text-xs text-gray-500">
+        国・地域名だけ入れて追加してかまいません。残りの欄は、上の「AI
+        インポート」の穴埋めでまとめて埋められます。
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="submit"
+          className={primaryButtonClass}
+          disabled={form.name.trim().length === 0}
+        >
+          <Plus size={16} />
+          追加
+        </button>
+        <button
+          type="button"
+          className={subtleButtonClass}
+          onClick={handleCancel}
+        >
+          キャンセル
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export function SettingsPanel({
   state,
   displayTz,
@@ -747,6 +1170,8 @@ export function SettingsPanel({
   const aliases = state.placeAliases ?? []
   // 手続きも travelDocs?: Array<TravelDoc> ゆえの、同じ理由の空配列フォールバック
   const travelDocs = state.travelDocs ?? []
+  // 国・地域の情報も countryInfos?: Array<CountryInfo> なので同じ扱い
+  const countryInfos = state.countryInfos ?? []
 
   // 終了日が開始日以前だと夜の計算(nights.ts)が破綻するので、その場で警告する
   let nights: number | null = null
@@ -1205,8 +1630,55 @@ export function SettingsPanel({
         </div>
       </section>
 
+      {/* 8. 国・地域の情報 */}
+      <section className={cardClass}>
+        <h2 className={sectionTitleClass}>
+          <Plug size={18} className="text-cyan-600" />
+          国・地域の情報
+        </h2>
+        <p className="mt-2 text-sm text-gray-600">
+          訪問する国・地域のプラグ形状・電圧・チップの文化・緊急通報番号をまとめておけます。
+          現地で「変換プラグはどれだったか」「救急は何番か」を調べ直さずに済みます。
+        </p>
+
+        {countryInfos.length === 0 ? (
+          /*
+            この案内がこの機能の要になる。
+
+            訪問国をアプリの側で推定することはしない。予約の地名から国を当てるのは
+            誤爆する(「サンティアゴ」がチリなのかスペインなのかは、予約データからは
+            決まらない)。そして間違った国の緊急通報番号を自信たっぷりに出すのは、
+            欄が空のままよりはるかに危険で、しかも現地で番号を押してから気付く。
+            だから国名の入力だけは人間の仕事だと割り切る。
+
+            裏を返せば、人間が1行入れさえすれば、その先の欄はAIの一般知識で埋まる。
+            この文はその「1行だけ入れてくれれば、残りは任せられる」を伝えるために
+            置いている。ただの空状態の説明ではないので、他のセクションの空状態と違って
+            「まず何を入れるか」だけでなく「入れたあとに何が起きるか」まで書く。
+          */
+          <p className="mt-3 text-sm text-gray-500">
+            まだ登録がありません。
+            <strong className="font-semibold text-gray-700">
+              訪問する国・地域名を登録すると、プラグ形状・電圧・チップの文化・緊急通報番号を
+              AI でまとめて埋められます。
+            </strong>
+            まずは国名だけ入れておけば十分です。
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {countryInfos.map((info) => (
+              <CountryInfoRow key={info.id} info={info} dispatch={dispatch} />
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-3">
+          <AddCountryInfoSection dispatch={dispatch} />
+        </div>
+      </section>
+
       {/*
-        8. 同じ場所として扱う組。
+        9. 同じ場所として扱う組。
         進捗タブの警告カードから押した判断の置き場で、登録が無ければ何も出さない
         (使っていない人にとっては存在しない機能なので、説明ごと出す意味がない)。
         取り消せる場所をここに必ず設けているのは、押し間違えたまま放置すると
@@ -1251,7 +1723,7 @@ export function SettingsPanel({
         </section>
       ) : null}
 
-      {/* 9. JSON入出力 */}
+      {/* 10. JSON入出力 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <FileJson size={18} className="text-cyan-600" />
@@ -1329,7 +1801,7 @@ export function SettingsPanel({
         ) : null}
       </section>
 
-      {/* 10. いまの旅程を空にする */}
+      {/* 11. いまの旅程を空にする */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <AlertTriangle size={18} className="text-rose-600" />

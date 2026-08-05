@@ -139,8 +139,11 @@ describe('parseImportedJson: 汚れた入力の許容', () => {
   it('空の配列は「1 件も無い」として報告する', () => {
     const result = parseImportedJson('```json\n[]\n```', TOKYO)
     expect(result.bookings).toEqual([])
+    expect(result.countryInfos).toEqual([])
     expect(result.issues).toHaveLength(1)
     expect(result.issues[0].message).toContain('1 件も')
+    // この貼り付け口は国情報も受けるので、予約前提の文面にはしない
+    expect(result.issues[0].message).not.toContain('予約が')
   })
 
   it('数値の配列など予約でない JSON は取り込まない', () => {
@@ -417,6 +420,7 @@ describe('parseImportedJson: unverified', () => {
     "provider": "Booking.com",
     "price": { "amount": 45000, "currency": "JPY" },
     "freeCancelUntil": "2026-09-01",
+    "onlineCheckInOpensMinutesBefore": 2880,
     "checkInClosesMinutesBefore": 45,
     "bagDropClosesMinutesBefore": 60,
     "note": "エレベーターなし",
@@ -498,5 +502,150 @@ describe('parseImportedJson: 締切(checkInClosesMinutesBefore / bagDropClosesMi
     const booking = firstBooking(parseImportedJson(text, TOKYO))
     expect(booking.unverified).toContain('checkInClosesMinutesBefore')
     expect(booking.unverified).toContain('bagDropClosesMinutesBefore')
+  })
+})
+
+describe('parseImportedJson: オンラインチェックインの開放(onlineCheckInOpensMinutesBefore)', () => {
+  it('AI の JSON に開放時刻があれば取り込まれ、unverified に入る', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"onlineCheckInOpensMinutesBefore":2880}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.onlineCheckInOpensMinutesBefore).toBe(2880)
+    expect(booking.unverified).toContain('onlineCheckInOpensMinutesBefore')
+  })
+
+  it('締切なら弾かれる 72 時間前(4320)も、開放としてなら取り込まれる', () => {
+    // 上限が項目ごとに違う(storage.ts の MAX_CHECK_IN_OPENS_MINUTES_BEFORE)ことが、
+    // 取り込みの側でもそのまま効いていることの確認
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"onlineCheckInOpensMinutesBefore":4320,"checkInClosesMinutesBefore":4320}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.onlineCheckInOpensMinutesBefore).toBe(4320)
+    expect(booking.checkInClosesMinutesBefore).toBeUndefined()
+  })
+
+  it('72 時間より前(4321以上)の開放は落ちるが、予約自体は取り込まれる', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"onlineCheckInOpensMinutesBefore":4321}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.onlineCheckInOpensMinutesBefore).toBeUndefined()
+  })
+
+  it("'2880' のような数字だけの文字列でも取り込まれる", () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"onlineCheckInOpensMinutesBefore":"2880"}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.onlineCheckInOpensMinutesBefore).toBe(2880)
+  })
+})
+
+describe('parseImportedJson: 国情報の振り分け', () => {
+  it('国のパッチだけの JSON は countryInfos に入る', () => {
+    const text = `\`\`\`json
+[
+  {
+    "name": "マルタ",
+    "latinName": "Malta",
+    "plugTypes": "G",
+    "voltage": "230V 50Hz",
+    "tipping": "不要。高級店では10%",
+    "emergencyPolice": "112",
+    "emergencyAmbulance": "112",
+    "note": "水道水は飲用可"
+  }
+]
+\`\`\``
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.bookings).toEqual([])
+    expect(result.issues).toEqual([])
+    expect(result.countryInfos).toHaveLength(1)
+    const [country] = result.countryInfos
+    expect(country.name).toBe('マルタ')
+    expect(country.latinName).toBe('Malta')
+    expect(country.plugTypes).toBe('G')
+    expect(country.voltage).toBe('230V 50Hz')
+    expect(country.tipping).toBe('不要。高級店では10%')
+    expect(country.emergencyPolice).toBe('112')
+    expect(country.emergencyAmbulance).toBe('112')
+    expect(country.note).toBe('水道水は飲用可')
+  })
+
+  it('予約のパッチと国のパッチが混ざっていても振り分けられる', () => {
+    const text = `\`\`\`json
+[
+  {"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"onlineCheckInOpensMinutesBefore":2880},
+  {"name":"マルタ","plugTypes":"G"},
+  {"kind":"train","title":"TGV 6203","start":{"date":"2026-09-14","time":"08:12","tz":"Europe/Paris"}},
+  {"name":"フランス","emergencyPolice":"17"}
+]
+\`\`\``
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.bookings.map((b) => b.title)).toEqual(['AF276', 'TGV 6203'])
+    expect(result.countryInfos.map((c) => c.name)).toEqual([
+      'マルタ',
+      'フランス',
+    ])
+    expect(result.issues).toEqual([])
+  })
+
+  it('name があっても title や start を持つ要素は予約として扱う', () => {
+    // AI が予約の見出しを name で返してきても、予約が国情報に化けないことの確認。
+    // 判別は「予約の必須項目が無いこと」を根拠にしている
+    const text =
+      '[{"name":"AF276 の予約","kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"}}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos).toEqual([])
+    expect(result.bookings).toHaveLength(1)
+    expect(result.bookings[0].title).toBe('AF276')
+  })
+
+  it('start しか持たない要素も、name があるだけでは国情報にしない', () => {
+    const text =
+      '[{"name":"マルタ","start":{"date":"2026-09-12","time":"14:20","tz":"Europe/Malta"}}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos).toEqual([])
+    // 予約として扱われ、title が無いので落ちて issues に残る
+    expect(result.bookings).toEqual([])
+    expect(result.issues.some((issue) => issue.message.includes('title'))).toBe(
+      true,
+    )
+  })
+
+  it('name が無い / 空白だけの要素は国情報にならず、予約として issues に落ちる', () => {
+    const text = '[{"plugTypes":"G"},{"name":"   ","voltage":"230V"}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos).toEqual([])
+    expect(result.bookings).toEqual([])
+    expect(result.issues.filter((issue) => issue.index !== null)).toHaveLength(
+      2,
+    )
+  })
+
+  it('title / kind が null で返ってきても、name があれば国情報として扱う', () => {
+    // AI は空欄を null で返す。null は「欄が無い」と同じ扱いにする
+    const text =
+      '[{"kind":null,"title":null,"name":"台湾","plugTypes":"A / B"}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos).toHaveLength(1)
+    expect(result.countryInfos[0].name).toBe('台湾')
+    expect(result.issues).toEqual([])
+  })
+
+  it('国情報の id は LLM が返した値を使わず必ず採番し直す', () => {
+    const text =
+      '[{"id":"ci-1","name":"マルタ","plugTypes":"G"},{"id":"ci-1","name":"フランス","plugTypes":"C / E"}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos[0].id).not.toBe('ci-1')
+    expect(result.countryInfos[0].id).not.toBe(result.countryInfos[1].id)
+  })
+
+  it('国のパッチの値は前後の空白を落とし、空文字ならキーごと付けない', () => {
+    // 空文字のまま通すと、マージ側で既存の値を空で潰しにいく形になる
+    const text = '[{"name":"  マルタ  ","plugTypes":"","voltage":"  230V  "}]'
+    const result = parseImportedJson(text, TOKYO)
+    expect(result.countryInfos).toHaveLength(1)
+    expect(result.countryInfos[0].name).toBe('マルタ')
+    expect(result.countryInfos[0].voltage).toBe('230V')
+    expect(result.countryInfos[0]).not.toHaveProperty('plugTypes')
   })
 })

@@ -1,5 +1,5 @@
 /**
- * AI が返した JSON を Booking に取り込む層。
+ * AI が返した JSON を Booking / CountryInfo に取り込む層。
  *
  * 設計判断:
  * - LLM は素直に JSON だけを返さない。「はい、抽出しました!」という前置き、
@@ -19,6 +19,13 @@
  *   「取り込めたのに次回起動で消える予約」という最悪の壊れ方をする。
  * - 取り込んだ予約は値の入った全フィールドを unverified にする。
  *   AI の抽出は人間が目視で確認するまで確定とみなさない。
+ * - 貼り付け口は 1 つに保つ。穴埋めプロンプト(backfillPrompt.ts)は予約のパッチと
+ *   国情報のパッチを 1 つの配列に混ぜて返させるが、それを種類ごとに別の入力欄で
+ *   受けたりはせず、parseImportedJson が要素ごとに振り分ける。
+ *   取り込みの経路が 2 本になると、汚れた JSON の直し方・マッチ条件・検証の規則が
+ *   いずれ食い違い、「片方の口からは入るのに、もう片方からは入らない」という
+ *   追いにくい壊れ方をする(backfillPrompt.ts の冒頭にある同趣旨の判断と揃えてある)。
+ *   利用者にとっても、AI の出力をどこに貼るか迷う理由が無いほうがよい。
  */
 
 import {
@@ -36,11 +43,13 @@ import {
   FIELD_KEYS,
   PAYMENT_STATUSES,
   parseBooking,
+  parseCountryInfo,
 } from './storage'
 import type {
   Booking,
   BookingKind,
   BookingStatus,
+  CountryInfo,
   FieldKey,
   Money,
   PaymentStatus,
@@ -58,6 +67,14 @@ export interface ImportIssue {
 
 export interface ImportResult {
   bookings: Array<Booking>
+  /**
+   * 同じ貼り付けに含まれていた国情報。予約と別の配列に分けて返す。
+   *
+   * 1 つの配列に混ぜて「型で見分けてくれ」とすると、呼び出し側(プレビュー・reducer)が
+   * 判別規則を自前で持つことになり、この層と食い違ったときに直す場所が 2 つになる。
+   * 振り分けはここで 1 度だけ行い、以降は種類の分かれた配列として扱う。
+   */
+  countryInfos: Array<CountryInfo>
   issues: Array<ImportIssue>
   /**
    * タイムゾーンを読み取れず補完した予約の id。
@@ -296,13 +313,19 @@ function collectJsonCandidates(text: string): Array<string> {
   return candidates
 }
 
-/** 予約の配列として扱える形か。数値の配列などを誤って拾わないための門番 */
-function toBookingRecords(value: unknown): Array<unknown> | null {
+/**
+ * 取り込みの対象(予約または国情報)の配列として扱える形か。
+ * 数値の配列などを誤って拾わないための門番。
+ * どちらの種類として扱うかはここでは決めず、要素ごとに後で振り分ける
+ * (isCountryInfoRecord 参照)。
+ */
+function toRecords(value: unknown): Array<Record<string, unknown>> | null {
   // 単一オブジェクトで返ってくることは珍しくないので配列に包む
   if (isRecord(value)) return [value]
   if (!Array.isArray(value)) return null
-  if (!value.every(isRecord)) return null
-  return value
+  const records = value.filter(isRecord)
+  if (records.length !== value.length) return null
+  return records
 }
 
 // --- 中間形式 → Booking ---
@@ -461,10 +484,13 @@ function toEvidence(
 }
 
 /**
- * 締切(出発の何分前か)。数値でも '60' のような文字列でも受ける。
+ * 出発からの相対分を持つ 3 項目(オンラインチェックインの開放 1・締切 2)。
+ * 数値でも '60' のような文字列でも受ける。
  *
  * ここでは「数として読めるか」までしか見ない。範囲や整数かどうかの判定は
- * storage.ts の parseBooking(= isDeadlineMinutesBefore)に委ねる。
+ * storage.ts の parseBooking(= isCheckInOpensMinutesBefore /
+ * isDeadlineMinutesBefore)に委ねる。項目によって上限が違う(開放は 72 時間前まで、
+ * 締切は 24 時間前まで)ことも、その差ごと向こうに閉じ込めてある。
  * 取り込みと保存で許す値が食い違うと「取り込めたのに次回起動で消える」という
  * 最悪の壊れ方をするので、規則の置き場所は 1 つに保つ。
  *
@@ -595,6 +621,10 @@ function convertBooking(
     provider: toOptionalString(raw.provider),
     price: toMoney(raw.price),
     freeCancelUntil: toOptionalString(raw.freeCancelUntil),
+    // 出発からの相対分は時系列の順(開いてから閉まる)に並べてある
+    onlineCheckInOpensMinutesBefore: toMinutesBefore(
+      raw.onlineCheckInOpensMinutesBefore,
+    ),
     checkInClosesMinutesBefore: toMinutesBefore(raw.checkInClosesMinutesBefore),
     bagDropClosesMinutesBefore: toMinutesBefore(raw.bagDropClosesMinutesBefore),
     note: toOptionalString(raw.note),
@@ -619,8 +649,82 @@ function convertBooking(
   return booking
 }
 
+/** その欄が埋まっているか。AI は空欄を undefined ではなく null で返してくる */
+function isFilled(value: unknown): boolean {
+  return value !== undefined && value !== null
+}
+
 /**
- * AI が返したテキストから予約を取り込む。
+ * その要素を国情報のパッチとみなすか。
+ *
+ * 判別の根拠は「国らしさ」ではなく **予約の必須項目が無いこと** に置く。
+ * kind / start / title のどれも持たず、name が空でない文字列である要素だけを
+ * 国情報として扱う。
+ *
+ * ■ なぜこの向きなのか
+ *   予約は title と start が無ければそもそも取り込めない(convertBooking が落とす)。
+ *   つまりその 2 つが無い時点で、その要素は予約ではありえないと言い切れる。
+ *   逆に「name があるかどうか」だけで判定すると、AI が予約の見出しを title ではなく
+ *   name で返してきたときに、予約が丸ごと国情報に化ける。化けた予約は日付も場所も
+ *   失った「国」として設定タブに現れ、利用者は予約が消えたようにしか見えない。
+ *   外したときに失うものが小さいほうへ倒す。
+ *
+ * ■ どちらとも付かない形は予約として扱う
+ *   未知の形を予約側に流せば、convertBooking が理由と原文を issues に残して落とす。
+ *   「読めないものは issues に出す」という既存の寛容さを、種類が増えたからといって
+ *   変えない。
+ */
+function isCountryInfoRecord(raw: Record<string, unknown>): boolean {
+  if (isFilled(raw.kind) || isFilled(raw.start) || isFilled(raw.title)) {
+    return false
+  }
+  return typeof raw.name === 'string' && raw.name.trim().length > 0
+}
+
+/**
+ * 中間形式 1 件を CountryInfo に変換する。変換できなければ null。
+ *
+ * id は LLM が返したものを信用せず必ず採番し直す(予約と同じ理由。既存の国情報と
+ * 衝突する id を返されると、取り込みが上書きになってしまう)。突き合わせは
+ * 国名で行うので(importMerge.ts の planCountryInfoImport)、id を作り直しても
+ * 既存の国情報への合流は失われない。
+ *
+ * 値は前後の空白を落とし、空文字ならキーごと付けない。空文字のまま通すと、
+ * マージ側で既存の値を空で潰しにいく形になる。
+ * 最終的な妥当性の判定は storage.ts の parseCountryInfo に委ねる
+ * (取り込みと保存で規則を分けない、というこのファイルの方針)。
+ */
+function convertCountryInfo(
+  raw: Record<string, unknown>,
+  index: number,
+  issues: Array<ImportIssue>,
+): CountryInfo | null {
+  const candidate: Record<string, unknown> = {
+    id: newId('ci'),
+    name: toOptionalString(raw.name),
+    latinName: toOptionalString(raw.latinName),
+    plugTypes: toOptionalString(raw.plugTypes),
+    voltage: toOptionalString(raw.voltage),
+    tipping: toOptionalString(raw.tipping),
+    emergencyPolice: toOptionalString(raw.emergencyPolice),
+    emergencyAmbulance: toOptionalString(raw.emergencyAmbulance),
+    note: toOptionalString(raw.note),
+  }
+
+  const info = parseCountryInfo(candidate)
+  if (info === null) {
+    issues.push({
+      index,
+      message: '国情報として妥当ではないため取り込めませんでした',
+      raw: rawOf(raw),
+    })
+    return null
+  }
+  return info
+}
+
+/**
+ * AI が返したテキストから予約と国情報を取り込む。
  *
  * @param text AI の出力をそのまま貼り付けたもの。フェンスや前後の散文があってよい
  * @param fallbackTz tz が読み取れなかったときに使うタイムゾーン(通常はデバイスのもの)
@@ -638,16 +742,16 @@ export function parseImportedJson(
   const cleaned = text.replace(/^\ufeff/, '').trim()
   if (cleaned.length === 0) {
     issues.push({ index: null, message: '入力が空です' })
-    return { bookings: [], issues, tzFallbackIds: [] }
+    return { bookings: [], countryInfos: [], issues, tzFallbackIds: [] }
   }
 
-  let records: Array<unknown> | null = null
+  let records: Array<Record<string, unknown>> | null = null
   let sawEmptyArray = false
 
   for (const candidate of collectJsonCandidates(cleaned)) {
     const parsed = tryParseJson(candidate)
     if (parsed === undefined) continue
-    const found = toBookingRecords(parsed)
+    const found = toRecords(parsed)
     if (found === null) continue
     if (found.length === 0) {
       // 散文中の '[]' を拾っただけの可能性もあるので、他の候補を先に試す
@@ -660,11 +764,13 @@ export function parseImportedJson(
 
   if (records === null) {
     if (sawEmptyArray) {
+      // 「予約が」と言わない。この口は国情報も受けるので、国だけを埋めさせた
+      // つもりの利用者に「予約の話をされている」と思わせない文面にする
       issues.push({
         index: null,
-        message: '予約が 1 件も含まれていませんでした(空の配列)',
+        message: '取り込めるものが 1 件も含まれていませんでした(空の配列)',
       })
-      return { bookings: [], issues, tzFallbackIds: [] }
+      return { bookings: [], countryInfos: [], issues, tzFallbackIds: [] }
     }
     issues.push({
       index: null,
@@ -672,14 +778,21 @@ export function parseImportedJson(
         'JSON として読み取れませんでした。AI の出力を ```json フェンスごとすべて貼り付けてください',
       raw: truncate(cleaned),
     })
-    return { bookings: [], issues, tzFallbackIds: [] }
+    return { bookings: [], countryInfos: [], issues, tzFallbackIds: [] }
   }
 
   const bookings: Array<Booking> = []
+  const countryInfos: Array<CountryInfo> = []
   records.forEach((record, index) => {
+    // 種類の振り分けはここ 1 箇所だけで行う(isCountryInfoRecord 参照)
+    if (isCountryInfoRecord(record)) {
+      const info = convertCountryInfo(record, index, issues)
+      if (info !== null) countryInfos.push(info)
+      return
+    }
     const booking = convertBooking(record, index, safeTz, issues, tzFallbackIds)
     if (booking !== null) bookings.push(booking)
   })
 
-  return { bookings, issues, tzFallbackIds: [...tzFallbackIds] }
+  return { bookings, countryInfos, issues, tzFallbackIds: [...tzFallbackIds] }
 }

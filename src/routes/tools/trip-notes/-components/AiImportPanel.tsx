@@ -175,13 +175,66 @@ function summarizeResult(result: ImportResult): string {
   const failedCount = failedIndexes.size
   const total = successCount + failedCount
 
-  if (total === 0) return '取り込めるものがありませんでした'
+  if (total === 0) {
+    // 穴埋めプロンプトの結果が国の基本情報だけということはふつうに起こる
+    // (国名だけ登録して穴埋めを回した場合)。そのときに「取り込めるものが
+    // ありませんでした」と言い切ると、すぐ下に「国・地域の基本情報を2件取り込みます」
+    // と出ている画面と矛盾する
+    return result.countryInfos.length > 0
+      ? '予約は含まれていませんでした'
+      : '取り込めるものがありませんでした'
+  }
   if (failedCount === 0) return `${total}件を取り込み候補として読み込みました`
   return `${total}件中${successCount}件を取り込みました。${failedCount}件は取り込めませんでした`
 }
 
 /**
- * 既存の予約に不足している項目を、原本を読み直さずに埋めるための導線。
+ * 国の欄のキー(plugTypes など)を、画面に出す名前に直す表。
+ *
+ * BackfillGaps.countries が持っているのはプロンプトにそのまま載るキーなので、
+ * ここで日本語にする。この details は「AI に何が送られるのか」を先に見せるために
+ * あるので、読めない文字列を並べたのでは目的を果たさない。
+ * 表に無いキーはキーのまま出す。プロンプト側に欄が増えたときに、ここへの
+ * 追記漏れで一覧から消える(=送られるのに画面には出ない)ほうが危ない。
+ */
+const COUNTRY_FIELD_LABELS: Record<string, string> = {
+  emergencyPolice: '警察',
+  emergencyAmbulance: '救急・消防',
+  plugTypes: 'プラグ形状',
+  voltage: '電圧・周波数',
+  tipping: 'チップの文化',
+  latinName: 'ラテン文字表記',
+}
+
+function countryFieldLabel(key: string): string {
+  return COUNTRY_FIELD_LABELS[key] ?? key
+}
+
+/**
+ * 「何に穴が空いているのか」の書き出しを、予約と国の件数で出し分ける。
+ *
+ * 片方が0件のときに「以前に取り込んだ0件の予約には」という嘘の文が出るのを防ぐ。
+ * 件数を必ず添えるのは、コピーする前に対象の規模が分からないと、外部のチャットへ
+ * どれだけのデータを渡すことになるのかを判断できないため。
+ */
+function backfillScopeText(gaps: BackfillGaps): string {
+  const parts: Array<string> = []
+  if (gaps.bookingCount > 0) {
+    parts.push(`以前に登録した${gaps.bookingCount}件の予約`)
+  }
+  if (gaps.countries.length > 0) {
+    parts.push(`登録済みの${gaps.countries.length}件の国・地域`)
+  }
+  return parts.join('と')
+}
+
+/**
+ * 登録済みの内容に不足している項目を、原本を読み直さずに埋めるための導線。
+ *
+ * 対象は 2 種類ある。予約単位の穴(締切・場所のラテン文字表記)と、旅程単位の穴
+ * (国・地域のプラグ形状・電圧・チップ・緊急通報番号)である。プロンプトも
+ * 貼り戻す口も 1 つにまとめているので、この枠も 1 つのままにする。片方だけを
+ * 埋める導線を別に生やすと、利用者は外部のチャットへの往復を 2 回することになる。
  *
  * 穴が 1 つも無ければ呼び出し側が丸ごと出さない。「埋めるものがありません」と
  * 書いてある枠が常設されていると、本当に穴が空いたときの見え方が変わらず、
@@ -190,7 +243,7 @@ function summarizeResult(result: ImportResult): string {
  * 何が AI に送られるのかを必ず先に見せる。自分の予約データを外部のチャットに
  * 貼る操作なので、コピーしてから中身を知るのでは遅い。確認番号が含まれないことも
  * 明示する(backfillPrompt.ts が確認番号を送らないという判断を、画面からも
- * 確かめられるようにするため)。
+ * 確かめられるようにするため)。国について送られるのが名前だけであることも同様に書く。
  */
 function BackfillSection({
   gaps,
@@ -206,11 +259,10 @@ function BackfillSection({
     <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
         <ClipboardList size={16} aria-hidden="true" className="text-cyan-600" />
-        既存の予約に不足している項目を埋める
+        登録済みの内容に足りていない項目を埋める
       </h3>
       <p className="mt-1 text-sm text-gray-600">
-        アプリに新しい項目が増えたため、以前に取り込んだ
-        {gaps.bookingCount}件の予約には空のままの欄があります。
+        {backfillScopeText(gaps)}には、空のままの欄があります。
         <strong className="font-semibold text-gray-800">
           予約確認メールや PDF を探し直さなくても
         </strong>
@@ -223,21 +275,66 @@ function BackfillSection({
             ・{count.field.label}: {count.bookingCount}件
           </li>
         ))}
+        {/*
+          国の穴は予約単位の内訳(countsByField)と数え方の単位が違うが、
+          利用者から見れば「この回のプロンプトで何がいくつ埋まるか」の一覧は 1 つ。
+          並べる順は予約のあと。この画面の主役は引き続き予約の取り込みである
+        */}
+        {gaps.countries.length > 0 && (
+          <li>・国・地域の基本情報: {gaps.countries.length}件</li>
+        )}
       </ul>
 
-      <details className="mt-2 text-sm text-gray-600">
-        <summary className="cursor-pointer">
-          対象の予約({gaps.bookingCount}件)
-        </summary>
-        <ul className="mt-1 space-y-1">
-          {gaps.targets.map((target) => (
-            <li key={target.booking.id} className="text-xs">
-              {stampDate(target.booking.start)} {target.booking.title} —{' '}
-              {target.fields.map((field) => field.label).join(' / ')}
-            </li>
-          ))}
-        </ul>
-      </details>
+      {gaps.bookingCount > 0 && (
+        <details className="mt-2 text-sm text-gray-600">
+          <summary className="cursor-pointer">
+            対象の予約({gaps.bookingCount}件)
+          </summary>
+          <ul className="mt-1 space-y-1">
+            {gaps.targets.map((target) => (
+              <li key={target.booking.id} className="text-xs">
+                {stampDate(target.booking.start)} {target.booking.title} —{' '}
+                {target.fields.map((field) => field.label).join(' / ')}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/*
+        国は予約と別の details にする。まとめて 1 つにすると「対象(5件)」の中身が
+        予約と国の混在になり、開く前に分かるのは合計だけになってしまう。
+        送られるものの内訳が畳んだ状態でも読めることを優先する
+      */}
+      {gaps.countries.length > 0 && (
+        <details className="mt-2 text-sm text-gray-600">
+          <summary className="cursor-pointer">
+            対象の国・地域({gaps.countries.length}件)
+          </summary>
+          <ul className="mt-1 space-y-1">
+            {gaps.countries.map((entry) => (
+              <li key={entry.country.id} className="text-xs">
+                {entry.country.name} —{' '}
+                {entry.missingKeys.map(countryFieldLabel).join(' / ')}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/*
+        国が 1 件も登録されていないときだけ、登録すれば埋められることを添える。
+        推定はしない(予約の地名から訪問国を当てるのは誤爆し、間違った国の
+        緊急通報番号を出すのは空欄よりはるかに危険)と決めた以上、
+        国名の 1 行は人間に入れてもらうしかない。その 1 行さえあれば
+        ここでまとめて埋まる、ということを知らせる場所がどこかに要る
+      */}
+      {gaps.countryCount === 0 && (
+        <p className="mt-2 text-xs text-gray-500">
+          国・地域はまだ登録されていません。設定タブの「国・地域の情報」に訪問先の国名を入れておくと、
+          プラグ形状・電圧・チップの文化・緊急通報番号もここでまとめて埋められます。
+        </p>
+      )}
 
       <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
         <ShieldCheck
@@ -254,7 +351,11 @@ function BackfillSection({
           <strong className="font-semibold text-gray-800">
             確認番号は含まれません。
           </strong>
-          料金・メモ・その他の予約もプロンプトには入りません。
+          料金・メモ・その他の予約もプロンプトには入りません。国・地域については、
+          <strong className="font-semibold text-gray-800">
+            国・地域名(とラテン文字表記)だけ
+          </strong>
+          が送られます。すでに入力済みのプラグ形状やメモは渡しません。
         </span>
       </p>
 
@@ -269,7 +370,7 @@ function BackfillSection({
       <p className="mt-3 text-sm text-gray-600">
         コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
         添付ファイルは要りません。返ってきた JSON は、このページのステップ 2
-        にそのまま貼り付ければ、既存の予約に反映されます。
+        にそのまま貼り付ければ、登録済みの予約と国・地域の情報に反映されます。
       </p>
       <div className="mt-2">
         <AiServiceLinks compact />
@@ -321,7 +422,9 @@ export function AiImportPanel({
 
   // 穴埋めの導線。穴が 1 つも無ければ backfillPrompt が null になり、
   // 導線ごと出さない。判定を UI 側で書き直すと、プロンプトの対象と画面の表示が
-  // 食い違って「導線は出ているのに埋めるものが無い」ことが起きる
+  // 食い違って「導線は出ているのに埋めるものが無い」ことが起きる。
+  // 予約の穴と国の穴のどちらか一方でもあれば buildBackfillPrompt は null を返さない
+  // ので、出し分けの条件はこのまま(予約が全部埋まっていても、国だけの穴で出る)
   const backfillGaps = useMemo(() => findBackfillGaps(state), [state])
   const backfillPrompt = useMemo(() => buildBackfillPrompt(state), [state])
 
@@ -353,8 +456,18 @@ export function AiImportPanel({
     // 予約は id が既存側に変わるため、あとから対象を見失って「まとめて確認する」が
     // 効かなくなる
     const plan = planImport(state.bookings, confirmed)
-    if (confirmed.length > 0) {
-      dispatch({ type: 'importBookings', bookings: confirmed })
+    // 国の基本情報は予約と同じ 1 アクションに載せる。1 回の貼り付けは
+    // 1 回の Undo で戻せなければならない(reducer の importBookings のコメント参照)。
+    // 別々に dispatch すると、取り消しに Undo が 2 回要る操作になってしまう
+    const countryInfos = importResult?.countryInfos ?? []
+    // 予約が 0 件でも国の基本情報だけ返ってくることがあるので、
+    // 「予約があるときだけ dispatch」にはしない
+    if (confirmed.length > 0 || countryInfos.length > 0) {
+      dispatch({
+        type: 'importBookings',
+        bookings: confirmed,
+        ...(countryInfos.length > 0 ? { countryInfos } : {}),
+      })
     }
     const finalBookings = plan.entries.map((entry) => entry.booking)
 
@@ -378,8 +491,20 @@ export function AiImportPanel({
     setStep(1)
     setImportedUnverifiedIds(unverifiedIds)
     setImportedFocusDate(focusDate)
+    // 国の基本情報は 1 アクションで一緒に入ったので、完了メッセージも 1 本にまとめる。
+    // 別の行に分けて出すと、「Undo 1 回で戻る 1 つの操作」だったことが伝わらない
+    const countryNote =
+      countryInfos.length > 0
+        ? `国・地域の基本情報を${countryInfos.length}件取り込みました`
+        : ''
+
     if (confirmed.length === 0) {
-      setSuccessMessage('取り込む予約がありませんでした')
+      // 国名だけ登録して穴埋めを回すと、予約 0 件・国だけという結果になる。
+      // ここで「取り込む予約がありませんでした」だけを出すと、実際には入った
+      // 国の情報が無かったことにされてしまう
+      setSuccessMessage(
+        countryNote === '' ? '取り込む予約がありませんでした' : countryNote,
+      )
     } else {
       // 既存の予約を更新した件数があれば、新規追加ぶんと分けて伝える。
       // 「何件増えたか」だけでは、実は重複せずマージされたことに気付けない
@@ -387,13 +512,18 @@ export function AiImportPanel({
         plan.updatedCount > 0
           ? `(うち${plan.updatedCount}件は既存の予約を更新)`
           : ''
-      if (unverifiedIds.length === 0) {
-        setSuccessMessage(`${confirmed.length}件を取り込みました${updateNote}`)
-      } else {
-        setSuccessMessage(
-          `${confirmed.length}件を取り込みました${updateNote}。${unverifiedIds.length}件に未確認の項目があります`,
-        )
-      }
+      const unverifiedNote =
+        unverifiedIds.length === 0
+          ? ''
+          : `。${unverifiedIds.length}件に未確認の項目があります`
+      setSuccessMessage(
+        [
+          `${confirmed.length}件を取り込みました${updateNote}${unverifiedNote}`,
+          countryNote,
+        ]
+          .filter((part) => part !== '')
+          .join('。'),
+      )
     }
   }
 
@@ -551,7 +681,26 @@ export function AiImportPanel({
 
             <ImportIssueDetails issues={importResult.issues} />
 
-            {importResult.bookings.length === 0 ? (
+            {/*
+              国の基本情報は件数と国名だけを見せて、1 件ずつ確認させる画面は作らない。
+              確認を必須にしているのは「間違うと乗り遅れる」日時とタイムゾーンだけで
+              (ReviewDialog のコメント参照)、国の基本情報は予約と違って
+              unverified(黄色い下線)の仕組みも持たないため、レビュー用の編集 UI を
+              作っても「見た」という記録がどこにも残らない。取り込んだあとは
+              設定タブの「国・地域の情報」でいつでも直せる。
+              ここで保証するのは「何が増えるのかが取り込む前に分かること」だけでよい。
+            */}
+            {importResult.countryInfos.length > 0 && (
+              <p className="text-sm text-gray-600">
+                国・地域の基本情報を{importResult.countryInfos.length}
+                件取り込みます(
+                {importResult.countryInfos.map((info) => info.name).join('、')}
+                )。同じ国がすでに登録されていれば、新しく増えるのではなく、その国に足されます。
+              </p>
+            )}
+
+            {importResult.bookings.length === 0 &&
+            importResult.countryInfos.length === 0 ? (
               <div className="flex justify-start">
                 <button
                   type="button"
@@ -563,19 +712,22 @@ export function AiImportPanel({
               </div>
             ) : (
               <>
-                <ul className="space-y-2">
-                  {importResult.bookings.map((booking, index) => (
-                    <BookingPreviewCard
-                      key={booking.id}
-                      booking={booking}
-                      displayTz={displayTz}
-                      willUpdate={
-                        previewPlan !== null &&
-                        previewPlan.entries[index].replacesId !== null
-                      }
-                    />
-                  ))}
-                </ul>
+                {/* 国だけの取り込みでは予約のカードが 1 枚も無いので、一覧ごと出さない */}
+                {importResult.bookings.length > 0 && (
+                  <ul className="space-y-2">
+                    {importResult.bookings.map((booking, index) => (
+                      <BookingPreviewCard
+                        key={booking.id}
+                        booking={booking}
+                        displayTz={displayTz}
+                        willUpdate={
+                          previewPlan !== null &&
+                          previewPlan.entries[index].replacesId !== null
+                        }
+                      />
+                    ))}
+                  </ul>
+                )}
                 <div className="flex flex-wrap justify-between gap-2">
                   <button
                     type="button"
@@ -587,7 +739,17 @@ export function AiImportPanel({
                   <button
                     type="button"
                     className={primaryButtonClass}
-                    onClick={() => setReviewOpen(true)}
+                    onClick={() => {
+                      // 予約が 1 件も無いなら、ReviewDialog に確認させる日時が無い。
+                      // あの画面は日時とタイムゾーンだけを見せるためのものなので、
+                      // 空のまま開くと「すべて確認して取り込む」ボタンだけが並ぶ
+                      // 意味のない関門になる。国だけの取り込みはそのまま確定させる
+                      if (importResult.bookings.length === 0) {
+                        handleConfirmImport([])
+                        return
+                      }
+                      setReviewOpen(true)
+                    }}
                   >
                     取り込む
                   </button>

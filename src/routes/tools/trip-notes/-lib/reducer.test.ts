@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createHistory, historyReducer, tripNotesReducer } from './reducer'
 import type {
   Booking,
+  CountryInfo,
   EmergencyContact,
   TravelDoc,
   TripNotesState,
@@ -45,6 +46,13 @@ function travelDoc(id: string, overrides: Partial<TravelDoc> = {}): TravelDoc {
     status: 'todo',
     ...overrides,
   }
+}
+
+function countryInfo(
+  id: string,
+  overrides: Partial<CountryInfo> = {},
+): CountryInfo {
+  return { id, name: `国 ${id}`, ...overrides }
 }
 
 describe('tripNotesReducer / 予約の CRUD', () => {
@@ -173,6 +181,27 @@ describe('tripNotesReducer / 未確認フィールド', () => {
     expect(next.bookings[0].unverified).toEqual(['confirmationNumber'])
   })
 
+  it('オンラインチェックインの開放時刻を直すと、その未確認マークも外れる', () => {
+    // 判定に使うキーの一覧に足し忘れると、直したのに黄色い下線が残り続ける。
+    // 締切と違って「〜からできる」時刻なので、見落としても画面上は自然に見えてしまう
+    const withOpens = makeState({
+      bookings: [
+        makeBooking('b1', {
+          onlineCheckInOpensMinutesBefore: 1440,
+          unverified: ['onlineCheckInOpensMinutesBefore', 'start'],
+        }),
+      ],
+    })
+    const next = tripNotesReducer(withOpens, {
+      type: 'updateBooking',
+      booking: makeBooking('b1', {
+        onlineCheckInOpensMinutesBefore: 2880,
+        unverified: ['onlineCheckInOpensMinutesBefore', 'start'],
+      }),
+    })
+    expect(next.bookings[0].unverified).toEqual(['start'])
+  })
+
   it('値が変わっていないフィールドは未確認のまま残る', () => {
     const next = tripNotesReducer(base, {
       type: 'updateBooking',
@@ -286,6 +315,63 @@ describe('tripNotesReducer / AI 取り込みのバルク追加', () => {
     expect(next.bookings).toHaveLength(2)
     expect(next.bookings[0].status).toBe('cancelled')
     expect(next.bookings[1].id).not.toBe('cancelled1')
+  })
+
+  it('国の基本情報も同じ取り込みで受け、名前が一致する既存は更新される', () => {
+    const base = makeState({
+      countryInfos: [countryInfo('ci1', { name: 'マルタ', plugTypes: 'G' })],
+    })
+    const next = tripNotesReducer(base, {
+      type: 'importBookings',
+      bookings: [],
+      countryInfos: [
+        // 空白の入り方が違うだけの同じ国。既存の位置と id はそのまま残る
+        countryInfo('tmp1', { name: ' マルタ ', voltage: '230V 50Hz' }),
+        countryInfo('tmp2', { name: 'イタリア', emergencyPolice: '113' }),
+      ],
+    })
+
+    expect(next.countryInfos).toHaveLength(2)
+    expect(next.countryInfos?.[0].id).toBe('ci1')
+    expect(next.countryInfos?.[0].voltage).toBe('230V 50Hz')
+    expect(next.countryInfos?.[1].name).toBe('イタリア')
+  })
+
+  it('国の基本情報が 1 件も無い状態から取り込むとフィールドが生える', () => {
+    const next = tripNotesReducer(makeState(), {
+      type: 'importBookings',
+      bookings: [],
+      countryInfos: [countryInfo('tmp1', { name: '台湾' })],
+    })
+    expect(next.countryInfos?.map((info) => info.name)).toEqual(['台湾'])
+  })
+
+  it('予約も国の基本情報も 1 件も無い取り込みは状態を変えない(同一参照)', () => {
+    // 1 回の貼り付けを 1 手として扱う以上、中身が空なら空の 1 手も積まない
+    const base = makeState({ bookings: [makeBooking('manual')] })
+    expect(
+      tripNotesReducer(base, {
+        type: 'importBookings',
+        bookings: [],
+        countryInfos: [],
+      }),
+    ).toBe(base)
+  })
+
+  it('予約と国の基本情報が混在していても、undo 1 回でまとめて取り消せる', () => {
+    // AI に投げる口も貼り戻す口も 1 つなので、取り消しも 1 回で済まないと
+    // 「まとめて取り込む」こと自体が取り返しの付かない操作になる
+    const base = makeState()
+    const imported = historyReducer(createHistory(base), {
+      type: 'importBookings',
+      bookings: [makeBooking('tmp1', { title: 'AI が読んだ宿' })],
+      countryInfos: [countryInfo('tmp2', { name: 'マルタ' })],
+    })
+    expect(imported.past).toHaveLength(1)
+    expect(imported.present.bookings).toHaveLength(1)
+    expect(imported.present.countryInfos).toHaveLength(1)
+
+    expect(historyReducer(imported, { type: 'undo' }).present).toBe(base)
   })
 })
 
@@ -407,6 +493,65 @@ describe('tripNotesReducer / 旅程の合流', () => {
     expect(next.placeAliases?.[1].names).toEqual(['パリ北駅', 'Gare du Nord'])
   })
 
+  it('同じ国の基本情報は既存が残り、相手の緊急通報番号で上書きされない', () => {
+    // 現地で本当にかける番号なので、食い違ったときにどちらが正しいかを
+    // 機械が決めて黙って上書きすると、間違いに誰も気付けないまま旅行に出る
+    const base = makeState({
+      countryInfos: [
+        countryInfo('ci1', { name: 'マルタ', emergencyPolice: '112' }),
+      ],
+    })
+    const incoming = makeState({
+      countryInfos: [
+        // 半角カナと前後の空白の違いしかない、同じ国
+        countryInfo('ci9', { name: ' ﾏﾙﾀ ', emergencyPolice: '119' }),
+        countryInfo('ci10', { name: 'イタリア', emergencyPolice: '113' }),
+        // incoming の中の重複も 1 件に畳む
+        countryInfo('ci11', { name: 'イタリア', emergencyPolice: '113' }),
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.countryInfos).toHaveLength(2)
+    expect(next.countryInfos?.[0]).toEqual(
+      countryInfo('ci1', { name: 'マルタ', emergencyPolice: '112' }),
+    )
+    expect(next.countryInfos?.[1].name).toBe('イタリア')
+  })
+
+  it('新規として足す国の基本情報の id が既存と衝突するときは振り直す', () => {
+    const base = makeState({
+      countryInfos: [countryInfo('ci-1', { name: 'マルタ' })],
+    })
+    const incoming = makeState({
+      countryInfos: [countryInfo('ci-1', { name: 'イタリア' })],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.countryInfos).toHaveLength(2)
+    expect(next.countryInfos?.[1].id).not.toBe('ci-1')
+    expect(new Set(next.countryInfos?.map((info) => info.id)).size).toBe(2)
+  })
+
+  it('国の基本情報だけが増える合流も 1 手として履歴に積まれる', () => {
+    // 予約が 1 件も動かない合流でも、増えたものがあるなら undo で戻せなければならない
+    const base = makeState({ bookings: [makeBooking('mine1')] })
+    const incoming = makeState({
+      bookings: [],
+      countryInfos: [countryInfo('ci9', { name: 'マルタ' })],
+    })
+
+    const merged = historyReducer(createHistory(base), {
+      type: 'mergeTrip',
+      incoming,
+    })
+    expect(merged.past).toHaveLength(1)
+    expect(merged.present.countryInfos).toHaveLength(1)
+    expect(historyReducer(merged, { type: 'undo' }).present).toBe(base)
+  })
+
   it('旅行の名前・期間・表示タイムゾーンは相手のものに変わらない', () => {
     const base = makeState()
     const incoming = makeState({
@@ -460,6 +605,7 @@ describe('tripNotesReducer / 旅程の合流', () => {
       bookings: [makeBooking('mine1')],
       emergencyContacts: [contact('ec1', '大使館')],
       travelDocs: [travelDoc('td1', { title: 'マルタのビザ', status: 'done' })],
+      countryInfos: [countryInfo('ci1', { name: 'マルタ' })],
     })
     const incoming = makeState({
       // 予約はすべてマッチしても planImport が新しいオブジェクトを作るので、
@@ -467,12 +613,13 @@ describe('tripNotesReducer / 旅程の合流', () => {
       bookings: [],
       emergencyContacts: [contact('ec9', '大使館')],
       travelDocs: [travelDoc('td9', { title: 'マルタのビザ', status: 'todo' })],
+      countryInfos: [countryInfo('ci9', { name: 'マルタ' })],
     })
 
     expect(tripNotesReducer(base, { type: 'mergeTrip', incoming })).toBe(base)
   })
 
-  it('双方が持っていない手続き・同じ場所の組は、フィールドごと生えない', () => {
+  it('双方が持っていない手続き・同じ場所の組・国の基本情報は、フィールドごと生えない', () => {
     const base = makeState({ bookings: [makeBooking('mine1')] })
     const incoming = makeState({
       bookings: [makeBooking('their1', { title: '同行者の宿' })],
@@ -482,6 +629,7 @@ describe('tripNotesReducer / 旅程の合流', () => {
 
     expect('travelDocs' in next).toBe(false)
     expect('placeAliases' in next).toBe(false)
+    expect('countryInfos' in next).toBe(false)
   })
 })
 
@@ -730,6 +878,96 @@ describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
     })
     expect(next.bookings).toHaveLength(0)
     expect(next.startDate).toBe('2026-08-01')
+  })
+})
+
+describe('tripNotesReducer / 国の基本情報', () => {
+  it('追加・更新・削除ができ、最後の 1 件を消すとフィールドごと落ちる', () => {
+    // 「空配列が残っている state」と「一度も登録していない state」を
+    // 別物にしない(travelDocs と同じ扱い)
+    const base = makeState()
+    expect(base).not.toHaveProperty('countryInfos')
+
+    const added = tripNotesReducer(base, {
+      type: 'addCountryInfo',
+      countryInfo: countryInfo('ci1', { name: 'マルタ' }),
+    })
+    expect(added.countryInfos).toHaveLength(1)
+
+    const updated = tripNotesReducer(added, {
+      type: 'updateCountryInfo',
+      countryInfo: countryInfo('ci1', {
+        name: 'マルタ',
+        plugTypes: 'G',
+        emergencyPolice: '112',
+      }),
+    })
+    expect(updated.countryInfos?.[0].plugTypes).toBe('G')
+    expect(updated.countryInfos?.[0].emergencyPolice).toBe('112')
+
+    const removed = tripNotesReducer(updated, {
+      type: 'removeCountryInfo',
+      id: 'ci1',
+    })
+    expect(removed).not.toHaveProperty('countryInfos')
+  })
+
+  it('追加は末尾に積まれ、更新は id が一致するものだけを置き換える', () => {
+    const base = makeState({
+      countryInfos: [countryInfo('ci1'), countryInfo('ci2')],
+    })
+    const added = tripNotesReducer(base, {
+      type: 'addCountryInfo',
+      countryInfo: countryInfo('ci3'),
+    })
+    expect(added.countryInfos?.map((info) => info.id)).toEqual([
+      'ci1',
+      'ci2',
+      'ci3',
+    ])
+
+    const updated = tripNotesReducer(base, {
+      type: 'updateCountryInfo',
+      countryInfo: countryInfo('ci2', { name: '書き換えた国' }),
+    })
+    expect(updated.countryInfos?.[0].name).toBe('国 ci1')
+    expect(updated.countryInfos?.[1].name).toBe('書き換えた国')
+  })
+
+  it('2 件あるうちの 1 件を消してもフィールドは残る', () => {
+    const base = makeState({
+      countryInfos: [countryInfo('ci1'), countryInfo('ci2')],
+    })
+    const removed = tripNotesReducer(base, {
+      type: 'removeCountryInfo',
+      id: 'ci1',
+    })
+    expect(removed.countryInfos?.map((info) => info.id)).toEqual(['ci2'])
+  })
+
+  it('存在しない id の更新・削除は状態を変えない(同一参照を返す)', () => {
+    const base = makeState({ countryInfos: [countryInfo('ci1')] })
+    expect(
+      tripNotesReducer(base, {
+        type: 'updateCountryInfo',
+        countryInfo: countryInfo('いない'),
+      }),
+    ).toBe(base)
+    expect(
+      tripNotesReducer(base, { type: 'removeCountryInfo', id: 'いない' }),
+    ).toBe(base)
+
+    // 1 件も無い(フィールドごと存在しない)状態でも同じ
+    const empty = makeState()
+    expect(
+      tripNotesReducer(empty, { type: 'removeCountryInfo', id: 'いない' }),
+    ).toBe(empty)
+    expect(
+      tripNotesReducer(empty, {
+        type: 'updateCountryInfo',
+        countryInfo: countryInfo('ci1'),
+      }),
+    ).toBe(empty)
   })
 })
 

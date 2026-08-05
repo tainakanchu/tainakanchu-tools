@@ -4,40 +4,42 @@
  * ■ なぜ予約ではなく時刻を単位にするのか
  *   「今」タブはこれまで予約(進行中・次)を単位に並べていた。しかし旅行中に
  *   スマホを開いて知りたいのは予約そのものではなく、次に来る時刻である。
- *   1 件の飛行機の予約は、利用者から見れば「手荷物を預ける締切」「搭乗手続きの
- *   締切」「出発」「到着」という 4 つの別々の時刻で、いま効くのはそのうち 1 つでしかない。
+ *   1 件の飛行機の予約は、利用者から見れば「オンラインチェックインの開放」
+ *   「手荷物を預ける締切」「搭乗手続きの締切」「出発」「到着」という 5 つの別々の
+ *   時刻で、いま効くのはそのうち 1 つでしかない。
  *   予約を単位にすると、いちばん近い締切が予約カードの中身に埋もれる。
  *   だから予約を時刻に分解して、近い順に並べ直す。
  *
  * ■ 作らないもの(無い情報を作らない)
- *   - 締切の分数が入っていない予約からは、締切のマイルストーンを作らない。
- *     「だいたい 60 分前」で補うことはしない。締切は空港・航空会社・路線種別で
- *     違うので、こちらで決め打つと、利用者が自分で確かめる機会を奪ったうえで
- *     嘘をつくことになる。締切が出ていなければ利用者は自分で調べる。
+ *   - 締切や開放の分数が入っていない予約からは、その時刻のマイルストーンを作らない。
+ *     「だいたい 60 分前」「だいたい 24 時間前」で補うことはしない。どちらも空港・
+ *     航空会社・路線種別で違うので、こちらで決め打つと、利用者が自分で確かめる機会を
+ *     奪ったうえで嘘をつくことになる。出ていなければ利用者は自分で調べる。
  *   - 終日の予定からは作らない。終日の Stamp は暦の上では現地 00:00 なので、
  *     そこへ残り時間を出すと、実際とずれた数字を自信たっぷりに見せることになる
  *     (NowPanel の進行中カードが終日の終了を除いているのと同じ判断)。
  *   - キャンセル済みの予約からは作らない。
- *   - 締切は移動系の予約からしか作らない。宿やアクティビティに値が入っていても
+ *   - 締切と開放は移動系の予約からしか作らない。宿やアクティビティに値が入っていても
  *     無視する。入力欄を出していないところに値がある時点で何かの取り違えなので、
  *     そのまま画面に出すより落とすほうが安全。
  *
  * ■ 進行中の予約から作らない理由(カウントダウンの二重表示を避ける)
- *   開始済みの予約からはマイルストーンを 1 つも作らない。開始側(締切・出発・
- *   チェックイン開始)はすべて過ぎているので出しようがなく、終了側(到着・
- *   チェックアウト)は「今」タブの進行中カードが既に「到着まで あと2時間」
- *   「チェックアウトまで あと3時間」としてカウントダウンしているためである。
- *   ここでも作ると、同じ数字が 1 画面に 2 回、別の見た目で並ぶ。
+ *   開始済みの予約からはマイルストーンを 1 つも作らない。開始側(オンライン
+ *   チェックインの開放・締切・出発・宿のチェックイン開始)はすべて過ぎているので
+ *   出しようがなく、終了側(到着・チェックアウト)は「今」タブの進行中カードが既に
+ *   「到着まで あと2時間」「チェックアウトまで あと3時間」としてカウントダウンして
+ *   いるためである。ここでも作ると、同じ数字が 1 画面に 2 回、別の見た目で並ぶ。
  *   どちらに残すかは「その予約の他の情報(確認番号・場所)と一緒に読めるか」で決めた。
  *   進行中の終了時刻は、カードの中で予約と一緒に読むほうが意味が取りやすい。
  *
- * ■ 過ぎたものは出さないが、宿のチェックイン開始だけは言い換える
+ * ■ 過ぎたものは出さないが、「〜からできる」の開始点だけは言い換える
  *   過ぎた時刻に「あと0分」を出し続けても意味がないので、過ぎたものは落とす。
- *   ただし宿のチェックイン開始は、過ぎていること自体が「もう入れる」という
- *   使える情報になる。到着してから宿に向かうまでの間にいちばん知りたいのは
- *   「もうチェックインできるのか」であって、15:00 という時刻ではない。
- *   そこで一覧からは落としつつ、状態としての「受付中」を isCheckInOpen で別に返し、
- *   画面はカウントダウンではなく現在の状態として出す。
+ *   ただし宿のチェックイン開始とオンラインチェックインの開放は、過ぎていること自体が
+ *   「もうできる」という使える情報になる。到着してから宿に向かうまでの間にいちばん
+ *   知りたいのは「もうチェックインできるのか」であって、15:00 という時刻ではない。
+ *   そこで一覧からは落としつつ、状態としての「受付中」を isCheckInOpen /
+ *   isOnlineCheckInOpen で別に返し、画面はカウントダウンではなく現在の状態として出す。
+ *   逆に締切・出発・到着は過ぎた瞬間に用済みになるので、この言い換えは要らない。
  *
  * この層は純関数だけで構成し、現在時刻は引数で受け取る(derive.ts の
  * findCurrentAndNext と同じ流儀)。時刻に依存する判定をテストから
@@ -54,6 +56,8 @@ import type { Booking, Stamp } from './types'
  * まったく違うので、ラベルのためだけでなく種類として分けて持つ。
  */
 export type MilestoneKind =
+  /** オンラインチェックインが開く時刻(締切ではなく開始点) */
+  | 'onlineCheckInOpen'
   /** 受託手荷物の預け締切 */
   | 'bagDrop'
   /** 搭乗手続きの締切 */
@@ -77,6 +81,7 @@ export type MilestoneKind =
  * 種類とラベルが離れていると、種類を足したときにラベルだけ付け忘れる。
  */
 export const MILESTONE_LABELS: Record<MilestoneKind, string> = {
+  onlineCheckInOpen: 'オンラインチェックイン開始',
   bagDrop: '手荷物を預ける締切',
   checkIn: '搭乗手続きの締切',
   departure: '出発',
@@ -91,6 +96,13 @@ export const MILESTONE_LABELS: Record<MilestoneKind, string> = {
  * 締切系(過ぎたら取り返しがつかない)のマイルストーン。
  * 出発や到着は過ぎても次の行動が残っているが、こちらは締め切られたら
  * その便に乗れない。強調の対象になるのはこの 2 つだけ。
+ *
+ * ■ オンラインチェックインの開放をここに入れない理由
+ *   開放時刻は「〜からできる」の開始点であって、「〜までにやる」の締切ではない。
+ *   開いた瞬間に乗り遅れても失うのは席の選択肢だけで、その便には乗れる。
+ *   DEADLINE_SOON_MS の赤い強調は「いま列に並べ」という 1 つの行動を促すための
+ *   ものなので、そこに「そのうちやればよいこと」を混ぜると、本当に危ない締切と
+ *   見分けが付かなくなり、強調そのものが効かなくなる。
  */
 const DEADLINE_KINDS: ReadonlySet<MilestoneKind> = new Set<MilestoneKind>([
   'bagDrop',
@@ -127,18 +139,23 @@ export interface Milestone {
 }
 
 /**
- * 同じ時刻に並んだときの順序。人が動く順(準備 → 出る → 着く)で固定する。
+ * 同じ時刻に並んだときの順序。人が動く順(席を取る → 準備 → 出る → 着く)で固定する。
  * 時刻が同じなら、先にすべきことが上に来ないと読む順序が逆になる。
+ *
+ * オンラインチェックインの開放が先頭なのは、この 5 つの中で時系列上いちばん早く
+ * 来るのがこれだから(出発の 24〜72 時間前)。実際に同時刻で並ぶことはまず無いが、
+ * 分数の入力次第では並びうるので、並び自体は人が動く順のままにしておく。
  */
 const KIND_ORDER: Record<MilestoneKind, number> = {
-  bagDrop: 0,
-  checkIn: 1,
-  departure: 2,
-  lodgingCheckIn: 2,
-  start: 2,
-  arrival: 3,
-  lodgingCheckOut: 3,
-  end: 3,
+  onlineCheckInOpen: 0,
+  bagDrop: 1,
+  checkIn: 2,
+  departure: 3,
+  lodgingCheckIn: 3,
+  start: 3,
+  arrival: 4,
+  lodgingCheckOut: 4,
+  end: 4,
 }
 
 function startKindOf(booking: Booking): MilestoneKind {
@@ -197,14 +214,16 @@ export function deriveMilestones(
 
     if (!booking.start.allDay) {
       if (isTransportKind(booking.kind)) {
+        // 出発からの相対分で持っている項目(開放 1 つと締切 2 つ)。
         // 分の引き算は Temporal の時刻演算なので、夏時間の切り替わりを
         // 跨いでも「出発の 60 分前」という実経過時間どおりの瞬間になる
         // (暦の上で 1 時間ずれた壁時計時刻にはならない)
-        const deadlines = [
+        const relativeTimes = [
+          ['onlineCheckInOpen', booking.onlineCheckInOpensMinutesBefore],
           ['bagDrop', booking.bagDropClosesMinutesBefore],
           ['checkIn', booking.checkInClosesMinutesBefore],
         ] as const
-        for (const [kind, minutes] of deadlines) {
+        for (const [kind, minutes] of relativeTimes) {
           if (minutes === undefined) continue
           const at = start.subtract({ minutes })
           milestones.push(
@@ -276,4 +295,44 @@ export function isCheckInOpen(booking: Booking, nowMs: number): boolean {
     if (endZdt !== null && endZdt.epochMilliseconds <= nowMs) return false
   }
   return true
+}
+
+/**
+ * オンラインチェックインが既に開いているか。
+ *
+ * isCheckInOpen(宿)と対になる関数で、判断も同じ。
+ * 「オンラインチェックイン開始まであと◯」が過ぎたあとの言い換えとして使う。
+ * 過ぎたことを黙って消すと、いちばん知りたい「もう席を取れるのか」が
+ * 画面から消えてしまうので、一覧から落とすかわりにこちらが状態として引き取る。
+ *
+ * ■ 宿の側との違い
+ *   宿の受付中は「予約が始まったあと」の状態なので進行中カードに出るが、
+ *   こちらは出発の 24〜72 時間前、つまり予約が始まる **前** の状態である。
+ *   だから出る場所は進行中のカードではなく「次の予定」のカードになる。
+ *
+ * 終日の start では false を返す。終日の start は現地 00:00 で、それは
+ * 「時刻が分からない」の表現でしかないため、そこから 24 時間前を引いた瞬間は
+ * 嘘の時刻になる(isCheckInOpen が終日を外しているのと同じ理由)。
+ * 分数が入っていなければ false。無い情報は作らない。
+ */
+export function isOnlineCheckInOpen(booking: Booking, nowMs: number): boolean {
+  if (!isTransportKind(booking.kind)) return false
+  if (booking.status === 'cancelled') return false
+  if (booking.start.allDay) return false
+
+  const minutes = booking.onlineCheckInOpensMinutesBefore
+  if (minutes === undefined) return false
+
+  const start = tryParseStamp(booking.start)
+  if (start === null) return false
+
+  const startMs = start.epochMilliseconds
+  const opensMs = start.subtract({ minutes }).epochMilliseconds
+
+  // 下側を `<=`(ちょうど開いた瞬間を含む)にしてあるのは、deriveMilestones が
+  // atMs > nowMs だけを残す = ちょうどその瞬間を過ぎた側として落とすため。
+  // ここを `<` にすると、ちょうど開いた 1 瞬だけ一覧からも状態からも消える穴ができる。
+  // 上側は start で切る(`<`)。出発してしまえばオンラインチェックインの話は終わりで、
+  // 出発のちょうどその瞬間も、境界の向きを揃えて過ぎた側として扱う。
+  return opensMs <= nowMs && nowMs < startMs
 }

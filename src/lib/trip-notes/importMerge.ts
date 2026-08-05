@@ -1,5 +1,6 @@
 /**
- * AI インポートで、取り込み側の予約を既存の予約とどう突き合わせるかを決める層。
+ * AI インポートで、取り込み側のデータ(予約・国情報)を既存のものとどう
+ * 突き合わせるかを決める層。
  *
  * 設計判断:
  * - 同じ予約確認メールをもう一度 AI に読ませて貼り付けると、素朴に「足すだけ」の
@@ -32,7 +33,7 @@
 
 import { DEFAULT_PAYMENT, DEFAULT_STATUS } from './aiImport'
 import { stampDate } from './datetime'
-import type { Booking, FieldKey, Place } from './types'
+import type { Booking, CountryInfo, FieldKey, Place } from './types'
 
 export interface ImportPlanEntry {
   /** 取り込む予約。既存と同一とみなした場合はマージ後の値(id は既存のものを保つ) */
@@ -161,7 +162,8 @@ function findMatch(
 
 /**
  * confirmationNumber/provider/price/freeCancelUntil/
- * checkInClosesMinutesBefore/bagDropClosesMinutesBefore/note の
+ * onlineCheckInOpensMinutesBefore/checkInClosesMinutesBefore/
+ * bagDropClosesMinutesBefore/note の
  * 共通ルール: 取り込み側に値があれば採用し、undefined なら既存を維持する。
  * from/to/place だけは中身をフィールド単位でマージするので mergePlace が受け持つ。
  * fromIncoming も一緒に返し、unverified の引き継ぎ判定に使う。
@@ -324,9 +326,21 @@ export function mergeBooking(existing: Booking, incoming: Booking): Booking {
     merged.freeCancelUntil = freeCancelUntil.value
   }
 
-  // 締切は「出発の何分前か」という相対値なので、start を取り込み側で
-  // 上書きしても意味がずれない。むしろ出発時刻を直した再取り込みでこそ
-  // 生き残ってほしい値なので、他の任意フィールドと同じ規則でよい
+  // 出発からの相対分を持つ 3 項目(オンラインチェックインの開放 1・締切 2)は、
+  // どれも「出発の何分前か」という相対値なので、start を取り込み側で上書きしても
+  // 意味がずれない。むしろ出発時刻を直した再取り込みでこそ生き残ってほしい値なので、
+  // 他の任意フィールドと同じ規則でよい。
+  // 時系列の順(開いてから閉まる)に並べてある
+  const checkInOpens = pickOptional(
+    existing,
+    incoming,
+    'onlineCheckInOpensMinutesBefore',
+  )
+  markUnverified('onlineCheckInOpensMinutesBefore', checkInOpens.fromIncoming)
+  if (checkInOpens.value !== undefined) {
+    merged.onlineCheckInOpensMinutesBefore = checkInOpens.value
+  }
+
   const checkInCloses = pickOptional(
     existing,
     incoming,
@@ -382,6 +396,162 @@ export function planImport(
     }
     consumed.add(match.id)
     return { booking: mergeBooking(match, candidate), replacesId: match.id }
+  })
+
+  const updatedCount = entries.filter(
+    (entry) => entry.replacesId !== null,
+  ).length
+
+  return {
+    entries,
+    addedCount: entries.length - updatedCount,
+    updatedCount,
+  }
+}
+
+// --- 国情報(CountryInfo) ---
+
+/**
+ * 国情報の取り込み計画。予約の ImportPlan とわざと同じ形にしてある。
+ * 呼び出し側(reducer / UI のプレビュー)から見て「何件増えて何件更新されるか」を
+ * 読む手つきが予約と揃っていれば、片方だけ扱いを間違えることがない。
+ */
+export interface CountryInfoPlanEntry {
+  /** 取り込む国情報。既存と同一とみなした場合はマージ後の値(id は既存のものを保つ) */
+  country: CountryInfo
+  /** 同一とみなした既存の id。新規なら null */
+  replacesId: string | null
+}
+
+export interface CountryInfoPlan {
+  entries: Array<CountryInfoPlanEntry>
+  addedCount: number
+  updatedCount: number
+}
+
+/**
+ * 国情報の任意フィールドの採用規則。予約と同じく「取り込み側に値があれば採用、
+ * 無ければ既存を維持」だが、空白だけの文字列は値が無いものとして扱う。
+ *
+ * AI は空欄のつもりで null ではなく '' や ' ' を返すことがある。それを値として
+ * 採用すると、既存の「230V 50Hz」が空文字で潰れる。画面の上では欄が消えたようにしか
+ * 見えず、自分が何をして消したのかも分からない。埋めるための操作で既存の記入が
+ * 減ることだけは避ける。
+ *
+ * 空白を落とすのは「値があるかどうか」の判定にだけ使い、採用する値そのものは
+ * 加工しない。前後の空白を落とす仕事は取り込み側(aiImport.ts)が済ませており、
+ * ここで二重に手を入れると、利用者が意図して入れた字面まで書き換えかねない。
+ */
+function pickCountryText(
+  existing: string | undefined,
+  incoming: string | undefined,
+): string | undefined {
+  if (incoming !== undefined && incoming.trim().length > 0) return incoming
+  return existing
+}
+
+/**
+ * 既存の国情報 1 件と取り込み側 1 件をマージする。
+ *
+ * id は既存のものを保つ(予約と同じ。国情報の同一性を壊さない)。
+ *
+ * name も既存のものを保つ。マッチしたということは正規化して一致しているので、
+ * 両者は同じ国を指しており、そこで表記だけを AI の返した形に置き換えても
+ * 得るものが無い。むしろ、利用者が自分の言葉で書いた「マルタ」が、AI の返した
+ * 「マルタ共和国」で黙って書き換わると、欠けた欄を埋めるだけのつもりだった操作で
+ * 設定タブの見出しが勝手に変わる。頼んでいない変化は、それだけで「何か間違えた」
+ * という合図に見えてしまう。
+ *
+ * 予約と違って unverified / evidence にあたる仕組みは持たないので、そこは何もしない。
+ * プラグ形状やチップの相場を取り違えても、乗り遅れのような取り返しのつかない実害には
+ * 直結しない(現地で気付いて調べ直せる)ので、フィールド単位の未確認マークを
+ * 持ち回るだけの理由が無い。
+ */
+export function mergeCountryInfo(
+  existing: CountryInfo,
+  incoming: CountryInfo,
+): CountryInfo {
+  const merged: CountryInfo = { id: existing.id, name: existing.name }
+
+  const latinName = pickCountryText(existing.latinName, incoming.latinName)
+  if (latinName !== undefined) merged.latinName = latinName
+
+  const plugTypes = pickCountryText(existing.plugTypes, incoming.plugTypes)
+  if (plugTypes !== undefined) merged.plugTypes = plugTypes
+
+  const voltage = pickCountryText(existing.voltage, incoming.voltage)
+  if (voltage !== undefined) merged.voltage = voltage
+
+  const tipping = pickCountryText(existing.tipping, incoming.tipping)
+  if (tipping !== undefined) merged.tipping = tipping
+
+  const emergencyPolice = pickCountryText(
+    existing.emergencyPolice,
+    incoming.emergencyPolice,
+  )
+  if (emergencyPolice !== undefined) merged.emergencyPolice = emergencyPolice
+
+  const emergencyAmbulance = pickCountryText(
+    existing.emergencyAmbulance,
+    incoming.emergencyAmbulance,
+  )
+  if (emergencyAmbulance !== undefined) {
+    merged.emergencyAmbulance = emergencyAmbulance
+  }
+
+  const note = pickCountryText(existing.note, incoming.note)
+  if (note !== undefined) merged.note = note
+
+  return merged
+}
+
+/**
+ * 既存の国情報群と取り込み側の国情報群を突き合わせ、それぞれが新規追加になるか
+ * 既存の更新(マージ)になるかを決める。戻り値は planImport と同じく incoming と
+ * 同じ順序・同じ件数を保つ。
+ *
+ * ■ マッチ条件は国名(name)の正規化一致だけ
+ *   予約が 3 段階の条件を積み重ねるのに対し、こちらは 1 つで足りる。
+ *   国情報は 1 つの国につき 1 件しか持たず(同じ国が 2 行並ぶ形にならない)、
+ *   name がその唯一の識別子で画面の見出しでもある。しかも穴埋めプロンプト
+ *   (backfillPrompt.ts)は AI に「渡した name は 1 文字も変えるな」と約束させており、
+ *   返ってくる name はこちらが渡したものそのものである。
+ *   予約のように「確認番号は無いがタイトルは近い」という確度の違う手掛かりを
+ *   足していく必要が、そもそも生まれない。
+ *   正規化は予約と同じ normalizeText(NFKC + 小文字化 + 空白除去)を使う。
+ *   別の正規化を持たせると、予約では畳まれる表記ゆれが国情報では畳まれない、
+ *   という説明のつかない差になる。
+ *
+ * ■ latinName はマッチに使わない
+ *   空のことが多く、埋まっていても表記が揺れる(Malta / Republic of Malta)。
+ *   AI には照合の助けとして渡しているが、それは AI がどの国の話をしているかを
+ *   見失わないためのもので、こちら側の同一判定の根拠にはしない。
+ *   揺れる値を条件に足しても、当たらないときに黙って重複が 1 件増えるだけになる。
+ */
+export function planCountryInfoImport(
+  existing: Array<CountryInfo>,
+  incoming: Array<CountryInfo>,
+): CountryInfoPlan {
+  // 既にマッチした既存要素は消費して二重マッチさせない(予約の consumed と同じ理由。
+  // 1 つの既存要素に 2 件がマッチすると、後の更新が前の更新を握りつぶす)
+  const consumed = new Set<string>()
+
+  const entries: Array<CountryInfoPlanEntry> = incoming.map((candidate) => {
+    const candidateName = normalizeText(candidate.name)
+    const match =
+      existing.find(
+        (country) =>
+          !consumed.has(country.id) &&
+          normalizeText(country.name) === candidateName,
+      ) ?? null
+    if (match === null) {
+      return { country: candidate, replacesId: null }
+    }
+    consumed.add(match.id)
+    return {
+      country: mergeCountryInfo(match, candidate),
+      replacesId: match.id,
+    }
   })
 
   const updatedCount = entries.filter(

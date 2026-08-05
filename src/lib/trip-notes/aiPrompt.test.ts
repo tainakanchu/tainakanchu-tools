@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { AI_SERVICE_LINKS, buildImportPrompt } from './aiPrompt'
+import {
+  AIRLINE_TIMING_FILL_RULE,
+  AI_SERVICE_LINKS,
+  buildImportPrompt,
+} from './aiPrompt'
 import { makeStamp } from './datetime'
 import {
   BOOKING_KINDS,
@@ -87,23 +91,45 @@ describe('buildImportPrompt: スキーマの同期', () => {
     expect(prompt).toContain('checkInClosesMinutesBefore')
     expect(prompt).toContain('bagDropClosesMinutesBefore')
   })
+
+  it('オンラインチェックインの開放時刻がスキーマに含まれる', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('onlineCheckInOpensMinutesBefore')
+    // 時刻ではなく「出発の何分前か」であることが読めないと、AI は '14:20' を返す
+    expect(prompt).toContain('出発の 24 時間前に開くなら 1440')
+  })
 })
 
-describe('buildImportPrompt: 締切の抽出ルール(ルール8)', () => {
-  it('空港と航空会社によって締切が違う旨の記述が含まれる', () => {
+describe('buildImportPrompt: 便の時刻まわりの抽出ルール(ルール8)', () => {
+  it('空港と航空会社によって締切・開放時刻が違う旨の記述が含まれる', () => {
     const prompt = buildImportPrompt(state())
     expect(prompt).toContain('空港')
     expect(prompt).toContain('航空会社')
-    // 「一般的な相場」で埋めることを禁じているのが締切ルールの肝なので、
+    // 「一般的な相場」で埋めることを禁じているのがこのルールの肝なので、
     // 空港・航空会社ごとに違うと明記されていることまで確かめる
     expect(prompt).toContain('空港ごと・航空会社ごとに違います')
   })
 
-  it('締切がルール1(推測禁止)の例外である旨が明記されている', () => {
+  it('規則の本文は共有の定数から出ている', () => {
+    // 穴埋めプロンプト(backfillPrompt.ts)と文面を共有している定数。
+    // 書き写しに変わっていれば、この 1 本で気付ける
+    expect(buildImportPrompt(state())).toContain(AIRLINE_TIMING_FILL_RULE)
+  })
+
+  it('3 項目ともルール1(推測禁止)の例外である旨が明記されている', () => {
     const prompt = buildImportPrompt(state())
     expect(prompt).toContain('例外')
     // ルール1本文からの参照とルール8本文の両方に「例外」の語が要る
     expect(prompt).toContain('ルール 1 の例外')
+    expect(prompt).toContain('オンラインチェックインの開放時刻')
+  })
+
+  it('情報が割れたときの倒し方が、締切と開放時刻で逆向きだと書いてある', () => {
+    // 「厳しい側」で一括りにすると開放時刻を早い側に倒してしまい、
+    // まだ開いていない時刻に利用者を走らせることになる
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('厳しい側(締切が早いほう)')
+    expect(prompt).toContain('遅い側(まだ開いていないと見ておくほう)')
   })
 })
 

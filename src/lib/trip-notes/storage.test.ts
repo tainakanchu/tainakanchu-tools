@@ -9,6 +9,7 @@ import {
 } from './storage'
 import type {
   Booking,
+  CountryInfo,
   EmergencyContact,
   TravelDoc,
   TripNotesState,
@@ -75,6 +76,21 @@ function fullTravelDoc(): TravelDoc {
     price: { amount: 7, currency: 'EUR' },
     url: 'https://example.test/etias',
     note: '有効期間は 3 年',
+  }
+}
+
+/** 任意フィールド全部入りの国情報。壊れた値を混ぜるテストの土台にも使う */
+function fullCountryInfo(): CountryInfo {
+  return {
+    id: 'ci-1',
+    name: 'マルタ',
+    latinName: 'Malta',
+    plugTypes: 'G',
+    voltage: '230V 50Hz',
+    tipping: '不要。高級店では10%',
+    emergencyPolice: '112',
+    emergencyAmbulance: '112',
+    note: '左側通行',
   }
 }
 
@@ -402,6 +418,79 @@ describe('parseTripNotesState', () => {
     expect(parseTripNotesState(fullState())).not.toHaveProperty('travelDocs')
   })
 
+  it('任意フィールド全部入りの countryInfos がそのまま復元される', () => {
+    const state = { ...fullState(), countryInfos: [fullCountryInfo()] }
+    expect(parseTripNotesState(state)).toEqual(state)
+  })
+
+  it('countryInfos の正常な要素は残り、必須が壊れた要素だけが落ちる', () => {
+    const state = {
+      ...fullState(),
+      countryInfos: [
+        fullCountryInfo(),
+        { ...fullCountryInfo(), id: undefined }, // id が無い
+        { ...fullCountryInfo(), name: undefined }, // name が無い
+        { ...fullCountryInfo(), name: 42 }, // name が文字列でない
+        'マルタ', // そもそもオブジェクトでない
+      ],
+    }
+    expect(parseTripNotesState(state)?.countryInfos).toEqual([
+      fullCountryInfo(),
+    ])
+  })
+
+  it('name が空文字・空白だけの countryInfos は落ちる', () => {
+    // name はこの国情報の唯一の識別子で、AI パッチの照合キーにもなる。
+    // 空だと何にも結び付けられない行が一覧に並ぶだけになる
+    const state = {
+      ...fullState(),
+      countryInfos: [
+        fullCountryInfo(),
+        { ...fullCountryInfo(), id: 'ci-blank', name: '' },
+        { ...fullCountryInfo(), id: 'ci-spaces', name: '  ' },
+      ],
+    }
+    expect(parseTripNotesState(state)?.countryInfos).toEqual([
+      fullCountryInfo(),
+    ])
+  })
+
+  it('countryInfos の任意フィールドの不正値は、そのフィールドだけ落ちる', () => {
+    // プラグ形状が壊れているだけで緊急通報番号まで消えるほうが困る
+    const state = {
+      ...fullState(),
+      countryInfos: [
+        {
+          ...fullCountryInfo(),
+          plugTypes: 42,
+          voltage: null,
+          tipping: { amount: 10 },
+          note: ['左側通行'],
+        },
+      ],
+    }
+    expect(parseTripNotesState(state)?.countryInfos?.[0]).toEqual({
+      id: 'ci-1',
+      name: 'マルタ',
+      latinName: 'Malta',
+      emergencyPolice: '112',
+      emergencyAmbulance: '112',
+    })
+  })
+
+  it('countryInfos が空・不正・欠落ならフィールドごと付かない', () => {
+    expect(
+      parseTripNotesState({ ...fullState(), countryInfos: [] }),
+    ).not.toHaveProperty('countryInfos')
+    expect(
+      parseTripNotesState({ ...fullState(), countryInfos: [{ id: 'ci-1' }] }),
+    ).not.toHaveProperty('countryInfos')
+    expect(
+      parseTripNotesState({ ...fullState(), countryInfos: 'なにか' }),
+    ).not.toHaveProperty('countryInfos')
+    expect(parseTripNotesState(fullState())).not.toHaveProperty('countryInfos')
+  })
+
   describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {
     it('妥当な締切(整数・1〜1440)は保持される', () => {
       const state = {
@@ -464,6 +553,81 @@ describe('parseTripNotesState', () => {
       expect(booking?.checkInClosesMinutesBefore).toBe(1)
       expect(booking?.bagDropClosesMinutesBefore).toBe(1440)
     })
+
+    it('締切の上限は 1440 のままで、開放の上限(4320)に引きずられない', () => {
+      // 開放時刻の上限を 72 時間に広げたときに、締切 2 種の上限まで
+      // 道連れで広がっていないことを固定する回帰テスト。
+      // 上限は「分と時間の取り違え」を弾くためのもので、その項目に
+      // 現実に存在しうる最大値のすぐ上に無いと役に立たない
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            checkInClosesMinutesBefore: 1441,
+            bagDropClosesMinutesBefore: 4320,
+          },
+        ],
+      }
+      const parsed = parseTripNotesState(state)
+      expect(parsed?.bookings).toHaveLength(1)
+      expect(parsed?.bookings[0].checkInClosesMinutesBefore).toBeUndefined()
+      expect(parsed?.bookings[0].bagDropClosesMinutesBefore).toBeUndefined()
+    })
+  })
+
+  describe('オンラインチェックインの開放(onlineCheckInOpensMinutesBefore)', () => {
+    it('4320(72 時間前)まで保持される', () => {
+      // 24 / 48 / 72 時間前の開放が実在するので、締切と同じ上限では
+      // 正しい値のほうが弾かれてしまう
+      const state = {
+        ...fullState(),
+        bookings: [{ ...fullBooking(), onlineCheckInOpensMinutesBefore: 4320 }],
+      }
+      expect(
+        parseTripNotesState(state)?.bookings[0].onlineCheckInOpensMinutesBefore,
+      ).toBe(4320)
+    })
+
+    // 0・負数・小数・上限超え・文字列は「怪しい値」としてそのフィールドだけ落とす
+    // (isCheckInOpensMinutesBefore 参照)。予約自体は残る
+    it.each([
+      ['0', 0],
+      ['負の数', -1],
+      ['小数', 45.5],
+      ['4321(上限超え)', 4321],
+      ['文字列', '4320'],
+      ['NaN', Number.NaN],
+    ])('%s の開放時刻はそのフィールドだけ落ちて、予約自体は残る', (_l, v) => {
+      const state = {
+        ...fullState(),
+        bookings: [{ ...fullBooking(), onlineCheckInOpensMinutesBefore: v }],
+      }
+      const parsed = parseTripNotesState(state)
+      expect(parsed?.bookings).toHaveLength(1)
+      expect(
+        parsed?.bookings[0].onlineCheckInOpensMinutesBefore,
+      ).toBeUndefined()
+    })
+
+    it('開放と締切は同じ予約に同居できる', () => {
+      // 「72 時間前から開いて 45 分前に閉まる」は同じ便の実際の姿
+      const state = {
+        ...fullState(),
+        bookings: [
+          {
+            ...fullBooking(),
+            onlineCheckInOpensMinutesBefore: 4320,
+            checkInClosesMinutesBefore: 45,
+            bagDropClosesMinutesBefore: 60,
+          },
+        ],
+      }
+      const booking = parseTripNotesState(state)?.bookings[0]
+      expect(booking?.onlineCheckInOpensMinutesBefore).toBe(4320)
+      expect(booking?.checkInClosesMinutesBefore).toBe(45)
+      expect(booking?.bagDropClosesMinutesBefore).toBe(60)
+    })
   })
 })
 
@@ -471,6 +635,11 @@ describe('FIELD_KEYS', () => {
   it('締切2種のキーが含まれる(unverified に載せられる)', () => {
     expect(FIELD_KEYS).toContain('checkInClosesMinutesBefore')
     expect(FIELD_KEYS).toContain('bagDropClosesMinutesBefore')
+  })
+
+  it('オンラインチェックインの開放のキーが含まれる(unverified に載せられる)', () => {
+    // AI が予約メールから拾ってくる欄なので、目視確認の対象になれないと困る
+    expect(FIELD_KEYS).toContain('onlineCheckInOpensMinutesBefore')
   })
 })
 

@@ -6,6 +6,7 @@ import {
   deriveMilestones,
   isCheckInOpen,
   isDeadlineMilestone,
+  isOnlineCheckInOpen,
 } from './milestones'
 import type { MilestoneKind } from './milestones'
 import type { Booking } from './types'
@@ -124,6 +125,72 @@ describe('deriveMilestones', () => {
         'checkIn',
         'departure',
         'arrival',
+      ])
+    })
+
+    it('オンラインチェックインの開放時刻からマイルストーンが作られる', () => {
+      const start = at('2026-09-12', '14:20', TOKYO)
+      const flight = booking({
+        id: 'af276',
+        kind: 'flight',
+        title: 'AF276 HND→CDG',
+        start,
+        onlineCheckInOpensMinutesBefore: 1440, // 24 時間前 = 9/11 14:20
+      })
+      const now = stampToEpoch(at('2026-09-10', '10:00', TOKYO))
+      const milestones = deriveMilestones([flight], now)
+
+      expect(milestones.map((m) => m.kind)).toEqual([
+        'onlineCheckInOpen',
+        'departure',
+      ])
+      expect(milestones[0].atMs).toBe(stampToEpoch(start) - 1440 * 60_000)
+      expect(MILESTONE_LABELS[milestones[0].kind]).toBe(
+        'オンラインチェックイン開始',
+      )
+    })
+
+    it('開放と締切が同時刻に並んだら 開放→手荷物→搭乗手続き→出発 の順になる', () => {
+      // 分数を揃えて、同じ絶対時刻に 3 つ並ぶ状況を作る。
+      // 現実にはまず起きないが、並びの根拠(人が動く順)を固定しておく
+      const start = at('2026-09-12', '14:20', TOKYO)
+      const flight = booking({
+        id: 'af276',
+        kind: 'flight',
+        title: 'AF276',
+        start,
+        onlineCheckInOpensMinutesBefore: 60,
+        bagDropClosesMinutesBefore: 60,
+        checkInClosesMinutesBefore: 60,
+      })
+      const now = stampToEpoch(at('2026-09-12', '10:00', TOKYO))
+      const milestones = deriveMilestones([flight], now)
+
+      expect(milestones.map((m) => m.kind)).toEqual([
+        'onlineCheckInOpen',
+        'bagDrop',
+        'checkIn',
+        'departure',
+      ])
+      const opensMs = stampToEpoch(start) - 60 * 60_000
+      expect(milestones.slice(0, 3).map((m) => m.atMs)).toEqual([
+        opensMs,
+        opensMs,
+        opensMs,
+      ])
+    })
+
+    it('移動でない予約には開放時刻の値が入っていてもマイルストーンを作らない', () => {
+      const hotel = booking({
+        id: 'hotel',
+        kind: 'lodging',
+        title: 'ホテル',
+        start: at('2026-09-10', '15:00', PARIS),
+        onlineCheckInOpensMinutesBefore: 1440,
+      })
+      const now = stampToEpoch(at('2026-09-01', '00:00', PARIS))
+      expect(deriveMilestones([hotel], now).map((m) => m.kind)).toEqual([
+        'lodgingCheckIn',
       ])
     })
 
@@ -350,9 +417,94 @@ describe('isCheckInOpen', () => {
   })
 })
 
+describe('isOnlineCheckInOpen', () => {
+  const start = at('2026-09-12', '14:20', TOKYO)
+  /** 出発の 24 時間前(9/11 14:20)に開く便 */
+  const flight = booking({
+    id: 'af276',
+    kind: 'flight',
+    title: 'AF276 HND→CDG',
+    start,
+    end: at('2026-09-12', '20:05', PARIS),
+    onlineCheckInOpensMinutesBefore: 1440,
+  })
+  const opensMs = stampToEpoch(start) - 1440 * 60_000
+
+  it('開放前なら false', () => {
+    expect(isOnlineCheckInOpen(flight, opensMs - 1)).toBe(false)
+  })
+
+  it('開放時刻ちょうどで true(一覧から落ちる瞬間をこちらが引き継ぐ)', () => {
+    expect(isOnlineCheckInOpen(flight, opensMs)).toBe(true)
+  })
+
+  it('開放後・出発前なら true', () => {
+    const now = stampToEpoch(at('2026-09-12', '09:00', TOKYO))
+    expect(isOnlineCheckInOpen(flight, now)).toBe(true)
+  })
+
+  it('出発時刻ちょうどで false(出発したらもう関係ない)', () => {
+    expect(isOnlineCheckInOpen(flight, stampToEpoch(start))).toBe(false)
+  })
+
+  it('終日の予約なら false(終日の 00:00 から 24 時間前を引いた時刻は嘘になる)', () => {
+    const allDayFlight = booking({
+      id: 'allday-flight',
+      kind: 'flight',
+      title: '終日表記の便',
+      start: allDay('2026-09-12', TOKYO),
+      onlineCheckInOpensMinutesBefore: 1440,
+    })
+    const now = stampToEpoch(at('2026-09-12', '09:00', TOKYO))
+    expect(isOnlineCheckInOpen(allDayFlight, now)).toBe(false)
+  })
+
+  it('宿泊なら false(移動系の予約にしか無い話)', () => {
+    const hotel = booking({
+      id: 'hotel',
+      kind: 'lodging',
+      title: 'ホテル',
+      start,
+      onlineCheckInOpensMinutesBefore: 1440,
+    })
+    expect(isOnlineCheckInOpen(hotel, opensMs)).toBe(false)
+  })
+
+  it('キャンセル済みなら false', () => {
+    const cancelled: Booking = { ...flight, status: 'cancelled' }
+    expect(isOnlineCheckInOpen(cancelled, opensMs)).toBe(false)
+  })
+
+  it('開放時刻の値が入っていなければ false(無い情報は作らない)', () => {
+    const noValue: Booking = {
+      ...flight,
+      onlineCheckInOpensMinutesBefore: undefined,
+    }
+    expect(isOnlineCheckInOpen(noValue, opensMs)).toBe(false)
+  })
+
+  it('一覧から消えるのと入れ替わりで受付中になる(境界に穴が空かない)', () => {
+    // 開放の 1 分前: 一覧に出ていて、まだ受付中ではない
+    const before = opensMs - 60_000
+    expect(deriveMilestones([flight], before).map((m) => m.kind)).toContain(
+      'onlineCheckInOpen',
+    )
+    expect(isOnlineCheckInOpen(flight, before)).toBe(false)
+
+    // 開放ちょうど: 一覧からは落ちるが、こちらが「受付中」として引き取る。
+    // deriveMilestones は atMs > nowMs だけを残すので、ここを取りこぼすと
+    // ちょうど開いた 1 瞬だけ、どこにも出ない穴になる
+    expect(
+      deriveMilestones([flight], opensMs).map((m) => m.kind),
+    ).not.toContain('onlineCheckInOpen')
+    expect(isOnlineCheckInOpen(flight, opensMs)).toBe(true)
+  })
+})
+
 describe('isDeadlineMilestone', () => {
   it('bagDrop / checkIn だけ true になる', () => {
     const kinds: Array<MilestoneKind> = [
+      'onlineCheckInOpen',
       'bagDrop',
       'checkIn',
       'departure',
@@ -363,6 +515,12 @@ describe('isDeadlineMilestone', () => {
       'end',
     ]
     expect(kinds.filter(isDeadlineMilestone)).toEqual(['bagDrop', 'checkIn'])
+  })
+
+  it('オンラインチェックイン開始は締切の強調の対象にしない', () => {
+    // 「〜からできる」の開始点なので、乗り遅れても失うのは席の選択肢だけ。
+    // ここを true にすると、本当に危ない締切の赤い強調が効かなくなる
+    expect(isDeadlineMilestone('onlineCheckInOpen')).toBe(false)
   })
 })
 
@@ -375,6 +533,7 @@ describe('DEADLINE_SOON_MS', () => {
 describe('MILESTONE_LABELS', () => {
   it('すべての種類にラベルが定義されている', () => {
     const kinds: Array<MilestoneKind> = [
+      'onlineCheckInOpen',
       'bagDrop',
       'checkIn',
       'departure',
@@ -392,5 +551,11 @@ describe('MILESTONE_LABELS', () => {
   it('締切2種のラベルは「締切」と分かる文言になっている', () => {
     expect(MILESTONE_LABELS.bagDrop).toBe('手荷物を預ける締切')
     expect(MILESTONE_LABELS.checkIn).toBe('搭乗手続きの締切')
+  })
+
+  it('開放のラベルは「開始」で、締切とは別のことだと読める', () => {
+    expect(MILESTONE_LABELS.onlineCheckInOpen).toBe(
+      'オンラインチェックイン開始',
+    )
   })
 })

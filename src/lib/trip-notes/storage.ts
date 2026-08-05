@@ -16,6 +16,7 @@ import type {
   Booking,
   BookingKind,
   BookingStatus,
+  CountryInfo,
   EmergencyContact,
   FieldKey,
   Money,
@@ -46,6 +47,7 @@ export const FIELD_KEYS: Array<FieldKey> = [
   'provider',
   'price',
   'freeCancelUntil',
+  'onlineCheckInOpensMinutesBefore',
   'checkInClosesMinutesBefore',
   'bagDropClosesMinutesBefore',
   'note',
@@ -55,35 +57,74 @@ export const FIELD_KEYS: Array<FieldKey> = [
  * 締切(出発の何分前か)として受け付ける上限。24 時間 = 1440 分。
  *
  * 実在する搭乗手続きの締切は国際線でも出発の 60〜90 分前で、いちばん早い
- * 「前日預け入れ」の類を数えても出発の 24 時間より前に閉まる手続きは無い
- * (むしろオンラインチェックインの *開始* が 24〜48 時間前)。
+ * 「前日預け入れ」の類を数えても出発の 24 時間より前に閉まる手続きは無い。
  * それを超える値が入るのは、分と時間を取り違えた(60 のつもりで 3600)か
  * 桁を打ち間違えたときで、そのまま採用すると「あと 2 日」で締切が来ると
  * 主張するマイルストーンが画面の先頭に居座る。
  * 締切は過ぎると取り返しがつかないぶん強調して見せる情報なので、
  * 疑わしい値は表示しない側に倒す。
+ *
+ * これより前(24〜72 時間前)にあるオンラインチェックインの *開放* は、
+ * アプリが別の項目として持つようになったのでこの上限には含めない
+ * (MAX_CHECK_IN_OPENS_MINUTES_BEFORE 参照)。
  */
 export const MAX_DEADLINE_MINUTES_BEFORE = 24 * 60
 
 /**
- * 締切の分数として妥当か。
+ * オンラインチェックインの開放(出発の何分前か)として受け付ける上限。
+ * 72 時間 = 4320 分。
+ *
+ * ■ なぜ締切と上限を分けるのか
+ *   上限の役目は「分と時間の取り違え(60 のつもりで 3600)や桁の打ち間違い」を
+ *   弾くことなので、その項目に現実に存在しうる最大値のすぐ上に置かないと
+ *   役に立たない。締切は 24 時間より前に閉まる手続きが存在しないので 1440 のままでよい。
+ *   一方オンラインチェックインの開放は 24 / 48 / 72 時間前が実在するので、
+ *   締切と同じ上限を当てると *正しい値*(4320)のほうが弾かれる。
+ *   だから上限は項目ごとに持つ。
+ *
+ * ■ なぜ 72 時間で止めるのか
+ *   実際に航空会社が公開している開放は 24 / 48 / 72 時間前に収まる。
+ *   それより前から座席を選べる類のもの(予約時から座席指定できる運賃)は
+ *   「開く瞬間」が存在せず、そもそもカウントダウンする対象にならない。
+ *   72 時間を超える値は、開放時刻ではなく単位の取り違えである可能性のほうが高い。
+ */
+export const MAX_CHECK_IN_OPENS_MINUTES_BEFORE = 72 * 60
+
+/**
+ * 「出発の何分前か」として妥当か。上限だけが項目で違うので引数で受ける。
  *
  * - 整数だけを認める。「45.5 分前」という締切は現実に存在せず、
  *   小数が入るのは単位の取り違えか計算ミスのとき。
  * - 0 と負の数を弾く。0 は「出発時刻そのものが締切」を意味してしまい、
  *   出発のマイルストーンと同じ時刻に二重に並ぶだけで締切として機能しない。
  *   負の数(出発より後に閉まる締切)はそもそも意味を成さない。
+ */
+function isMinutesBefore(value: unknown, max: number): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= max
+  )
+}
+
+/**
+ * 締切の分数として妥当か。
  *
  * storage だけでなく入力フォームからも呼ぶ。保存時と入力時で許す範囲が
  * 食い違うと「入力できたのに保存されない値」が生まれるので、判定は 1 本にする。
  */
 export function isDeadlineMinutesBefore(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isInteger(value) &&
-    value > 0 &&
-    value <= MAX_DEADLINE_MINUTES_BEFORE
-  )
+  return isMinutesBefore(value, MAX_DEADLINE_MINUTES_BEFORE)
+}
+
+/**
+ * オンラインチェックインの開放時刻(出発の何分前か)として妥当か。
+ * isDeadlineMinutesBefore との違いは上限だけで、整数・1 分以上という条件は同じ。
+ * 締切と同じく、入力フォームからも同じ判定を呼ぶこと。
+ */
+export function isCheckInOpensMinutesBefore(value: unknown): value is number {
+  return isMinutesBefore(value, MAX_CHECK_IN_OPENS_MINUTES_BEFORE)
 }
 
 export const BOOKING_KINDS: Array<BookingKind> = [
@@ -248,8 +289,8 @@ function parseEvidence(
  *   その booking ごと黙って落とす。1 件の壊れた予約のために保存全体を諦めるよりは、
  *   直せる予約だけでも表示できたほうが利用者にとって実利がある。
  * - 任意フィールド(from/to/place/confirmationNumber/provider/price/
- *   freeCancelUntil/checkInClosesMinutesBefore/bagDropClosesMinutesBefore/
- *   note/unverified/evidence)は不正でもそのフィールドだけを
+ *   freeCancelUntil/onlineCheckInOpensMinutesBefore/checkInClosesMinutesBefore/
+ *   bagDropClosesMinutesBefore/note/unverified/evidence)は不正でもそのフィールドだけを
  *   落として undefined にする。booking 自体は残す。
  * - end は Stamp として妥当なら採用し、それ以外(欠落・不正)は null にする
  *   (end は「単発の予定なら null」が正常値なので、start と違って落とす理由にならない)。
@@ -316,10 +357,15 @@ export function parseBooking(raw: unknown): Booking | null {
     booking.freeCancelUntil = value.freeCancelUntil
   }
 
-  // 締切の分数は、不正なら「そのフィールドだけ落とす」(予約は残す)。
-  // 落とせばマイルストーンが 1 つ出なくなるだけで、利用者は自分で
-  // 締切を確かめに行く。逆に怪しい値を通すと、確かめずに済むと思わせる
-  // 嘘の締切を出してしまう。無いより悪い。
+  // 出発からの相対分を持つ 3 項目(開放 1・締切 2)は、不正なら
+  // 「そのフィールドだけ落とす」(予約は残す)。落とせばマイルストーンが
+  // 1 つ出なくなるだけで、利用者は自分で時刻を確かめに行く。逆に怪しい値を通すと、
+  // 確かめずに済むと思わせる嘘の時刻を出してしまう。無いより悪い。
+  // 開放だけは上限が違う判定を使う(isCheckInOpensMinutesBefore 参照)。
+  if (isCheckInOpensMinutesBefore(value.onlineCheckInOpensMinutesBefore)) {
+    booking.onlineCheckInOpensMinutesBefore =
+      value.onlineCheckInOpensMinutesBefore
+  }
   if (isDeadlineMinutesBefore(value.checkInClosesMinutesBefore)) {
     booking.checkInClosesMinutesBefore = value.checkInClosesMinutesBefore
   }
@@ -420,6 +466,43 @@ export function parseTravelDoc(raw: unknown): TravelDoc | null {
 }
 
 /**
+ * CountryInfo の検証方針は parseTravelDoc と同じ。必須(id/name)が壊れていれば
+ * その 1 件だけを落とし、任意フィールドは文字列でなければそのフィールドだけを
+ * 落として国自体は残す(プラグ形状が壊れていても緊急通報番号は見せたい)。
+ * 値の中身までは見ない。「230V 50Hz」も「230 ボルト」も利用者の書き方でよく、
+ * 形式を決めて弾くと、書けたはずの情報が保存されないほうの損が大きい。
+ *
+ * name が空文字(空白だけを含む)のときは、必須が欠けているのと同じく 1 件ごと落とす。
+ * name はこの国情報の唯一の識別子で、画面の見出しにも AI パッチの照合キー
+ * (backfillPrompt.ts)にもなる。空だと何にも結び付けられない
+ * 「名前の無い国」が一覧に並び、消すことしかできない行になる。
+ */
+export function parseCountryInfo(raw: unknown): CountryInfo | null {
+  if (!isRecord(raw)) return null
+  const value = raw
+
+  const { id, name } = value
+  if (typeof id !== 'string') return null
+  if (typeof name !== 'string' || name.trim().length === 0) return null
+
+  const info: CountryInfo = { id, name }
+
+  if (typeof value.latinName === 'string') info.latinName = value.latinName
+  if (typeof value.plugTypes === 'string') info.plugTypes = value.plugTypes
+  if (typeof value.voltage === 'string') info.voltage = value.voltage
+  if (typeof value.tipping === 'string') info.tipping = value.tipping
+  if (typeof value.emergencyPolice === 'string') {
+    info.emergencyPolice = value.emergencyPolice
+  }
+  if (typeof value.emergencyAmbulance === 'string') {
+    info.emergencyAmbulance = value.emergencyAmbulance
+  }
+  if (typeof value.note === 'string') info.note = value.note
+
+  return info
+}
+
+/**
  * 初期状態。3泊4日を既定の旅程長にする
  * (週末+1日ずらした程度の、もっとも当たり障りのない旅行日数)。
  */
@@ -486,6 +569,13 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
         .filter((d): d is TravelDoc => d !== null)
     : []
 
+  // 国の基本情報も同じ扱い(空ならフィールドごと付けない)
+  const countryInfos = Array.isArray(data.countryInfos)
+    ? data.countryInfos
+        .map(parseCountryInfo)
+        .filter((c): c is CountryInfo => c !== null)
+    : []
+
   return {
     schemaVersion: 1,
     tripTitle,
@@ -496,6 +586,7 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
     emergencyContacts,
     ...(placeAliases.length > 0 ? { placeAliases } : {}),
     ...(travelDocs.length > 0 ? { travelDocs } : {}),
+    ...(countryInfos.length > 0 ? { countryInfos } : {}),
   }
 }
 

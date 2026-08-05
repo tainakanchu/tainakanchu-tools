@@ -35,8 +35,8 @@
  *   - タイムゾーン名を辞書の添字に置き換える(辞書に無ければ生文字列)
  *   - zdt(40文字前後の文字列)を「分単位 epoch + タイムゾーン」に分解する
  *
- * その後に足したフィールド(placeAliases / travelDocs / 予約の締切 2 種)は
- * v2 にだけ載せる。
+ * その後に足したフィールド(placeAliases / travelDocs / countryInfos /
+ * 予約の締切 2 種とオンラインチェックインの開放時刻)は v2 にだけ載せる。
  * v1 の形式は発行済みURLを読むための固定された形なので、書き足さない(ShortState 参照)。
  *
  * **'0' と '1' のデコード経路は消してはいけない。** 共有URLはサーバに保存して
@@ -56,6 +56,7 @@ import type {
   Booking,
   BookingKind,
   BookingStatus,
+  CountryInfo,
   EmergencyContact,
   FieldKey,
   Money,
@@ -162,10 +163,12 @@ interface ShortContact {
  * v1 の状態。過去に発行されたURLを読むための形なので、新しいフィールドは足さない。
  *
  * そのため placeAliases(「同じ場所として扱う」の登録)と travelDocs(手続き)、
- * および予約の締切 2 種(搭乗手続き・受託手荷物)は v1 では落ちる。
+ * countryInfos(国の基本情報)、および予約の締切 2 種(搭乗手続き・受託手荷物)と
+ * オンラインチェックインの開放時刻は v1 では落ちる。
  * v1 でエンコードする経路は CompressionStream が使えない環境だけで
  * 今も生きている(buildPayload 参照)ため、そこで共有すると受け取り側では
- * 黙らせたはずの指摘が復活し、手続きの一覧は空になり、締切は入っていない状態になる。
+ * 黙らせたはずの指摘が復活し、手続きと国の一覧は空になり、
+ * 締切と開放時刻は入っていない状態になる。
  * 落ちるのは旅程そのものではない(予約は全部載っている)うえ、
  * 締切が落ちても「マイルストーンが 1 つ出ない」だけで、ずれた締切を
  * 見せることにはならない(安全な側に落ちる)。
@@ -356,10 +359,16 @@ interface ShortStampV2 {
 /**
  * v2 の予約。
  *
- * 締切の 2 つ(h / b)は v1 のキーに対応が無い、v2 で初めて足したキー。
+ * 締切の 2 つ(h / b)と開放時刻(w)は v1 のキーに対応が無い、v2 で足したキー。
  * 'c' が確認番号で埋まっているので、check-in の 'h'、bag drop の 'b' を割り当てた。
- * どちらも大多数の予約(宿泊・列車・アクティビティ)では入っていない値なので、
- * 他の任意キーと同じく「値が無ければキーごと省く」。
+ * 'w' はオンラインチェックインの窓(window)が開く、の w。
+ * 意味の近い文字はすべて別の意味で埋まっていて取れない
+ * (c = 確認番号、h = 搭乗手続きの締切、o = 到着地、b = 手荷物の締切)。
+ * どれも大多数の予約(宿泊・列車・アクティビティ)では入っていない値なので、
+ * 他の任意キーと同じく「値が無ければキーごと省く」。この欄を使っていない旅程の
+ * 共有URLは 1 バイトも増えない。
+ * 逆にこれらのキーを持たない payload(= その欄を足す前に発行されたURL)は
+ * 「締切や開放時刻を入力していない予約」として読める。
  */
 interface ShortBookingV2 {
   k: BookingKind
@@ -375,6 +384,8 @@ interface ShortBookingV2 {
   v?: string
   r?: ShortMoney
   x?: string
+  /** オンラインチェックインの開放(出発の何分前か) */
+  w?: number
   /** 搭乗手続きの締切(出発の何分前か) */
   h?: number
   /** 受託手荷物の預け締切(出発の何分前か) */
@@ -409,6 +420,37 @@ interface ShortTravelDocV2 {
   n?: string
 }
 
+/**
+ * 国・地域の基本情報(CountryInfo)。id は v2 の方針どおり載せない。
+ * キーは既存の短縮型と意味が重なるものをそろえてある
+ * (t = 題名にあたる名前、r = ラテン文字表記、n = メモ)。
+ * 同じ意味に別の文字を割り当てると、片方を直したときにもう片方を直し忘れる。
+ *
+ * 残りはその欄の頭文字から取った(p = plug、v = voltage、e = emergency)。
+ * 2 つだけ頭文字が使えず別の字を当てている:
+ * - チップは tip の 't' が名前で埋まっているので、日本語の呼び名から 'c'。
+ * - 救急は ambulance の 'a' が他の短縮型で状況・住所・終日フラグに割り当て済みで、
+ *   同じ字が型ごとに違う意味になるのを避けたいので medical の 'm'。
+ */
+interface ShortCountryInfoV2 {
+  /** name */
+  t: string
+  /** latinName */
+  r?: string
+  /** plugTypes */
+  p?: string
+  /** voltage */
+  v?: string
+  /** tipping */
+  c?: string
+  /** emergencyPolice */
+  e?: string
+  /** emergencyAmbulance */
+  m?: string
+  /** note */
+  n?: string
+}
+
 interface ShortStateV2 {
   v: 1
   t: string
@@ -429,6 +471,12 @@ interface ShortStateV2 {
    * URL のクエリ名 `#d=` とは別の階層の話(あちらは payload 全体の入れ物)。
    */
   d?: Array<ShortTravelDocV2>
+  /**
+   * countryInfos。travelDocs と同じで、1 件も無ければ丸ごと省く。
+   * トップレベルでは country の 'c' が連絡先(emergencyContacts)、'd' が手続きで
+   * 埋まっているので、地域 = geography の 'g' を割り当てた。
+   */
+  g?: Array<ShortCountryInfoV2>
 }
 
 /**
@@ -505,6 +553,9 @@ function toShortBookingV2(booking: Booking): ShortBookingV2 {
     ...(booking.freeCancelUntil !== undefined
       ? { x: booking.freeCancelUntil }
       : {}),
+    ...(booking.onlineCheckInOpensMinutesBefore !== undefined
+      ? { w: booking.onlineCheckInOpensMinutesBefore }
+      : {}),
     ...(booking.checkInClosesMinutesBefore !== undefined
       ? { h: booking.checkInClosesMinutesBefore }
       : {}),
@@ -532,9 +583,12 @@ function fromShortBookingV2(short: ShortBookingV2): Booking {
     ...(short.v !== undefined ? { provider: short.v } : {}),
     ...(short.r !== undefined ? { price: fromShortMoney(short.r) } : {}),
     ...(short.x !== undefined ? { freeCancelUntil: short.x } : {}),
-    // このキーを持たない payload は「締切を入力していない予約」を意味する
-    // (締切を足す前に発行されたURLもここを通る)。値の妥当性は
+    // このキーを持たない payload は「締切や開放時刻を入力していない予約」を意味する
+    // (それぞれの欄を足す前に発行されたURLもここを通る)。値の妥当性は
     // 呼び出し元の parseTripNotesState → parseBooking が見る
+    ...(short.w !== undefined
+      ? { onlineCheckInOpensMinutesBefore: short.w }
+      : {}),
     ...(short.h !== undefined ? { checkInClosesMinutesBefore: short.h } : {}),
     ...(short.b !== undefined ? { bagDropClosesMinutesBefore: short.b } : {}),
     ...(short.n !== undefined ? { note: short.n } : {}),
@@ -592,9 +646,39 @@ function fromShortTravelDocV2(short: ShortTravelDocV2): TravelDoc {
   }
 }
 
+function toShortCountryInfoV2(info: CountryInfo): ShortCountryInfoV2 {
+  return {
+    t: info.name,
+    ...(info.latinName !== undefined ? { r: info.latinName } : {}),
+    ...(info.plugTypes !== undefined ? { p: info.plugTypes } : {}),
+    ...(info.voltage !== undefined ? { v: info.voltage } : {}),
+    ...(info.tipping !== undefined ? { c: info.tipping } : {}),
+    ...(info.emergencyPolice !== undefined ? { e: info.emergencyPolice } : {}),
+    ...(info.emergencyAmbulance !== undefined
+      ? { m: info.emergencyAmbulance }
+      : {}),
+    ...(info.note !== undefined ? { n: info.note } : {}),
+  }
+}
+
+function fromShortCountryInfoV2(short: ShortCountryInfoV2): CountryInfo {
+  return {
+    id: newId('ci'),
+    name: short.t,
+    ...(short.r !== undefined ? { latinName: short.r } : {}),
+    ...(short.p !== undefined ? { plugTypes: short.p } : {}),
+    ...(short.v !== undefined ? { voltage: short.v } : {}),
+    ...(short.c !== undefined ? { tipping: short.c } : {}),
+    ...(short.e !== undefined ? { emergencyPolice: short.e } : {}),
+    ...(short.m !== undefined ? { emergencyAmbulance: short.m } : {}),
+    ...(short.n !== undefined ? { note: short.n } : {}),
+  }
+}
+
 function toShortStateV2(state: TripNotesState): ShortStateV2 {
   const aliases = state.placeAliases ?? []
   const docs = state.travelDocs ?? []
+  const countries = state.countryInfos ?? []
   return {
     v: state.schemaVersion,
     t: state.tripTitle,
@@ -605,6 +689,7 @@ function toShortStateV2(state: TripNotesState): ShortStateV2 {
     c: state.emergencyContacts.map(toShortContactV2),
     ...(aliases.length > 0 ? { p: aliases.map((alias) => alias.names) } : {}),
     ...(docs.length > 0 ? { d: docs.map(toShortTravelDocV2) } : {}),
+    ...(countries.length > 0 ? { g: countries.map(toShortCountryInfoV2) } : {}),
   }
 }
 
@@ -628,6 +713,11 @@ function fromShortStateV2(short: ShortStateV2): TripNotesState {
     // (このキーを足す前に発行されたURLもここを通る)
     ...(short.d !== undefined
       ? { travelDocs: short.d.map(fromShortTravelDocV2) }
+      : {}),
+    // 国の基本情報も同じ。キーが無い payload は「1 件も登録していない」を意味する
+    // (このキーを足す前に発行されたURLもここを通る)
+    ...(short.g !== undefined
+      ? { countryInfos: short.g.map(fromShortCountryInfoV2) }
       : {}),
   }
 }

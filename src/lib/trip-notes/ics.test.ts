@@ -544,7 +544,7 @@ describe('buildTripIcs / SUMMARY・LOCATION・DESCRIPTION', () => {
   })
 })
 
-describe('buildTripIcs / VALARM は入力された締切だけから作る', () => {
+describe('buildTripIcs / VALARM は入力された分数だけから作る', () => {
   it('搭乗手続き・受託手荷物の分数からアラームを作る', () => {
     const ics = buildTripIcs(
       makeState({
@@ -568,6 +568,56 @@ describe('buildTripIcs / VALARM は入力された締切だけから作る', () 
     expect(out).toContain('DESCRIPTION:搭乗手続きの締切')
     expect(out).toContain('DESCRIPTION:受託手荷物を預ける締切')
     expect(out).toContain('ACTION:DISPLAY')
+  })
+
+  it('オンラインチェックインの開始からもアラームを作る', () => {
+    // 締切ではないが、価値があるのは「開いた瞬間に席を取る」の 1 点なので、
+    // その瞬間を拾う通知こそがこの項目の使い道になる
+    const ics = buildTripIcs(
+      makeState({
+        bookings: [
+          booking({
+            id: 'b1',
+            kind: 'flight',
+            title: 'AF275',
+            start: at('2026-09-23', '20:15', PARIS),
+            onlineCheckInOpensMinutesBefore: 1440,
+          }),
+        ],
+      }),
+      NOW,
+    )
+    const out = lines(ics)
+    expect(out.filter((line) => line === 'BEGIN:VALARM')).toHaveLength(1)
+    expect(out).toContain('TRIGGER:-PT1440M')
+    expect(out).toContain('DESCRIPTION:オンラインチェックイン開始')
+  })
+
+  it('開始と締切が揃っていれば 3 つとも作る', () => {
+    const ics = buildTripIcs(
+      makeState({
+        bookings: [
+          booking({
+            id: 'b1',
+            kind: 'flight',
+            title: 'AF275',
+            start: at('2026-09-23', '20:15', PARIS),
+            onlineCheckInOpensMinutesBefore: 2880,
+            checkInClosesMinutesBefore: 45,
+            bagDropClosesMinutesBefore: 60,
+          }),
+        ],
+      }),
+      NOW,
+    )
+    const out = lines(ics)
+    expect(out.filter((line) => line === 'BEGIN:VALARM')).toHaveLength(3)
+    // 並びは時系列(開始 → 手荷物 → 搭乗手続き)
+    expect(out.filter((line) => line.startsWith('TRIGGER:'))).toEqual([
+      'TRIGGER:-PT2880M',
+      'TRIGGER:-PT60M',
+      'TRIGGER:-PT45M',
+    ])
   })
 
   it('片方だけ入っていればその 1 つだけ作る', () => {
@@ -625,6 +675,26 @@ describe('buildTripIcs / VALARM は入力された締切だけから作る', () 
             title: '時刻未定の便',
             start: allDay('2026-09-23', PARIS),
             checkInClosesMinutesBefore: 60,
+          }),
+        ],
+      }),
+      NOW,
+    )
+    expect(ics).not.toContain('BEGIN:VALARM')
+  })
+
+  it('終日の予約ではオンラインチェックインの開始もアラームにしない', () => {
+    // 出発時刻が分かっていない以上、その 24 時間前も置きようがない。
+    // 終日 Stamp の現地 00:00 から数えると、前々日の 00:00 に鳴る
+    const ics = buildTripIcs(
+      makeState({
+        bookings: [
+          booking({
+            id: 'b1',
+            kind: 'flight',
+            title: '時刻未定の便',
+            start: allDay('2026-09-23', PARIS),
+            onlineCheckInOpensMinutesBefore: 1440,
           }),
         ],
       }),

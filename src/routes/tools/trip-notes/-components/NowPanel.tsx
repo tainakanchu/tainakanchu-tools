@@ -3,9 +3,9 @@
  *
  * カウンターや改札で慌てて開く場面を想定し、一画面一情報に振り切る。
  * - 画面の主役は「次に来る時刻」ただ 1 つ。利用者が知りたいのは予約ではなく
- *   時刻なので、予約をマイルストーン(手荷物を預ける締切・搭乗手続きの締切・
- *   出発・到着・チェックイン開始・チェックアウト)に分解して近い順に並べ、
- *   いちばん近い 1 つだけを大きなカウントダウンで出す。
+ *   時刻なので、予約をマイルストーン(オンラインチェックイン開始・手荷物を
+ *   預ける締切・搭乗手続きの締切・出発・到着・チェックイン開始・チェックアウト)
+ *   に分解して近い順に並べ、いちばん近い 1 つだけを大きなカウントダウンで出す。
  *   導出の規則は milestones.ts にあり、この画面はその並びを描くだけにしてある。
  * - 大きなカウントダウンは画面にただ 1 つだけ置く。2 つ並ぶと、どちらが
  *   いま効いている数字なのか読み解く時間が要る。進行中の予約の「終了まで」は
@@ -41,12 +41,14 @@ import {
   Clock,
   Copy,
   Flag,
+  Globe,
   IdCard,
   ListChecks,
   LogIn,
   LogOut,
   Luggage,
   MapPin,
+  Smartphone,
   TicketCheck,
   Timer,
 } from 'lucide-react'
@@ -58,6 +60,7 @@ import {
   deriveMilestones,
   isCheckInOpen,
   isDeadlineMilestone,
+  isOnlineCheckInOpen,
 } from '../../../../lib/trip-notes/milestones'
 import {
   COMMON_TIMEZONES,
@@ -84,6 +87,7 @@ import type {
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
   Booking,
+  CountryInfo,
   Place,
   Stamp,
   TravelDoc,
@@ -138,8 +142,15 @@ const MILESTONE_LIST_MAX = 5
  * 出発と開始、到着と終了は、利用者にとって同じ意味(出ていく / そこで終わる)
  * なので同じ形を使う。宿の出入りだけは LogIn / LogOut で対にして、
  * 「建物に入る・出る」という別の動きであることを示す。
+ *
+ * オンラインチェックインの開放は締切ではないので、締切系の 2 つとは別の形
+ * (Smartphone)にする。同じ飛行機に紐づく時刻でも、こちらは手元のスマホで
+ * 済ませる手続きで、カウンターに並べという合図ではない。締切と同じ形にすると
+ * 一覧の中で締切が 3 つあるように見えてしまう。出発・到着とも形を変えるのは、
+ * 実際に動く時刻とは別物だからである。
  */
 const MILESTONE_ICONS: Record<MilestoneKind, LucideIcon> = {
+  onlineCheckInOpen: Smartphone,
   bagDrop: Luggage,
   checkIn: TicketCheck,
   departure: ArrowRightCircle,
@@ -153,6 +164,14 @@ const MILESTONE_ICONS: Record<MilestoneKind, LucideIcon> = {
 /**
  * 締切が迫っているか。境界は強調側に含める(ENDING_SOON_MS と同じ流儀で、
  * ちょうど 45 分を「まだ余裕がある」側に置く理由が無い)。
+ *
+ * オンラインチェックインの開放時刻はこの強調の対象にならない。
+ * isDeadlineMilestone が false を返すので自動的に外れるが、これは
+ * 種類を足したときの書き忘れではなく意図した除外である。開放に乗り遅れて
+ * 失うのは席の選択肢だけで、その便には乗れる。rose の強調は「いま列に並べ」
+ * という 1 つの行動を促すためのもので、そこに「そのうちやればよいこと」を
+ * 混ぜると、本当に危ない締切と見分けが付かなくなって強調そのものが効かなくなる
+ * (milestones.ts の DEADLINE_KINDS も同じ理由で 2 つに絞ってある)。
  */
 function isDeadlineSoon(milestone: Milestone, nowMs: number): boolean {
   return (
@@ -317,6 +336,14 @@ export function NowPanel({
         「予約がまだありません」の空状態の下に余計な空白が出ることはない
       */}
       <TravelDocRecap docs={state.travelDocs ?? []} />
+      {/*
+        国・地域の情報も、手続きの控えとまったく同じ理由でここに置く
+        (予約や現在地の判定と関係なく成り立つ参照用の情報)。
+        手続きの控えの下にしたのは、印刷しおりの並び(旅行前の手続き →
+        国・地域の情報 → 緊急連絡先)と揃えるため。同じ控えが画面と紙で違う順に
+        出てくると、紙で見た順に画面を辿れなくなる
+      */}
+      <CountryInfoRecap countryInfos={state.countryInfos ?? []} />
     </div>
   )
 }
@@ -430,7 +457,7 @@ function BookingHero({
   booking: Booking
   displayTz: string
   variant: 'current' | 'next'
-  /** current の「終了まで」と「チェックイン受付中」の判定に使う */
+  /** 「終了まで」と「受付中」の判定に使う(BookingStateChips 参照) */
   nowMs: number
 }) {
   const accent =
@@ -465,9 +492,7 @@ function BookingHero({
         )}
       </p>
 
-      {variant === 'current' && (
-        <CurrentStateChips booking={booking} nowMs={nowMs} />
-      )}
+      <BookingStateChips booking={booking} variant={variant} nowMs={nowMs} />
 
       {booking.confirmationNumber && (
         <ConfirmationButton value={booking.confirmationNumber} />
@@ -485,43 +510,80 @@ function BookingHero({
 }
 
 /**
- * 進行中の予約カードに添えるチップ(「チェックイン受付中」と「終了までの残り」)。
- * どちらも出ないことがあるので、その場合は余白ごと消えるように器から返す。
+ * 予約カードに添える「いまの状態」のチップ。
+ *
+ * CurrentStateChips から名前と責務を変えた。扱うチップが進行中の予約だけの
+ * ものではなくなったためである。宿のチェックイン受付中は建物に入ったあとの話
+ * なので進行中のカードに出るが、オンラインチェックイン受付中は飛行機に乗る前
+ * ——つまり「次の予定」のカードに出る。同じ「受付中」でも出る場所が逆になるので、
+ * variant で呼び分けるのをやめて、どちらのカードからも同じように呼べる器にし、
+ * 「どのチップがどの状態で出るか」の判断をこの 1 か所に集めた。
+ *
+ * variant を見るのは「終了までの残り時間」だけ。あれは終わりが走っている
+ * 予約にしか無い値で、まだ始まっていない予定に出しても意味を成さない。
+ * 受付中の 2 つを variant で絞らないのは、判定関数自身が時刻で答えを出す
+ * ためである(isOnlineCheckInOpen は出発済みの予約では false、isCheckInOpen は
+ * 開始前の予約では false)。ここで二重に絞ると、同じ規則が判定関数と画面の
+ * 2 か所に分かれて、片方だけ直す事故のもとになる。
+ *
+ * どれも出ないことがあるので、その場合は余白ごと消えるように器から返す。
  */
-function CurrentStateChips({
+function BookingStateChips({
   booking,
+  variant,
   nowMs,
 }: {
   booking: Booking
+  variant: 'current' | 'next'
   nowMs: number
 }) {
   const checkInOpen = isCheckInOpen(booking, nowMs)
-  const ending = endingCountdownOf(booking, nowMs)
-  if (!checkInOpen && ending === null) return null
+  const onlineCheckInOpen = isOnlineCheckInOpen(booking, nowMs)
+  const ending =
+    variant === 'current' ? endingCountdownOf(booking, nowMs) : null
+  if (!checkInOpen && !onlineCheckInOpen && ending === null) return null
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      {checkInOpen && <CheckInOpenChip />}
+      {checkInOpen && <OpenStateChip icon={LogIn} label="チェックイン受付中" />}
+      {onlineCheckInOpen && (
+        <OpenStateChip icon={Smartphone} label="オンラインチェックイン受付中" />
+      )}
       {ending !== null && <EndingCountdown ending={ending} />}
     </div>
   )
 }
 
 /**
- * 宿のチェックイン受付が始まっていることを示すチップ。
+ * 「もう始まっている」ことを示すチップ(宿のチェックイン受付中 /
+ * オンラインチェックイン受付中)。
  *
- * 「チェックイン開始まであと◯」は開始時刻を過ぎた瞬間に意味を失うが、
- * そこで黙って消すと、到着した利用者がいちばん知りたい「もう入れるのか」が
- * 画面から消える。過ぎたマイルストーンを消す代わりに、いまの状態として言い換える。
+ * 「開始まであと◯」は開始時刻を過ぎた瞬間に意味を失うが、そこで黙って消すと、
+ * 利用者がいちばん知りたい「もう入れるのか」「もう席を取れるのか」が画面から
+ * 消える。過ぎたマイルストーンを一覧から落とす代わりに、いまの状態として
+ * 言い換える(milestones.ts が過ぎた時刻を落としつつ isCheckInOpen /
+ * isOnlineCheckInOpen を別に返しているのは、この言い換えのためにある)。
  *
- * カウントダウンではないので数字を持たない。emerald は進行中を表す色として
- * 既にこのカードの枠に使われており、そのカードの中の状態表示なので意味が揃う。
+ * 2 つを 1 つの器にまとめたのは、利用者から見れば同じ事実(もうできる)だから。
+ * 見た目が割れていると「片方には別の意味があるのか」と読ませてしまうので、
+ * 違うのはアイコンとラベルだけにする。
+ *
+ * カウントダウンではないので数字を持たない。emerald はこの画面で
+ * 「いま効いていること」の色。オンラインチェックインのチップは cyan の枠の
+ * カード(まだ先の予定)の中に出るが、これは意味の衝突ではない。予定そのものは
+ * まだ先で、この手続きだけがもう始まっている、という 2 つの事実をそのまま映している。
  */
-function CheckInOpenChip() {
+function OpenStateChip({
+  icon: Icon,
+  label,
+}: {
+  icon: LucideIcon
+  label: string
+}) {
   return (
     <p className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-800">
-      <LogIn size={16} className="shrink-0" aria-hidden="true" />
-      チェックイン受付中
+      <Icon size={16} className="shrink-0" aria-hidden="true" />
+      {label}
     </p>
   )
 }
@@ -1036,6 +1098,124 @@ function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
         ))}
       </ul>
     </details>
+  )
+}
+
+// --- 国・地域の情報の控え ---
+
+/** 未入力の欄を弾く。保存側で空文字は落ちるが、古い保存データや共有URL経由の値まで信用しない */
+function hasText(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0
+}
+
+/**
+ * 訪問先の国・地域の基本情報の控え。
+ *
+ * TravelDocRecap と同じく <details> で常時は畳んでおく(この画面の主役は
+ * 今と次の予定で、こちらは「要るときに引く」参照用のため)。0 件なら
+ * セクションごと返さないのも同じ。
+ *
+ * ■ 中の並び: 緊急通報番号が先頭
+ *   この控えがいちばん切迫した状況で開かれるのは緊急通報番号を引くときである。
+ *   プラグ形状を探しているときに番号が 1 行ぶん上にあっても何も困らないが、
+ *   逆(番号を探しているときにプラグの行を読み飛ばす)は困る。
+ *   欄のラベル(警察 / 救急・消防)も必ず値と一緒に出す。国によって番号の
+ *   分かれ方が違うので、番号だけ並べるといちばん慌てているときに
+ *   どちらが何なのかを読み解かせることになる(types.ts の CountryInfo 参照)。
+ *
+ * ■ tel: のリンクにしない
+ *   1 タップで発信できる利得より、スクロール中の誤タップで緊急通報を
+ *   鳴らしてしまう事故のほうが重い。かけ直して謝れば済む相手ではないし、
+ *   緊急通報番号はどの国も 3 桁前後で、読み取って自分で押す手間はごく小さい。
+ *   TravelDocRecap の参照番号と同じ等幅 + select-all に留める。太さだけは
+ *   参照番号より上げてある。この控えの中で探す速さが要るのはここだけで、
+ *   畳んだ <details> を開いた直後に目が止まる場所にしておきたいため。
+ *
+ * ■ note(自由記述)は出さない
+ *   TravelDocRecap がメモを載せていないのと同じで、この控えは「その場で引く値」
+ *   に絞る。自由記述は設定タブと印刷しおりのほうで読める。
+ */
+function CountryInfoRecap({
+  countryInfos,
+}: {
+  countryInfos: Array<CountryInfo>
+}) {
+  if (countryInfos.length === 0) return null
+
+  return (
+    <details className={`${cardClass} group`}>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+        <ChevronDown
+          size={14}
+          className="shrink-0 transition group-open:rotate-180"
+          aria-hidden="true"
+        />
+        <Globe
+          size={16}
+          className="shrink-0 text-gray-500"
+          aria-hidden="true"
+        />
+        国・地域の情報
+        <span className="text-xs font-normal text-gray-400">
+          {countryInfos.length}件
+        </span>
+      </summary>
+      <ul className="mt-3 flex flex-col gap-2">
+        {countryInfos.map((info) => (
+          <CountryInfoRow key={info.id} info={info} />
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+/**
+ * 国 1 件分。値が入っている欄だけを出す。
+ *
+ * 空の欄を「未入力」と書いて並べることはしない。この控えは持ち物の
+ * チェックリストではなく参照用なので、無い情報の存在を主張しても
+ * 行数が増えて、入っている値を探す目が空振りする回数が増えるだけである。
+ */
+function CountryInfoRow({ info }: { info: CountryInfo }) {
+  const numbers: Array<{ label: string; value: string }> = []
+  if (hasText(info.emergencyPolice)) {
+    numbers.push({ label: '警察', value: info.emergencyPolice })
+  }
+  if (hasText(info.emergencyAmbulance)) {
+    numbers.push({ label: '救急・消防', value: info.emergencyAmbulance })
+  }
+
+  // プラグ・電圧・チップは 1 行にまとめる。どれも「思い出せなければ困るが、
+  // 思い出すのに 1 秒あれば足りる」種類の値なので、行を分けて主張させない。
+  // 電圧だけラベルを付けないのは、値そのものが '230V 50Hz' と名乗っているため。
+  const facts: Array<string> = []
+  if (hasText(info.plugTypes)) facts.push(`プラグ ${info.plugTypes}`)
+  if (hasText(info.voltage)) facts.push(info.voltage)
+  if (hasText(info.tipping)) facts.push(`チップ ${info.tipping}`)
+
+  return (
+    <li className="rounded-lg border border-gray-200 p-2">
+      <p className="text-sm font-medium text-gray-800">{info.name}</p>
+      {numbers.length > 0 ? (
+        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          {numbers.map((number) => (
+            <span
+              key={number.label}
+              className="inline-flex items-baseline gap-1"
+            >
+              <span className="text-xs text-gray-500">{number.label}</span>
+              {/* 参照番号と同じく、等幅 + select-all で1タップの範囲選択を促す */}
+              <span className="font-mono text-sm font-bold text-gray-900 select-all">
+                {number.value}
+              </span>
+            </span>
+          ))}
+        </p>
+      ) : null}
+      {facts.length > 0 ? (
+        <p className="mt-0.5 text-xs text-gray-600">{facts.join(' ・ ')}</p>
+      ) : null}
+    </li>
   )
 }
 

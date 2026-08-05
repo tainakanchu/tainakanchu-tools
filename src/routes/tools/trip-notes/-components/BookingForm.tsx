@@ -32,8 +32,10 @@ import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import {
   BOOKING_KINDS,
   BOOKING_STATUSES,
+  MAX_CHECK_IN_OPENS_MINUTES_BEFORE,
   MAX_DEADLINE_MINUTES_BEFORE,
   PAYMENT_STATUSES,
+  isCheckInOpensMinutesBefore,
   isDeadlineMinutesBefore,
 } from '../../../../lib/trip-notes/storage'
 import { useDialogFocus } from '../-lib/focusTrap'
@@ -124,6 +126,8 @@ interface FormState {
   priceAmount: string
   priceCurrency: string
   freeCancelUntil: string
+  /** オンラインチェックインが開く時刻(出発の何分前か)。空文字は「入力なし」 */
+  onlineCheckInMinutes: string
   /** 搭乗手続きの締切(出発の何分前か)。空文字は「入力なし」 */
   checkInMinutes: string
   /** 受託手荷物の預け締切(出発の何分前か)。空文字は「入力なし」 */
@@ -168,6 +172,7 @@ const FIELD_OF: Record<keyof FormState, FieldKey> = {
   priceAmount: 'price',
   priceCurrency: 'price',
   freeCancelUntil: 'freeCancelUntil',
+  onlineCheckInMinutes: 'onlineCheckInOpensMinutesBefore',
   checkInMinutes: 'checkInClosesMinutesBefore',
   bagDropMinutes: 'bagDropClosesMinutesBefore',
   note: 'note',
@@ -230,6 +235,10 @@ function buildInitialForm(
         booking.price !== undefined ? String(booking.price.amount) : '',
       priceCurrency: booking.price?.currency ?? '',
       freeCancelUntil: booking.freeCancelUntil ?? '',
+      onlineCheckInMinutes:
+        booking.onlineCheckInOpensMinutesBefore !== undefined
+          ? String(booking.onlineCheckInOpensMinutesBefore)
+          : '',
       checkInMinutes:
         booking.checkInClosesMinutesBefore !== undefined
           ? String(booking.checkInClosesMinutesBefore)
@@ -271,6 +280,7 @@ function buildInitialForm(
     priceAmount: '',
     priceCurrency: '',
     freeCancelUntil: '',
+    onlineCheckInMinutes: '',
     checkInMinutes: '',
     bagDropMinutes: '',
     note: '',
@@ -298,27 +308,79 @@ function tzOptionsFor(current: string) {
 }
 
 /**
+ * 「出発の何分前か」の欄に並べるボタン 1 つ。
+ * 値は必ず分で持ち、ラベルだけを項目に合った単位で書く
+ * (単位を分にそろえる理由は MinutesBeforeField のコメントを参照)。
+ */
+interface MinutesPreset {
+  minutes: number
+  label: string
+}
+
+/**
  * 締切の入力欄に並べる「よくある値」。実在する規定に多いものから選んである。
  * 30/45 分前は国内線、60 分前は国際線の標準、90 分前は大型機や
  * 混む空港に多い。ここに無い値(75 分前など)も現実にあるので、
  * プリセットだけにせず自由入力を必ず残す。
  */
-const DEADLINE_PRESETS = [30, 45, 60, 90]
+const DEADLINE_PRESETS: Array<MinutesPreset> = [
+  { minutes: 30, label: '30分前' },
+  { minutes: 45, label: '45分前' },
+  { minutes: 60, label: '60分前' },
+  { minutes: 90, label: '90分前' },
+]
 
 /**
- * 締切の入力欄の値を Booking の値に変換する。
+ * オンラインチェックインが開く時刻の「よくある値」。この 3 つしか置かない。
+ *
+ * 航空会社が公開している開放時刻は 24 / 48 / 72 時間前にほぼ収まる
+ * (24 時間前がもっとも多く、上級会員や一部の運賃で 48 / 72 時間前に前倒しになる)。
+ * 締切のように「その空港だけ 75 分前」という刻みは無いので、
+ * 選択肢を増やしても押す前に読む手間が増えるだけになる。
+ * それでも自由入力を残すのは、まれに 30 時間前のような値を出す会社があるため。
+ */
+const CHECK_IN_OPEN_PRESETS: Array<MinutesPreset> = [
+  { minutes: 24 * 60, label: '24時間前' },
+  { minutes: 48 * 60, label: '48時間前' },
+  { minutes: 72 * 60, label: '72時間前' },
+]
+
+/**
+ * 「出発の何分前か」の入力欄の値を Booking の値に変換する。
  * 空欄は「入力なし」(undefined)、妥当でない値は 'invalid' を返して
  * 呼び出し元に入力の修正を促させる。
  *
  * 妥当性の判定を storage.ts と共有しているのは、ここで通した値が
  * そのまま保存されるため。フォームの許す範囲が保存側より広いと
  * 「入力できたのに次回起動で消えている締切」ができてしまう。
+ * 判定そのものを引数で受けるのは、上限だけが項目で違うから
+ * (締切は 24 時間、オンラインチェックインの開放は 72 時間。
+ * storage.ts の MAX_DEADLINE_MINUTES_BEFORE / MAX_CHECK_IN_OPENS_MINUTES_BEFORE)。
+ * 広いほうの判定で締切まで通してしまうと、フォームと保存側の食い違いが
+ * 締切の欄にだけ復活する。
  */
-function parseDeadlineInput(raw: string): number | undefined | 'invalid' {
+function parseMinutesBeforeInput(
+  raw: string,
+  isValid: (value: unknown) => value is number,
+): number | undefined | 'invalid' {
   const trimmed = raw.trim()
   if (trimmed === '') return undefined
   const value = Number(trimmed)
-  return isDeadlineMinutesBefore(value) ? value : 'invalid'
+  return isValid(value) ? value : 'invalid'
+}
+
+/**
+ * 「何分前か」を時間に直した読み(例: 1440 → '24時間前')。時間ちょうどに
+ * ならない値と、1 時間そこそこの値では null を返す。
+ *
+ * 45 分を「0.75時間前」と出しても読みにくくなるだけで、換算が効くのは
+ * オンラインチェックインの開放のように桁が増えたときだけだから。
+ */
+function hoursBeforeLabel(minutes: number): string | null {
+  if (!Number.isInteger(minutes) || minutes < 120 || minutes % 60 !== 0) {
+    return null
+  }
+  return `${minutes / 60}時間前`
 }
 
 function endLabelFor(kind: BookingKind): string {
@@ -520,20 +582,38 @@ export function BookingForm({
       }
     }
 
-    // 締切は移動系のときだけ効く。空欄は「入力なし」としてそのまま通すが、
-    // 入っているのに妥当でない値は黙って落とさず入力を直してもらう。
-    // 締切は過ぎると取り返しがつかない情報なので、「保存したのに入っていない」に
-    // 気付けないまま当日を迎えるのがいちばん困る
-    const checkInCloses = parseDeadlineInput(form.checkInMinutes)
-    const bagDropCloses = parseDeadlineInput(form.bagDropMinutes)
-    if (
-      isTransportKind(form.kind) &&
-      (checkInCloses === 'invalid' || bagDropCloses === 'invalid')
-    ) {
-      setError(
-        `締切は 1〜${MAX_DEADLINE_MINUTES_BEFORE} 分の整数(出発の何分前か)で入力してください`,
-      )
-      return
+    // オンラインチェックインの開始と締切は移動系のときだけ効く。空欄は
+    // 「入力なし」としてそのまま通すが、入っているのに妥当でない値は
+    // 黙って落とさず入力を直してもらう。締切は過ぎると取り返しがつかない情報なので、
+    // 「保存したのに入っていない」に気付けないまま当日を迎えるのがいちばん困る
+    const checkInOpens = parseMinutesBeforeInput(
+      form.onlineCheckInMinutes,
+      isCheckInOpensMinutesBefore,
+    )
+    const checkInCloses = parseMinutesBeforeInput(
+      form.checkInMinutes,
+      isDeadlineMinutesBefore,
+    )
+    const bagDropCloses = parseMinutesBeforeInput(
+      form.bagDropMinutes,
+      isDeadlineMinutesBefore,
+    )
+    if (isTransportKind(form.kind)) {
+      // 上限が違うのでメッセージも分ける。1 本にまとめて「1〜4320 分」と書くと、
+      // 締切の欄に 2000 と入れた人には数字が範囲内に見えてしまい、
+      // どの欄を直せばよいのか画面から読み取れなくなる
+      if (checkInOpens === 'invalid') {
+        setError(
+          `オンラインチェックイン開始は 1〜${MAX_CHECK_IN_OPENS_MINUTES_BEFORE} 分の整数(出発の何分前か)で入力してください`,
+        )
+        return
+      }
+      if (checkInCloses === 'invalid' || bagDropCloses === 'invalid') {
+        setError(
+          `締切は 1〜${MAX_DEADLINE_MINUTES_BEFORE} 分の整数(出発の何分前か)で入力してください`,
+        )
+        return
+      }
     }
 
     const next: Booking = {
@@ -560,7 +640,10 @@ export function BookingForm({
       if (from !== undefined) next.from = from
       if (to !== undefined) next.to = to
       // 種別を宿泊などに変えたときは、入力欄が消えるのと一緒に値も落とす。
-      // 見えない欄に値が残り続けると、消したつもりの締切が生き残る
+      // 見えない欄に値が残り続けると、消したつもりの締切や開始時刻が生き残る
+      if (typeof checkInOpens === 'number') {
+        next.onlineCheckInOpensMinutesBefore = checkInOpens
+      }
       if (typeof checkInCloses === 'number') {
         next.checkInClosesMinutesBefore = checkInCloses
       }
@@ -619,9 +702,9 @@ export function BookingForm({
   }
 
   const showPlace = !isTransportKind(form.kind)
-  // 締切は移動系だけの概念。宿やアクティビティにこの欄を出しても
-  // 入れるものが無く、詳細の丈だけが伸びる
-  const showDeadlines = isTransportKind(form.kind)
+  // オンラインチェックインの開始も締切も移動系だけの概念。宿やアクティビティに
+  // これらの欄を出しても入れるものが無く、詳細の丈だけが伸びる
+  const showCheckInTimes = isTransportKind(form.kind)
   const parsedCount = aiResult?.bookings.length ?? 0
 
   return (
@@ -1044,32 +1127,49 @@ export function BookingForm({
                 {unverifiedNote('freeCancelUntil')}
               </label>
 
-              {showDeadlines && (
+              {showCheckInTimes && (
                 <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
                   <legend className="px-1 text-xs font-semibold text-gray-500">
-                    締切(出発の何分前か)
+                    オンラインチェックイン・搭乗手続きの時刻(出発の何分前か)
                   </legend>
                   {/*
                     時刻ではなく「何分前か」を入れてもらう。予約確認書も
-                    航空会社の規定も「出発の 60 分前まで」という書き方をしており、
-                    絶対時刻に直させると、出発時刻を直したときに締切だけが
-                    古いまま残る(types.ts の Booking を参照)
+                    航空会社の規定も「出発の 60 分前まで」「出発の 24 時間前から」
+                    という書き方をしており、絶対時刻に直させると、出発時刻を
+                    直したときにこちらだけが古いまま残る(types.ts の Booking を参照)。
+
+                    並びは時系列にする。オンラインチェックインが開くのがいちばん早く、
+                    次に手荷物、最後に搭乗手続きが締まる。人が動く順に読める
                   */}
                   <p className="text-xs text-gray-500">
-                    空港・航空会社・路線(国内線/国際線)によって違います。
-                    予約確認書に書かれていれば、その値を優先してください。
+                    どれも空港・航空会社・路線(国内線/国際線)によって違います。
+                    オンラインチェックインが開く時刻は運賃や会員資格でも変わります。
+                    予約確認書やマイページに書かれていれば、その値を優先してください。
                   </p>
-                  <DeadlineField
+                  <MinutesBeforeField
+                    label="オンラインチェックイン開始"
+                    value={form.onlineCheckInMinutes}
+                    onChange={(value) => set('onlineCheckInMinutes', value)}
+                    presets={CHECK_IN_OPEN_PRESETS}
+                    max={MAX_CHECK_IN_OPENS_MINUTES_BEFORE}
+                    unverifiedClass={ufc('onlineCheckInOpensMinutesBefore')}
+                    note={unverifiedNote('onlineCheckInOpensMinutesBefore')}
+                  />
+                  <MinutesBeforeField
                     label="受託手荷物を預ける締切"
                     value={form.bagDropMinutes}
                     onChange={(value) => set('bagDropMinutes', value)}
+                    presets={DEADLINE_PRESETS}
+                    max={MAX_DEADLINE_MINUTES_BEFORE}
                     unverifiedClass={ufc('bagDropClosesMinutesBefore')}
                     note={unverifiedNote('bagDropClosesMinutesBefore')}
                   />
-                  <DeadlineField
+                  <MinutesBeforeField
                     label="搭乗手続きの締切"
                     value={form.checkInMinutes}
                     onChange={(value) => set('checkInMinutes', value)}
+                    presets={DEADLINE_PRESETS}
+                    max={MAX_DEADLINE_MINUTES_BEFORE}
                     unverifiedClass={ufc('checkInClosesMinutesBefore')}
                     note={unverifiedNote('checkInClosesMinutesBefore')}
                   />
@@ -1274,31 +1374,51 @@ function LatinNameField({
 }
 
 /**
- * 締切の入力欄 1 つ。よくある値のボタンと自由入力を並べる。
+ * 「出発の何分前か」の入力欄 1 つ。よくある値のボタンと自由入力を並べる。
+ * 締切(搭乗手続き・受託手荷物)とオンラインチェックインの開始で共用する。
  *
- * ボタンだけにしないのは、締切が空港・航空会社ごとに違い、プリセットに
+ * ボタンだけにしないのは、この手の時刻が空港・航空会社ごとに違い、プリセットに
  * 収まらない値が現実にあるため(DEADLINE_PRESETS のコメント参照)。
  * 逆に自由入力だけにすると、旅行前の忙しいときに数字を打つ手間で
  * 入力そのものを諦める。両方置いて、押しても打ってもよい形にする。
+ * プリセットと上限を引数で受けるのは、現実的な値の並びも許す範囲も項目で
+ * 違うため(締切は 30〜90 分、開始は 24〜72 時間)。
  *
  * 「分前」の単位は入力欄の外に文字として置く。placeholder に入れると
  * 値を打った瞬間に消えてしまい、あとから見返したときに
  * 「60」が分なのか時刻なのか分からなくなる。
+ *
+ * ■ 持つ値は分にそろえ、見せ方だけ時間にする
+ *   オンラインチェックインの開始は 1440 のような大きな値になり、分のまま
+ *   出されても桁を数えないと何時間前なのか読めない。かといって項目ごとに
+ *   単位を変えると、締切の 60(分)と開始の 60(時間)が同じ数字で別の意味を
+ *   持つことになり、「開いてから締まるまでどれだけあるか」を引き算で出すことも
+ *   できなくなる。だから保存する値は必ず分にして、プリセットのラベルと
+ *   入力欄の脇の換算だけを時間表記にする。換算を入力欄の脇にも出しておけば、
+ *   プリセットを押さずに 1440 と手で打った人にも同じ読みやすさが届く。
  */
-function DeadlineField({
+function MinutesBeforeField({
   label,
   value,
   onChange,
+  presets,
+  max,
   unverifiedClass,
   note,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
+  /** 「よくある値」のボタン。値は分、ラベルは項目に合った単位 */
+  presets: Array<MinutesPreset>
+  /** 入力欄の上限。項目で違う(storage.ts の 2 つの定数) */
+  max: number
   /** AI が埋めたまま未確認なら黄色い下線のクラス */
   unverifiedClass: string
   note: ReactNode
 }) {
+  const hours = hoursBeforeLabel(Number(value.trim()))
+
   return (
     <div className="space-y-1">
       <label className="block space-y-1">
@@ -1308,23 +1428,26 @@ function DeadlineField({
             type="number"
             inputMode="numeric"
             min={1}
-            max={MAX_DEADLINE_MINUTES_BEFORE}
+            max={max}
             step={1}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             className={`${fieldClass} max-w-28 ${unverifiedClass}`}
           />
           <span className="shrink-0 text-sm text-gray-600">分前</span>
+          {hours !== null ? (
+            <span className="shrink-0 text-xs text-gray-500">= {hours}</span>
+          ) : null}
         </span>
       </label>
       <div className="flex flex-wrap items-center gap-1.5">
-        {DEADLINE_PRESETS.map((preset) => {
-          const selected = value.trim() === String(preset)
+        {presets.map((preset) => {
+          const selected = value.trim() === String(preset.minutes)
           return (
             <button
-              key={preset}
+              key={preset.minutes}
               type="button"
-              onClick={() => onChange(String(preset))}
+              onClick={() => onChange(String(preset.minutes))}
               aria-pressed={selected}
               className={`min-h-9 rounded-full border px-3 py-1 text-xs font-medium transition ${
                 selected
@@ -1332,7 +1455,7 @@ function DeadlineField({
                   : 'border-gray-300 text-gray-700 hover:bg-gray-100'
               }`}
             >
-              {preset}分前
+              {preset.label}
             </button>
           )
         })}

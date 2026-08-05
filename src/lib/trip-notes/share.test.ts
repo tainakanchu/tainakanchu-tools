@@ -203,6 +203,14 @@ function normalizeIds(state: TripNotesState): TripNotesState {
             id: `d${index}`,
           })),
         }),
+    ...(state.countryInfos === undefined
+      ? {}
+      : {
+          countryInfos: state.countryInfos.map((info, index) => ({
+            ...info,
+            id: `g${index}`,
+          })),
+        }),
   }
 }
 
@@ -339,6 +347,68 @@ describe('share', () => {
     expect(decoded).not.toHaveProperty('travelDocs')
   })
 
+  it('countryInfos がラウンドトリップで保たれる(任意フィールド全部入り)', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      countryInfos: [
+        {
+          id: 'ci-1',
+          name: 'マルタ',
+          latinName: 'Malta',
+          plugTypes: 'G',
+          voltage: '230V 50Hz',
+          tipping: '不要。高級店では10%',
+          emergencyPolice: '112',
+          emergencyAmbulance: '112',
+          note: '左側通行',
+        },
+        {
+          // 名前だけの国。任意キーが省略されたまま往復することを見る
+          id: 'ci-2',
+          name: '台湾',
+        },
+      ],
+    }
+    expect(await roundTrip(state)).toEqual(expected(state))
+  })
+
+  it('countryInfos が無ければ payload にも復元結果にもフィールドが現れない', async () => {
+    // 国情報を使っていない人の共有URLをこの機能で膨らませない
+    const state = buildFullState()
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    expect(decoded).not.toHaveProperty('countryInfos')
+  })
+
+  it('countryInfos の id は復元側で振り直される', async () => {
+    const state: TripNotesState = {
+      ...buildFullState(),
+      countryInfos: [
+        { id: 'ci-original-1', name: 'マルタ' },
+        { id: 'ci-original-2', name: '台湾' },
+      ],
+    }
+    const decoded = requireDecoded(
+      await decodeShareState(
+        extractHash(await encodeShareUrl(state, BASE_URL)),
+      ),
+    )
+    const ids = decoded.countryInfos?.map((info) => info.id) ?? []
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
+    for (const id of ids) {
+      expect(id.startsWith('ci-')).toBe(true)
+      expect(id.startsWith('ci-original')).toBe(false)
+    }
+    expect(decoded.countryInfos?.map((info) => info.name)).toEqual([
+      'マルタ',
+      '台湾',
+    ])
+  })
+
   it('placeAliases が無ければ payload にも復元結果にもフィールドが現れない', async () => {
     // 使っていない人の共有URLをこの機能で膨らませない
     const state = buildFullState()
@@ -371,6 +441,33 @@ describe('share', () => {
       for (const booking of decoded.bookings) {
         expect(booking).not.toHaveProperty('checkInClosesMinutesBefore')
         expect(booking).not.toHaveProperty('bagDropClosesMinutesBefore')
+      }
+    })
+  })
+
+  describe('オンラインチェックインの開放(onlineCheckInOpensMinutesBefore)', () => {
+    it('開放時刻がラウンドトリップで保たれる(締切と同居しても混ざらない)', async () => {
+      const state = buildFullState()
+      // bookings[1] は flight(JL415)。開放も締切も移動の予約にしか意味を持たない
+      state.bookings[1] = {
+        ...state.bookings[1],
+        onlineCheckInOpensMinutesBefore: 4320,
+        checkInClosesMinutesBefore: 45,
+        bagDropClosesMinutesBefore: 60,
+      }
+      const decoded = await roundTrip(state)
+      expect(decoded).toEqual(expected(state))
+      expect(decoded.bookings[1].onlineCheckInOpensMinutesBefore).toBe(4320)
+      expect(decoded.bookings[1].checkInClosesMinutesBefore).toBe(45)
+    })
+
+    it('開放時刻が無い予約では payload にキーが現れない', async () => {
+      // 締切と同じく「値が無ければキーごと省く」
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL)
+      const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('onlineCheckInOpensMinutesBefore')
       }
     })
   })
@@ -856,6 +953,35 @@ describe('share', () => {
     })
 
     /**
+     * 同じ payload は countryInfos(国の基本情報)のキーも持っていない。
+     * 「キーが無い = その機能を一度も使っていない」と読めることが、
+     * 発行済みURLが読めるための条件なので、任意キーを足すたびにここを増やす。
+     */
+    it('marker "2" の既存URL(countryInfos のキーが無い)が今も読める', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded).not.toHaveProperty('countryInfos')
+      expect(decoded.bookings).toHaveLength(2)
+      expect(decoded.emergencyContacts).toHaveLength(1)
+    })
+
+    /**
+     * 同じ payload はオンラインチェックインの開放(w)のキーも持っていない。
+     * 締切 2 種と同じ理由で、キーが無い予約に開放時刻のプロパティが生えてはいけない
+     * (生えると「入力していない時刻」が入力済みとして扱われる)。
+     */
+    it('marker "2" の既存URL(開放時刻のキーが無い)が今も読める。予約に開放時刻のプロパティは生えない', async () => {
+      const decoded = requireDecoded(
+        await decodeShareState(`#d=${MARKER_2_PAYLOAD_WITHOUT_ALIASES}`),
+      )
+      expect(decoded.bookings).toHaveLength(2)
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('onlineCheckInOpensMinutesBefore')
+      }
+    })
+
+    /**
      * ShortPlace はトップレベルではなく場所の中に任意キーを足した例。
      * 場所を持つ既存URLは大量に発行されているので、キーが無いこと
      * (= ラテン文字表記を入力していない場所)がそのまま読めなければならない。
@@ -888,6 +1014,16 @@ describe('share', () => {
       expect(
         await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
       ).not.toHaveProperty('travelDocs')
+    })
+
+    it('marker "0" / "1" の既存URLにも countryInfos は生えない', async () => {
+      // 国の基本情報も v2 にだけ載せたので、v1 形式にはキーが無い
+      expect(
+        await decodeShareState(`#d=${MARKER_0_PAYLOAD}`),
+      ).not.toHaveProperty('countryInfos')
+      expect(
+        await decodeShareState(`#d=${MARKER_1_PAYLOAD}`),
+      ).not.toHaveProperty('countryInfos')
     })
 
     it('marker "0" / "1" では id がそのまま復元される(振り直しは v2 以降の挙動)', async () => {
@@ -970,6 +1106,30 @@ describe('share', () => {
         const url = await encodeShareUrl(state, BASE_URL)
         const decoded = requireDecoded(await decodeShareState(extractHash(url)))
         expect(decoded).not.toHaveProperty('placeAliases')
+        expect(decoded.bookings).toHaveLength(state.bookings.length)
+      } finally {
+        globalThis.CompressionStream = savedCompression
+        globalThis.DecompressionStream = savedDecompression
+      }
+    })
+
+    it('非圧縮(v1 形式)では countryInfos が落ちるが、予約は全部残る', async () => {
+      // v1 は発行済みURLを読むための固定された形なので書き足していない(share.ts 参照)。
+      // 国の一覧は空になるが、旅程そのもの(予約)は 1 件も失われない
+      const savedCompression = globalThis.CompressionStream
+      const savedDecompression = globalThis.DecompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.CompressionStream
+      // @ts-expect-error テストのために意図的にグローバルを消す
+      delete globalThis.DecompressionStream
+      try {
+        const state: TripNotesState = {
+          ...buildFullState(),
+          countryInfos: [{ id: 'ci-1', name: 'マルタ', plugTypes: 'G' }],
+        }
+        const url = await encodeShareUrl(state, BASE_URL)
+        const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+        expect(decoded).not.toHaveProperty('countryInfos')
         expect(decoded.bookings).toHaveLength(state.bookings.length)
       } finally {
         globalThis.CompressionStream = savedCompression

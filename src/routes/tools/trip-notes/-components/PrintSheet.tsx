@@ -14,10 +14,14 @@
  *   - 搭乗手続き・手荷物の締切: データは「出発の何分前」で持っているが、
  *     紙の上では絶対時刻に直して出す。空港で暗算させない。
  *   - まだ払っていない予約の金額: 現地でいくら出すかは行動を変える。
+ *   - 国ごとの緊急通報番号: スマホが無い状況こそがこの紙の出番で、
+ *     そのとき最初に押す番号がこれになる。
  *   逆に、通貨別の予算合計(summarizeBudget)は載せない。あれは「あといくら要るか」を
  *   出発前に決めるための集計で、旅先の紙で見ても行動が変わらない。紙面は有限なので、
  *   旅先で使わない集計に行を割かない。無料キャンセル期限も同じ理由で載せない
  *   (出発前に画面で潰すもので、旅先の紙に残しても押せる手が無い)。
+ *   オンラインチェックインの開放時刻も載せない(締切ではないので、紙に刷ると
+ *   隣に並ぶ締切と同じ重みに見えてしまう。理由は deadlinesOf を参照)。
  *   キャンセル済みの予約も印刷しない。行かないと決めた予定は紙で見るものではない。
  *
  * ■ 華やかさをどこで作るか
@@ -58,6 +62,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock,
+  Globe,
   LogOut,
   MapPinCheck,
   Moon,
@@ -93,6 +98,7 @@ import type { CSSProperties } from 'react'
 import type {
   Booking,
   BookingStatus,
+  CountryInfo,
   NightSlot,
   Place,
   TripNotesState,
@@ -245,7 +251,7 @@ function placeHeadline(booking: Booking): string | null {
 }
 
 /**
- * 搭乗手続き・手荷物の締切を絶対時刻に直す。
+ * 搭乗手続き・手荷物の「締切」2 項目だけを絶対時刻に直す。
  *
  * データは「出発の何分前か」で持っている(types.ts の checkInClosesMinutesBefore 参照)。
  * 画面では残り時間として出せばよいが、紙は空港のカウンターの前で読むものなので、
@@ -255,6 +261,17 @@ function placeHeadline(booking: Booking): string | null {
  * 「いまより先のものだけ」を返す現在時刻依存の関数で、印刷には使えない
  * (刷った紙は旅行の最後まで有効で、過ぎた締切もそのまま紙の上に残る)。
  * ラベルだけは MILESTONE_LABELS を共有し、画面と紙で呼び名がずれないようにする。
+ *
+ * ■ オンラインチェックインの開放時刻をここに足さない理由
+ *   予約は「出発の何分前」で持つ値を 3 つ持つようになった(締切 2 つ + 開放
+ *   1 つ。types.ts の onlineCheckInOpensMinutesBefore 参照)が、この関数が
+ *   絶対時刻に直すのは締切の 2 つだけである。足し忘れではない。
+ *   開放時刻は「ここから先ずっとできる」の開始点で、締切と違って過ぎても
+ *   失うものが無い。それを紙に 1 点の時刻として刷ると、すぐ隣に並ぶ締切と
+ *   同じ重みに見えて、この行全体が「守らないとまずい時刻の列」でなくなる。
+ *   そもそもオンラインチェックインはスマホと通信が要る手続きなので、
+ *   「電池が切れても通信できなくても読める紙」というこの印刷物の目的と
+ *   噛み合わない。その時刻が要る場面では、必ず画面が使える。
  */
 function deadlinesOf(
   booking: Booking,
@@ -621,6 +638,108 @@ function NightsSection({
   )
 }
 
+/** 未入力の欄を弾く。保存側で空文字は落ちるが、古い保存データや共有URL経由の値まで信用しない */
+function hasText(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0
+}
+
+/**
+ * 国・地域の情報。
+ *
+ * 見出しの文言は「今」タブの控え(NowPanel の CountryInfoRecap)と同じにしてある。
+ * 同じ情報が画面と紙で違う名前で出ると、紙で見たものを画面から探せなくなる
+ * (MILESTONE_LABELS や夜の呼び名を共有しているのと同じ判断)。
+ *
+ * 行の中では緊急通報番号を主役に置き、緊急連絡先の <li> と同じ作り
+ * (等幅 11pt 太字 + 0.5pt の下罫線 + 0.75pt の左罫線)で刷る。同じ「電話をかける
+ * ための番号」を隣り合う 2 節で違う形にすると、どちらかが別種の値に見える。
+ * 国名の欄を 80pt にしているのも緊急連絡先のラベル欄と同じで、2 節の番号が
+ * 紙の上で同じ位置に縦に揃う。
+ *
+ * プラグ形状・電圧・チップも一緒に刷る。プラグ形状は現地の店で変換プラグを
+ * 買うときに効くし、電圧は持ち込んだ機器を挿す前に確かめるもので、どちらも
+ * 「その場で調べ直すには遅い」種類の値である。それでいて増えるのは国あたり
+ * 1 行に満たない。メモも同じ理由で載せる(手続きの節がメモを載せているのと揃える)。
+ *
+ * 緊急通報番号が両方とも空の国は、番号の行そのものを出さない。
+ * 空のラベルだけが並ぶと、番号を探す目が空振りする。ただし欄が 1 つも
+ * 埋まっていない国でも、国名の行そのものは残す。この節は「この旅でどの国に
+ * 入るか」の一覧でもあり、名前だけでも紙の上では意味を持つため。
+ */
+function CountryInfoSection({
+  countryInfos,
+}: {
+  countryInfos: Array<CountryInfo>
+}) {
+  if (countryInfos.length === 0) return null
+
+  return (
+    <section>
+      <SectionHeading icon={Globe} title="国・地域の情報" />
+      <ul className="mt-[3pt]">
+        {countryInfos.map((info) => {
+          const numbers: Array<{ label: string; value: string }> = []
+          if (hasText(info.emergencyPolice)) {
+            numbers.push({ label: '警察', value: info.emergencyPolice })
+          }
+          if (hasText(info.emergencyAmbulance)) {
+            numbers.push({
+              label: '救急・消防',
+              value: info.emergencyAmbulance,
+            })
+          }
+
+          // 電圧だけラベルを付けないのは、値そのものが '230V 50Hz' と名乗っているため
+          const facts: Array<string> = []
+          if (hasText(info.plugTypes)) facts.push(`プラグ ${info.plugTypes}`)
+          if (hasText(info.voltage)) facts.push(info.voltage)
+          if (hasText(info.tipping)) facts.push(`チップ ${info.tipping}`)
+
+          return (
+            <li
+              key={info.id}
+              className="flex break-inside-avoid gap-[8pt] border-b-[0.5pt] border-gray-300 py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-gray-300"
+            >
+              <span className="w-[80pt] shrink-0 text-[9pt] font-bold">
+                {info.name}
+              </span>
+              <div className="min-w-0 flex-1">
+                {numbers.length > 0 ? (
+                  <p className="flex flex-wrap items-baseline gap-x-[10pt]">
+                    {numbers.map((number) => (
+                      <span
+                        key={number.label}
+                        className="inline-flex items-baseline gap-[4pt]"
+                      >
+                        <span className="text-[6.5pt] tracking-[0.1em] text-gray-600">
+                          {number.label}
+                        </span>
+                        <span className="font-mono text-[11pt] font-bold tracking-[0.04em]">
+                          {number.value}
+                        </span>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+                {facts.length > 0 ? (
+                  <p className="mt-[1pt] text-[8pt] text-gray-700">
+                    {facts.join(' ・ ')}
+                  </p>
+                ) : null}
+                {hasText(info.note) ? (
+                  <p className="mt-[1pt] text-[8pt] text-gray-700">
+                    メモ: {info.note}
+                  </p>
+                ) : null}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 export function PrintSheet({ state, displayTz }: PrintSheetProps) {
   // キャンセル済みは紙に残す価値がないので、印刷時だけ取り除く
   // (画面側のタイムライン表示には影響しない、この関数内だけの絞り込み)。
@@ -639,6 +758,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
 
   // 1 件も無ければフィールドごと存在しない(types.ts 参照)
   const travelDocs = state.travelDocs ?? []
+  const countryInfos = state.countryInfos ?? []
   const hasTitle = state.tripTitle.length > 0
 
   return (
@@ -810,6 +930,15 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
           </ul>
         </section>
       ) : null}
+
+      {/*
+        国・地域の情報は緊急連絡先の直前に置く。国の緊急通報番号は
+        「その国にいる誰でもかけられる番号」で、大使館やカード会社の窓口より
+        先に押す可能性が高いためである。この並びなら、紙をめくった人の目が
+        「まずこの 3 桁 → それでも足りなければ個別の窓口」の順に流れる。
+        1 件も無ければセクションごと省く(手続きの節と同じ。紙面を無駄に伸ばさない)
+      */}
+      <CountryInfoSection countryInfos={countryInfos} />
 
       {/*
         緊急連絡先は電話をかけるための番号なので、番号そのものを等幅で
