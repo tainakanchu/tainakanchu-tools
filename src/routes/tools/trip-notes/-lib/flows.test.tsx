@@ -58,6 +58,27 @@ const STORAGE_KEY = 'trip-notes:v1'
 // 日程タブの「その日へ飛ぶ」演出が呼ぶ。jsdom には実装が無い
 Element.prototype.scrollIntoView = vi.fn()
 
+// vitest のテストタイムアウトは既定 5 秒。renderPage() は <main> の出現を
+// 10 秒まで待つようにしてあるが(理由は renderPage() のコメント参照)、
+// テスト自体のタイムアウトが既定のままだと、その 10 秒待ちが終わる前に
+// 5 秒でテストごと打ち切られてしまい、内側を伸ばした意味がなくなる。
+// 実際、負荷のかかった環境でページのチャンク読み込みが 5 秒を超えた瞬間に
+// 「Test timed out in 5000ms」で落ちるフレーキーが起きていた。
+// ここでファイル全体のテストタイムアウトを 20 秒に引き上げ、内側の待ちと
+// 辻褄を合わせる。
+//
+// 特定の1本の it や describe の第3引数ではなく vi.setConfig でファイル全体に
+// 効かせているのは、「最初にページのチャンクを読み込む役を負うテスト」が
+// どれになるかは実行順(単独実行・--shuffle 等)で変わり得るため。
+// 特定の1本だけにタイムアウトを伸ばすと、別のテストが最初に走ったときに
+// 同じ穴(10秒待つのに5秒で殺される)がそのテストに開いてしまう。
+//
+// vitest.config.ts / vite.config.ts 側の testTimeout は変更しない。
+// 全ファイルの既定を緩めると、他のテストが本当に遅くなった退行を
+// 検知できなくなるため、チャンク読み込みの重さを負担するこのファイルだけに
+// 閉じておく。
+vi.setConfig({ testTimeout: 20_000 })
+
 function makeState(over: Partial<TripNotesState> = {}): TripNotesState {
   return {
     schemaVersion: 1,
@@ -105,6 +126,12 @@ function seed(state: TripNotesState): void {
  * 「たまたま最初に走ったテストが落ちる」という中身と無関係な失敗になる。
  * 2 本目以降はモジュールが温まっていて即座に解決するので、上限を伸ばしても
  * テスト全体が遅くなることはない。
+ *
+ * この 10 秒はあくまで find*By の内側の待ちで、vitest のテスト自体の
+ * タイムアウトとは別枠。テスト側を伸ばさずにここだけ伸ばしても、
+ * テストが先に既定の 5 秒で打ち切られては意味がない。ファイル冒頭の
+ * vi.setConfig({ testTimeout: 20_000 }) で外側もあわせて伸ばしてあるので、
+ * 変更する際はセットで見ること。
  */
 async function renderPage(): Promise<RenderResult> {
   let view!: RenderResult
