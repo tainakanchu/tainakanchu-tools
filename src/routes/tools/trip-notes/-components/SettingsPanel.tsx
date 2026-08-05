@@ -3,13 +3,14 @@
  *
  * 「編集の主戦場」であるタイムラインとは違い、ここに集まるのは
  * 旅行そのものの前提(期間・タイムゾーン)と、いざというときの保険
- * (共有URL・印刷・緊急連絡先・JSONバックアップ・全消去)。
+ * (共有URL・カレンダーへの書き出し・印刷・緊急連絡先・JSONバックアップ・全消去)。
  * 頻度は低いが欠けると旅先で致命傷になりうる機能を1画面にまとめている。
  */
 
 import { useId, useState } from 'react'
 import {
   AlertTriangle,
+  CalendarPlus,
   Copy,
   Download,
   FileJson,
@@ -36,6 +37,7 @@ import {
   diffDays,
   isValidISODate,
 } from '../../../../lib/trip-notes/datetime'
+import { buildTripIcs, icsFileName } from '../../../../lib/trip-notes/ics'
 import { copyText, todayISO } from '../-lib/format'
 import {
   cardClass,
@@ -787,6 +789,22 @@ export function SettingsPanel({
     setIoMessage({ tone: 'ok', text: 'JSONファイルを書き出しました。' })
   }
 
+  /**
+   * .ics を書き出す。JSON の書き出しと同じ Blob → a[download] の流儀。
+   * MIME は text/calendar。これで開いた先のカレンダーが「取り込むもの」だと分かる。
+   */
+  const handleDownloadIcs = () => {
+    const blob = new Blob([buildTripIcs(state, Date.now())], {
+      type: 'text/calendar;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = icsFileName(state, todayISO())
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleCopyJson = async () => {
     const ok = await copyText(JSON.stringify(state, null, 2))
     setIoMessage(
@@ -1019,6 +1037,48 @@ export function SettingsPanel({
         {shareOpen ? (
           <ShareDialog state={state} onClose={() => setShareOpen(false)} />
         ) : null}
+
+        {/*
+          カレンダーへの書き出し。共有URLと同じ「旅程を持ち出す」機能なので
+          この節に置く。API 連携はせず、.ics を作って渡すところまでで手を引く
+          (このツールは一切ネットワークに出ない)。
+        */}
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <h3 className="text-sm font-semibold text-gray-800">
+            カレンダーに書き出す
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            予約と申請期限を .ics
+            ファイルにまとめます。パソコンのGoogleカレンダーの「設定 →
+            インポート」から取り込めます。
+          </p>
+          <button
+            type="button"
+            className={`${subtleButtonClass} mt-3`}
+            onClick={handleDownloadIcs}
+          >
+            <CalendarPlus size={16} />
+            カレンダーに書き出す(.ics)
+          </button>
+          {/*
+            この 2 つは知らないと必ずつまずくところなので、ボタンの近くに書く。
+            重複は「取り込み専用カレンダーごと消す」が唯一の現実的な直し方で、
+            取り込んでから気付くと予定を 1 件ずつ消すことになる。
+            スマホの制約のほうは、書き出したファイルをスマホで開こうとして
+            初めて分かるので、その前に 1 件ずつ登録する道を案内しておく。
+          */}
+          <ul className="mt-2 space-y-1 text-xs text-gray-500">
+            <li>
+              取り込み専用のカレンダーを1つ作って、そこへインポートするのがおすすめです。
+              入れ直して予定が重複しても、そのカレンダーごと消せばやり直せます。
+            </li>
+            <li>
+              スマホのGoogleカレンダーアプリは .ics
+              を取り込めません。スマホで登録したいときは、日程タブで予約カードを開いて
+              「Googleカレンダーに追加」から1件ずつ登録してください。
+            </li>
+          </ul>
+        </div>
       </section>
 
       {/* 5. 印刷しおり */}

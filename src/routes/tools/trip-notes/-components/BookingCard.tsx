@@ -32,7 +32,15 @@
  */
 
 import { useEffect, useId, useState } from 'react'
-import { Check, ChevronDown, Copy, Pencil, Trash2 } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
+import { googleCalendarUrl } from '../../../../lib/trip-notes/calendarLinks'
 import {
   formatDateJa,
   formatDualTime,
@@ -555,6 +563,50 @@ function BookingDetails({
           valueClass={isUnverified('confirmationNumber')}
         />
       ) : null}
+
+      <CalendarAddLink booking={booking} />
+    </div>
+  )
+}
+
+/**
+ * この予約 1 件を Google カレンダーに登録するリンク。
+ *
+ * ■ なぜ展開ビューの末尾なのか
+ *   折りたたみ時には出さない。カードの 1 行 1 行は「次に何をすればよいか」を
+ *   読む場所で、そこに常時出す操作ではないからである(検索リンクと違い、
+ *   予約が確定していても消えないので、出しっぱなしにすると全カードに 1 行増える)。
+ *   詳細をひととおり見終えたあとに来るので、置き場所は中身の最後にする。
+ *
+ * ■ 検索リンク(探す:)と同じ行に混ぜない
+ *   見た目は同じチップだが、あちらは「まだ取れていない予約をどこで探すか」で、
+ *   こちらは「取れている予約を自分のカレンダーへ写す」。並べると
+ *   予約サイトの 1 つに見える。
+ *
+ * ■ 設定タブの .ics との使い分け
+ *   一括で入れるなら .ics のほうが速い。ただしスマホの Google カレンダーアプリは
+ *   .ics を取り込めないので、スマホしか手元にないときはこのリンクが唯一の道になる
+ *   (calendarLinks.ts の冒頭を参照)。
+ */
+function CalendarAddLink({ booking }: { booking: Booking }) {
+  // 行かないと決めた予定をカレンダーに入れる意味はない(.ics 側の扱いと揃える)
+  if (booking.status === 'cancelled') return null
+
+  const url = googleCalendarUrl(booking)
+  // 開始時刻が壊れている予約は登録しようがないので、リンクごと出さない
+  if (url === null) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+      >
+        <ExternalLink size={11} aria-hidden="true" />
+        Googleカレンダーに追加
+      </a>
     </div>
   )
 }
