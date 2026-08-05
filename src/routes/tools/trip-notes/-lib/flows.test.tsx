@@ -1111,6 +1111,63 @@ describe('共有URL', () => {
     const menu = screen.getByRole('menu', { name: '旅程の切り替えと操作' })
     expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(1)
   })
+
+  it('合流を選ぶと、自分の予約を残したまま共有された予約だけが混ざる', async () => {
+    const user = userEvent.setup()
+    seed(
+      makeState({
+        tripTitle: '自分の旅程',
+        bookings: [lodging({ id: 'mine-1', title: '自分の宿' })],
+      }),
+    )
+
+    // 日付をずらして、planImport が自分の宿とマッチしないようにする
+    // (マッチさせると 1 件に畳まれて「両方残る」ことが確かめられない)
+    const shared = makeState({
+      tripTitle: '同行者の旅程',
+      bookings: [
+        lodging({
+          id: 'shared-1',
+          title: '共有された宿',
+          start: {
+            zdt: '2030-06-14T15:00:00+09:00[Asia/Tokyo]',
+            allDay: false,
+          },
+          end: { zdt: '2030-06-15T10:00:00+09:00[Asia/Tokyo]', allDay: false },
+        }),
+      ],
+    })
+    const url = await encodeShareUrl(
+      shared,
+      'https://example.test/tools/trip-notes/',
+    )
+    window.location.hash = url.slice(url.indexOf('#'))
+    await renderPage()
+
+    const dialog = await screen.findByRole('dialog', {
+      name: /共有された旅のしおり/,
+    })
+    await user.click(
+      within(dialog).getByRole('button', { name: 'いまの旅程に合流' }),
+    )
+
+    // 自分の宿(6/12・6/13 の 2 泊)はそのまま残り、共有された宿(6/14 の 1 泊)が足される
+    expect(
+      await screen.findAllByRole('button', { name: /宿泊確定: 自分の宿$/ }),
+    ).toHaveLength(2)
+    expect(
+      screen.getAllByRole('button', { name: /宿泊確定: 共有された宿$/ }),
+    ).toHaveLength(1)
+
+    // 合流は既存の予約に混ざって見えにくいので、何件がどうなったかを言葉で残す
+    const notice = await screen.findByText(/予約を1件追加、0件更新しました/)
+    expect(notice.closest('[role="status"]')).not.toBeNull()
+
+    // 旅程は増えず、旅行の名前も自分のまま
+    await user.click(screen.getByRole('button', { name: /^自分の旅程/ }))
+    const menu = screen.getByRole('menu', { name: '旅程の切り替えと操作' })
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(1)
+  })
 })
 
 /** 旅程セレクタ(いま開いている旅程名がそのままボタン名になる)を開く */

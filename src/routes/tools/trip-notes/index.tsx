@@ -15,11 +15,13 @@ import {
   Redo2,
   Settings,
   Undo2,
+  X,
   Zap,
 } from 'lucide-react'
 import { computeSummary } from '../../../lib/trip-notes/derive'
 import { getDeviceTz } from '../../../lib/trip-notes/datetime'
 import { newId } from '../../../lib/trip-notes/id'
+import { planImport } from '../../../lib/trip-notes/importMerge'
 import { decodeShareState } from '../../../lib/trip-notes/share'
 import {
   createInitialState,
@@ -124,6 +126,14 @@ function TripNotesPage() {
   const [incomingShare, setIncomingShare] = useState<TripNotesState | null>(
     null,
   )
+  /**
+   * 取り込みの結果を言葉で残す帯。
+   *
+   * 合流(mergeTrip)は、追加された予約も更新された予約も既存の予約に混ざるので、
+   * 画面上の変化が散らばって見えにくい。「何件がどうなったか」を文で残しておかないと、
+   * 押したのに何も起きなかったように見えるし、取り消したくなったときの手掛かりも無い。
+   */
+  const [importNotice, setImportNotice] = useState<string | null>(null)
   /** 旅程セレクタから開くダイアログ。同時に 1 枚しか出さない */
   const [tripDialog, setTripDialog] = useState<'rename' | 'delete' | null>(null)
 
@@ -398,6 +408,28 @@ function TripNotesPage() {
           </div>
         </header>
 
+        {/*
+          取り込みの結果のお知らせ。タブを切り替えても勝手には消さない。
+          合流した直後に日程タブへ内容を見に行っても件数が読めるようにするためで、
+          消えるのは閉じるボタンを押したときか、次の取り込みで文が入れ替わるときだけ
+        */}
+        {importNotice !== null && (
+          <div
+            role="status"
+            className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-cyan-50 px-3 py-2 text-sm text-cyan-900"
+          >
+            <p className="leading-relaxed">{importNotice}</p>
+            <button
+              type="button"
+              onClick={() => setImportNotice(null)}
+              aria-label="お知らせを閉じる"
+              className="rounded-lg px-2 py-1 font-semibold text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         {/* デスクトップは上部タブ。狭い画面では下部固定のタブバーに任せる */}
         <div
           role="tablist"
@@ -537,6 +569,17 @@ function TripNotesPage() {
             dispatch({ type: 'replaceState', state: incomingShare })
             setIncomingShare(null)
             selectTab('progress')
+          }}
+          onMerge={() => {
+            // 判定も件数も planImport から出す。reducer が実際に適用するのと
+            // 同じ計画なので、ダイアログのプレビューと結果の数字がズレない
+            const plan = planImport(state.bookings, incomingShare.bookings)
+            dispatch({ type: 'mergeTrip', incoming: incomingShare })
+            setIncomingShare(null)
+            selectTab('progress')
+            setImportNotice(
+              `共有された旅程を合流しました。予約を${plan.addedCount}件追加、${plan.updatedCount}件更新しました。取り消すには「元に戻す」を押してください。`,
+            )
           }}
         />
       )}

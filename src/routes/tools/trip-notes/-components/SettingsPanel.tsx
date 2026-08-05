@@ -38,6 +38,7 @@ import {
   isValidISODate,
 } from '../../../../lib/trip-notes/datetime'
 import { buildTripIcs, icsFileName } from '../../../../lib/trip-notes/ics'
+import { planImport } from '../../../../lib/trip-notes/importMerge'
 import { copyText, todayISO } from '../-lib/format'
 import {
   cardClass,
@@ -1372,6 +1373,18 @@ export function SettingsPanel({
             setIoMessage({
               tone: 'ok',
               text: 'いまの旅程を読み込んだ内容で置き換えました。',
+            })
+          }}
+          onMerge={() => {
+            // 判定も件数も planImport から出す。reducer が実際に適用するのと
+            // 同じ計画なので、ダイアログのプレビューと結果の数字がズレない
+            const plan = planImport(state.bookings, pendingImport.bookings)
+            dispatch({ type: 'mergeTrip', incoming: pendingImport })
+            setPendingImport(null)
+            setImportText('')
+            setIoMessage({
+              tone: 'ok',
+              text: `いまの旅程に合流しました。予約を${plan.addedCount}件追加、${plan.updatedCount}件更新しました。`,
             })
           }}
         />

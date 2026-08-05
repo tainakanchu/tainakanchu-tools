@@ -289,6 +289,202 @@ describe('tripNotesReducer / AI 取り込みのバルク追加', () => {
   })
 })
 
+describe('tripNotesReducer / 旅程の合流', () => {
+  it('マッチする予約は既存の位置のまま更新され、新規だけが末尾に足される', () => {
+    const base = makeState({
+      bookings: [
+        makeBooking('mine1', {
+          title: '自分の宿A',
+          confirmationNumber: 'ABC123',
+        }),
+        makeBooking('mine2', { title: '自分の宿B' }),
+      ],
+    })
+    const incoming = makeState({
+      tripTitle: '同行者の旅程',
+      bookings: [
+        makeBooking('their1', {
+          title: '同行者が直した宿A',
+          confirmationNumber: 'abc-123',
+        }),
+        makeBooking('their2', { title: '同行者の宿C' }),
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    // 既存の並び順は動かず、新規だけが末尾に積まれる
+    expect(next.bookings.map((b) => b.id)).toEqual(['mine1', 'mine2', 'their2'])
+    expect(next.bookings[0].title).toBe('同行者が直した宿A')
+    expect(next.bookings[1].title).toBe('自分の宿B')
+    expect(next.bookings[2].title).toBe('同行者の宿C')
+  })
+
+  it('新規として足す予約の id が既存と衝突するときは振り直す', () => {
+    // 自分で書き出した JSON を自分の旅程に合流させると id はそのまま重なりうる。
+    // キャンセル済みの予約はマッチ対象外なので、同じ id の予約が新規として足される
+    const base = makeState({
+      bookings: [
+        makeBooking('bk-1', {
+          status: 'cancelled',
+          confirmationNumber: 'ABC123',
+        }),
+      ],
+    })
+    const incoming = makeState({
+      bookings: [makeBooking('bk-1', { confirmationNumber: 'ABC123' })],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.bookings).toHaveLength(2)
+    expect(next.bookings[1].id).not.toBe('bk-1')
+    expect(new Set(next.bookings.map((b) => b.id)).size).toBe(2)
+  })
+
+  it('同じラベルと値の連絡先は足されず、値が違うものは既存を消さずに並ぶ', () => {
+    const base = makeState({ emergencyContacts: [contact('ec1', '大使館')] })
+    const incoming = makeState({
+      emergencyContacts: [
+        // 前後の空白と全角の違いしかない、同じ連絡先
+        {
+          id: 'ec9',
+          label: ' 大使館 ',
+          value: '＋３３－１－２３４５－６７８９',
+        },
+        // 同じラベルでも番号が違うなら、どちらが正しいかは機械が決めない
+        { id: 'ec10', label: '大使館', value: '+33-1-9999-0000' },
+        // incoming の中の重複も 1 件に畳む
+        { id: 'ec11', label: '大使館', value: '+33-1-9999-0000' },
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.emergencyContacts).toHaveLength(2)
+    expect(next.emergencyContacts[0]).toEqual(contact('ec1', '大使館'))
+    expect(next.emergencyContacts[1].value).toBe('+33-1-9999-0000')
+  })
+
+  it('同じ手続きは既存が残り、相手の status で自分の進捗が巻き戻らない', () => {
+    const base = makeState({
+      travelDocs: [travelDoc('td1', { title: 'マルタのビザ', status: 'done' })],
+    })
+    const incoming = makeState({
+      travelDocs: [
+        // 空白の入り方が違うだけの同じ手続き。相手はまだ 'todo'
+        travelDoc('td9', { title: 'マルタの ビザ', status: 'todo' }),
+        travelDoc('td10', { kind: 'sim', title: '現地 eSIM' }),
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.travelDocs).toHaveLength(2)
+    expect(next.travelDocs?.[0]).toEqual(
+      travelDoc('td1', { title: 'マルタのビザ', status: 'done' }),
+    )
+    expect(next.travelDocs?.[1].title).toBe('現地 eSIM')
+  })
+
+  it('順序が逆の同じ場所の組は足されず、知らない組だけが足される', () => {
+    const base = makeState({
+      placeAliases: [
+        { id: 'pa1', names: ['マルタ・ルア国際空港', 'マルタの知人宅'] },
+      ],
+    })
+    const incoming = makeState({
+      placeAliases: [
+        { id: 'pa9', names: ['マルタの知人宅', 'マルタ・ルア国際空港'] },
+        { id: 'pa10', names: ['パリ北駅', 'Gare du Nord'] },
+      ],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.placeAliases).toHaveLength(2)
+    expect(next.placeAliases?.[0].id).toBe('pa1')
+    expect(next.placeAliases?.[1].names).toEqual(['パリ北駅', 'Gare du Nord'])
+  })
+
+  it('旅行の名前・期間・表示タイムゾーンは相手のものに変わらない', () => {
+    const base = makeState()
+    const incoming = makeState({
+      tripTitle: '同行者の旅程',
+      startDate: '2027-01-01',
+      endDate: '2027-01-10',
+      pinnedTz: 'Europe/Paris',
+      bookings: [makeBooking('their1', { title: '同行者の宿' })],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect(next.tripTitle).toBe('ヨーロッパ周遊')
+    expect(next.startDate).toBe('2026-06-12')
+    expect(next.endDate).toBe('2026-06-19')
+    expect(next.pinnedTz).toBeNull()
+    // 器は変わらないが、予約だけは入っている
+    expect(next.bookings).toHaveLength(1)
+  })
+
+  it('合流は undo 1 回で予約・連絡先・手続き・エイリアスがまとめて戻る', () => {
+    const base = makeState({
+      bookings: [makeBooking('mine1', { title: '自分の宿' })],
+      emergencyContacts: [contact('ec1', '大使館')],
+      travelDocs: [travelDoc('td1', { title: 'マルタのビザ', status: 'done' })],
+      placeAliases: [{ id: 'pa1', names: ['マルタ空港', 'マルタの知人宅'] }],
+    })
+    const incoming = makeState({
+      bookings: [makeBooking('their1', { title: '同行者の宿' })],
+      emergencyContacts: [contact('ec9', '保険会社')],
+      travelDocs: [travelDoc('td9', { kind: 'sim', title: '現地 eSIM' })],
+      placeAliases: [{ id: 'pa9', names: ['パリ北駅', 'Gare du Nord'] }],
+    })
+
+    const merged = historyReducer(createHistory(base), {
+      type: 'mergeTrip',
+      incoming,
+    })
+    expect(merged.present.bookings).toHaveLength(2)
+    expect(merged.present.emergencyContacts).toHaveLength(2)
+    expect(merged.present.travelDocs).toHaveLength(2)
+    expect(merged.present.placeAliases).toHaveLength(2)
+
+    const undone = historyReducer(merged, { type: 'undo' })
+    expect(undone.present).toBe(base)
+  })
+
+  it('すべて取り込み済みの内容を合流しても状態を変えない(同一参照)', () => {
+    // 取り込み済みの共有URLをもう一度開いたときに、Undo 履歴へ空の 1 手を積まない
+    const base = makeState({
+      bookings: [makeBooking('mine1')],
+      emergencyContacts: [contact('ec1', '大使館')],
+      travelDocs: [travelDoc('td1', { title: 'マルタのビザ', status: 'done' })],
+    })
+    const incoming = makeState({
+      // 予約はすべてマッチしても planImport が新しいオブジェクトを作るので、
+      // 同一参照を確かめるには予約を持たない incoming を使う
+      bookings: [],
+      emergencyContacts: [contact('ec9', '大使館')],
+      travelDocs: [travelDoc('td9', { title: 'マルタのビザ', status: 'todo' })],
+    })
+
+    expect(tripNotesReducer(base, { type: 'mergeTrip', incoming })).toBe(base)
+  })
+
+  it('双方が持っていない手続き・同じ場所の組は、フィールドごと生えない', () => {
+    const base = makeState({ bookings: [makeBooking('mine1')] })
+    const incoming = makeState({
+      bookings: [makeBooking('their1', { title: '同行者の宿' })],
+    })
+
+    const next = tripNotesReducer(base, { type: 'mergeTrip', incoming })
+
+    expect('travelDocs' in next).toBe(false)
+    expect('placeAliases' in next).toBe(false)
+  })
+})
+
 describe('tripNotesReducer / 旅行の基本情報と緊急連絡先', () => {
   it('同じ値のセットは状態を変えない', () => {
     const base = makeState()
