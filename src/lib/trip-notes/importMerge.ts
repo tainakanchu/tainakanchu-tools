@@ -68,8 +68,14 @@ function normalizeConfirmationNumber(raw: string): string | null {
  * タイトル・場所名の正規化。NFKC で全角/半角や合成文字の表記揺れを吸収し、
  * 小文字化して大小文字の違いを無視し、空白をすべて取り除いて詰め方の違い
  * (「Hotel Le Marais」と「Hotel  Le Marais」等)を無視する。
+ *
+ * export しているのは、旅程の合流(reducer.ts の mergeTrip)が緊急連絡先と
+ * 手続きの重複判定に同じ正規化を使うためである。予約の同一性をここで
+ * 吸収している表記ゆれ(全角/半角・前後の空白)は、連絡先のラベルや
+ * 手続きの名前でもまったく同じように起きるので、別の正規化を持たせて
+ * 「予約だけ重複が畳まれて連絡先は二重に増える」というズレを作らない。
  */
-function normalizeText(raw: string): string {
+export function normalizeText(raw: string): string {
   return raw.normalize('NFKC').toLowerCase().replace(/\s+/g, '')
 }
 

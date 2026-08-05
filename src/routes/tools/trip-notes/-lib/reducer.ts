@@ -12,13 +12,18 @@
 
 import { isValidISODate } from '../../../../lib/trip-notes/datetime'
 import { newId } from '../../../../lib/trip-notes/id'
-import { planImport } from '../../../../lib/trip-notes/importMerge'
+import {
+  normalizeText,
+  planImport,
+} from '../../../../lib/trip-notes/importMerge'
 import { isSameAliasPair } from '../../../../lib/trip-notes/itinerary'
 import { createInitialState } from '../../../../lib/trip-notes/storage'
+import type { ImportPlan } from '../../../../lib/trip-notes/importMerge'
 import type {
   Booking,
   EmergencyContact,
   FieldKey,
+  PlaceAlias,
   TravelDoc,
   TripNotesState,
 } from '../../../../lib/trip-notes/types'
@@ -70,6 +75,23 @@ export type TripNotesAction =
    * マージして差し替え、それ以外だけを新規に追加する。
    */
   | { type: 'importBookings'; bookings: Array<Booking> }
+  /**
+   * 共有URL・JSON で受け取った旅程を、いま開いている旅程に合流させる。
+   *
+   * 同行者と旅程を分担して組んでいると「相手が足した予約だけを自分の旅程に
+   * 持ってきたい」場面がある。それまでの選択肢は 2 つしかなく、どちらも外していた。
+   * replaceState(丸ごと置き換え)では自分が入れた予約が消えるし、新しい旅程として
+   * 追加すると 2 つの旅程を人間が見比べて手で写す羽目になる。だから 3 つ目の道を用意する。
+   *
+   * 器(旅行の名前・期間・表示タイムゾーン)は自分のものを保つ。合流は
+   * 「自分の旅程に相手の予約を入れる」操作であって、相手の旅程に乗り換える
+   * 操作ではない。乗り換えたいなら replaceState がそれを表現できる。
+   *
+   * 1 アクションにするのは、Undo 1 回で合流の全体(予約・連絡先・手続き・
+   * エイリアス)を戻せるようにするため(importBookings / verifyAllUnverified と同じ理由。
+   * 取り消しに何回もの Undo を要求するのでは、実質的に取り返しの付かない操作になる)。
+   */
+  | { type: 'mergeTrip'; incoming: TripNotesState }
   /** 共有URL・JSON からの読み込み(現在のデータを丸ごと置き換える) */
   | { type: 'replaceState'; state: TripNotesState }
   | { type: 'resetAll'; today: string }
@@ -188,6 +210,64 @@ function mergeUpdatedBooking(previous: Booking, next: Booking): Booking {
     }
   }
   return withoutUnverified(next, changed)
+}
+
+/**
+ * planImport が出した計画を既存の予約列に適用する。
+ * マッチした予約は既存の並び順の位置で差し替え、それ以外だけを末尾に追加する。
+ * 並び順を保つのは、同じ日の予約カードの表示順が取り込みのたびに
+ * 入れ替わるような不要な差分を出さないため。
+ *
+ * AI 取り込み(importBookings)と旅程の合流(mergeTrip)の両方が通る。
+ * 適用のしかたが 2 箇所に分かれていると、同じ planImport の計画なのに
+ * 経路によって並び順や差し替え先が変わりうるので、1 箇所に集約する。
+ */
+function applyImportPlan(
+  existing: Array<Booking>,
+  plan: ImportPlan,
+): Array<Booking> {
+  const updates = new Map<string, Booking>()
+  const additions: Array<Booking> = []
+  const usedIds = new Set(existing.map((booking) => booking.id))
+
+  for (const entry of plan.entries) {
+    if (entry.replacesId !== null) {
+      updates.set(entry.replacesId, entry.booking)
+      continue
+    }
+    // 新規として足すぶんの id が既存と衝突したら振り直す。
+    // 自分で書き出した JSON を自分の旅程に合流させると、id はそのまま重なりうる
+    // (たとえばキャンセル済みの既存予約は planImport のマッチ対象から外れるので、
+    //  同じ id の予約が「新規」として足される)。id が重複すると
+    // updateBooking / removeBooking は先に見つかったほうを掴むので、
+    // 直したつもりの編集が隣の予約に飛ぶ。AI 取り込み経路では毎回 newId が
+    // 振られていて実害は無いが、判定を適用側に置いておけばどちらの経路でも起こらない
+    const booking = usedIds.has(entry.booking.id)
+      ? { ...entry.booking, id: newId('bk') }
+      : entry.booking
+    usedIds.add(booking.id)
+    additions.push(booking)
+  }
+
+  return [
+    ...existing.map((booking) => updates.get(booking.id) ?? booking),
+    ...additions,
+  ]
+}
+
+/**
+ * 緊急連絡先の重複判定キー。ラベルと値の組を normalizeText で正規化して突き合わせる
+ * (全角/半角や前後の空白の違いで同じ連絡先が二重に増えないようにする)。
+ * 区切りに利用者が入力しえない制御文字を挟むのは、ラベルと値の境目がずれた別々の組
+ * (「大使館」+「110」と「大使館110」+「」)を同じキーにしないため。
+ */
+function contactKey(contact: EmergencyContact): string {
+  return `${normalizeText(contact.label)}\u0000${normalizeText(contact.value)}`
+}
+
+/** 手続きの重複判定キー。種別 + 名前の正規化で「同じ手続き」を見る */
+function travelDocKey(doc: TravelDoc): string {
+  return `${doc.kind}\u0000${normalizeText(doc.title)}`
 }
 
 export function tripNotesReducer(
@@ -368,25 +448,133 @@ export function tripNotesReducer(
       if (action.bookings.length === 0) return state
 
       const plan = planImport(state.bookings, action.bookings)
+      // 計画の適用そのものは applyImportPlan に集約してある(合流と共通)
+      return { ...state, bookings: applyImportPlan(state.bookings, plan) }
+    }
 
-      // マッチした予約は既存の並び順の位置で差し替え、それ以外だけを
-      // 末尾に追加する。並び順を保つのは、同じ日の予約カードの表示順が
-      // 取り込みのたびに入れ替わるような不要な差分を出さないため
-      const updates = new Map<string, Booking>()
-      const additions: Array<Booking> = []
-      for (const entry of plan.entries) {
-        if (entry.replacesId === null) {
-          additions.push(entry.booking)
-        } else {
-          updates.set(entry.replacesId, entry.booking)
-        }
+    case 'mergeTrip': {
+      const incoming = action.incoming
+
+      // 予約: マッチ条件は importMerge.ts の planImport に集約されていて、ここで
+      // 再実装しない。AI 取り込みとまったく同じ判定を通すことで、経路によって
+      // 「同じ予約」の定義が変わるということが起こらない。
+      // incoming 側の unverified は planImport がそのまま扱うので、相手が AI に
+      // 読ませたままの未確認マークは合流後も未確認のまま残る(相手が目視で
+      // 確認していない値を、こちらの画面で確認済みとして見せない)
+      const bookings =
+        incoming.bookings.length === 0
+          ? state.bookings
+          : applyImportPlan(
+              state.bookings,
+              planImport(state.bookings, incoming.bookings),
+            )
+      const bookingsChanged =
+        bookings.length !== state.bookings.length ||
+        bookings.some((booking, i) => booking !== state.bookings[i])
+
+      /**
+       * 緊急連絡先: ラベルと値の組が同じものは足さない。値が違えば、同じラベルでも
+       * 別の連絡先として足す(既存を上書きしない)。
+       *
+       * 緊急連絡先は現地で本当に電話をかける先なので、同じラベル(「大使館」)で
+       * 番号が違うときに、どちらが正しいかを機械が決めてはいけない。黙って上書きすると
+       * 間違った番号に置き換わったことに誰も気付けないまま旅行に出ることになる。
+       * 2 つ並べておけば、人間がどちらに掛けるかを選べるし、要らないほうは手で消せる。
+       * 取り返しのつかない側には倒さない。
+       */
+      const seenContacts = new Set(state.emergencyContacts.map(contactKey))
+      const usedContactIds = new Set(
+        state.emergencyContacts.map((contact) => contact.id),
+      )
+      const addedContacts: Array<EmergencyContact> = []
+      for (const candidate of incoming.emergencyContacts) {
+        const key = contactKey(candidate)
+        // 判定済みのキーを足しながら回すので、incoming の中に同じ組が
+        // 2 件あっても足されるのは 1 件だけになる
+        if (seenContacts.has(key)) continue
+        seenContacts.add(key)
+        const id = usedContactIds.has(candidate.id) ? newId('ec') : candidate.id
+        usedContactIds.add(id)
+        addedContacts.push(
+          id === candidate.id ? candidate : { ...candidate, id },
+        )
       }
 
-      const bookings = [
-        ...state.bookings.map((booking) => updates.get(booking.id) ?? booking),
-        ...additions,
-      ]
-      return { ...state, bookings }
+      /**
+       * 手続き: 種別 + 名前が一致するものは既存を残し、incoming のほうを捨てる。
+       *
+       * 手続き(ビザ・eSIM)の status は「自分が申請したかどうか」の進捗であって、
+       * 相手の旅程に書いてある status は相手の進捗でしかない。合流のたびに
+       * 相手の 'todo' で自分の 'done' が巻き戻ると、済ませたはずの手続きが
+       * 未了として警告に戻ってきて、警告そのものが信用されなくなる。
+       * だから同じ手続きは既存を正とする。
+       */
+      const currentDocs = state.travelDocs ?? []
+      const seenDocs = new Set(currentDocs.map(travelDocKey))
+      const usedDocIds = new Set(currentDocs.map((doc) => doc.id))
+      const addedDocs: Array<TravelDoc> = []
+      for (const candidate of incoming.travelDocs ?? []) {
+        const key = travelDocKey(candidate)
+        if (seenDocs.has(key)) continue
+        seenDocs.add(key)
+        // id の振り直しは予約と同じ理由(applyImportPlan のコメント参照)
+        const id = usedDocIds.has(candidate.id) ? newId('td') : candidate.id
+        usedDocIds.add(id)
+        addedDocs.push(id === candidate.id ? candidate : { ...candidate, id })
+      }
+
+      /**
+       * 同じ場所の組: 判定は addPlaceAlias とまったく同じ isSameAliasPair に委ねる。
+       * 「同じ組」の定義が 2 箇所に分かれると、手で登録すると弾かれるのに合流では
+       * 二重に入る、といったズレが出る。
+       */
+      const currentAliases = state.placeAliases ?? []
+      const addedAliases: Array<PlaceAlias> = []
+      for (const candidate of incoming.placeAliases ?? []) {
+        // 名前が空になる組は何にも一致しないので捨てる(addPlaceAlias と同じ)
+        if (candidate.names.some((name) => name.trim() === '')) continue
+        // 追加済みのぶんも判定対象に入れて、incoming 内の重複も 1 組に畳む
+        const known = [...currentAliases, ...addedAliases]
+        if (
+          known.some((alias) => isSameAliasPair(alias.names, candidate.names))
+        ) {
+          continue
+        }
+        // id は必ず振り直す(addPlaceAlias と揃える。組の同一性は names で見ており、
+        // id は消すときの目印でしかないので、持ち込んだ値を使う理由が無い)
+        addedAliases.push({ id: newId('pa'), names: candidate.names })
+      }
+
+      // どれ 1 つ変わらないなら同一参照を返す。既に取り込み済みの共有URLを
+      // もう一度開いたときに、Undo 履歴へ空の 1 手を積まないため
+      // (verifyAllUnverified と同じ流儀)
+      if (
+        !bookingsChanged &&
+        addedContacts.length === 0 &&
+        addedDocs.length === 0 &&
+        addedAliases.length === 0
+      ) {
+        return state
+      }
+
+      // tripTitle / startDate / endDate / pinnedTz / schemaVersion は一切触らない。
+      // 合流は「自分の旅程に相手の予約を入れる」操作なので、器は自分のものを保つ。
+      // 相手の旅行の名前や期間で自分の期間が書き換わると、「寝る場所がない夜」の
+      // 計算の起点(startDate/endDate)まで相手のものになり、自分の旅程の警告が
+      // 意味を失う。名前や期間ごと相手のものにしたいなら、それは合流ではなく
+      // 置き換え(replaceState)で表現できる
+      const next: TripNotesState = { ...state }
+      if (bookingsChanged) next.bookings = bookings
+      if (addedContacts.length > 0) {
+        next.emergencyContacts = [...state.emergencyContacts, ...addedContacts]
+      }
+      // 足すものが 1 件も無ければフィールドごと生やさない
+      // (types.ts の「空なら配列ではなくフィールドごと存在しない」方針)
+      if (addedDocs.length > 0) next.travelDocs = [...currentDocs, ...addedDocs]
+      if (addedAliases.length > 0) {
+        next.placeAliases = [...currentAliases, ...addedAliases]
+      }
+      return next
     }
 
     case 'replaceState':
