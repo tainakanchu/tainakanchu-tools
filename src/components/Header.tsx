@@ -16,9 +16,10 @@ export default function Header() {
   const tools = useMemo(
     () => [
       {
-        to: '/tools/license-layout',
-        title: '免許証レイアウトメーカー',
-        description: '免許証画像をA4に原寸配置して印刷・PDF出力するツール',
+        to: '/tools/actual-size-layout',
+        title: '原寸レイアウトメーカー',
+        description:
+          '免許証やパスポートの画像をA4に原寸配置して印刷・PDF出力するツール',
         icon: Printer,
       },
       {

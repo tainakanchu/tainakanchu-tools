@@ -1,7 +1,7 @@
 {
   "name": "tainakanchu-tools",
   "version": "1.0.0",
-  "description": "かんちゅが作る日常の小さな便利ツール集。免許証レイアウトメーカーなど、原寸レイアウトにこだわったユーティリティを公開中。",
+  "description": "かんちゅが作る日常の小さな便利ツール集。原寸レイアウトメーカーなど、原寸レイアウトにこだわったユーティリティを公開中。",
   "author": "tainakanchu (https://x.com/tainakanchu)",
   "license": "MIT",
   "private": true,
@@ -17,7 +17,7 @@
   "keywords": [
     "tools",
     "utilities",
-    "license-layout",
+    "actual-size-layout",
     "print",
     "react",
     "vite",
