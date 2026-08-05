@@ -1000,3 +1000,185 @@ describe('日程タブの予約カードはタップでその場に展開する'
     ).toBeNull()
   })
 })
+
+/**
+ * 「いま滞在中の町でやりたいことが『今』のところで見られる」ことと、
+ * 「思い付いたその場で 1 行足せる」ことの 2 つ。この機能の要求そのもの。
+ *
+ * ここで固定したいのは 3 点。
+ * - 滞在中の町の分が上に出て、他の町の分は消えずに折りたたみに残ること
+ *   (推定が外れても何も失わない、という設計をここで踏み外していないか)
+ * - チェックが本当に済みに変わること(本物の reducer をつないだ器で見る)
+ * - クイック追加の場所が「いまの町」で埋まること
+ */
+/** 「いまの町」の束。3 つの束が並ぶので、名前で引いて取り違えないようにする */
+function hereList(scope: ReturnType<typeof within>) {
+  return within(scope.getByRole('list', { name: 'いまの町のやりたいこと' }))
+}
+
+describe('「今」タブは滞在中の町のやりたいことを出す', () => {
+  const wishTrip: TripNotesState = {
+    ...stateWithoutTravelDocs,
+    bookings: [
+      bk('stay-cph', {
+        title: 'コペンハーゲン滞在',
+        start: {
+          zdt: '2026-06-12T15:00:00+02:00[Europe/Copenhagen]',
+          allDay: false,
+        },
+        end: {
+          zdt: '2026-06-15T10:00:00+02:00[Europe/Copenhagen]',
+          allDay: false,
+        },
+        // 実際の旅程で使われている書き方(place.name が都市名そのもの)
+        place: { name: 'コペンハーゲン滞在' },
+        confirmationNumber: undefined,
+      }),
+    ],
+    emergencyContacts: [],
+    wishes: [
+      {
+        id: 'w-here',
+        title: 'ニューハウンを歩く',
+        area: 'コペンハーゲン',
+        done: false,
+      },
+      { id: 'w-there', title: '夜市を歩く', area: '台北', done: false },
+      { id: 'w-any', title: '本屋に入る', done: false },
+    ],
+  }
+
+  /** 本物の reducer をつないだ器。dispatch した結果が画面に返ってくる */
+  function NowHarness({ initial }: { initial: TripNotesState }) {
+    const [current, dispatch] = useReducer(tripNotesReducer, initial)
+    return (
+      <NowPanel
+        state={current}
+        displayTz={tz}
+        dispatch={dispatch}
+        onGoToSchedule={noop}
+      />
+    )
+  }
+
+  // NowPanel は useState(() => Date.now()) で現在時刻の初期値を取るので、
+  // 時計は必ず render より前に動かす
+  function renderNow(iso = '2026-06-13T10:00:00Z') {
+    vi.setSystemTime(Date.parse(iso))
+    const { container } = render(<NowHarness initial={wishTrip} />)
+    return within(container)
+  }
+
+  it('滞在中の町のやりたいことが上の束に出る', () => {
+    vi.useFakeTimers()
+    const scope = renderNow()
+
+    // 推定した町は必ず文字で出す(黙って並べ替えない)。
+    // 宿の題名にも同じ文字列が出るので、説明文のほうで引く
+    const estimate = scope.getByText(/とみて、この町の分を先に出しています/)
+    expect(estimate.textContent).toContain('コペンハーゲン滞在')
+    expect(
+      hereList(scope).getByRole('checkbox', { name: 'ニューハウンを歩く' }),
+    ).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('他の町の分と場所なしの分は消えず、折りたたみに件数付きで残る', () => {
+    // 推定は持ち上げのためのもので、フィルタのためのものではない(wishes.ts)
+    vi.useFakeTimers()
+    const scope = renderNow()
+
+    expect(scope.getByText('他の町のやりたいこと')).toBeTruthy()
+    expect(scope.getByText('場所を決めていないもの')).toBeTruthy()
+    // 畳まれていても DOM には出ている(details を開けばそのまま読める)
+    expect(
+      within(
+        scope.getByRole('list', { name: '他の町のやりたいこと' }),
+      ).getByRole('checkbox', { name: /夜市を歩く/ }),
+    ).toBeTruthy()
+    expect(
+      within(
+        scope.getByRole('list', { name: '場所を決めていないもの' }),
+      ).getByRole('checkbox', { name: '本屋に入る' }),
+    ).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('チェックを入れると済みになる', () => {
+    vi.useFakeTimers()
+    const scope = renderNow()
+
+    const box = hereList(scope).getByRole<HTMLInputElement>('checkbox', {
+      name: 'ニューハウンを歩く',
+    })
+    expect(box.checked).toBe(false)
+    fireEvent.click(box)
+    expect(
+      hereList(scope).getByRole<HTMLInputElement>('checkbox', {
+        name: 'ニューハウンを歩く',
+      }).checked,
+    ).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('クイック追加は「いまの町」を場所に入れて 1 行で足せる', () => {
+    vi.useFakeTimers()
+    const scope = renderNow()
+
+    // プリセットは黙って入れず、外せるチップとして見せる
+    expect(
+      scope.getByRole('button', {
+        name: '場所の指定「コペンハーゲン滞在」を外す',
+      }),
+    ).toBeTruthy()
+
+    fireEvent.change(scope.getByLabelText('やりたいことを追加'), {
+      target: { value: '人魚姫像を見る' },
+    })
+    fireEvent.click(scope.getByRole('button', { name: '追加' }))
+
+    // 足したものが「いまの町」の束にそのまま出る = area が入っている
+    expect(
+      hereList(scope).getByRole('checkbox', { name: '人魚姫像を見る' }),
+    ).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('プリセットを外すと場所なしとして足される', () => {
+    vi.useFakeTimers()
+    const scope = renderNow()
+
+    fireEvent.click(
+      scope.getByRole('button', {
+        name: '場所の指定「コペンハーゲン滞在」を外す',
+      }),
+    )
+    fireEvent.change(scope.getByLabelText('やりたいことを追加'), {
+      target: { value: '絵葉書を書く' },
+    })
+    fireEvent.click(scope.getByRole('button', { name: '追加' }))
+
+    expect(
+      within(
+        scope.getByRole('list', { name: '場所を決めていないもの' }),
+      ).getByRole('checkbox', { name: '絵葉書を書く' }),
+    ).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('いまの町を推定できないときは束ねず、1 本の一覧にする', () => {
+    // 旅行前は突き合わせる相手がいない。空の「いまの町」の束を出すと、
+    // 折りたたみの中に全部入っているのに何も無いように見える
+    vi.useFakeTimers()
+    const scope = renderNow('2026-06-01T00:00:00Z')
+
+    expect(scope.queryByText('他の町のやりたいこと')).toBeNull()
+    const all = within(scope.getByRole('list', { name: 'やりたいこと' }))
+    expect(
+      all.getByRole('checkbox', { name: /ニューハウンを歩く/ }),
+    ).toBeTruthy()
+    expect(all.getByRole('checkbox', { name: /夜市を歩く/ })).toBeTruthy()
+    expect(all.getByRole('checkbox', { name: '本屋に入る' })).toBeTruthy()
+    vi.useRealTimers()
+  })
+})

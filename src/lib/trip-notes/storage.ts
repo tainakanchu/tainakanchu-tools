@@ -28,6 +28,7 @@ import type {
   TravelDocKind,
   TravelDocStatus,
   TripNotesState,
+  Wish,
 } from './types'
 
 const STORAGE_KEY = 'trip-notes:v1'
@@ -503,6 +504,34 @@ export function parseCountryInfo(raw: unknown): CountryInfo | null {
 }
 
 /**
+ * Wish の検証方針は parseCountryInfo と同じ。必須(id/title)が壊れていれば
+ * その 1 件だけを落とし、任意フィールドは文字列でなければそのフィールドだけを落とす。
+ *
+ * title が空文字(空白だけ)のときは 1 件ごと落とす。CountryInfo の name と同じ理由で、
+ * これがその行の唯一の中身であり、空だと画面に「消すことしかできない空の行」が並ぶ。
+ *
+ * done は真偽値でなければ false に寄せる。壊れた値を「済んだこと」として復元すると、
+ * まだやっていないことが済んだ扱いで下に沈み、しかも本人は気付けない。
+ * 逆(済んだものが未完了に戻る)なら、チェックを 1 回入れ直せば済む。
+ */
+export function parseWish(raw: unknown): Wish | null {
+  if (!isRecord(raw)) return null
+  const value = raw
+
+  const { id, title } = value
+  if (typeof id !== 'string') return null
+  if (typeof title !== 'string' || title.trim().length === 0) return null
+
+  const wish: Wish = { id, title, done: value.done === true }
+
+  if (typeof value.area === 'string') wish.area = value.area
+  if (typeof value.note === 'string') wish.note = value.note
+  if (typeof value.url === 'string') wish.url = value.url
+
+  return wish
+}
+
+/**
  * 初期状態。3泊4日を既定の旅程長にする
  * (週末+1日ずらした程度の、もっとも当たり障りのない旅行日数)。
  */
@@ -576,6 +605,11 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
         .filter((c): c is CountryInfo => c !== null)
     : []
 
+  // やりたいことも同じ扱い(空ならフィールドごと付けない)
+  const wishes = Array.isArray(data.wishes)
+    ? data.wishes.map(parseWish).filter((w): w is Wish => w !== null)
+    : []
+
   return {
     schemaVersion: 1,
     tripTitle,
@@ -587,6 +621,7 @@ export function parseTripNotesState(raw: unknown): TripNotesState | null {
     ...(placeAliases.length > 0 ? { placeAliases } : {}),
     ...(travelDocs.length > 0 ? { travelDocs } : {}),
     ...(countryInfos.length > 0 ? { countryInfos } : {}),
+    ...(wishes.length > 0 ? { wishes } : {}),
   }
 }
 

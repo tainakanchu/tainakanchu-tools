@@ -15,7 +15,9 @@ import {
   Download,
   FileJson,
   Globe,
+  Heart,
   IdCard,
+  MapPin,
   MapPinCheck,
   Pencil,
   Phone,
@@ -40,6 +42,7 @@ import {
 } from '../../../../lib/trip-notes/datetime'
 import { buildTripIcs, icsFileName } from '../../../../lib/trip-notes/ics'
 import { planImport } from '../../../../lib/trip-notes/importMerge'
+import { groupWishesByArea } from '../../../../lib/trip-notes/wishes'
 import { copyText, todayISO } from '../-lib/format'
 import {
   cardClass,
@@ -65,6 +68,7 @@ import type {
   TravelDocKind,
   TravelDocStatus,
   TripNotesState,
+  Wish,
 } from '../../../../lib/trip-notes/types'
 
 interface SettingsPanelProps {
@@ -1137,6 +1141,359 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
   )
 }
 
+/**
+ * 場所の入力欄。自由入力を殺さずに表記ゆれだけを減らすため <datalist> にする。
+ *
+ * 候補に出すのは「既に使った場所」と「旅程に出てくる場所」の 2 つ
+ * (areaOptions を組み立てているのは SettingsPanel 本体)。<select> にしない理由は
+ * types.ts の Wish に書いたとおりで、やりたいことは予約が 1 件も無い段階で
+ * 決まることがあり、そのとき選択肢は作れない。候補が出ないからといって
+ * 入力できなくなってはいけない。
+ */
+function AreaField({
+  value,
+  listId,
+  onChange,
+}: {
+  value: string
+  listId: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <input
+      className={`${fieldClass} mt-1`}
+      value={value}
+      list={listId}
+      placeholder="台北 / マルタ など"
+      onChange={(e) => onChange(e.target.value)}
+    />
+  )
+}
+
+/** areaOptions を <datalist> に流し込むだけの器。行ごとに重複して置かないための共有 */
+function AreaOptions({ id, options }: { id: string; options: Array<string> }) {
+  return (
+    <datalist id={id}>
+      {options.map((option) => (
+        <option key={option} value={option} />
+      ))}
+    </datalist>
+  )
+}
+
+/**
+ * やりたいこと 1 件の表示・編集。ContactRow と同じく編集モードは行内で完結させる。
+ *
+ * 「今」タブでは題名と済みだけを扱うのに対し、ここでは場所・メモ・URL まで直せる。
+ * 歩きながら使う画面と、座って整理する画面で扱う欄を変えているのは意図した差で、
+ * 同じ欄をどちらにも出すと、片手で使う画面のほうが必ず重くなる。
+ */
+function WishRow({
+  wish,
+  areaOptions,
+  dispatch,
+}: {
+  wish: Wish
+  areaOptions: Array<string>
+  dispatch: TripNotesDispatch
+}) {
+  const listId = useId()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(wish.title)
+  const [area, setArea] = useState(wish.area ?? '')
+  const [note, setNote] = useState(wish.note ?? '')
+  const [url, setUrl] = useState(wish.url ?? '')
+
+  const handleSave = () => {
+    const nextTitle = title.trim()
+    if (nextTitle.length === 0) return
+    const nextArea = area.trim()
+    const nextNote = note.trim()
+    const nextUrl = url.trim()
+    dispatch({
+      type: 'updateWish',
+      wish: {
+        id: wish.id,
+        title: nextTitle,
+        ...(nextArea.length > 0 ? { area: nextArea } : {}),
+        done: wish.done,
+        ...(nextNote.length > 0 ? { note: nextNote } : {}),
+        ...(nextUrl.length > 0 ? { url: nextUrl } : {}),
+      },
+    })
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setTitle(wish.title)
+    setArea(wish.area ?? '')
+    setNote(wish.note ?? '')
+    setUrl(wish.url ?? '')
+    setEditing(false)
+  }
+
+  const handleRemove = () => {
+    if (!window.confirm(`「${wish.title}」を削除しますか?`)) return
+    dispatch({ type: 'removeWish', id: wish.id })
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-xl border border-gray-200 p-3">
+        <AreaOptions id={listId} options={areaOptions} />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="text-xs text-gray-500">
+            やりたいこと
+            <input
+              className={`${fieldClass} mt-1`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+          <label className="text-xs text-gray-500">
+            場所(任意)
+            <AreaField value={area} listId={listId} onChange={setArea} />
+          </label>
+          <label className="text-xs text-gray-500">
+            メモ(任意)
+            <input
+              className={`${fieldClass} mt-1`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          <label className="text-xs text-gray-500">
+            参考リンク(任意)
+            <input
+              className={`${fieldClass} mt-1`}
+              value={url}
+              inputMode="url"
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            className={primaryButtonClass}
+            onClick={handleSave}
+          >
+            保存
+          </button>
+          <button
+            type="button"
+            className={subtleButtonClass}
+            onClick={handleCancel}
+          >
+            キャンセル
+          </button>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+      <label className="flex min-w-0 cursor-pointer items-start gap-2">
+        <input
+          type="checkbox"
+          checked={wish.done}
+          onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+        />
+        <span className="min-w-0">
+          <span
+            className={
+              wish.done
+                ? 'text-sm text-gray-400 line-through'
+                : 'text-sm font-medium text-gray-800'
+            }
+          >
+            {wish.title}
+          </span>
+          {wish.note !== undefined && wish.note.length > 0 ? (
+            <span className="block text-xs text-gray-500">{wish.note}</span>
+          ) : null}
+          {wish.url !== undefined && wish.url.length > 0 ? (
+            <a
+              href={wish.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block truncate text-xs text-cyan-700 underline"
+            >
+              {wish.url}
+            </a>
+          ) : null}
+        </span>
+      </label>
+      <div className="flex shrink-0 gap-1">
+        <button
+          type="button"
+          aria-label={`${wish.title}を編集`}
+          className={iconButtonClass}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          aria-label={`${wish.title}を削除`}
+          className={iconButtonClass}
+          onClick={handleRemove}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * やりたいことの追加。ここは「今」タブのクイック追加と違って、
+ * 最初から場所とメモの欄も開いておく(座って一覧を整理している場面なので、
+ * 1 タップ減らすことより、書きたいことを全部書ける欄が見えていることのほうが効く)。
+ */
+function AddWishSection({
+  areaOptions,
+  dispatch,
+}: {
+  areaOptions: Array<string>
+  dispatch: TripNotesDispatch
+}) {
+  const listId = useId()
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [area, setArea] = useState('')
+  const [note, setNote] = useState('')
+  const [url, setUrl] = useState('')
+
+  const reset = () => {
+    setTitle('')
+    setArea('')
+    setNote('')
+    setUrl('')
+  }
+
+  const handleAdd = (e: FormEvent) => {
+    e.preventDefault()
+    const nextTitle = title.trim()
+    if (nextTitle.length === 0) return
+    const nextArea = area.trim()
+    const nextNote = note.trim()
+    const nextUrl = url.trim()
+    dispatch({
+      type: 'addWish',
+      wish: {
+        id: newId('w'),
+        title: nextTitle,
+        ...(nextArea.length > 0 ? { area: nextArea } : {}),
+        done: false,
+        ...(nextNote.length > 0 ? { note: nextNote } : {}),
+        ...(nextUrl.length > 0 ? { url: nextUrl } : {}),
+      },
+    })
+    reset()
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={subtleButtonClass}
+        onClick={() => setOpen(true)}
+      >
+        <Plus size={16} />
+        やりたいことを追加
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={handleAdd}
+      className="rounded-xl border border-gray-200 p-3"
+    >
+      <AreaOptions id={listId} options={areaOptions} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="text-xs text-gray-500">
+          やりたいこと
+          <input
+            className={`${fieldClass} mt-1`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+        <label className="text-xs text-gray-500">
+          場所(任意)
+          <AreaField value={area} listId={listId} onChange={setArea} />
+        </label>
+        <label className="text-xs text-gray-500">
+          メモ(任意)
+          <input
+            className={`${fieldClass} mt-1`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+        <label className="text-xs text-gray-500">
+          参考リンク(任意)
+          <input
+            className={`${fieldClass} mt-1`}
+            value={url}
+            inputMode="url"
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">
+        場所を書いておくと、その町にいる間だけ「今」タブの上に出ます。
+        書かなくても「場所を決めていないもの」として残ります。
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="submit"
+          className={primaryButtonClass}
+          disabled={title.trim().length === 0}
+        >
+          <Plus size={16} />
+          追加
+        </button>
+        <button
+          type="button"
+          className={subtleButtonClass}
+          onClick={() => {
+            reset()
+            setOpen(false)
+          }}
+        >
+          キャンセル
+        </button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * 場所の入力候補。既に使った場所を先に、旅程に出てくる場所名をその後に並べる。
+ *
+ * 旅程側から拾うのは予約の place / from / to の name で、施設名のまま出す。
+ * 都市名に寄せた形(toCityName)にしないのは、候補が「ホテル○○」ではなく
+ * 「○○」に化けると、利用者が自分の予約と結び付けられなくなるためである。
+ * 表記ゆれの吸収は突き合わせ側(placeNames.ts)がやるので、
+ * ここは素直に見覚えのある文字を出す。
+ */
+function areaOptionsOf(state: TripNotesState): Array<string> {
+  const used = (state.wishes ?? [])
+    .map((wish) => wish.area?.trim() ?? '')
+    .filter((area) => area !== '')
+  const fromBookings = state.bookings
+    .flatMap((booking) => [booking.place, booking.from, booking.to])
+    .map((place) => place?.name.trim() ?? '')
+    .filter((name) => name !== '')
+  return [...new Set([...used, ...fromBookings])]
+}
+
 export function SettingsPanel({
   state,
   displayTz,
@@ -1172,6 +1529,10 @@ export function SettingsPanel({
   const travelDocs = state.travelDocs ?? []
   // 国・地域の情報も countryInfos?: Array<CountryInfo> なので同じ扱い
   const countryInfos = state.countryInfos ?? []
+  // やりたいことも wishes?: Array<Wish> なので同じ扱い。
+  // 場所ごとにまとめるのは wishes.ts に委ね、ここでは並べるだけにする
+  const wishGroups = groupWishesByArea(state.wishes ?? [])
+  const areaOptions = areaOptionsOf(state)
 
   // 終了日が開始日以前だと夜の計算(nights.ts)が破綻するので、その場で警告する
   let nights: number | null = null
@@ -1677,8 +2038,59 @@ export function SettingsPanel({
         </div>
       </section>
 
+      {/* 9. やりたいこと */}
+      <section className={cardClass}>
+        <h2 className={sectionTitleClass}>
+          <Heart size={18} className="text-cyan-600" />
+          やりたいこと
+        </h2>
+        <p className="mt-2 text-sm text-gray-600">
+          滞在先でやりたいことを町ごとに書いておけます。場所を書いておくと、
+          その町にいる間だけ「今」タブの上に出ます。
+        </p>
+
+        {wishGroups.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-500">
+            まだ登録がありません。行きたい店や見たいものを、思い付いた順に
+            1行ずつ足しておけば十分です。「今」タブからも足せます。
+          </p>
+        ) : (
+          <div className="mt-3 space-y-4">
+            {wishGroups.map((group) => (
+              <div key={group.area ?? ''}>
+                <h3 className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+                  <MapPin
+                    size={14}
+                    className="shrink-0 text-gray-400"
+                    aria-hidden="true"
+                  />
+                  {group.area ?? '場所を決めていないもの'}
+                  <span className="text-xs font-normal text-gray-400">
+                    {group.wishes.length}件
+                  </span>
+                </h3>
+                <ul className="mt-1 space-y-2">
+                  {group.wishes.map((wish) => (
+                    <WishRow
+                      key={wish.id}
+                      wish={wish}
+                      areaOptions={areaOptions}
+                      dispatch={dispatch}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3">
+          <AddWishSection areaOptions={areaOptions} dispatch={dispatch} />
+        </div>
+      </section>
+
       {/*
-        9. 同じ場所として扱う組。
+        10. 同じ場所として扱う組。
         進捗タブの警告カードから押した判断の置き場で、登録が無ければ何も出さない
         (使っていない人にとっては存在しない機能なので、説明ごと出す意味がない)。
         取り消せる場所をここに必ず設けているのは、押し間違えたまま放置すると
@@ -1723,7 +2135,7 @@ export function SettingsPanel({
         </section>
       ) : null}
 
-      {/* 10. JSON入出力 */}
+      {/* 11. JSON入出力 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <FileJson size={18} className="text-cyan-600" />
@@ -1801,7 +2213,7 @@ export function SettingsPanel({
         ) : null}
       </section>
 
-      {/* 11. いまの旅程を空にする */}
+      {/* 12. いまの旅程を空にする */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
           <AlertTriangle size={18} className="text-rose-600" />

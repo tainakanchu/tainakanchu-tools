@@ -13,6 +13,7 @@ import type {
   EmergencyContact,
   TravelDoc,
   TripNotesState,
+  Wish,
 } from './types'
 
 /** 宿泊 1 件、任意フィールド全部入りの現実的な booking */
@@ -91,6 +92,18 @@ function fullCountryInfo(): CountryInfo {
     emergencyPolice: '112',
     emergencyAmbulance: '112',
     note: '左側通行',
+  }
+}
+
+/** 任意フィールド全部入りのやりたいこと */
+function fullWish(): Wish {
+  return {
+    id: 'w-1',
+    title: 'ポワラーヌのパンを買う',
+    area: 'パリ',
+    done: true,
+    note: '日曜は休み',
+    url: 'https://example.test/poilane',
   }
 }
 
@@ -489,6 +502,67 @@ describe('parseTripNotesState', () => {
       parseTripNotesState({ ...fullState(), countryInfos: 'なにか' }),
     ).not.toHaveProperty('countryInfos')
     expect(parseTripNotesState(fullState())).not.toHaveProperty('countryInfos')
+  })
+
+  it('任意フィールド全部入りの wishes がそのまま復元される', () => {
+    const state = { ...fullState(), wishes: [fullWish()] }
+    expect(parseTripNotesState(state)).toEqual(state)
+  })
+
+  it('wishes の正常な要素は残り、必須が壊れた要素だけが落ちる', () => {
+    const state = {
+      ...fullState(),
+      wishes: [
+        fullWish(),
+        { ...fullWish(), id: undefined }, // id が無い
+        { ...fullWish(), title: undefined }, // title が無い
+        { ...fullWish(), title: '' }, // title が空
+        { ...fullWish(), title: '   ' }, // title が空白だけ
+        'パンを買う', // そもそもオブジェクトでない
+      ],
+    }
+    expect(parseTripNotesState(state)?.wishes).toEqual([fullWish()])
+  })
+
+  it('wishes の done が真偽値でなければ false に寄せる', () => {
+    // 壊れた値を「済んだこと」として復元すると、やっていないことが
+    // 済んだ扱いで下に沈み、しかも本人が気付けない
+    const state = {
+      ...fullState(),
+      wishes: [
+        { id: 'w-a', title: '夜市を歩く', done: 'yes' },
+        { id: 'w-b', title: '温泉に入る' },
+      ],
+    }
+    expect(parseTripNotesState(state)?.wishes).toEqual([
+      { id: 'w-a', title: '夜市を歩く', done: false },
+      { id: 'w-b', title: '温泉に入る', done: false },
+    ])
+  })
+
+  it('wishes の任意フィールドの不正値は、そのフィールドだけ落ちる', () => {
+    const state = {
+      ...fullState(),
+      wishes: [{ ...fullWish(), area: 42, note: null, url: ['https://x'] }],
+    }
+    expect(parseTripNotesState(state)?.wishes?.[0]).toEqual({
+      id: 'w-1',
+      title: 'ポワラーヌのパンを買う',
+      done: true,
+    })
+  })
+
+  it('wishes が空・不正・欠落ならフィールドごと付かない', () => {
+    expect(
+      parseTripNotesState({ ...fullState(), wishes: [] }),
+    ).not.toHaveProperty('wishes')
+    expect(
+      parseTripNotesState({ ...fullState(), wishes: [{ id: 'w-1' }] }),
+    ).not.toHaveProperty('wishes')
+    expect(
+      parseTripNotesState({ ...fullState(), wishes: 'なにか' }),
+    ).not.toHaveProperty('wishes')
+    expect(parseTripNotesState(fullState())).not.toHaveProperty('wishes')
   })
 
   describe('締切(checkInClosesMinutesBefore / bagDropClosesMinutesBefore)', () => {

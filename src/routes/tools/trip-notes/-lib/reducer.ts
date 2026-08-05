@@ -31,6 +31,7 @@ import type {
   PlaceAlias,
   TravelDoc,
   TripNotesState,
+  Wish,
 } from '../../../../lib/trip-notes/types'
 
 /** Undo 履歴の上限 */
@@ -75,6 +76,19 @@ export type TripNotesAction =
   | { type: 'addCountryInfo'; countryInfo: CountryInfo }
   | { type: 'updateCountryInfo'; countryInfo: CountryInfo }
   | { type: 'removeCountryInfo'; id: string }
+  /**
+   * 滞在先でやりたいことの CRUD。日付を持たない願望なので予約とは別の入れ物に持つ
+   * (types.ts の Wish 参照)。
+   */
+  | { type: 'addWish'; wish: Wish }
+  | { type: 'updateWish'; wish: Wish }
+  | { type: 'removeWish'; id: string }
+  /**
+   * 済んだかどうかだけを裏返す。updateWish で代用しないのは、これが「今」タブから
+   * 歩きながら 1 タップで押される操作だからである。画面側が Wish 全体を組み立てて
+   * 送る形にすると、その画面が持っていない欄(メモ・URL)を落とす経路が生まれる。
+   */
+  | { type: 'toggleWishDone'; id: string }
   /**
    * 「この 2 つは同じ場所」の登録。旅程の警告カードから、
    * そこに出ていた 2 つの地名をそのまま渡す(itinerary.ts の placeAliases)。
@@ -331,6 +345,18 @@ function countryInfoKey(info: CountryInfo): string {
   return normalizeText(info.name)
 }
 
+/**
+ * やりたいことの重複判定キー。やりたいこと + 場所の正規化で見る。
+ *
+ * 場所も鍵に入れるのは、同じ言葉のやりたいことが町ごとに並ぶのが普通だからである
+ * (「市場を歩く」は行く先の数だけある)。題名だけで見ると、合流のときに
+ * 相手の「市場を歩く(ローマ)」が自分の「市場を歩く(パリ)」と同一視されて落ちる。
+ * 区切りに制御文字を挟む理由は contactKey と同じ。
+ */
+function wishKey(wish: Wish): string {
+  return `${normalizeText(wish.title)}\u0000${normalizeText(wish.area ?? '')}`
+}
+
 /** 手続きの重複判定キー。種別 + 名前の正規化で「同じ手続き」を見る */
 function travelDocKey(doc: TravelDoc): string {
   return `${doc.kind}\u0000${normalizeText(doc.title)}`
@@ -495,6 +521,43 @@ export function tripNotesReducer(
         return rest
       }
       return { ...state, countryInfos }
+    }
+
+    case 'addWish': {
+      // travelDocs / countryInfos と同じ任意フィールドなので、1 件も無いときは
+      // フィールドごと存在しない。そこから積み直す
+      const current = state.wishes ?? []
+      return { ...state, wishes: [...current, action.wish] }
+    }
+
+    case 'updateWish': {
+      const current = state.wishes ?? []
+      const index = current.findIndex((w) => w.id === action.wish.id)
+      if (index === -1) return state
+      const wishes = [...current]
+      wishes[index] = action.wish
+      return { ...state, wishes }
+    }
+
+    case 'removeWish': {
+      const current = state.wishes ?? []
+      const wishes = current.filter((w) => w.id !== action.id)
+      if (wishes.length === current.length) return state
+      // 最後の 1 件を消したらフィールドごと落とす(removeTravelDoc と同じ理由)
+      if (wishes.length === 0) {
+        const { wishes: _wishes, ...rest } = state
+        return rest
+      }
+      return { ...state, wishes }
+    }
+
+    case 'toggleWishDone': {
+      const current = state.wishes ?? []
+      const index = current.findIndex((w) => w.id === action.id)
+      if (index === -1) return state
+      const wishes = [...current]
+      wishes[index] = { ...wishes[index], done: !wishes[index].done }
+      return { ...state, wishes }
     }
 
     case 'addPlaceAlias': {
@@ -692,6 +755,31 @@ export function tripNotesReducer(
         )
       }
 
+      /**
+       * やりたいこと: やりたいこと + 場所が一致するものは既存を残し、incoming を捨てる。
+       *
+       * 手続きとまったく同じ「既存を正とする」で、理由も同じ。done は
+       * 「自分が済ませたかどうか」の記録であって、相手の旅程に書いてある done は
+       * 相手の進捗でしかない。合流のたびに相手の未完了で自分のチェックが外れると、
+       * 行ったはずの店がまた「やりたいこと」に戻ってきて、この一覧が
+       * 「自分がどこまでやったか」の記録として信用できなくなる。
+       */
+      const currentWishes = state.wishes ?? []
+      const seenWishes = new Set(currentWishes.map(wishKey))
+      const usedWishIds = new Set(currentWishes.map((wish) => wish.id))
+      const addedWishes: Array<Wish> = []
+      for (const candidate of incoming.wishes ?? []) {
+        const key = wishKey(candidate)
+        // 判定済みのキーを足しながら回すので、incoming の中に同じ組が
+        // 2 件あっても足されるのは 1 件だけになる(連絡先・手続き・国情報と同じ)
+        if (seenWishes.has(key)) continue
+        seenWishes.add(key)
+        // id の振り直しは予約と同じ理由(applyImportPlan のコメント参照)
+        const id = usedWishIds.has(candidate.id) ? newId('w') : candidate.id
+        usedWishIds.add(id)
+        addedWishes.push(id === candidate.id ? candidate : { ...candidate, id })
+      }
+
       // どれ 1 つ変わらないなら同一参照を返す。既に取り込み済みの共有URLを
       // もう一度開いたときに、Undo 履歴へ空の 1 手を積まないため
       // (verifyAllUnverified と同じ流儀)
@@ -700,7 +788,8 @@ export function tripNotesReducer(
         addedContacts.length === 0 &&
         addedDocs.length === 0 &&
         addedAliases.length === 0 &&
-        addedCountries.length === 0
+        addedCountries.length === 0 &&
+        addedWishes.length === 0
       ) {
         return state
       }
@@ -724,6 +813,9 @@ export function tripNotesReducer(
       }
       if (addedCountries.length > 0) {
         next.countryInfos = [...currentCountries, ...addedCountries]
+      }
+      if (addedWishes.length > 0) {
+        next.wishes = [...currentWishes, ...addedWishes]
       }
       return next
     }

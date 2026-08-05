@@ -295,6 +295,48 @@ export interface PlaceAlias {
   names: [string, string]
 }
 
+/**
+ * 滞在先でやりたいこと。「〇〇のパン屋に行く」「夜市を歩く」。
+ *
+ * ■ なぜ予約(Booking)ではなく独立した入れ物なのか
+ *   やりたいことは、宿も交通も決まっていない段階で先に決まる。旅行を思い立った
+ *   その日に「台北の夜市に行きたい」だけが手元にあって、日付も時刻も無い。
+ *   Booking は start(Stamp)が必須で、旅程の連続性の判定(itinerary.ts)にも
+ *   夜のカバレッジ(nights.ts)にも載る。そこに日付の無い願望を入れると、
+ *   入力のたびに架空の時刻を選ばせたうえ、ありもしない場所の食い違いを警告する。
+ *   TravelDoc を Booking の kind に足さなかったのとまったく同じ理由である。
+ *
+ * ■ なぜ予約ではなく「場所」に紐づくのか
+ *   同じ理由の裏返しで、やりたいことが決まる順番は
+ *   「行きたい町 → やりたいこと → 泊まる宿」だからである。宿の予約 id に
+ *   ぶら下げる形にすると、宿を取り直すたびにやりたいことが宙に浮くか、
+ *   一緒に消える。町の名前で持っておけば、予約が何回変わっても残る。
+ *
+ * ■ なぜ done を持つのか(そして期限を持たないのか)
+ *   やりたいことは「済ませたかどうか」だけが進捗で、期限も申請中の状態も無い
+ *   (そこが TravelDoc の status と違うところ)。だから真偽値 1 つで足りる。
+ *   済んだものを消さずに残すのは、旅の記録としてあとから読み返す価値があるためで、
+ *   画面では下に沈める(wishes.ts)。
+ */
+export interface Wish {
+  id: string
+  /** やりたいこと。「〇〇のパン屋に行く」 */
+  title: string
+  /**
+   * どの町・地域でやることか。自由入力(「台北」「マルタ」)。
+   *
+   * 選択式にしないのは、やりたいことが決まる時点では予約が 1 件も無いことが
+   * あるためで、選択肢を作れない。表記ゆれは datalist の候補と、
+   * 突き合わせ側の名寄せ(placeNames.ts)で吸収する。
+   * 空なら「どこでも / 旅全体」の扱いになる。
+   */
+  area?: string
+  done: boolean
+  note?: string
+  /** 参考リンク(お店のページなど) */
+  url?: string
+}
+
 export interface TripNotesState {
   schemaVersion: 1
   tripTitle: string
@@ -340,6 +382,15 @@ export interface TripNotesState {
    *  膨らませたくない)。詳しくは placeAliases のコメントを参照。
    */
   countryInfos?: Array<CountryInfo>
+  /**
+   * 滞在先でやりたいこと。
+   *
+   * placeAliases / travelDocs / countryInfos とまったく同じ理由で必須にせず
+   * 任意にしている(保存済みの localStorage にも発行済みの共有URLにも
+   * このフィールドは無く、1 件も登録しない利用者の JSON や共有URLを
+   * `"wishes":[]` で膨らませたくない)。詳しくは placeAliases のコメントを参照。
+   */
+  wishes?: Array<Wish>
 }
 
 /**
