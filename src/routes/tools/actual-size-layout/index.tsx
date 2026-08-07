@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { documentPresets } from './-lib/presets'
 import type { PresetId } from './-lib/presets'
 import {
@@ -19,9 +20,15 @@ type UploadedImage = {
 
 const MAX_IMAGES = 2
 
+// head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
+const tool = getToolMeta('actual-size-layout')!
+
 export const Route = createFileRoute('/tools/actual-size-layout/')({
   head: () => ({
-    meta: [{ title: '原寸レイアウトメーカー | かんちゅツールズ' }],
+    meta: [
+      { title: toolPageTitle(tool.name) },
+      { name: 'description', content: tool.description },
+    ],
   }),
   component: ActualSizeLayoutPage,
 })
