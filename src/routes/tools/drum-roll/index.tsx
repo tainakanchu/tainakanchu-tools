@@ -1,10 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { DrumRollEngine } from './-lib/engine'
+
+// head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
+const tool = getToolMeta('drum-roll')!
 
 export const Route = createFileRoute('/tools/drum-roll/')({
   head: () => ({
-    meta: [{ title: 'ドラムロール | かんちゅツールズ' }],
+    meta: [
+      { title: toolPageTitle(tool.name) },
+      { name: 'description', content: tool.description },
+    ],
   }),
   component: DrumRollPage,
 })

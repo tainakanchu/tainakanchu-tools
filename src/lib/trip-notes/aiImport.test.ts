@@ -183,14 +183,11 @@ describe('parseImportedJson: AI の引用マーカーの除去', () => {
         kind: 'other',
         title: 'メモ',
         start: { date: '2026-09-12', time: '10:00', tz: 'Asia/Tokyo' },
-        note:
-          '出発45分前に終了。 :contentReference[oaicite:1]{index=1}変更の場合は24時間前まで。 :contentReference[oaicite:2]{index=2}',
+        note: '出発45分前に終了。 :contentReference[oaicite:1]{index=1}変更の場合は24時間前まで。 :contentReference[oaicite:2]{index=2}',
       },
     ])
     const booking = firstBooking(parseImportedJson(text, TOKYO))
-    expect(booking.note).toBe(
-      '出発45分前に終了。変更の場合は24時間前まで。',
-    )
+    expect(booking.note).toBe('出発45分前に終了。変更の場合は24時間前まで。')
   })
 
   it('マーカーだけの値は除去後に空文字になり、値なしとして扱われる', () => {

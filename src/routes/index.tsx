@@ -1,36 +1,17 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { TOOL_META } from '../lib/site-meta'
 
 export const Route = createFileRoute('/')({
   component: App,
 })
 
 function App() {
-  const tools = [
-    {
-      title: '原寸レイアウトメーカー',
-      description:
-        '免許証やパスポートなどの書類画像を原寸大でA4に配置して印刷・PDF出力できるレイアウトツール。',
-      to: '/tools/actual-size-layout',
-    },
-    {
-      title: '旅程パズル',
-      description:
-        'ヨーロッパ周遊の滞在日数・訪問順・移動手段を、泊数を配り切るパズルとして組み立てる新婚旅行プランナー。',
-      to: '/tools/trip-scheduler',
-    },
-    {
-      title: '旅のしおり',
-      description:
-        '予約の抜けを旅行前に潰し、旅行中は確認番号や集合時刻だけをすぐ取り出せる予約ダッシュボード。',
-      to: '/tools/trip-notes',
-    },
-    {
-      title: 'ドラムロール',
-      description:
-        'スペースキーを押している間ドラムロールが鳴り、放すとシンバル＋キックで「ジャーン！」と締まる演出ツール。',
-      to: '/tools/drum-roll',
-    },
-  ]
+  // ツール一覧と OG 用 TOOL_META を二重管理しないため、ここでも site-meta を使う
+  const tools = TOOL_META.map((tool) => ({
+    title: tool.name,
+    description: tool.description,
+    to: tool.path,
+  }))
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 text-gray-900">

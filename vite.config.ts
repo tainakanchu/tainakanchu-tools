@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { ogPagesPlugin } from './scripts/vite-plugin-og-pages'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -91,6 +92,10 @@ export default defineConfig({
       // ワーカーを動かさないため。ホットリロードとキャッシュが噛み合って
       // 余計な混乱を生む。
     }),
+    // VitePWA より後に置く理由: VitePWA の closeBundle で SW の precache
+    // manifest が確定したあと tools/*.html を生成し、precache に載せない。
+    // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
+    ogPagesPlugin(),
   ],
   resolve: {
     alias: {

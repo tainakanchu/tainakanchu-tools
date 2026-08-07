@@ -18,6 +18,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { computeSummary } from '../../../lib/trip-notes/derive'
 import { getDeviceTz } from '../../../lib/trip-notes/datetime'
 import { newId } from '../../../lib/trip-notes/id'
@@ -55,9 +56,15 @@ import type { FormEvent } from 'react'
 import type { TripEntry, TripLibrary } from '../../../lib/trip-notes/trips'
 import type { TripNotesState } from '../../../lib/trip-notes/types'
 
+// head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
+const tool = getToolMeta('trip-notes')!
+
 export const Route = createFileRoute('/tools/trip-notes/')({
   head: () => ({
-    meta: [{ title: '旅のしおり | かんちゅツールズ' }],
+    meta: [
+      { title: toolPageTitle(tool.name) },
+      { name: 'description', content: tool.description },
+    ],
   }),
   component: TripNotesPage,
 })

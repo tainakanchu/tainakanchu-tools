@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Redo2, Undo2 } from 'lucide-react'
+import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { deriveTrip } from '../../../lib/trip-scheduler/derive'
 import {
   createInitialState,
@@ -24,9 +25,15 @@ import { todayISO } from './-lib/format'
 import { subtleButtonClass } from './-lib/styles'
 import type { HistoryState } from './-lib/reducer'
 
+// head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
+const tool = getToolMeta('trip-scheduler')!
+
 export const Route = createFileRoute('/tools/trip-scheduler/')({
   head: () => ({
-    meta: [{ title: '旅程パズル | かんちゅツールズ' }],
+    meta: [
+      { title: toolPageTitle(tool.name) },
+      { name: 'description', content: tool.description },
+    ],
   }),
   component: TripSchedulerPage,
 })

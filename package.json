@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "homepage": "https://tainakanchu-tools.vercel.app/",
+  "homepage": "https://tools.tainakanchu.com/",
   "repository": {
     "type": "git",
     "url": "https://github.com/tainakanchu/tainakanchu-tools.git"
@@ -32,6 +32,7 @@
     "format": "prettier",
     "check": "prettier --write . && oxlint --fix",
     "typecheck": "tsc --noEmit",
+    "og:images": "node scripts/generate-og-images.ts",
     "deploy": "pnpm run build && wrangler deploy",
     "cf:dev": "pnpm run build && wrangler dev"
   },
