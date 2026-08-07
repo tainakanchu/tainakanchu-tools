@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { documentPresets } from './-lib/presets'
@@ -8,11 +8,13 @@ import {
   printableWidthMm,
   totalContentHeightMm,
 } from './-lib/layout'
+import { compressImageFile } from './-lib/image'
 
 type UploadedImage = {
   id: string
   name: string
   dataUrl: string
+  file: File
 }
 
 const MAX_IMAGES = 2
@@ -32,6 +34,10 @@ function ActualSizeLayoutPage() {
   const [cardGapMm, setCardGapMm] = useState(16)
   const [cardCornersRounded, setCardCornersRounded] = useState(true)
   const [images, setImages] = useState<Array<UploadedImage>>([])
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  const imagesRef = useRef(images)
+  imagesRef.current = images
 
   const currentPreset = documentPresets.find((preset) => preset.id === presetId)
 
@@ -72,8 +78,6 @@ function ActualSizeLayoutPage() {
     [cardGapMm],
   )
 
-  const availableSlots = MAX_IMAGES - images.length
-
   const overflowsPrintableArea =
     images.length >= 1 &&
     totalContentHeightMm({
@@ -86,34 +90,90 @@ function ActualSizeLayoutPage() {
     images.length >= 1 &&
     contentSize.widthMm > printableWidthMm(clampDimension(pageMarginMm, 0, 30))
 
-  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const fileList = event.target.files
-    if (!fileList) return
+  const addImageFiles = async (files: Array<File>) => {
+    const imageFiles = files.filter(
+      (file) =>
+        file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name),
+    )
 
-    const files = Array.from(fileList)
-      .filter((file) => file.type.startsWith('image/'))
-      .slice(0, MAX_IMAGES)
+    const slots = Math.max(0, MAX_IMAGES - images.length)
+    if (slots === 0) return
 
-    const slots = Math.max(0, availableSlots)
-    if (slots === 0) {
-      event.target.value = ''
-      return
-    }
-
-    const filesToAdd = files.slice(0, slots)
+    const filesToAdd = imageFiles.slice(0, slots)
+    if (filesToAdd.length === 0) return
 
     try {
       const newImages = await Promise.all(
-        filesToAdd.map((file, index) => readFileAsDataUrl(file, index)),
+        filesToAdd.map(async (file, index) => {
+          const dataUrl = await compressImageFile(file, {
+            widthMm: contentSize.widthMm,
+            heightMm: contentSize.heightMm,
+          })
+          return {
+            id: `${Date.now()}-${index}`,
+            name: file.name,
+            dataUrl,
+            file,
+          }
+        }),
       )
 
       setImages((prev) => [...prev, ...newImages])
     } catch (error) {
       console.error('画像の読み込みに失敗しました', error)
     }
+  }
 
+  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files
+    if (!fileList) return
+
+    await addImageFiles(Array.from(fileList))
     event.target.value = ''
   }
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      const current = imagesRef.current
+      if (current.length === 0) return
+      try {
+        const next = await Promise.all(
+          current.map(async (image) => {
+            const dataUrl = await compressImageFile(image.file, {
+              widthMm: contentSize.widthMm,
+              heightMm: contentSize.heightMm,
+            })
+            return { ...image, dataUrl }
+          }),
+        )
+        if (!cancelled) {
+          // 圧縮中に追加/削除された画像を消さないよう id で突き合わせて差し替える
+          setImages((prev) =>
+            prev.map((image) => next.find((n) => n.id === image.id) ?? image),
+          )
+        }
+      } catch (error) {
+        console.error('画像の再圧縮に失敗しました', error)
+      }
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [contentSize.widthMm, contentSize.heightMm])
+
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('dragover', prevent)
+    window.addEventListener('drop', prevent)
+    return () => {
+      window.removeEventListener('dragover', prevent)
+      window.removeEventListener('drop', prevent)
+    }
+  }, [])
 
   const removeImage = (id: string) => {
     setImages((prev) => prev.filter((image) => image.id !== id))
@@ -259,7 +319,29 @@ function ActualSizeLayoutPage() {
           <h2 className="text-lg font-medium text-gray-800">
             画像アップロード
           </h2>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600 transition hover:border-cyan-400 hover:bg-cyan-50">
+          <label
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-sm text-gray-600 transition ${
+              isDragOver
+                ? 'border-cyan-400 bg-cyan-50'
+                : 'border-gray-300 bg-gray-50 hover:border-cyan-400 hover:bg-cyan-50'
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragOver(true)
+            }}
+            onDragLeave={(e) => {
+              // 子要素への移動でもちらつかないよう、label の外に出たときだけ解除する
+              const related =
+                e.relatedTarget instanceof Node ? e.relatedTarget : null
+              if (related && e.currentTarget.contains(related)) return
+              setIsDragOver(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragOver(false)
+              void addImageFiles(Array.from(e.dataTransfer.files))
+            }}
+          >
             <input
               type="file"
               accept="image/*"
@@ -268,7 +350,7 @@ function ActualSizeLayoutPage() {
               className="hidden"
             />
             <span className="font-medium text-gray-800">
-              画像を選択（最大2枚）
+              画像を選択またはドラッグ&ドロップ（最大2枚）
             </span>
             <span className="mt-1 text-xs text-gray-500">
               PNG / JPG / HEIC などに対応しています
@@ -409,20 +491,4 @@ function ActualSizeLayoutPage() {
 function clampDimension(value: number, min = 10, max = 400) {
   if (Number.isNaN(value)) return min
   return Math.min(Math.max(value, min), max)
-}
-
-function readFileAsDataUrl(file: File, index: number): Promise<UploadedImage> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => {
-      resolve({
-        id: `${Date.now()}-${index}`,
-        name: file.name,
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- readAsDataURL() 使用のため result は string になる (ArrayBuffer にはならない)
-        dataUrl: reader.result as string,
-      })
-    })
-    reader.addEventListener('error', () => reject(reader.error))
-    reader.readAsDataURL(file)
-  })
 }
