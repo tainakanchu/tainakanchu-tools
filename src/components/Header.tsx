@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import {
+  Dices,
   Drum,
+  ExternalLink,
   Home,
   Luggage,
   Map,
@@ -10,47 +12,28 @@ import {
   Printer,
   Sparkles,
   X,
+  ZoomIn,
 } from 'lucide-react'
+import { getCatalogByCategory, type CatalogItem } from '../lib/site-meta'
+
+/** Header 専用: site-meta に lucide を入れないため slug → icon はここで持つ */
+const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
+  'actual-size-layout': Printer,
+  'trip-scheduler': Map,
+  'trip-notes': Luggage,
+  'drum-roll': Drum,
+  'taiwan-arrival-card': PlaneLanding,
+  'magnify-image': ZoomIn,
+  'online-roulette': Dices,
+}
+
+function toolIcon(slug: string) {
+  return TOOL_ICONS[slug] ?? Sparkles
+}
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
-  const tools = useMemo(
-    () => [
-      {
-        to: '/tools/actual-size-layout',
-        title: '原寸レイアウトメーカー',
-        description:
-          '免許証やパスポートの画像をA4に原寸配置して印刷・PDF出力するツール',
-        icon: Printer,
-      },
-      {
-        to: '/tools/trip-scheduler',
-        title: '旅程パズル',
-        description:
-          'ヨーロッパ周遊の泊数と移動手段をパズルのように決めるツール',
-        icon: Map,
-      },
-      {
-        to: '/tools/trip-notes',
-        title: '旅のしおり',
-        description: '旅行の予約状況を管理し、旅先で予約情報をすぐ出すツール',
-        icon: Luggage,
-      },
-      {
-        to: '/tools/drum-roll',
-        title: 'ドラムロール',
-        description: '長押しでロール、放すとジャーンと鳴る演出ツール',
-        icon: Drum,
-      },
-      {
-        to: '/tools/taiwan-arrival-card',
-        title: '台湾入国カードメーカー',
-        description: '台湾入国カード（TWAC）の登録用 Excel を作るツール',
-        icon: PlaneLanding,
-      },
-    ],
-    [],
-  )
+  const categories = useMemo(() => getCatalogByCategory(), [])
 
   return (
     <>
@@ -129,37 +112,27 @@ export default function Header() {
             </Link>
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-5">
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
               Tools
             </p>
 
-            <div className="space-y-2">
-              {tools.map((tool) => (
-                <Link
-                  key={tool.to}
-                  to={tool.to}
-                  onClick={() => setIsOpen(false)}
-                  className="group flex gap-3 rounded-2xl border border-white/5 bg-white/[0.04] p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/10"
-                  activeProps={{
-                    className:
-                      'group flex gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/15 p-4',
-                  }}
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-cyan-200 group-hover:bg-cyan-500/20 group-[&.active]:bg-cyan-500/25">
-                    <tool.icon size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white">
-                      {tool.title}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {tool.description}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {categories.map((category) => (
+              <div key={category.id} className="space-y-2">
+                <p className="px-1 text-xs font-medium tracking-wide text-gray-400">
+                  {category.name}
+                </p>
+                <div className="space-y-2">
+                  {category.items.map((item) => (
+                    <ToolNavItem
+                      key={item.slug}
+                      item={item}
+                      onNavigate={() => setIsOpen(false)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </nav>
 
@@ -171,6 +144,68 @@ export default function Header() {
         </footer>
       </aside>
     </>
+  )
+}
+
+function ToolNavItem({
+  item,
+  onNavigate,
+}: {
+  item: CatalogItem
+  onNavigate: () => void
+}) {
+  const Icon = toolIcon(item.slug)
+  const body = (
+    <>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-cyan-200 group-hover:bg-cyan-500/20 group-[&.active]:bg-cyan-500/25">
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+          <span className="truncate">{item.name}</span>
+          {item.kind === 'external' && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+              外部
+              <ExternalLink size={10} aria-hidden />
+            </span>
+          )}
+        </p>
+        <p className="mt-1 text-xs text-gray-400 line-clamp-2">
+          {item.description}
+        </p>
+      </div>
+    </>
+  )
+
+  const baseClassName =
+    'group flex gap-3 rounded-2xl border border-white/5 bg-white/[0.04] p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/10'
+
+  if (item.kind === 'external') {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onNavigate}
+        className={baseClassName}
+      >
+        {body}
+      </a>
+    )
+  }
+
+  return (
+    <Link
+      to={item.path}
+      onClick={onNavigate}
+      className={baseClassName}
+      activeProps={{
+        className:
+          'group flex gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/15 p-4',
+      }}
+    >
+      {body}
+    </Link>
   )
 }
 
