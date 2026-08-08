@@ -77,10 +77,17 @@ export default defineConfig({
       // トール時 (=オンライン時) にしか読まないので precache しない。
       // public/assets/drum-roll/*.m4a も、旅先で要るものではない上に
       // 200KB 超あるので入れていない。
+      //
+      // taiwan-arrival-card/template.xlsx は逆に必ず入れる。これが無いと
+      // フォームは開けるのに「Excel をダウンロード」だけが必ず失敗する、という
+      // いちばん困る壊れ方をする。しかもこのツールを使うのは渡航直前で、
+      // 機内や空港の不安定な回線という「まさにオフラインになる場面」が
+      // 想定される。44KB なので上の 200KB の目安も下回る。
       includeAssets: [
         'favicon.ico',
         'assets/tainakanchu-avatar.png',
         'assets/tainakanchu-avatar-192.png',
+        'assets/taiwan-arrival-card/template.xlsx',
       ],
       // manifest の icons を自動で precache に足す挙動 (デフォルト true) を
       // 切っている。これを有効のままにすると 512 のアイコン (352KB) まで

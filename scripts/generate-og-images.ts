@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -171,6 +171,32 @@ const ICONS = {
     all: [
       ['circle', { cx: '12', cy: '12', r: '10' }],
       ['path', { d: 'M12 6v6l4 2' }],
+    ],
+  },
+  'plane-landing': {
+    all: [
+      ['path', { d: 'M2 22h20' }],
+      [
+        'path',
+        {
+          d: 'M3.77 10.77 2 9l2-4.5 1.1.55c.55.28.9.84.9 1.45s.35 1.17.9 1.45L8 8.5l3-6 1.05.53a2 2 0 0 1 1.09 1.52l.72 5.4a2 2 0 0 0 1.09 1.52l4.4 2.2c.42.22.78.55 1.01.96l.6 1.03c.49.88-.06 1.98-1.06 2.1l-1.18.15c-.47.06-.95-.02-1.37-.24L4.29 11.15a2 2 0 0 1-.52-.38Z',
+        },
+      ],
+    ],
+  },
+  stamp: {
+    all: [
+      [
+        'path',
+        { d: 'M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13' },
+      ],
+      [
+        'path',
+        {
+          d: 'M20 15.5a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1z',
+        },
+      ],
+      ['path', { d: 'M5 22h14' }],
     ],
   },
 } as const satisfies Record<string, IconParts>
@@ -395,6 +421,43 @@ const CARDS: ReadonlyArray<CardDef> = [
         cx: 830,
         cy: 195,
         size: 70,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'taiwan-arrival-card',
+    titleFontSize: 84,
+    titleLines: [
+      { text: '台湾入国カード', y: 300 },
+      { text: 'メーカー', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'plane-landing',
+        part: 'all',
+        cx: 940,
+        cy: 305,
+        size: 190,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'id-card',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 100,
+        rotate: -10,
+        color: 'sub',
+      },
+      {
+        icon: 'stamp',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 72,
         rotate: 0,
         color: 'accent',
       },
