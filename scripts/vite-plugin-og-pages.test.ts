@@ -9,6 +9,7 @@ const sampleTool: ToolMeta = {
     '予約の抜けを旅行前に潰し、旅行中は確認番号や集合時刻だけをすぐ取り出せる予約ダッシュボード。',
   path: '/tools/trip-notes',
   ogImagePath: '/assets/og/trip-notes.png',
+  category: 'travel',
 }
 
 const template = `<!doctype html>
