@@ -55,6 +55,14 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     path: '/tools/drum-roll',
     ogImagePath: '/assets/og/drum-roll.png',
   },
+  {
+    slug: 'taiwan-arrival-card',
+    name: '台湾入国カードメーカー',
+    description:
+      '台湾オンライン入国カード（TWAC）の一括アップロード用 Excel を、AI による航空券読み取りつきで同行者のぶんまでまとめて作成できるフォーム。',
+    path: '/tools/taiwan-arrival-card',
+    ogImagePath: '/assets/og/taiwan-arrival-card.png',
+  },
 ]
 
 /** ブラウザタブと OG で揃えるため、ツール名にサイト名を付けた形式に統一する */
