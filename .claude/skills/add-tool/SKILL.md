@@ -9,15 +9,15 @@ description: かんちゅツールズ (tainakanchu-tools) リポジトリに新�
 
 このリポジトリの「ツール 1 個」は次の要素で構成される。
 
-| 要素 | ファイル | 更新方法 |
-| --- | --- | --- |
-| メタ情報（単一ソース） | `src/lib/site-meta.ts` の `TOOL_META` | 手動追加（起点） |
-| ページ本体 | `src/routes/tools/<slug>/index.tsx` | 手動作成 |
-| トップページのカード一覧 | `src/routes/index.tsx` | 自動（TOOL_META 由来） |
-| ツール別 OG メタ入り静的 HTML | `dist/tools/<slug>.html` | 自動（ビルドプラグイン） |
-| ヘッダーのドロワーナビ | `src/components/Header.tsx` の `tools` 配列 | ⚠️ 手動同期 |
-| OG カード画像 | `scripts/generate-og-images.ts` + `public/assets/og/<slug>.png` | 手動定義 + `pnpm og:images` |
-| README | `README.md` の「✨ 現在のアプリ」 | ⚠️ 手動同期 |
+| 要素                          | ファイル                                                        | 更新方法                    |
+| ----------------------------- | --------------------------------------------------------------- | --------------------------- |
+| メタ情報（単一ソース）        | `src/lib/site-meta.ts` の `TOOL_META`                           | 手動追加（起点）            |
+| ページ本体                    | `src/routes/tools/<slug>/index.tsx`                             | 手動作成                    |
+| トップページのカード一覧      | `src/routes/index.tsx`                                          | 自動（TOOL_META 由来）      |
+| ツール別 OG メタ入り静的 HTML | `dist/tools/<slug>.html`                                        | 自動（ビルドプラグイン）    |
+| ヘッダーのドロワーナビ        | `src/components/Header.tsx` の `tools` 配列                     | ⚠️ 手動同期                 |
+| OG カード画像                 | `scripts/generate-og-images.ts` + `public/assets/og/<slug>.png` | 手動定義 + `pnpm og:images` |
+| README                        | `README.md` の「✨ 現在のアプリ」                               | ⚠️ 手動同期                 |
 
 `index.html` はサイト共通メタのテンプレートなので**編集しない**。ツール別の OG は `scripts/vite-plugin-og-pages.ts` がビルド後に `dist/index.html` を複製・メタ差し替えして `dist/tools/<slug>.html` を自動生成する。`TOOL_META` に載っていれば新ツールも自動で対象になる。
 
