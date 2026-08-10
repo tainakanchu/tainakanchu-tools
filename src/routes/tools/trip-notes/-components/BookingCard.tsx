@@ -46,7 +46,9 @@ import {
   formatDualTime,
   formatStamp,
   stampDate,
+  tryParseStamp,
 } from '../../../../lib/trip-notes/datetime'
+import { MILESTONE_LABELS } from '../../../../lib/trip-notes/milestones'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { bookingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
 import { formatBookingBaggage } from '../../../../lib/trip-notes/baggage'
@@ -200,6 +202,94 @@ function checkInOpensText(minutes: number): string {
     : `出発の${minutes}分前`
 }
 
+function deadlineRelativeText(minutes: number): string {
+  return `出発の${minutes}分前`
+}
+
+/**
+ * 移動の「出発の何分前」系 3 項目。今タブのマイルストーンには出るが、
+ * 日程カードには載っていなかったので、一覧でも同じ情報を読めるようにする。
+ *
+ * 並びは時系列(開く → 手荷物 → 搭乗手続き)。人が動く順。
+ * 終日でないときだけ絶対時刻も添える(終日の 00:00 から引き算しても嘘になる)。
+ */
+interface TransportTimingRow {
+  field: FieldKey
+  /** 画面の見出し。MILESTONE_LABELS と揃え、今タブと日程で呼び名がずれないようにする */
+  label: string
+  relative: string
+  /** 絶対時刻。終日・壊れた Stamp では null */
+  absolute: string | null
+  shortLabel: string
+}
+
+function transportTimingRows(
+  booking: Booking,
+  displayTz: string,
+): Array<TransportTimingRow> {
+  if (!isTransportKind(booking.kind)) return []
+
+  const sources: Array<{
+    field: FieldKey
+    milestone: 'onlineCheckInOpen' | 'bagDrop' | 'checkIn'
+    minutes: number | undefined
+    relative: (m: number) => string
+    shortLabel: string
+  }> = [
+    {
+      field: 'onlineCheckInOpensMinutesBefore',
+      milestone: 'onlineCheckInOpen',
+      minutes: booking.onlineCheckInOpensMinutesBefore,
+      relative: checkInOpensText,
+      shortLabel: 'CI開始',
+    },
+    {
+      field: 'bagDropClosesMinutesBefore',
+      milestone: 'bagDrop',
+      minutes: booking.bagDropClosesMinutesBefore,
+      relative: deadlineRelativeText,
+      shortLabel: '手荷物',
+    },
+    {
+      field: 'checkInClosesMinutesBefore',
+      milestone: 'checkIn',
+      minutes: booking.checkInClosesMinutesBefore,
+      relative: deadlineRelativeText,
+      shortLabel: '搭乗',
+    },
+  ]
+
+  const start = booking.start.allDay ? null : tryParseStamp(booking.start)
+
+  const rows: Array<TransportTimingRow> = []
+  for (const source of sources) {
+    if (source.minutes === undefined) continue
+    let absolute: string | null = null
+    if (start !== null) {
+      const at = start.subtract({ minutes: source.minutes })
+      absolute = formatTime(
+        booking.kind,
+        { zdt: at.toString(), allDay: false },
+        displayTz,
+      )
+    }
+    rows.push({
+      field: source.field,
+      label: MILESTONE_LABELS[source.milestone],
+      relative: source.relative(source.minutes),
+      absolute,
+      shortLabel: source.shortLabel,
+    })
+  }
+  return rows
+}
+
+function timingDisplayText(row: TransportTimingRow): string {
+  return row.absolute === null
+    ? row.relative
+    : `${row.absolute}（${row.relative}）`
+}
+
 /**
  * 未確認フィールドの「いま画面に入っている値」。
  *
@@ -246,17 +336,13 @@ function fieldValueText(
         ? EMPTY_VALUE
         : formatDateJa(booking.freeCancelUntil)
     case 'onlineCheckInOpensMinutesBefore':
-      return booking.onlineCheckInOpensMinutesBefore === undefined
-        ? EMPTY_VALUE
-        : checkInOpensText(booking.onlineCheckInOpensMinutesBefore)
     case 'checkInClosesMinutesBefore':
-      return booking.checkInClosesMinutesBefore === undefined
-        ? EMPTY_VALUE
-        : `出発の${booking.checkInClosesMinutesBefore}分前`
-    case 'bagDropClosesMinutesBefore':
-      return booking.bagDropClosesMinutesBefore === undefined
-        ? EMPTY_VALUE
-        : `出発の${booking.bagDropClosesMinutesBefore}分前`
+    case 'bagDropClosesMinutesBefore': {
+      const row = transportTimingRows(booking, displayTz).find(
+        (entry) => entry.field === field,
+      )
+      return row === undefined ? EMPTY_VALUE : timingDisplayText(row)
+    }
     case 'baggage':
       return formatBookingBaggage(booking.baggage) ?? EMPTY_VALUE
     case 'note':
@@ -316,6 +402,19 @@ export function BookingCard({
     booking.end !== null
       ? formatTime(booking.kind, booking.end, displayTz)
       : null
+  const timingRows = transportTimingRows(booking, displayTz)
+  // 折りたたみ時は短いラベルで 1 行にまとめる。今タブでしか見えなかった
+  // 「オンラインチェックイン開始」などが、一覧を流し見したときにも拾えるようにする
+  const timingSummary =
+    timingRows.length === 0
+      ? null
+      : timingRows
+          .map((row) =>
+            row.absolute === null
+              ? `${row.shortLabel} ${row.relative}`
+              : `${row.shortLabel} ${row.absolute}`,
+          )
+          .join(' · ')
 
   return (
     <div
@@ -384,6 +483,18 @@ export function BookingCard({
                     className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(...place.fields)}`}
                   >
                     {place.text}
+                  </span>
+                ) : null}
+
+                {timingSummary !== null && !expanded ? (
+                  <span
+                    className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(
+                      'onlineCheckInOpensMinutesBefore',
+                      'bagDropClosesMinutesBefore',
+                      'checkInClosesMinutesBefore',
+                    )}`}
+                  >
+                    {timingSummary}
                   </span>
                 ) : null}
               </span>
@@ -504,6 +615,7 @@ function BookingDetails({
   const isUnverified = (field: FieldKey) =>
     unverified.includes(field) ? unverifiedFieldClass : ''
   const baggageText = formatBookingBaggage(booking.baggage)
+  const timingRows = transportTimingRows(booking, displayTz)
 
   return (
     <div id={id} className="mt-3 space-y-3 border-t border-gray-200 pt-3">
@@ -528,6 +640,21 @@ function BookingDetails({
             {formatDateTime(booking.kind, booking.end, displayTz)}
           </DetailRow>
         ) : null}
+
+        {/*
+          オンラインチェックイン開始・手荷物/搭乗の締切。
+          今タブのマイルストーンと同じ情報を、日程のカード展開でも読めるようにする。
+          データは「出発の何分前」だが、画面では絶対時刻も添える(PrintSheet と同じ判断)。
+        */}
+        {timingRows.map((row) => (
+          <DetailRow
+            key={row.field}
+            label={row.label}
+            valueClass={isUnverified(row.field)}
+          >
+            {timingDisplayText(row)}
+          </DetailRow>
+        ))}
 
         {/*
           場所は name だけで済ませず、現地語表記と住所も出す。現地語表記は

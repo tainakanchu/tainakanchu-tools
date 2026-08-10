@@ -851,6 +851,39 @@ describe('日程タブの予約カードはタップでその場に展開する'
     expect(scope.queryByText('Gare de Lyon')).toBeNull()
   })
 
+  it('オンラインチェックイン開始と締切は折りたたみでも展開でも日程カードに出る', () => {
+    // 今タブのマイルストーンには出るが、日程一覧では見えなかった項目。
+    // 穴埋めで入った値を、一覧を流し見したときにも拾えるようにする
+    const timed: TripNotesState = {
+      ...expandTrip,
+      bookings: [
+        {
+          ...expandTrip.bookings[0],
+          onlineCheckInOpensMinutesBefore: 1440,
+          bagDropClosesMinutesBefore: 60,
+          checkInClosesMinutesBefore: 45,
+        },
+      ],
+    }
+    const { container } = render(<ScheduleHarness initial={timed} />)
+    const scope = within(container)
+
+    // 折りたたみ時: 短い要約 1 行(絶対時刻)
+    // 出発 21:00 → CI開始 21:00-24h=前日21:00、手荷物 20:00、搭乗 20:15
+    expect(scope.getByText(/CI開始/)).toBeTruthy()
+    expect(scope.getByText(/手荷物/)).toBeTruthy()
+    expect(scope.getByText(/搭乗/)).toBeTruthy()
+
+    fireEvent.click(scope.getByRole('button', { expanded: false }))
+    // 展開時: 今タブと同じラベル + 絶対時刻と相対
+    expect(scope.getByText('オンラインチェックイン開始')).toBeTruthy()
+    expect(scope.getByText('手荷物を預ける締切')).toBeTruthy()
+    expect(scope.getByText('搭乗手続きの締切')).toBeTruthy()
+    expect(scope.getByText(/出発の24時間前/)).toBeTruthy()
+    expect(scope.getByText(/出発の60分前/)).toBeTruthy()
+    expect(scope.getByText(/出発の45分前/)).toBeTruthy()
+  })
+
   it('未確認フィールドの行には AI の抽出根拠がそのまま出る', () => {
     const { scope, toggle } = renderSchedule()
     fireEvent.click(toggle)
