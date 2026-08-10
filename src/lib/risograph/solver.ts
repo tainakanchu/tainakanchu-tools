@@ -75,7 +75,8 @@ export function objective(
   let total = 0
   let sparse = 0
   for (let i = 0; i < n; i++) {
-    const v = a[i]
+    // 実行可能域の外を評価されても NaN を出さないよう下限で押さえる
+    const v = a[i] > 0 ? a[i] : 0
     total += v
     sparse += Math.sqrt(v + SPARSE_EPS)
   }
@@ -150,14 +151,23 @@ export function solveNode(
   let obj = objective(out, targetLab, neighborMean, lambdaSmoothEff, ctx)
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
-    // 中心差分勾配
+    // 差分勾配。差分点は [0, maxCoverage] に収める（境界では片側差分になる）。
+    // 実行可能域の外へ踏み出すと tone のクランプで勾配が消え、境界に張り付く。
     for (let i = 0; i < n; i++) {
       trial.set(out)
-      trial[i] = out[i] + GRAD_H
+      const max = ctx.fwd.maxCoverage[i]
+      const hi = Math.min(max, out[i] + GRAD_H)
+      const lo = Math.max(0, out[i] - GRAD_H)
+      const span = hi - lo
+      if (span <= 0) {
+        grad[i] = 0
+        continue
+      }
+      trial[i] = hi
       const fp = objective(trial, targetLab, neighborMean, lambdaSmoothEff, ctx)
-      trial[i] = out[i] - GRAD_H
+      trial[i] = lo
       const fm = objective(trial, targetLab, neighborMean, lambdaSmoothEff, ctx)
-      grad[i] = (fp - fm) / (2 * GRAD_H)
+      grad[i] = (fp - fm) / span
     }
 
     let gradNorm = 0
