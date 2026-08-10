@@ -86,6 +86,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     ogImagePath: '/assets/og/actual-size-layout.png',
     category: 'desk',
   },
+  {
+    slug: 'risograph',
+    name: 'リソ風分版メーカー',
+    description:
+      '画像を仮想特色インクの版に分解し、重ね刷りシミュレーション・網点・版ズレ表現つきでリソグラフ風の印刷データを作れる分版ツール。',
+    path: '/tools/risograph',
+    ogImagePath: '/assets/og/risograph.png',
+    category: 'desk',
+  },
   // イベント
   {
     slug: 'drum-roll',
@@ -123,30 +132,29 @@ export const EXTERNAL_TOOLS: ReadonlyArray<ExternalTool> = [
 
 /** カタログ用の判別可能な union */
 export type CatalogItem =
-  | (ToolMeta & { kind: 'internal' })
-  | (ExternalTool & { kind: 'external' })
+  (ToolMeta & { kind: 'internal' }) | (ExternalTool & { kind: 'external' })
 
 /** カテゴリ内の表示順（slug） */
-const ORDER_BY_CATEGORY: Record<ToolCategoryId, readonly string[]> = {
+const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
   travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card'],
-  desk: ['actual-size-layout', 'magnify-image'],
+  desk: ['actual-size-layout', 'risograph', 'magnify-image'],
   event: ['drum-roll', 'online-roulette'],
 }
 
 function sortByCategoryOrder(
-  items: CatalogItem[],
+  items: Array<CatalogItem>,
   categoryId: ToolCategoryId,
-): CatalogItem[] {
+): Array<CatalogItem> {
   const order = ORDER_BY_CATEGORY[categoryId]
   const indexOf = (slug: string) => {
     const i = order.indexOf(slug)
     return i === -1 ? order.length : i
   }
-  return [...items].sort((a, b) => indexOf(a.slug) - indexOf(b.slug))
+  return items.toSorted((a, b) => indexOf(a.slug) - indexOf(b.slug))
 }
 
 /** 内部 + 外部を kind 付きでフラットに返す（カテゴリ順・カテゴリ内順） */
-export function getCatalogItems(): CatalogItem[] {
+export function getCatalogItems(): Array<CatalogItem> {
   return getCatalogByCategory().flatMap((group) => group.items)
 }
 
@@ -154,13 +162,13 @@ export function getCatalogItems(): CatalogItem[] {
 export function getCatalogByCategory(): Array<{
   id: ToolCategoryId
   name: string
-  items: CatalogItem[]
+  items: Array<CatalogItem>
 }> {
-  const internal: CatalogItem[] = TOOL_META.map((tool) => ({
+  const internal: Array<CatalogItem> = TOOL_META.map((tool) => ({
     ...tool,
     kind: 'internal' as const,
   }))
-  const external: CatalogItem[] = EXTERNAL_TOOLS.map((tool) => ({
+  const external: Array<CatalogItem> = EXTERNAL_TOOLS.map((tool) => ({
     ...tool,
     kind: 'external' as const,
   }))
