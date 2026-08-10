@@ -1,94 +1,29 @@
 /**
- * すでに登録済みの予約に、あとから増えた項目を埋めさせるためのプロンプトを組み立てる層。
+ * 登録済みデータに空いている「一般知識で埋められる欄」(A 項目)を検出する層。
  *
- * 抽出プロンプト(aiPrompt.ts)は「原本を読んで予約を作る」ためのものだが、こちらは
- * 「原本はもう手元にない前提で、登録済みのデータだけを手掛かりに欠けた欄を足す」ためのもの。
- * アプリに項目が増えるたびに、利用者が過去の予約確認 PDF を探し直して全部読ませ直すのは
- * 現実的でない(古い予約ほど原本が見つからない)。
- *
- * 設計判断:
+ * プロンプト本文の組み立ては aiPrompt.ts の buildImportPrompt に一本化した。
+ * こちらは「どこに穴があるか」の検出と、プロンプトへ載せる gap 用の payload だけを持つ。
+ * UI が「空き欄の内訳」を出すときも、プロンプトと同じ判定(findBackfillGaps)を使う。
  *
  * ■ なぜ「一般知識で埋まる項目」だけを対象にするのか
  *   予約の欄は、埋められる根拠で 2 種類に分かれる。
  *     A. AI の一般知識から導けるもの。搭乗手続き・受託手荷物の締切とオンライン
- *        チェックインの開放時刻(いずれも航空会社と空港が公開している規定で、
- *        便名と空港名さえ分かれば引ける)、地名のラテン文字表記
- *        (その土地について広く知られている表記)。
+ *        チェックインの開放時刻、地名のラテン文字表記、国のプラグ形状など。
  *     B. 原本にしか書かれていないもの。座席番号、運賃クラス、受託手荷物の個数、
- *        朝食の有無、その便固有の但し書き。
- *   この穴埋めが渡せるのは登録済みのデータだけで、そこには B の根拠が存在しない。
- *   にもかかわらず B を対象に含めると、AI は空欄を嫌ってそれらしい値をでっち上げる。
- *   しかも出てくるのは「12A」のようないかにも本物らしい座席番号で、利用者が
- *   捏造だと気付ける手掛かりが画面のどこにも無い。だから対象は A に限る。
- *   A は外れても実害が小さい(締切は早い側に外れるので余分に待つだけ、開放時刻は
- *   遅い側に外れても席を取りに行くのが少し遅れるだけ、ラテン文字表記は
- *   外部の検索リンクが空振りするだけ)という点でも B と性質が違う。
+ *        朝食の有無。
+ *   書類なしで B を対象にすると AI がそれらしい値を捏造する。A / B の区別は
+ *   BACKFILL_FIELDS / COUNTRY_INFO_FILL_FIELDS への登録の有無で表す。
  *
- *   A / B の区別は BACKFILL_FIELDS への登録の有無で表す。今後フィールドが増えたときは、
- *   A なら 1 件足すだけでこの機能の対象に加わり、B なら何もしなければ対象外のまま残る。
- *   「対象かどうか」を各所の if 文に散らすと、項目が増えるたびに書き足す場所を
- *   探し回ることになり、いずれ足し忘れる。
- *
- * ■ 予約単位だけでなく旅程単位の穴も対象にする
- *   もともとこの層は予約 1 件ずつの欄だけを見ていた。しかしプラグ形状・電圧・
- *   チップ・緊急通報番号といった国の基本情報(types.ts の CountryInfo)も、
- *   根拠で言えば完全に A である。どれもその国について公開されている事実で、
- *   原本を要しない。予約に紐づかないという理由だけで対象の外に置くと、利用者は
- *   同じ「調べれば分かること」を、項目によって手で埋めたり AI に頼めたりする
- *   ことになる。埋められる根拠が同じなら、入れ物が違っても同じ導線に乗せる。
- *
- * ■ ただし訪問国の推定はしない
- *   地名から国を当てることは機械にはさせない。「サンティアゴ」がチリなのか
- *   スペインなのかは、予約データからは決まらない。しかも外したときに出るのは
- *   間違った国のプラグ形状や緊急通報番号で、それを自信たっぷりに見せるのは
- *   空欄よりはるかに危険である(慌てているときほど、書いてある番号を疑わない)。
- *   だから**国名の入力だけは人間の仕事**だと割り切る(types.ts の CountryInfo に
- *   書いた「国名だけは人間が入れる」と同じ判断)。
- *   穴として数えるのは「countryInfos に登録済みだが欄が空」のものだけで、
- *   1 件も登録されていない状態は穴ではない。それは「まだ何も教えてもらっていない」
- *   であって、埋めるべき欄がある状態ではないからである。だからプロンプトには
- *   何も載せず、代わりに UI(設定タブ)が「国名を登録すれば埋められる」導線を出す。
- *   その出し分けを UI 側でもう一度判定させないために countryCount を返す。
- *
- * ■ なぜ国の latinName は埋めさせないのか
- *   埋め方の規則が違うから。場所のラテン文字表記の規則は「外部の経路検索に渡すので
- *   都市名を優先する」という、地名に固有の話で、国名にはそのまま当てはまらない。
- *   規則が違うものを同じ 1 件にまとめない、というのは BACKFILL_FIELDS の設計原則
- *   (1 件 = 1 つの規則で埋まる項目のまとまり)そのものである。
- *   国名のラテン文字表記は、人間が要るときだけ手で入れる。
- *
- * ■ なぜ既存の値を再出力させないのか
- *   最初は「全項目を出し直させて丸ごと差し替える」ほうが素直に見えたが、これは危ない。
- *   AI に 1 件ぶんの予約を全部書き写させると、出発時刻の 1 文字が変わったり、
- *   確認番号の O と 0 が入れ替わったりする。書き写しの誤りは元の値と見分けが付かない
- *   形で入るので、取り込んだあとに気付く手立てが無い。しかも「埋めるだけのつもり」の
- *   操作なので、利用者は差分を疑いもしない。
- *   だから出力は「予約を識別するための最小限の項目 + 新しく埋める項目だけ」の
- *   パッチ形式にする。パッチに含まれない欄は importMerge の
- *   「取り込み側が空の項目は既存を維持する」規則によって、そもそも触られない。
- *
- * ■ なぜ確認番号を送らないのか
- *   予約の突き合わせ(importMerge.ts の planImport)は、確認番号が一致するか、
- *   kind + 開始日 + タイトルが一致するかで既存の予約を見つける。後者だけで十分
- *   マッチするので、確認番号を送る必要が無い。
- *   一方これは利用者が自分の予約データを外部のチャットに貼る操作なので、送らずに
- *   済むものは送らない。確認番号は「それ単体で予約を操作できてしまう」種類の値で、
- *   タイトルや日時とは危険度が違う。同じ理由で料金・メモ・搭乗者名も送らない。
- *
- * ■ 出力を戻す先は既存の AI インポート
- *   パッチ形式の JSON は、そのまま AI インポートのステップ 2 に貼れば
- *   parseImportedJson → planImport が既存の予約にマージしてくれる。専用の取り込み口は
- *   作らない。取り込みの経路が 2 本になると、マッチ条件や検証の規則がいずれ食い違い、
- *   「片方の口からは入るのに、もう片方からは入らない」という追いにくい壊れ方をする。
- *
- * ■ 埋まらなかった予約は次回も対象に残る
- *   AI が「特定できない」として null を返した予約は、値が入らないので次に開いたときも
- *   穴として数え続ける。うっとうしくはあるが、「一度尋ねたから埋まったことにする」ための
- *   状態を別に持つと、その状態と実際の値が食い違ったときに直しようがなくなる。
- *   捏造した値で穴を塞ぐより、空のまま残って導線を無視できるほうが安全である。
+ * ■ 訪問国の推定はしない
+ *   国名の入力だけは人間の仕事(types.ts の CountryInfo と同じ)。
+ *   穴として数えるのは「countryInfos に登録済みだが欄が空」のものだけ。
  */
 
-import { AIRLINE_TIMING_FILL_RULE, LATIN_NAME_FILL_RULE } from './aiPrompt'
+import {
+  AIRLINE_TIMING_FILL_RULE,
+  COUNTRY_INFO_FILL_RULE,
+  LATIN_NAME_FILL_RULE,
+} from './promptRules'
 import { tryParseStamp } from './datetime'
 import { isTransportKind } from './nights'
 import type { Booking, CountryInfo, TripNotesState } from './types'
@@ -250,30 +185,6 @@ export const COUNTRY_INFO_FILL_FIELDS: ReadonlyArray<{
   key: string
   label: string
 }> = COUNTRY_INFO_FILL_FIELD_DEFS
-
-/**
- * 国の基本情報を一般知識で埋めさせる規則の本文。
- *
- * aiPrompt.ts に置かないのは、抽出プロンプトが国情報をまったく扱わないため。
- * AIRLINE_TIMING_FILL_RULE があちらにあるのは「2 つのプロンプトが同じ文面を使うから」
- * であって、規則だからではない。使い手が 1 つしかない文面を共有の置き場に出すと、
- * 抽出プロンプトを読む人に「これも抽出で使うのか」と探させることになる。
- *
- * 行頭の 3 スペースは、番号付きリストのぶら下げに合わせてある(rule と同じ)。
- */
-const COUNTRY_INFO_FILL_RULE = `   プラグ形状・電圧/周波数・緊急通報番号は**その国の公的な事実**で、
-   旅行ガイドにも大使館の案内にも載っている種類の情報です。
-   だから一般知識で埋めてかまいません。
-   1. **緊急通報番号は警察と救急・消防を分けて**答えてください。同じ番号で共通の国
-      (米国の 911 など)なら、両方に同じ番号を書いてください。片方を空欄にしないこと。
-      これを読むのはいちばん慌てている人で、「片方しか書いていない」の意味を
-      その場で読み解かせてはいけません。
-   2. **チップの文化だけは性質が違います。** 地域・店の種類・時期で幅があり、
-      1 つの正解がありません。「不要」「10%」のような断定ではなく、
-      **幅があること自体を書いてください**
-      (例: 「基本は不要。高級店やホテルでは 5〜10% を置くこともある」)。
-   3. その国について特定できなければ **null** にしてください。推測で埋めないこと。
-   4. evidence には、その国のどんな事実からその値にしたのかを書いてください。`
 
 /** 穴のある予約 1 件と、その予約で欠けている項目 */
 export interface BackfillTarget {
@@ -482,7 +393,10 @@ function toCountryPayload(gap: CountryInfoGap): PayloadCountry {
  * 違う型定義を作ると「どの国にどの欄が許されているのか」が読めなくなる。
  * どの欄を埋めるかは、各国の missing が決める。
  */
-const COUNTRY_INFO_PATCH_TYPE = `interface CountryInfoPatch {
+/**
+ * 国のパッチの出力スキーマ。buildImportPrompt が国の穴があるときだけ載せる。
+ */
+export const COUNTRY_INFO_PATCH_TYPE = `interface CountryInfoPatch {
   /** 渡した name をそのまま返してください。1 文字も変えないこと(照合に使います) */
   name: string
   /** プラグ形状 (例: 'A / C')。missing に無ければ、この欄ごと省いてください */
@@ -499,33 +413,33 @@ const COUNTRY_INFO_PATCH_TYPE = `interface CountryInfoPatch {
   evidence: { [key: string]: string }
 }`
 
-/** null を落として文字列だけを残す。節の組み立てで何度も要るので関数にしてある */
-function joinDefined(parts: Array<string | null>, separator: string): string {
-  return parts.filter((part): part is string => part !== null).join(separator)
+/**
+ * 統合プロンプト(buildImportPrompt)に差し込む、空き欄まわりの材料。
+ * 穴が 1 つも無ければ null(プロンプトから gap 節ごと省く)。
+ */
+export interface GapPromptContext {
+  bookingPayloads: Array<PayloadBooking>
+  countryPayloads: Array<PayloadCountry>
+  usedFields: Array<BackfillField>
+  hasBookings: boolean
+  hasCountries: boolean
 }
 
 /**
- * 穴埋め用プロンプトを組み立てる。埋める穴が 1 つも無ければ null を返す。
- *
- * null を返すのは、呼び出し側(UI)がそれだけで出し分けられるようにするため。
- * 「穴があるか」の判定を UI 側にもう一度書くと、プロンプトの対象と画面の表示が
- * 食い違って「導線は出ているのに空のプロンプトが出てくる」ことになる。
- *
- * 予約の穴と国の穴は独立に効く。片方しか無くてもそちら側だけのプロンプトを出す。
- * 両方揃うまで出さないことにすると、埋められるものが埋められないまま残る。
- * 逆に「載せる中身は実際に穴がある側だけ」は徹底する。使わない型定義や規則まで
- * 並べると、AI が「載っている以上は何か埋めるべきだ」と読んで対象外の欄まで
- * 書き始める(usedFields の絞り込みと同じ理由)。
+ * プロンプトに載せる gap 用の payload を組み立てる。
+ * 検出は findBackfillGaps と同じなので、UI の内訳とプロンプトの対象がずれない。
  */
-export function buildBackfillPrompt(state: TripNotesState): string | null {
+export function getGapPromptContext(
+  state: TripNotesState,
+): GapPromptContext | null {
   const gaps = findBackfillGaps(state)
 
-  const payloads = gaps.targets
+  const bookingPayloads = gaps.targets
     .map(toPayload)
     .filter((payload): payload is PayloadBooking => payload !== null)
   const countryPayloads = gaps.countries.map(toCountryPayload)
 
-  const hasBookings = payloads.length > 0
+  const hasBookings = bookingPayloads.length > 0
   const hasCountries = countryPayloads.length > 0
   if (!hasBookings && !hasCountries) return null
 
@@ -535,178 +449,11 @@ export function buildBackfillPrompt(state: TripNotesState): string | null {
       )
     : []
 
-  const bookingTypes = hasBookings
-    ? [
-        ...usedFields
-          .map((field) => field.helperTypes)
-          .filter((types): types is string => types !== undefined),
-        `interface BookingPatch {
-  /** 渡した値をそのまま返してください(照合に使います) */
-  kind: string
-  /** 渡した値をそのまま返してください(照合に使います) */
-  title: string
-  /** 渡した値をそのまま返してください(照合に使います) */
-  start: { date: string; time: string | null; tz: string }
-${usedFields.map((field) => field.schema).join('\n')}
-  /** その値をどう決めたかの根拠。項目名をキーにする */
-  evidence: { [key: string]: string }
-}`,
-      ]
-    : []
-
-  const outputMembers = joinDefined(
-    [
-      hasBookings ? 'BookingPatch' : null,
-      hasCountries ? 'CountryInfoPatch' : null,
-    ],
-    ' | ',
-  )
-  const typeSection = [
-    ...bookingTypes,
-    ...(hasCountries ? [COUNTRY_INFO_PATCH_TYPE] : []),
-    `type Output = Array<${outputMembers}>`,
-  ].join('\n\n')
-
-  // 両方載るときだけ、どちらのパッチなのかの見分け方を本文にも書く。
-  // 型を 2 つ並べただけだと「1 件ずつどちらかを選ぶ」とは読めても、
-  // 1 つの配列に混ぜてよいことまでは伝わらず、2 回に分けて答えられてしまう
-  const discriminationNote =
-    hasBookings && hasCountries
-      ? `
-予約のパッチと国のパッチは、**1 つの配列に混ぜて返してかまいません**。
-アプリは形で見分けます。**予約のパッチには \`kind\` と \`start\` があり、
-国のパッチにはそのどちらも無く \`name\` があります。**
-どちらか一方の形に寄せたり、2 つの配列に分けたりしないでください。
-`
-      : ''
-
-  const bookingSection = hasBookings
-    ? `
-## 補う予約
-各予約の \`missing\` に、その予約で不足している欄のキーが並んでいます。
-
-\`\`\`json
-${JSON.stringify(payloads, null, 2)}
-\`\`\`
-`
-    : ''
-
-  const countrySection = hasCountries
-    ? `
-## 補う国・地域
-各国の \`missing\` に、その国で不足している欄のキーが並んでいます。
-**国名は利用者が入力したものです。ここに無い国を足さないでください。**
-
-\`\`\`json
-${JSON.stringify(countryPayloads, null, 2)}
-\`\`\`
-`
-    : ''
-
-  // 規則 4 以降は、実際に載せた対象のぶんだけ。番号を固定で書くと、
-  // 出し分けで欄が減ったときに番号が飛ぶ
-  const ruleBodies = [
-    ...usedFields.map((field) => field.rule),
-    ...(hasCountries
-      ? [
-          `**国の基本情報(plugTypes / voltage / tipping / emergencyPolice /
-   emergencyAmbulance)は、その国について一般に知られていることから
-   埋めてかまいません。**
-${COUNTRY_INFO_FILL_RULE}`,
-        ]
-      : []),
-  ]
-
-  return `あなたは、すでに登録済みの旅行の${joinDefined(
-    [hasBookings ? '予約' : null, hasCountries ? '訪問先の国・地域' : null],
-    'と',
-  )}に、不足している項目だけを補うアシスタントです。
-
-予約確認書やメールは添付しません。**下記のデータと、あなたが一般に知っていること
-(${joinDefined(
-    [
-      hasBookings
-        ? '航空会社・空港が公開している規定、地名の一般的な表記'
-        : null,
-      hasCountries
-        ? '国ごとに公開されている電源・チップ・緊急通報の情報'
-        : null,
-    ],
-    '、\n',
-  )})だけ**を使ってください。
-
-## 何をするのか
-アプリが新しい項目に対応したため、以前に登録したデータにはその欄が入っていません。
-原本を探し直さずに済むよう、**一般知識だけで埋められる欄**をここで補います。${
-    hasBookings
-      ? `
-座席番号・運賃クラス・受託手荷物の個数・朝食の有無のような、
-**その予約の書類にしか書かれていない情報はこの作業の対象外**です。
-渡していませんし、出力にも含めないでください。`
-      : ''
+  return {
+    bookingPayloads,
+    countryPayloads,
+    usedFields,
+    hasBookings,
+    hasCountries,
   }
-
-## いちばん大事な約束
-${joinDefined(
-  [
-    hasBookings
-      ? `渡した予約の **kind / title / start と、場所の name は、1 文字も変えずにそのまま**
-返してください。アプリはこれらを鍵にして「どの予約への追記か」を突き合わせます。
-1 文字でも変わると追記にならず、**新しい予約として二重に増えます**。`
-      : null,
-    hasCountries
-      ? `渡した国の **name も、1 文字も変えずにそのまま**返してください。
-これが「どの国への追記か」を突き合わせる唯一の鍵で、1 文字でも変わると
-追記にならず、**新しい国として二重に増えます**。`
-      : null,
-  ],
-  '\n\n',
-)}
-表記を整えたり、綴りを直したり、時刻の形式を変えたりしないでください。
-${bookingSection}${countrySection}
-## 出力スキーマ
-\`\`\`ts
-${typeSection}
-\`\`\`
-${discriminationNote}
-## 規則
-1. **${joinDefined(
-    [
-      hasBookings ? '予約の kind / title / start / 場所の name' : null,
-      hasCountries ? '国の name' : null,
-    ],
-    '、',
-  )} は渡された値をそのまま返してください。**
-   これらは照合のためだけに往復させている値で、直す対象ではありません。
-2. **\`missing\` に挙がっている欄だけを埋めてください。**
-   挙がっていない欄は、すでに値が入っています。書き直すと、
-   利用者が確認済みの値を上書きしてしまいます。省いてかまいません。
-3. **埋められない欄は null にしてください。推測で埋めないこと。**
-   分からないときに「だいたいこのくらい」で埋めるのは、間違った値を
-   正しい値の顔で入れることになり、空欄のまま残すよりはるかに有害です。
-${ruleBodies.map((body, index) => `${index + 4}. ${body}`).join('\n')}
-${ruleBodies.length + 4}. evidence には、その値を**どう決めたか**を短く書いてください。
-   今回は予約確認書を読んでいないので、${joinDefined(
-     [
-       hasBookings
-         ? '「どこの何の規定から引いたか」\n   「どの土地の一般的な表記か」'
-         : null,
-       hasCountries ? '「その国について一般に知られていること」' : null,
-     ],
-     '\n   ',
-   )}を書くことになります。
-   あとから人間が同じ根拠にたどり着けることが目的です。
-${
-  hasBookings
-    ? `
-なお上の規則には「予約確認書に記載があればそれを優先」という項が含まれますが、
-今回は書類を読みません。書類に記載があった欄はすでにアプリに入っていて
-\`missing\` に出てこないので、実際には公開規定や一般的な表記から埋めることになります。
-`
-    : ''
-}
-## 出力形式
-\`\`\`json フェンスで囲んだ JSON 配列**のみ**を出力してください。
-前置き・解説・要約・確認の問いかけは一切不要です。
-`
 }

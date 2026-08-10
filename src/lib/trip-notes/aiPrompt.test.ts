@@ -20,7 +20,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     title: 'Hotel Le Marais',
     start: makeStamp('2026-09-12', '15:00', 'Europe/Paris'),
     end: makeStamp('2026-09-15', '11:00', 'Europe/Paris'),
-    place: { name: 'Paris' },
+    place: { name: 'Paris', latinName: 'Paris' },
     status: 'confirmed',
     payment: 'paid',
     ...overrides,
@@ -105,7 +105,7 @@ describe('buildImportPrompt: スキーマの同期', () => {
     expect(prompt).toContain('personal')
     expect(prompt).toContain('cabin')
     expect(prompt).toContain('checked')
-    expect(prompt).toContain('推測禁止')
+    expect(prompt).toContain('推測は禁止')
   })
 })
 
