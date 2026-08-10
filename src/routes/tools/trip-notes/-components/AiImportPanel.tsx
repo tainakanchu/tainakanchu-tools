@@ -24,10 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
-import {
-  buildBackfillPrompt,
-  findBackfillGaps,
-} from '../../../../lib/trip-notes/backfillPrompt'
+import { findBackfillGaps } from '../../../../lib/trip-notes/backfillPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { formatStamp, stampDate } from '../../../../lib/trip-notes/datetime'
 import { planImport } from '../../../../lib/trip-notes/importMerge'
@@ -229,44 +226,25 @@ function backfillScopeText(gaps: BackfillGaps): string {
 }
 
 /**
- * 登録済みの内容に不足している項目を、原本を読み直さずに埋めるための導線。
- *
- * 対象は 2 種類ある。予約単位の穴(締切・場所のラテン文字表記)と、旅程単位の穴
- * (国・地域のプラグ形状・電圧・チップ・緊急通報番号)である。プロンプトも
- * 貼り戻す口も 1 つにまとめているので、この枠も 1 つのままにする。片方だけを
- * 埋める導線を別に生やすと、利用者は外部のチャットへの往復を 2 回することになる。
- *
- * 穴が 1 つも無ければ呼び出し側が丸ごと出さない。「埋めるものがありません」と
- * 書いてある枠が常設されていると、本当に穴が空いたときの見え方が変わらず、
- * 気付いてほしいときに気付いてもらえない。
- *
- * 何が AI に送られるのかを必ず先に見せる。自分の予約データを外部のチャットに
- * 貼る操作なので、コピーしてから中身を知るのでは遅い。確認番号が含まれないことも
- * 明示する(backfillPrompt.ts が確認番号を送らないという判断を、画面からも
- * 確かめられるようにするため)。国について送られるのが名前だけであることも同様に書く。
+ * 登録済みデータに空き欄があるときの案内。
+ * プロンプト自体はステップ 1 の buildImportPrompt 一本なので、ここでは
+ * 「何が空いているか」と「書類なしでも埋められる」ことだけを見せる。
+ * 別プロンプトのコピー UI は置かない。
  */
-function BackfillSection({
-  gaps,
-  prompt,
-  onGoToPaste,
-}: {
-  gaps: BackfillGaps
-  prompt: string
-  /** 貼り戻しは専用の口を作らず、既存のステップ 2 に誘導する */
-  onGoToPaste: () => void
-}) {
+function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
         <ClipboardList size={16} aria-hidden="true" className="text-cyan-600" />
-        登録済みの内容に足りていない項目を埋める
+        登録済みの内容に空いている欄があります
       </h3>
       <p className="mt-1 text-sm text-gray-600">
-        {backfillScopeText(gaps)}には、空のままの欄があります。
+        {backfillScopeText(gaps)}には、空のままの欄があります。上のプロンプト 1
+        本で、
         <strong className="font-semibold text-gray-800">
-          予約確認メールや PDF を探し直さなくても
+          予約確認書を添付しても、しなくても
         </strong>
-        、登録済みの内容と AI の一般知識だけで埋められる項目だけを補います。
+        実行できます。書類が無いときは、一般知識で埋められる項目(締切・ラテン文字表記・国の基本情報など)だけが対象です。荷物枠のように書類にしか無い項目は捏造しません。
       </p>
 
       <ul className="mt-2 space-y-1 text-sm text-gray-700">
@@ -275,11 +253,6 @@ function BackfillSection({
             ・{count.field.label}: {count.bookingCount}件
           </li>
         ))}
-        {/*
-          国の穴は予約単位の内訳(countsByField)と数え方の単位が違うが、
-          利用者から見れば「この回のプロンプトで何がいくつ埋まるか」の一覧は 1 つ。
-          並べる順は予約のあと。この画面の主役は引き続き予約の取り込みである
-        */}
         {gaps.countries.length > 0 && (
           <li>・国・地域の基本情報: {gaps.countries.length}件</li>
         )}
@@ -301,11 +274,6 @@ function BackfillSection({
         </details>
       )}
 
-      {/*
-        国は予約と別の details にする。まとめて 1 つにすると「対象(5件)」の中身が
-        予約と国の混在になり、開く前に分かるのは合計だけになってしまう。
-        送られるものの内訳が畳んだ状態でも読めることを優先する
-      */}
       {gaps.countries.length > 0 && (
         <details className="mt-2 text-sm text-gray-600">
           <summary className="cursor-pointer">
@@ -322,17 +290,10 @@ function BackfillSection({
         </details>
       )}
 
-      {/*
-        国が 1 件も登録されていないときだけ、登録すれば埋められることを添える。
-        推定はしない(予約の地名から訪問国を当てるのは誤爆し、間違った国の
-        緊急通報番号を出すのは空欄よりはるかに危険)と決めた以上、
-        国名の 1 行は人間に入れてもらうしかない。その 1 行さえあれば
-        ここでまとめて埋まる、ということを知らせる場所がどこかに要る
-      */}
       {gaps.countryCount === 0 && (
         <p className="mt-2 text-xs text-gray-500">
           国・地域はまだ登録されていません。設定タブの「国・地域の情報」に訪問先の国名を入れておくと、
-          プラグ形状・電圧・チップの文化・緊急通報番号もここでまとめて埋められます。
+          プラグ形状・電圧・チップの文化・緊急通報番号も同じプロンプトで埋められます。
         </p>
       )}
 
@@ -343,48 +304,18 @@ function BackfillSection({
           className="mt-0.5 shrink-0 text-gray-500"
         />
         <span>
-          AI に送られるのは、対象の予約の
+          空き欄の埋めだけを頼むとき、AI
+          に送られる登録済みデータの中身はプロンプト内の
+          「登録済みで空いている欄」に書いてある
           <strong className="font-semibold text-gray-800">
             種別・タイトル・開始日時・場所の名前
           </strong>
-          だけです。
+          と国名だけです。
           <strong className="font-semibold text-gray-800">
             確認番号は含まれません。
           </strong>
-          料金・メモ・その他の予約もプロンプトには入りません。国・地域については、
-          <strong className="font-semibold text-gray-800">
-            国・地域名(とラテン文字表記)だけ
-          </strong>
-          が送られます。すでに入力済みのプラグ形状やメモは渡しません。
         </span>
       </p>
-
-      <div className="mt-3">
-        <PromptCopyBlock
-          prompt={prompt}
-          rows={10}
-          copyLabel="穴埋めプロンプトをコピー"
-        />
-      </div>
-
-      <p className="mt-3 text-sm text-gray-600">
-        コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
-        添付ファイルは要りません。返ってきた JSON は、このページのステップ 2
-        にそのまま貼り付ければ、登録済みの予約と国・地域の情報に反映されます。
-      </p>
-      <div className="mt-2">
-        <AiServiceLinks compact />
-      </div>
-
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          className={subtleButtonClass}
-          onClick={onGoToPaste}
-        >
-          ステップ2へ: 結果を貼り付ける
-        </button>
-      </div>
     </section>
   )
 }
@@ -420,13 +351,11 @@ export function AiImportPanel({
     [state, displayTz],
   )
 
-  // 穴埋めの導線。穴が 1 つも無ければ backfillPrompt が null になり、
-  // 導線ごと出さない。判定を UI 側で書き直すと、プロンプトの対象と画面の表示が
-  // 食い違って「導線は出ているのに埋めるものが無い」ことが起きる。
-  // 予約の穴と国の穴のどちらか一方でもあれば buildBackfillPrompt は null を返さない
-  // ので、出し分けの条件はこのまま(予約が全部埋まっていても、国だけの穴で出る)
+  // 空き欄の内訳表示。プロンプト本文は buildImportPrompt 一本で、
+  // 穴があるときだけ UI に内訳を添える(findBackfillGaps と同じ判定)
   const backfillGaps = useMemo(() => findBackfillGaps(state), [state])
-  const backfillPrompt = useMemo(() => buildBackfillPrompt(state), [state])
+  const hasGaps =
+    backfillGaps.bookingCount > 0 || backfillGaps.countries.length > 0
 
   // ステップ3のプレビュー一覧に「更新」バッジを出すための計画。判定は
   // importMerge.ts の planImport に必ず委ね、ここでは条件を再実装しない
@@ -544,7 +473,9 @@ export function AiImportPanel({
       </div>
       <p className="mt-1 text-sm text-gray-500">
         予約確認メールや PDF を AI
-        に読み取らせて、予約情報を一括で取り込みます。
+        に読み取らせて予約を取り込みます。同じプロンプトで、
+        登録済みの空き欄(締切・国の基本情報など)も埋められます。返ってきた JSON
+        が旅程の新しい版になります。
       </p>
 
       {successMessage !== null && (
@@ -601,12 +532,13 @@ export function AiImportPanel({
             <PromptCopyBlock prompt={prompt} alwaysShowPrompt rows={10} />
 
             <p className="text-sm text-gray-600">
-              コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けたあと、
+              コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
               <strong className="font-semibold text-gray-800">
-                予約確認メールや PDF を添付して実行してください。
+                予約確認メールや PDF があれば添付
               </strong>
-              AI が本文や添付ファイルを読み取り、予約情報を JSON
-              形式で抽出します。
+              してください。添付が無くても、登録済みの空き欄は一般知識で埋められます。
+              返ってきた JSON をステップ 2
+              に貼ると、既存の旅程にマージされて新しい版になります。
             </p>
             <AiServiceLinks />
 
@@ -620,19 +552,7 @@ export function AiImportPanel({
               </button>
             </div>
 
-            {/*
-              穴埋めは「原本を読ませる」本筋とは別の作業なので、ステップ1の下に
-              独立した枠で置く。ステップの途中(貼り付け・レビュー)では出さない。
-              いま何をすればいいかを常に1つだけ提示する、というこの画面の原則を
-              崩さないため
-            */}
-            {backfillPrompt !== null && (
-              <BackfillSection
-                gaps={backfillGaps}
-                prompt={backfillPrompt}
-                onGoToPaste={() => setStep(2)}
-              />
-            )}
+            {hasGaps && <GapsInfoSection gaps={backfillGaps} />}
           </div>
         )}
 

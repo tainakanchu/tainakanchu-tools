@@ -1034,7 +1034,7 @@ function CountryInfoRow({
           {nameOnly ? (
             <p className="text-gray-500">
               プラグ形状・電圧・チップ・緊急通報番号がまだ空です。上の「AI
-              インポート」の穴埋めでまとめて埋められます。
+              インポート」のプロンプトでまとめて埋められます。
             </p>
           ) : null}
         </div>
@@ -1118,7 +1118,7 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
       */}
       <p className="mt-2 text-xs text-gray-500">
         国・地域名だけ入れて追加してかまいません。残りの欄は、上の「AI
-        インポート」の穴埋めでまとめて埋められます。
+        インポート」のプロンプトでまとめて埋められます。
       </p>
       <div className="mt-2 flex gap-2">
         <button
