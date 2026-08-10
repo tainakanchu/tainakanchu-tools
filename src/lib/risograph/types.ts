@@ -141,7 +141,8 @@ export interface CoverageMap {
   data: Float32Array // 0..1
 }
 
-export type HalftoneMethod = 'am' | 'blue-noise' | 'none'
+/** 'grain' は実機 RISO の「グレインタッチ」相当の誤差拡散スクリーン */
+export type HalftoneMethod = 'am' | 'blue-noise' | 'grain' | 'none'
 
 export interface PlateRender {
   inkId: InkId

@@ -2,6 +2,7 @@
  * ハーフトーン(仕様書 §12)。
  * - AM スクリーン: スクリーン座標を直接計算するクラスタドット(Bayer は使わない)
  * - blue-noise: 決定的に生成した 64×64 マスク(seed 固定)
+ * - grain: 実機 RISO の「グレインタッチ」相当の誤差拡散スクリーン
  *
  * 閾値はセル内の円形ドット成長の正確な面積 CDF を使い、
  * 二値化後の平均 coverage が入力に一致する(不偏スクリーン)。
@@ -76,6 +77,69 @@ export function getBlueNoiseMask(): Float32Array {
   return mask
 }
 
+/** グレインの閾値ジッタ幅(±) */
+const GRAIN_JITTER = 0.08
+
+/**
+ * 座標から決定的なジッタを作る(mulberry32 と同じ混合を座標ハッシュに使う)。
+ * Math.random は使わない。誤差拡散はエラーを保存するので平均は不偏のまま。
+ */
+function grainJitter(x: number, y: number): number {
+  let t =
+    (Math.imul(x, 0x27d4eb2d) + Math.imul(y, 0x165667b1) + 0x6d2b79f5) >>> 0
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  const u = ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  return (u - 0.5) * 2 * GRAIN_JITTER
+}
+
+/**
+ * 蛇行(serpentine)Floyd–Steinberg 誤差拡散。
+ * 偶数行は左→右、奇数行は右→左でカーネルも左右反転させ、
+ * 一方向走査で出る筋状のアーティファクトを抑える。
+ * 線数・角度・dpi は使わない(グレインに線数の概念は無い)。
+ */
+function grainDiffusion(
+  coverage: Float32Array,
+  width: number,
+  height: number,
+  out: Float32Array,
+): Float32Array {
+  // 誤差を足し込む作業バッファ(入力は破壊しない)
+  const buf = new Float32Array(width * height)
+  buf.set(coverage)
+
+  for (let y = 0; y < height; y++) {
+    const leftToRight = (y & 1) === 0
+    const step = leftToRight ? 1 : -1
+    const xStart = leftToRight ? 0 : width - 1
+    const xEnd = leftToRight ? width : -1
+    const hasNextRow = y + 1 < height
+    const nextRow = (y + 1) * width
+
+    for (let x = xStart; x !== xEnd; x += step) {
+      const idx = y * width + x
+      const v = buf[idx]
+      // 閾値 0.5 に決定的なジッタを与えて粒状感を出す
+      const bit = v > 0.5 + grainJitter(x, y) ? 1 : 0
+      out[idx] = bit
+      const err = v - bit
+      if (err === 0) continue
+
+      // 進行方向を +step として 7/16, 3/16, 5/16, 1/16 を配る
+      const xf = x + step
+      const xb = x - step
+      if (xf >= 0 && xf < width) buf[idx + step] += err * (7 / 16)
+      if (hasNextRow) {
+        if (xb >= 0 && xb < width) buf[nextRow + xb] += err * (3 / 16)
+        buf[nextRow + x] += err * (5 / 16)
+        if (xf >= 0 && xf < width) buf[nextRow + xf] += err * (1 / 16)
+      }
+    }
+  }
+  return out
+}
+
 /**
  * coverage map を二値化する。method='none' はそのまま返す(コピー)。
  * dpi は AM スクリーンのセルサイズ計算に使う。
@@ -91,6 +155,10 @@ export function halftonePlate(
   if (render.method === 'none') {
     out.set(coverage)
     return out
+  }
+
+  if (render.method === 'grain') {
+    return grainDiffusion(coverage, width, height, out)
   }
 
   if (render.method === 'blue-noise') {

@@ -3,6 +3,7 @@ import { circleSquareArea, getBlueNoiseMask, halftonePlate } from './halftone'
 
 const RENDER_AM = { method: 'am' as const, lpi: 60, angleDeg: 15 }
 const RENDER_BN = { method: 'blue-noise' as const, lpi: 60, angleDeg: 0 }
+const RENDER_GRAIN = { method: 'grain' as const, lpi: 60, angleDeg: 0 }
 
 function uniformField(value: number, size: number): Float32Array {
   return new Float32Array(size * size).fill(value)
@@ -103,6 +104,69 @@ describe('halftonePlate (blue-noise)', () => {
       )
       expect(Math.abs(mean(out) - c)).toBeLessThan(0.02)
     }
+  })
+})
+
+describe('halftonePlate (grain)', () => {
+  it('coverage 0 で全点 0、1 で全点 1', () => {
+    const size = 128
+    const zeros = halftonePlate(
+      uniformField(0, size),
+      size,
+      size,
+      RENDER_GRAIN,
+      300,
+    )
+    expect(mean(zeros)).toBe(0)
+    const ones = halftonePlate(
+      uniformField(1, size),
+      size,
+      size,
+      RENDER_GRAIN,
+      300,
+    )
+    expect(mean(ones)).toBe(1)
+  })
+
+  it('二値化後の平均が入力 coverage を近似する(誤差拡散は不偏)', () => {
+    const size = 256
+    for (const c of [0.25, 0.5, 0.75]) {
+      const out = halftonePlate(
+        uniformField(c, size),
+        size,
+        size,
+        RENDER_GRAIN,
+        300,
+      )
+      expect(Math.abs(mean(out) - c)).toBeLessThan(0.02)
+    }
+  })
+
+  it('決定的(同じ入力なら毎回同じ出力)', () => {
+    const size = 64
+    const src = uniformField(0.4, size)
+    const a = halftonePlate(src, size, size, RENDER_GRAIN, 300)
+    const b = halftonePlate(src, size, size, RENDER_GRAIN, 300)
+    expect(a).toEqual(b)
+  })
+
+  it('入力 coverage を破壊しない', () => {
+    const size = 32
+    const src = uniformField(0.3, size)
+    halftonePlate(src, size, size, RENDER_GRAIN, 300)
+    expect(mean(src)).toBeCloseTo(0.3, 6)
+  })
+
+  it('出力は 0/1 のみ', () => {
+    const size = 64
+    const out = halftonePlate(
+      uniformField(0.35, size),
+      size,
+      size,
+      RENDER_GRAIN,
+      300,
+    )
+    for (const v of out) expect(v === 0 || v === 1).toBe(true)
   })
 })
 

@@ -33,6 +33,8 @@ export interface SimInkDef {
 export interface PressSimOptions {
   /** 紙白（既定はややウォームな上質紙） */
   paperWhite?: XYZ
+  /** 紙の表示名。指定するとプロファイル id にも紙 id 相当として含まれる（§3.3） */
+  paperLabel?: string
   /** シミュレータ側の光学にじみ指数（fitting の n とは独立） */
   simN?: number
   /** ドットゲイン強度（中間調の面積率の持ち上がり） */
@@ -213,11 +215,16 @@ export function createSyntheticProfile(
   opts: PressSimOptions = {},
 ): { profile: PressProfile; warnings: Array<string> } {
   const measurements = simulateMeasurements(inks, printOrder, opts)
+  // 同一インク構成でも紙が違えば別プロファイルとして扱う（§3.3）
+  const suffix = printOrder.join('-')
+  const id = opts.paperLabel
+    ? `synthetic-${opts.paperLabel}-${suffix}`
+    : `synthetic-${suffix}`
   return buildPressProfile({
-    id: `synthetic-${printOrder.join('-')}`,
+    id,
     createdAt: '1970-01-01T00:00:00.000Z',
     printCondition: SYNTHETIC_PRINT_CONDITION,
-    paperLabel: '上質紙（シミュレーション）',
+    paperLabel: opts.paperLabel ?? '上質紙（シミュレーション）',
     printOrder,
     inkDefs: inks,
     measurements,

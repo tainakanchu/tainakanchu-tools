@@ -59,3 +59,34 @@ export const INK_PRESETS: ReadonlyArray<InkPreset> = [
 export function getInkPreset(id: string): InkPreset | undefined {
   return INK_PRESETS.find((p) => p.id === id)
 }
+
+export interface PaperPreset {
+  id: string
+  name: string
+  /** UI スウォッチ用の紙色 hex */
+  hex: string
+  paperWhite: XYZ
+  /** プレビュー用の紙の粗さ 0..1(滑らか=0) */
+  grain: number
+}
+
+function paper(
+  id: string,
+  name: string,
+  hex: string,
+  grain: number,
+): PaperPreset {
+  return { id, name, hex, paperWhite: hexToXyz(hex), grain }
+}
+
+/** 紙プリセット。paperWhite は hex から導出する(仕様書 §3.3) */
+export const PAPER_PRESETS: ReadonlyArray<PaperPreset> = [
+  paper('white', '上質紙（白）', '#F5F2E9', 0.15),
+  paper('cream', 'クリーム', '#F2E7CF', 0.2),
+  paper('recycled', 'わら半紙', '#E3DCC6', 0.5),
+  paper('kraft', 'クラフト', '#C9A876', 0.4),
+]
+
+export function getPaperPreset(id: string): PaperPreset | undefined {
+  return PAPER_PRESETS.find((p) => p.id === id)
+}
