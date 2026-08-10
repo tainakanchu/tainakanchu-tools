@@ -16,7 +16,8 @@ describe('initialPlateSettings: 版設定の初期値', () => {
   it('推奨スクリーン角を版数に応じて割り当てる', () => {
     const settings = initialPlateSettings(['blue', 'red', 'yellow'])
     expect(settings.map((s) => s.angleDeg)).toEqual([15, 45, 75])
-    expect(settings.map((s) => s.method)).toEqual(['am', 'am', 'am'])
+    // 実機リソの入稿は濃淡のままが標準なので既定は階調(none)
+    expect(settings.map((s) => s.method)).toEqual(['none', 'none', 'none'])
     expect(settings.map((s) => s.lpi)).toEqual([60, 60, 60])
   })
 })

@@ -34,14 +34,18 @@ export type PlateSetting = {
   angleDeg: number
 }
 
-/** 選択インク列から版設定の初期値を作る（角度は §12.4 の推奨角） */
+/**
+ * 選択インク列から版設定の初期値を作る（角度は §12.4 の推奨角）。
+ * 実機リソの入稿は濃淡（グレースケール）のままが標準で、網点化は製版機側で
+ * 行われるため、既定は「階調」。網点はあえて掛けるときの表現オプション。
+ */
 export function initialPlateSettings(
   inkIds: ReadonlyArray<InkId>,
 ): Array<PlateSetting> {
   const angles = recommendedAngles(inkIds.length)
   return inkIds.map((inkId, index) => ({
     inkId,
-    method: 'am' as HalftoneMethod,
+    method: 'none' as HalftoneMethod,
     lpi: DEFAULT_LPI,
     angleDeg: index < angles.length ? angles[index] : 45,
   }))
