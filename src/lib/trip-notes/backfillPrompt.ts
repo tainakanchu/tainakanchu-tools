@@ -21,7 +21,6 @@
 
 import {
   AIRLINE_TIMING_FILL_RULE,
-  COUNTRY_INFO_FILL_RULE,
   LATIN_NAME_FILL_RULE,
 } from './promptRules'
 import { tryParseStamp } from './datetime'

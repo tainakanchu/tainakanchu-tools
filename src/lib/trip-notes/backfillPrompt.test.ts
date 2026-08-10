@@ -3,7 +3,6 @@ import {
   BACKFILL_FIELDS,
   COUNTRY_INFO_FILL_FIELDS,
   findBackfillGaps,
-  getGapPromptContext,
 } from './backfillPrompt'
 import { parseImportedJson } from './aiImport'
 import {
