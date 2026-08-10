@@ -11,6 +11,7 @@
  * フォールバックさせず booking ごと落とす。理由は parseBooking のコメントを参照。
  */
 
+import { parseBookingBaggage } from './baggage'
 import { addDays, isValidISODate, isValidTz, tryParseStamp } from './datetime'
 import type {
   Booking,
@@ -51,6 +52,7 @@ export const FIELD_KEYS: Array<FieldKey> = [
   'onlineCheckInOpensMinutesBefore',
   'checkInClosesMinutesBefore',
   'bagDropClosesMinutesBefore',
+  'baggage',
   'note',
 ]
 
@@ -291,8 +293,8 @@ function parseEvidence(
  *   直せる予約だけでも表示できたほうが利用者にとって実利がある。
  * - 任意フィールド(from/to/place/confirmationNumber/provider/price/
  *   freeCancelUntil/onlineCheckInOpensMinutesBefore/checkInClosesMinutesBefore/
- *   bagDropClosesMinutesBefore/note/unverified/evidence)は不正でもそのフィールドだけを
- *   落として undefined にする。booking 自体は残す。
+ *   bagDropClosesMinutesBefore/baggage/note/unverified/evidence)は不正でもその
+ *   フィールドだけを落として undefined にする。booking 自体は残す。
  * - end は Stamp として妥当なら採用し、それ以外(欠落・不正)は null にする
  *   (end は「単発の予定なら null」が正常値なので、start と違って落とす理由にならない)。
  *
@@ -373,6 +375,11 @@ export function parseBooking(raw: unknown): Booking | null {
   if (isDeadlineMinutesBefore(value.bagDropClosesMinutesBefore)) {
     booking.bagDropClosesMinutesBefore = value.bagDropClosesMinutesBefore
   }
+
+  // 荷物枠は入れ子オブジェクト。壊れたスロットや項目だけ落とし、
+  // 1 つも残らなければフィールドごと省く(baggage.ts 参照)
+  const baggage = parseBookingBaggage(value.baggage)
+  if (baggage !== undefined) booking.baggage = baggage
 
   if (typeof value.note === 'string') {
     booking.note = value.note

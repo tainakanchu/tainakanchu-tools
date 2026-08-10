@@ -101,7 +101,62 @@ export type FieldKey =
   | 'onlineCheckInOpensMinutesBefore'
   | 'checkInClosesMinutesBefore'
   | 'bagDropClosesMinutesBefore'
+  | 'baggage'
   | 'note'
+
+/**
+ * 荷物枠の 1 カテゴリ分(身の回り品 / 持込 / 受託のいずれか)。
+ *
+ * 予約確認書は「1 個」「23kg」「1×23kg」「55×40×20cm」のように書かれ方がバラバラで、
+ * 個数だけ・重量だけ・寸法だけ、という欠落もありうる。どれか 1 つでも分かっていれば
+ * 現地の判断材料になるので、項目はすべて任意にする。
+ *
+ * ■ pieces: 0 と未入力は別
+ *   0 は「無料枠なし」(LCC の手ぶら運賃など)。undefined は「書いていない・未入力」。
+ *   後者を 0 に正規化すると、分からないのに「無い」と断言してしまう。
+ */
+export interface BaggageAllowance {
+  /** 個数。0 = 無料枠なし */
+  pieces?: number
+  /**
+   * 重量(kg)。
+   * piece concept なら 1 個あたり、weight concept なら合計、など
+   * 書類の書き方に従う(どちらと断定する情報は持たない)。
+   */
+  weightKg?: number
+  /**
+   * 寸法の表記そのまま(「55×40×20cm」「40x30x20」など)。
+   * 単位や区切りが航空会社ごとに違うので、数値 3 つに分解しない。
+   */
+  dimensions?: string
+  /** 上記に収まらない補足(「合計 25kg」「1 名あたり」など) */
+  note?: string
+}
+
+/**
+ * 移動の荷物枠。上位概念として 1 オブジェクトにまとめ、スロットをぶら下げる。
+ *
+ * ■ なぜ Booking 直下に 3 本のプロパティを並べないのか
+ *   FieldKey / unverified / evidence / 共有URLの短縮キーが 1 本で済み、
+ *   「荷物まわり」として AI 取り込みや確認 UI をまとめて扱える。
+ *   3 本にするとキーが増えるだけで意味は増えない。
+ *
+ * ■ なぜ身の回り品も持つのか
+ *   国際線の確認書は「身の回り品 1 個 3kg + 機内持込 1 個 7kg + 受託 1×23kg」
+ *   のように 3 段で書くことが多く、持込だけに畳むと現地で見分ける情報を捨てる。
+ *   書類に無ければ personal スロットごと省略する。
+ *
+ * 3 スロットとも空ならフィールドごと省略する(空オブジェクトを保存しない)。
+ * 飛行機だけでなく列車(OUIGO 等)でも使う。
+ */
+export interface BookingBaggage {
+  /** 身の回り品(座席下など) */
+  personal?: BaggageAllowance
+  /** 機内持込 / 車内持込(頭上や通路に置く大きめのもの) */
+  cabin?: BaggageAllowance
+  /** 受託手荷物(預け入れ) */
+  checked?: BaggageAllowance
+}
 
 export interface Booking {
   id: string
@@ -166,8 +221,19 @@ export interface Booking {
    * 搭乗手続きの締切とは別に持つ。同じ便でも「手荷物は 60 分前まで、
    * 搭乗手続きは 45 分前まで」のように締切が 2 段になっていることが多く、
    * 預ける荷物があるかどうかで人が動くべき時刻が変わるため。
+   *
+   * これは「いつまで預けるか」の時刻であり、荷物の許容量そのものではない。
+   * 許容量(何個・何 kg)は baggage を参照。
    */
   bagDropClosesMinutesBefore?: number
+  /**
+   * 荷物枠(身の回り品・持込・受託)。移動で使う。
+   *
+   * bagDropClosesMinutesBefore が「いつまで預けるか」なのに対し、こちらは
+   * 「何を持っていけるか」。締切と許容量は別軸なので混ぜない。
+   * 検証は baggage.ts / storage.ts。3 スロットとも空ならフィールドごと省略。
+   */
+  baggage?: BookingBaggage
   note?: string
   /** AI が埋めたまま人間が未確認のフィールド。確認したら取り除く */
   unverified?: Array<FieldKey>

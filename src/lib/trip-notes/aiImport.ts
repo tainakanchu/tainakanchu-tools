@@ -37,6 +37,7 @@ import {
   tryMakeStamp,
 } from './datetime'
 import { newId } from './id'
+import { parseBookingBaggage } from './baggage'
 import {
   BOOKING_KINDS,
   BOOKING_STATUSES,
@@ -646,6 +647,9 @@ function convertBooking(
     ),
     checkInClosesMinutesBefore: toMinutesBefore(raw.checkInClosesMinutesBefore),
     bagDropClosesMinutesBefore: toMinutesBefore(raw.bagDropClosesMinutesBefore),
+    // 荷物枠は入れ子。壊れた中身は parseBookingBaggage が落とし、
+    // 最終判定は parseBooking がもう一度通す
+    baggage: parseBookingBaggage(raw.baggage),
     note: toOptionalString(raw.note),
     evidence: toEvidence(raw.evidence),
   }

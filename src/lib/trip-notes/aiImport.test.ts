@@ -492,6 +492,11 @@ describe('parseImportedJson: unverified', () => {
     "onlineCheckInOpensMinutesBefore": 2880,
     "checkInClosesMinutesBefore": 45,
     "bagDropClosesMinutesBefore": 60,
+    "baggage": {
+      "personal": { "pieces": 1, "weightKg": 3 },
+      "cabin": { "pieces": 1, "weightKg": 7 },
+      "checked": { "pieces": 1, "weightKg": 23 }
+    },
     "note": "エレベーターなし",
     "evidence": { "start": "Check-in: 12 Sep 2026 15:00" }
   }
@@ -515,6 +520,28 @@ describe('parseImportedJson: unverified', () => {
       'payment',
     ])
     expect(booking.unverified).not.toContain('end')
+  })
+})
+
+describe('parseImportedJson: 荷物枠(baggage)', () => {
+  it('AI の JSON に荷物枠があれば取り込まれ、unverified に入る', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"baggage":{"personal":{"pieces":1,"weightKg":3},"cabin":{"pieces":1,"weightKg":7,"dimensions":"55x40x20cm"},"checked":{"pieces":0}}}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.baggage).toEqual({
+      personal: { pieces: 1, weightKg: 3 },
+      cabin: { pieces: 1, weightKg: 7, dimensions: '55x40x20cm' },
+      checked: { pieces: 0 },
+    })
+    expect(booking.unverified).toContain('baggage')
+  })
+
+  it('壊れた荷物枠は落として予約自体は取り込む', () => {
+    const text =
+      '[{"kind":"flight","title":"AF276","start":{"date":"2026-09-12","time":"14:20","tz":"Asia/Tokyo"},"baggage":{"cabin":{"pieces":-1}}}]'
+    const booking = firstBooking(parseImportedJson(text, TOKYO))
+    expect(booking.title).toBe('AF276')
+    expect(booking.baggage).toBeUndefined()
   })
 })
 

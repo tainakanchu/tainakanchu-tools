@@ -302,6 +302,38 @@ interface ExtractedBooking {
    * 移動の予約でなければ null。抽出ルール 8 の例外規定を必ず読むこと
    */
   bagDropClosesMinutesBefore: number | null
+  /**
+   * 荷物枠(許容量)。預け締切とは別物で、「何を・何個・何 kg 持っていけるか」。
+   * 移動の予約で、書類に枠の記載があるときだけ埋める。無ければ null。
+   * 推測禁止(ルール 1)。航空会社の一般規定で埋めてはいけない。
+   */
+  baggage: {
+    /**
+     * 身の回り品(座席下など)。記載が無ければ null または欄ごと省略。
+     * pieces: 0 は「無料枠なし」を意味する(未記載とは違う)。
+     */
+    personal: {
+      pieces: number | null
+      weightKg: number | null
+      /** 寸法の表記そのまま(例 '40x30x20cm')。無ければ null */
+      dimensions: string | null
+      note: string | null
+    } | null
+    /** 機内持込 / 車内持込 */
+    cabin: {
+      pieces: number | null
+      weightKg: number | null
+      dimensions: string | null
+      note: string | null
+    } | null
+    /** 受託手荷物(預け入れ) */
+    checked: {
+      pieces: number | null
+      weightKg: number | null
+      dimensions: string | null
+      note: string | null
+    } | null
+  } | null
   /** 上記に収まらない補足(部屋タイプ、座席、待ち合わせ場所など)。なければ null */
   note: string | null
   /** 判断根拠として引用した原文の該当箇所 */

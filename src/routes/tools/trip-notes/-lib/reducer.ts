@@ -241,6 +241,7 @@ function mergeUpdatedBooking(previous: Booking, next: Booking): Booking {
     'onlineCheckInOpensMinutesBefore',
     'checkInClosesMinutesBefore',
     'bagDropClosesMinutesBefore',
+    'baggage',
     'note',
   ]
   for (const key of keys) {

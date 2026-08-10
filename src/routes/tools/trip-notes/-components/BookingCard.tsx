@@ -49,6 +49,7 @@ import {
 } from '../../../../lib/trip-notes/datetime'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { bookingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
+import { formatBookingBaggage } from '../../../../lib/trip-notes/baggage'
 import { copyText, formatMoney } from '../-lib/format'
 import { iconButtonClass, unverifiedFieldClass } from '../-lib/styles'
 import { BOOKING_KIND_LABELS, KindIcon } from './KindIcon'
@@ -117,6 +118,7 @@ const FIELD_LABELS: Record<FieldKey, string> = {
   onlineCheckInOpensMinutesBefore: 'オンラインチェックイン開始',
   checkInClosesMinutesBefore: '搭乗手続きの締切',
   bagDropClosesMinutesBefore: '受託手荷物を預ける締切',
+  baggage: '荷物枠',
   note: 'メモ',
 }
 
@@ -255,6 +257,8 @@ function fieldValueText(
       return booking.bagDropClosesMinutesBefore === undefined
         ? EMPTY_VALUE
         : `出発の${booking.bagDropClosesMinutesBefore}分前`
+    case 'baggage':
+      return formatBookingBaggage(booking.baggage) ?? EMPTY_VALUE
     case 'note':
       return booking.note ?? EMPTY_VALUE
   }
@@ -499,6 +503,7 @@ function BookingDetails({
 }) {
   const isUnverified = (field: FieldKey) =>
     unverified.includes(field) ? unverifiedFieldClass : ''
+  const baggageText = formatBookingBaggage(booking.baggage)
 
   return (
     <div id={id} className="mt-3 space-y-3 border-t border-gray-200 pt-3">
@@ -568,6 +573,14 @@ function BookingDetails({
             valueClass={isUnverified('freeCancelUntil')}
           >
             {formatDateJa(booking.freeCancelUntil)}
+          </DetailRow>
+        ) : null}
+        {baggageText !== null ? (
+          <DetailRow
+            label={FIELD_LABELS.baggage}
+            valueClass={isUnverified('baggage')}
+          >
+            {baggageText}
           </DetailRow>
         ) : null}
         {booking.note !== undefined ? (

@@ -715,6 +715,73 @@ describe('FIELD_KEYS', () => {
     // AI が予約メールから拾ってくる欄なので、目視確認の対象になれないと困る
     expect(FIELD_KEYS).toContain('onlineCheckInOpensMinutesBefore')
   })
+
+  it('荷物枠のキーが含まれる(unverified に載せられる)', () => {
+    expect(FIELD_KEYS).toContain('baggage')
+  })
+})
+
+describe('荷物枠(baggage)', () => {
+  it('身の回り品・持込・受託を保存から復元する', () => {
+    const state = {
+      ...fullState(),
+      bookings: [
+        {
+          ...fullBooking(),
+          kind: 'flight' as const,
+          place: undefined,
+          from: { name: '羽田' },
+          to: { name: 'CDG' },
+          baggage: {
+            personal: { pieces: 1, weightKg: 3 },
+            cabin: { pieces: 1, weightKg: 7, dimensions: '55x40x20cm' },
+            checked: { pieces: 1, weightKg: 23 },
+          },
+        },
+      ],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.baggage).toEqual({
+      personal: { pieces: 1, weightKg: 3 },
+      cabin: { pieces: 1, weightKg: 7, dimensions: '55x40x20cm' },
+      checked: { pieces: 1, weightKg: 23 },
+    })
+  })
+
+  it('受託なし(pieces: 0)を保持する', () => {
+    const state = {
+      ...fullState(),
+      bookings: [
+        {
+          ...fullBooking(),
+          kind: 'flight' as const,
+          baggage: { checked: { pieces: 0 } },
+        },
+      ],
+    }
+    expect(parseTripNotesState(state)?.bookings[0]?.baggage).toEqual({
+      checked: { pieces: 0 },
+    })
+  })
+
+  it('壊れた荷物枠はフィールドだけ落として予約は残す', () => {
+    const state = {
+      ...fullState(),
+      bookings: [
+        {
+          ...fullBooking(),
+          title: 'survives',
+          baggage: {
+            cabin: { pieces: -1 },
+            checked: 'bad' as unknown as { pieces: number },
+          },
+        },
+      ],
+    }
+    const booking = parseTripNotesState(state)?.bookings[0]
+    expect(booking?.title).toBe('survives')
+    expect(booking?.baggage).toBeUndefined()
+  })
 })
 
 describe('createInitialState', () => {

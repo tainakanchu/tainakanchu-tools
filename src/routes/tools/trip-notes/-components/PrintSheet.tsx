@@ -13,6 +13,8 @@
  *     日本語の name より localName を太く大きく置く(types.ts の Place 参照)。
  *   - 搭乗手続き・手荷物の締切: データは「出発の何分前」で持っているが、
  *     紙の上では絶対時刻に直して出す。空港で暗算させない。
+ *   - 荷物枠(許容量): 空港で「預けられるか／機内に何個持つか」は端末なしでも
+ *     判断したい情報なので、1 行で刷る。
  *   - まだ払っていない予約の金額: 現地でいくら出すかは行動を変える。
  *   - 国ごとの緊急通報番号: スマホが無い状況こそがこの紙の出番で、
  *     そのとき最初に押す番号がこれになる。
@@ -71,6 +73,7 @@ import {
   Timer,
   XCircle,
 } from 'lucide-react'
+import { formatBookingBaggage } from '../../../../lib/trip-notes/baggage'
 import {
   diffDays,
   formatDateJa,
@@ -321,6 +324,7 @@ function BookingRow({
     ({ place }) => place.localName !== undefined || place.address !== undefined,
   )
   const deadlines = deadlinesOf(booking, displayTz)
+  const baggageText = formatBookingBaggage(booking.baggage)
 
   /*
     終了時刻の出し方は、終わる日が始まる日と同じかどうかで変える。
@@ -431,6 +435,12 @@ function BookingRow({
                 {deadline.label} {deadline.time}
               </span>
             ))}
+          </p>
+        ) : null}
+
+        {baggageText !== null ? (
+          <p className="mt-[2pt] text-[8pt] leading-[1.35] text-gray-800">
+            荷物: {baggageText}
           </p>
         ) : null}
 

@@ -165,7 +165,7 @@ interface ShortContact {
  *
  * そのため placeAliases(「同じ場所として扱う」の登録)と travelDocs(手続き)、
  * countryInfos(国の基本情報)、および予約の締切 2 種(搭乗手続き・受託手荷物)と
- * オンラインチェックインの開放時刻は v1 では落ちる。
+ * オンラインチェックインの開放時刻、荷物枠(baggage)は v1 では落ちる。
  * v1 でエンコードする経路は CompressionStream が使えない環境だけで
  * 今も生きている(buildPayload 参照)ため、そこで共有すると受け取り側では
  * 黙らせたはずの指摘が復活し、手続きと国の一覧は空になり、
@@ -391,8 +391,36 @@ interface ShortBookingV2 {
   h?: number
   /** 受託手荷物の預け締切(出発の何分前か) */
   b?: number
+  /**
+   * 荷物枠(身の回り品・持込・受託)。
+   * 'g' = baGgage。b は bag drop 締切で埋まっている。
+   * 値が無ければキーごと省く(他の任意キーと同じ)。
+   */
+  g?: ShortBookingBaggage
   n?: string
   q?: Array<FieldKey>
+}
+
+/**
+ * 荷物枠 1 スロットの短縮形。
+ * p = pieces / w = weightKg / d = dimensions / n = note。
+ * 空の項目はキーごと省く。
+ */
+interface ShortBaggageAllowance {
+  p?: number
+  w?: number
+  d?: string
+  n?: string
+}
+
+/**
+ * 荷物枠全体。p = personal / c = cabin / k = checked。
+ * スロットが空ならキーごと省く。
+ */
+interface ShortBookingBaggage {
+  p?: ShortBaggageAllowance
+  c?: ShortBaggageAllowance
+  k?: ShortBaggageAllowance
 }
 
 interface ShortContactV2 {
@@ -562,7 +590,64 @@ function fromShortStampV2(short: ShortStampV2): Stamp {
   }
 }
 
+function toShortBaggageAllowance(
+  allowance: NonNullable<Booking['baggage']>['personal'],
+): ShortBaggageAllowance | undefined {
+  if (allowance === undefined) return undefined
+  const short: ShortBaggageAllowance = {
+    ...(allowance.pieces !== undefined ? { p: allowance.pieces } : {}),
+    ...(allowance.weightKg !== undefined ? { w: allowance.weightKg } : {}),
+    ...(allowance.dimensions !== undefined ? { d: allowance.dimensions } : {}),
+    ...(allowance.note !== undefined ? { n: allowance.note } : {}),
+  }
+  return Object.keys(short).length > 0 ? short : undefined
+}
+
+function fromShortBaggageAllowance(
+  short: ShortBaggageAllowance | undefined,
+): NonNullable<Booking['baggage']>['personal'] {
+  if (short === undefined) return undefined
+  const allowance = {
+    ...(short.p !== undefined ? { pieces: short.p } : {}),
+    ...(short.w !== undefined ? { weightKg: short.w } : {}),
+    ...(short.d !== undefined ? { dimensions: short.d } : {}),
+    ...(short.n !== undefined ? { note: short.n } : {}),
+  }
+  return Object.keys(allowance).length > 0 ? allowance : undefined
+}
+
+function toShortBookingBaggage(
+  baggage: Booking['baggage'],
+): ShortBookingBaggage | undefined {
+  if (baggage === undefined) return undefined
+  const personal = toShortBaggageAllowance(baggage.personal)
+  const cabin = toShortBaggageAllowance(baggage.cabin)
+  const checked = toShortBaggageAllowance(baggage.checked)
+  const short: ShortBookingBaggage = {
+    ...(personal !== undefined ? { p: personal } : {}),
+    ...(cabin !== undefined ? { c: cabin } : {}),
+    ...(checked !== undefined ? { k: checked } : {}),
+  }
+  return Object.keys(short).length > 0 ? short : undefined
+}
+
+function fromShortBookingBaggage(
+  short: ShortBookingBaggage | undefined,
+): Booking['baggage'] {
+  if (short === undefined) return undefined
+  const personal = fromShortBaggageAllowance(short.p)
+  const cabin = fromShortBaggageAllowance(short.c)
+  const checked = fromShortBaggageAllowance(short.k)
+  const baggage = {
+    ...(personal !== undefined ? { personal } : {}),
+    ...(cabin !== undefined ? { cabin } : {}),
+    ...(checked !== undefined ? { checked } : {}),
+  }
+  return Object.keys(baggage).length > 0 ? baggage : undefined
+}
+
 function toShortBookingV2(booking: Booking): ShortBookingV2 {
+  const shortBaggage = toShortBookingBaggage(booking.baggage)
   return {
     k: booking.kind,
     t: booking.title,
@@ -590,12 +675,14 @@ function toShortBookingV2(booking: Booking): ShortBookingV2 {
     ...(booking.bagDropClosesMinutesBefore !== undefined
       ? { b: booking.bagDropClosesMinutesBefore }
       : {}),
+    ...(shortBaggage !== undefined ? { g: shortBaggage } : {}),
     ...(booking.note !== undefined ? { n: booking.note } : {}),
     ...(booking.unverified !== undefined ? { q: booking.unverified } : {}),
   }
 }
 
 function fromShortBookingV2(short: ShortBookingV2): Booking {
+  const baggage = fromShortBookingBaggage(short.g)
   return {
     id: newId('bk'),
     kind: short.k,
@@ -619,6 +706,7 @@ function fromShortBookingV2(short: ShortBookingV2): Booking {
       : {}),
     ...(short.h !== undefined ? { checkInClosesMinutesBefore: short.h } : {}),
     ...(short.b !== undefined ? { bagDropClosesMinutesBefore: short.b } : {}),
+    ...(baggage !== undefined ? { baggage } : {}),
     ...(short.n !== undefined ? { note: short.n } : {}),
     ...(short.q !== undefined ? { unverified: short.q } : {}),
   }
