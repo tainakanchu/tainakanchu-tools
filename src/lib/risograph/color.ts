@@ -74,6 +74,23 @@ export function xyzToLinearRgb(xyz: XYZ): RGB {
   ]
 }
 
+/**
+ * 減法混色（重ね刷り）の積を取るための 3ch 反射率プロキシ。
+ * XYZ は等色関数の積分なので、XYZ 同士を掛けても物理的な重ね刷りにはならない。
+ * linear sRGB はバンド反射率に近い振る舞いをするので、積はこの空間で取る。
+ * 表示用の xyzToLinearRgb と違い上限クリップはしない（暗部・高彩度で情報が落ちるため）。
+ * 下限だけ微小値で押さえ、積が 0 に潰れるのを防ぐ。
+ */
+export function xyzToReflectance(xyz: XYZ): RGB {
+  const [x, y, z] = xyz
+  const floor = (v: number) => (v < 1e-5 ? 1e-5 : v)
+  return [
+    floor(M_XYZ_TO_RGB[0][0] * x + M_XYZ_TO_RGB[0][1] * y + M_XYZ_TO_RGB[0][2] * z),
+    floor(M_XYZ_TO_RGB[1][0] * x + M_XYZ_TO_RGB[1][1] * y + M_XYZ_TO_RGB[1][2] * z),
+    floor(M_XYZ_TO_RGB[2][0] * x + M_XYZ_TO_RGB[2][1] * y + M_XYZ_TO_RGB[2][2] * z),
+  ]
+}
+
 const LAB_EPS = 216 / 24389
 const LAB_KAPPA = 24389 / 27
 

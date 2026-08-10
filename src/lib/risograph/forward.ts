@@ -7,7 +7,7 @@
  * - 内側ループの Math.pow は外側の ^n のみ（primary^(1/n) は事前計算）
  * - forward は allocation free
  */
-import type { XYZ } from './color'
+import { linearRgbToXyz, xyzToReflectance, type XYZ } from './color'
 import type { InkId, PressProfile, VirtualInk } from './types'
 
 export interface ForwardContext {
@@ -74,12 +74,19 @@ export function buildPrimaries(profile: PressProfile, inkIds: InkId[]): XYZ[] {
     return null
   }
 
-  // 積による推定: base × (solid / paper)
-  const productEstimate = (base: XYZ, solid: XYZ): XYZ => [
-    (base[0] * solid[0]) / Math.max(paper[0], 1e-6),
-    (base[1] * solid[1]) / Math.max(paper[1], 1e-6),
-    (base[2] * solid[2]) / Math.max(paper[2], 1e-6),
-  ]
+  // 積による推定: base × (solid / paper)。
+  // 積は XYZ ではなく反射率プロキシ（linear RGB）で取る。XYZ は等色関数の
+  // 積分なので、XYZ 同士を掛けると重ね刷りが極端に明るく出る。
+  const paperR = xyzToReflectance(paper)
+  const productEstimate = (base: XYZ, solid: XYZ): XYZ => {
+    const b = xyzToReflectance(base)
+    const s = xyzToReflectance(solid)
+    return linearRgbToXyz([
+      (b[0] * s[0]) / paperR[0],
+      (b[1] * s[1]) / paperR[1],
+      (b[2] * s[2]) / paperR[2],
+    ])
+  }
 
   for (let mask = 1; mask < size; mask++) {
     if (primaries[mask]) continue
