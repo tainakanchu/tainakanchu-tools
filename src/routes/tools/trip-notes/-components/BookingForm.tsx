@@ -22,6 +22,12 @@ import { ChevronDown, Sparkles, X } from 'lucide-react'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import {
+  BAGGAGE_SLOT_LABELS,
+  MAX_BAGGAGE_PIECES,
+  MAX_BAGGAGE_WEIGHT_KG,
+  parseBookingBaggage,
+} from '../../../../lib/trip-notes/baggage'
+import {
   COMMON_TIMEZONES,
   isValidISODate,
   tryMakeStamp,
@@ -38,6 +44,10 @@ import {
   isCheckInOpensMinutesBefore,
   isDeadlineMinutesBefore,
 } from '../../../../lib/trip-notes/storage'
+import type {
+  BaggageAllowance,
+  BookingBaggage,
+} from '../../../../lib/trip-notes/types'
 import { useDialogFocus } from '../-lib/focusTrap'
 import {
   fieldClass,
@@ -132,6 +142,20 @@ interface FormState {
   checkInMinutes: string
   /** 受託手荷物の預け締切(出発の何分前か)。空文字は「入力なし」 */
   bagDropMinutes: string
+  /**
+   * 荷物枠。各スロットの個数・重量・寸法。
+   * 空文字は「入力なし」。受託なしは個数に 0。
+   * FieldKey はまとめて 'baggage'。
+   */
+  personalPieces: string
+  personalWeightKg: string
+  personalDimensions: string
+  cabinPieces: string
+  cabinWeightKg: string
+  cabinDimensions: string
+  checkedPieces: string
+  checkedWeightKg: string
+  checkedDimensions: string
   note: string
   placeName: string
   placeLocalName: string
@@ -175,6 +199,15 @@ const FIELD_OF: Record<keyof FormState, FieldKey> = {
   onlineCheckInMinutes: 'onlineCheckInOpensMinutesBefore',
   checkInMinutes: 'checkInClosesMinutesBefore',
   bagDropMinutes: 'bagDropClosesMinutesBefore',
+  personalPieces: 'baggage',
+  personalWeightKg: 'baggage',
+  personalDimensions: 'baggage',
+  cabinPieces: 'baggage',
+  cabinWeightKg: 'baggage',
+  cabinDimensions: 'baggage',
+  checkedPieces: 'baggage',
+  checkedWeightKg: 'baggage',
+  checkedDimensions: 'baggage',
   note: 'note',
   placeName: 'place',
   placeLocalName: 'place',
@@ -186,6 +219,86 @@ const FIELD_OF: Record<keyof FormState, FieldKey> = {
   toName: 'to',
   toLatinName: 'to',
   toAddress: 'to',
+}
+
+/** 荷物枠 1 スロットをフォームの 3 文字列にほどく */
+function allowanceToFormFields(allowance: BaggageAllowance | undefined): {
+  pieces: string
+  weightKg: string
+  dimensions: string
+} {
+  return {
+    pieces: allowance?.pieces !== undefined ? String(allowance.pieces) : '',
+    weightKg:
+      allowance?.weightKg !== undefined ? String(allowance.weightKg) : '',
+    dimensions: allowance?.dimensions ?? '',
+  }
+}
+
+/**
+ * フォームの 3 文字列から 1 スロットを組み立てる。
+ * 空は undefined。「不正」は呼び出し側で弾くための印として 'invalid'。
+ */
+function parseAllowanceFormFields(
+  pieces: string,
+  weightKg: string,
+  dimensions: string,
+): BaggageAllowance | undefined | 'invalid' {
+  const raw: Record<string, unknown> = {}
+
+  const piecesTrim = pieces.trim()
+  if (piecesTrim !== '') {
+    const n = Number(piecesTrim)
+    if (!Number.isInteger(n) || n < 0 || n > MAX_BAGGAGE_PIECES) {
+      return 'invalid'
+    }
+    raw.pieces = n
+  }
+
+  const weightTrim = weightKg.trim()
+  if (weightTrim !== '') {
+    const n = Number(weightTrim)
+    if (!Number.isFinite(n) || n <= 0 || n > MAX_BAGGAGE_WEIGHT_KG) {
+      return 'invalid'
+    }
+    raw.weightKg = n
+  }
+
+  const dimTrim = dimensions.trim()
+  if (dimTrim !== '') raw.dimensions = dimTrim
+
+  if (Object.keys(raw).length === 0) return undefined
+  // 最終の妥当性は parseBookingBaggage と同じ規則に揃える
+  const baggage = parseBookingBaggage({ cabin: raw })
+  return baggage?.cabin
+}
+
+function buildBaggageFromForm(
+  form: FormState,
+): BookingBaggage | undefined | 'invalid' {
+  const personal = parseAllowanceFormFields(
+    form.personalPieces,
+    form.personalWeightKg,
+    form.personalDimensions,
+  )
+  const cabin = parseAllowanceFormFields(
+    form.cabinPieces,
+    form.cabinWeightKg,
+    form.cabinDimensions,
+  )
+  const checked = parseAllowanceFormFields(
+    form.checkedPieces,
+    form.checkedWeightKg,
+    form.checkedDimensions,
+  )
+  if (personal === 'invalid' || cabin === 'invalid' || checked === 'invalid') {
+    return 'invalid'
+  }
+  return parseBookingBaggage({
+    ...(personal !== undefined ? { personal } : {}),
+    ...(cabin !== undefined ? { cabin } : {}),
+    ...(checked !== undefined ? { checked } : {}),
+  })
 }
 
 interface StampFields {
@@ -247,6 +360,22 @@ function buildInitialForm(
         booking.bagDropClosesMinutesBefore !== undefined
           ? String(booking.bagDropClosesMinutesBefore)
           : '',
+      ...(() => {
+        const personal = allowanceToFormFields(booking.baggage?.personal)
+        const cabin = allowanceToFormFields(booking.baggage?.cabin)
+        const checked = allowanceToFormFields(booking.baggage?.checked)
+        return {
+          personalPieces: personal.pieces,
+          personalWeightKg: personal.weightKg,
+          personalDimensions: personal.dimensions,
+          cabinPieces: cabin.pieces,
+          cabinWeightKg: cabin.weightKg,
+          cabinDimensions: cabin.dimensions,
+          checkedPieces: checked.pieces,
+          checkedWeightKg: checked.weightKg,
+          checkedDimensions: checked.dimensions,
+        }
+      })(),
       note: booking.note ?? '',
       placeName: booking.place?.name ?? '',
       placeLocalName: booking.place?.localName ?? '',
@@ -283,6 +412,15 @@ function buildInitialForm(
     onlineCheckInMinutes: '',
     checkInMinutes: '',
     bagDropMinutes: '',
+    personalPieces: '',
+    personalWeightKg: '',
+    personalDimensions: '',
+    cabinPieces: '',
+    cabinWeightKg: '',
+    cabinDimensions: '',
+    checkedPieces: '',
+    checkedWeightKg: '',
+    checkedDimensions: '',
     note: '',
     placeName: '',
     placeLocalName: '',
@@ -598,6 +736,10 @@ export function BookingForm({
       form.bagDropMinutes,
       isDeadlineMinutesBefore,
     )
+    const baggage = isTransportKind(form.kind)
+      ? buildBaggageFromForm(form)
+      : undefined
+
     if (isTransportKind(form.kind)) {
       // 上限が違うのでメッセージも分ける。1 本にまとめて「1〜4320 分」と書くと、
       // 締切の欄に 2000 と入れた人には数字が範囲内に見えてしまい、
@@ -611,6 +753,12 @@ export function BookingForm({
       if (checkInCloses === 'invalid' || bagDropCloses === 'invalid') {
         setError(
           `締切は 1〜${MAX_DEADLINE_MINUTES_BEFORE} 分の整数(出発の何分前か)で入力してください`,
+        )
+        return
+      }
+      if (baggage === 'invalid') {
+        setError(
+          `荷物枠は個数 0〜${MAX_BAGGAGE_PIECES} の整数、重量は 0 より大きく ${MAX_BAGGAGE_WEIGHT_KG}kg 以下で入力してください`,
         )
         return
       }
@@ -649,6 +797,9 @@ export function BookingForm({
       }
       if (typeof bagDropCloses === 'number') {
         next.bagDropClosesMinutesBefore = bagDropCloses
+      }
+      if (baggage !== undefined && baggage !== 'invalid') {
+        next.baggage = baggage
       }
     } else {
       const place = buildPlace({
@@ -1176,6 +1327,49 @@ export function BookingForm({
                 </fieldset>
               )}
 
+              {showCheckInTimes && (
+                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
+                  <legend className="px-1 text-xs font-semibold text-gray-500">
+                    荷物枠(許容量)
+                  </legend>
+                  <p className="text-xs text-gray-500">
+                    予約確認書に書いてある持込・受託の枠です。預け締切とは別です。
+                    無料枠なしは個数に 0。分からない欄は空のままにしてください。
+                  </p>
+                  <BaggageSlotFields
+                    label={BAGGAGE_SLOT_LABELS.personal}
+                    pieces={form.personalPieces}
+                    weightKg={form.personalWeightKg}
+                    dimensions={form.personalDimensions}
+                    onPieces={(value) => set('personalPieces', value)}
+                    onWeightKg={(value) => set('personalWeightKg', value)}
+                    onDimensions={(value) => set('personalDimensions', value)}
+                    unverifiedClass={ufc('baggage')}
+                  />
+                  <BaggageSlotFields
+                    label={BAGGAGE_SLOT_LABELS.cabin}
+                    pieces={form.cabinPieces}
+                    weightKg={form.cabinWeightKg}
+                    dimensions={form.cabinDimensions}
+                    onPieces={(value) => set('cabinPieces', value)}
+                    onWeightKg={(value) => set('cabinWeightKg', value)}
+                    onDimensions={(value) => set('cabinDimensions', value)}
+                    unverifiedClass={ufc('baggage')}
+                  />
+                  <BaggageSlotFields
+                    label={BAGGAGE_SLOT_LABELS.checked}
+                    pieces={form.checkedPieces}
+                    weightKg={form.checkedWeightKg}
+                    dimensions={form.checkedDimensions}
+                    onPieces={(value) => set('checkedPieces', value)}
+                    onWeightKg={(value) => set('checkedWeightKg', value)}
+                    onDimensions={(value) => set('checkedDimensions', value)}
+                    unverifiedClass={ufc('baggage')}
+                  />
+                  {unverifiedNote('baggage')}
+                </fieldset>
+              )}
+
               <label className="block space-y-1">
                 <span className={labelClass}>メモ</span>
                 <textarea
@@ -1470,6 +1664,75 @@ function MinutesBeforeField({
         )}
       </div>
       {note}
+    </div>
+  )
+}
+
+/**
+ * 荷物枠 1 スロット(身の回り品 / 持込 / 受託)の入力行。
+ * 個数・重量・寸法を横並びにする。未確認の黄色い下線は 3 欄まとめて baggage。
+ */
+function BaggageSlotFields({
+  label,
+  pieces,
+  weightKg,
+  dimensions,
+  onPieces,
+  onWeightKg,
+  onDimensions,
+  unverifiedClass,
+}: {
+  label: string
+  pieces: string
+  weightKg: string
+  dimensions: string
+  onPieces: (value: string) => void
+  onWeightKg: (value: string) => void
+  onDimensions: (value: string) => void
+  unverifiedClass: string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className={labelClass}>{label}</span>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block space-y-1">
+          <span className="text-[11px] text-gray-500">個数</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={MAX_BAGGAGE_PIECES}
+            step={1}
+            value={pieces}
+            placeholder="0=なし"
+            onChange={(event) => onPieces(event.target.value)}
+            className={`${fieldClass} ${unverifiedClass}`}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[11px] text-gray-500">重量(kg)</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={MAX_BAGGAGE_WEIGHT_KG}
+            step="any"
+            value={weightKg}
+            onChange={(event) => onWeightKg(event.target.value)}
+            className={`${fieldClass} ${unverifiedClass}`}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[11px] text-gray-500">寸法</span>
+          <input
+            type="text"
+            value={dimensions}
+            placeholder="55×40×20cm"
+            onChange={(event) => onDimensions(event.target.value)}
+            className={`${fieldClass} ${unverifiedClass}`}
+          />
+        </label>
+      </div>
     </div>
   )
 }

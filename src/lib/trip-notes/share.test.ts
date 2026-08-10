@@ -538,6 +538,40 @@ describe('share', () => {
     })
   })
 
+  describe('荷物枠(baggage)', () => {
+    it('荷物枠がラウンドトリップで保たれる', async () => {
+      const state = buildFullState()
+      state.bookings[1] = {
+        ...state.bookings[1],
+        baggage: {
+          personal: { pieces: 1, weightKg: 3 },
+          cabin: { pieces: 1, weightKg: 7, dimensions: '55x40x20cm' },
+          checked: { pieces: 1, weightKg: 23 },
+        },
+      }
+      expect(await roundTrip(state)).toEqual(expected(state))
+    })
+
+    it('受託なし(pieces: 0)もラウンドトリップで保たれる', async () => {
+      const state = buildFullState()
+      state.bookings[1] = {
+        ...state.bookings[1],
+        baggage: { checked: { pieces: 0 } },
+      }
+      const decoded = await roundTrip(state)
+      expect(decoded.bookings[1].baggage).toEqual({ checked: { pieces: 0 } })
+    })
+
+    it('荷物枠が無い予約では payload にキーが現れない', async () => {
+      const state = buildFullState()
+      const url = await encodeShareUrl(state, BASE_URL)
+      const decoded = requireDecoded(await decodeShareState(extractHash(url)))
+      for (const booking of decoded.bookings) {
+        expect(booking).not.toHaveProperty('baggage')
+      }
+    })
+  })
+
   describe('場所のラテン文字表記(latinName)', () => {
     it('v2 のラウンドトリップで latinName が保たれる', async () => {
       const state = buildFullState()

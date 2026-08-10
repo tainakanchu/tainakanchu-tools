@@ -98,6 +98,15 @@ describe('buildImportPrompt: スキーマの同期', () => {
     // 時刻ではなく「出発の何分前か」であることが読めないと、AI は '14:20' を返す
     expect(prompt).toContain('出発の 24 時間前に開くなら 1440')
   })
+
+  it('荷物枠(baggage)がスキーマに含まれ、推測禁止が読める', () => {
+    const prompt = buildImportPrompt(state())
+    expect(prompt).toContain('baggage')
+    expect(prompt).toContain('personal')
+    expect(prompt).toContain('cabin')
+    expect(prompt).toContain('checked')
+    expect(prompt).toContain('推測禁止')
+  })
 })
 
 describe('buildImportPrompt: 便の時刻まわりの抽出ルール(ルール8)', () => {

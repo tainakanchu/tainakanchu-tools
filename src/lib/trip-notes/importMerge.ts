@@ -163,7 +163,7 @@ function findMatch(
 /**
  * confirmationNumber/provider/price/freeCancelUntil/
  * onlineCheckInOpensMinutesBefore/checkInClosesMinutesBefore/
- * bagDropClosesMinutesBefore/note の
+ * bagDropClosesMinutesBefore/baggage/note の
  * 共通ルール: 取り込み側に値があれば採用し、undefined なら既存を維持する。
  * from/to/place だけは中身をフィールド単位でマージするので mergePlace が受け持つ。
  * fromIncoming も一緒に返し、unverified の引き継ぎ判定に使う。
@@ -360,6 +360,14 @@ export function mergeBooking(existing: Booking, incoming: Booking): Booking {
   if (bagDropCloses.value !== undefined) {
     merged.bagDropClosesMinutesBefore = bagDropCloses.value
   }
+
+  // 荷物枠はオブジェクトごと差し替える(Place と違いスロット間の部分マージはしない)。
+  // 取り込み側に baggage が無ければ既存を維持し、あれば上書きする。
+  // スロット単位マージにすると「受託なし(pieces:0)」を AI が読んだときに
+  // 既存の checked と混ざって「無い」と「ある」が同居しうる。
+  const baggage = pickOptional(existing, incoming, 'baggage')
+  markUnverified('baggage', baggage.fromIncoming)
+  if (baggage.value !== undefined) merged.baggage = baggage.value
 
   const note = pickOptional(existing, incoming, 'note')
   markUnverified('note', note.fromIncoming)

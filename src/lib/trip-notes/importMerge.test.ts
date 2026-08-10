@@ -352,6 +352,34 @@ describe('mergeBooking / マージ規則', () => {
     expect(merged.bagDropClosesMinutesBefore).toBe(60)
   })
 
+  it('荷物枠は取り込み側にあればオブジェクトごと採用する', () => {
+    const existing = existingBooking('e1', {
+      baggage: { cabin: { pieces: 1, weightKg: 7 } },
+    })
+    const incoming = incomingBooking('tmp', {
+      baggage: {
+        personal: { pieces: 1, weightKg: 3 },
+        cabin: { pieces: 1, weightKg: 7 },
+        checked: { pieces: 0 },
+      },
+    })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.baggage).toEqual({
+      personal: { pieces: 1, weightKg: 3 },
+      cabin: { pieces: 1, weightKg: 7 },
+      checked: { pieces: 0 },
+    })
+  })
+
+  it('荷物枠は取り込み側に無ければ既存を維持する', () => {
+    const existing = existingBooking('e1', {
+      baggage: { checked: { pieces: 1, weightKg: 23 } },
+    })
+    const incoming = incomingBooking('tmp', { baggage: undefined })
+    const merged = mergeBooking(existing, incoming)
+    expect(merged.baggage).toEqual({ checked: { pieces: 1, weightKg: 23 } })
+  })
+
   it('開放の未確認状態は、値を採用した側から引き継ぐ', () => {
     // 締切と同じ扱い。取り込み側で上書きしたなら取り込み側の未確認状態を、
     // 既存を維持したなら既存の未確認状態を引き継ぐ
