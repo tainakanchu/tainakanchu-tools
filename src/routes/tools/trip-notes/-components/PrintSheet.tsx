@@ -73,7 +73,7 @@ import {
   Timer,
   XCircle,
 } from 'lucide-react'
-import { formatBookingBaggage } from '../../../../lib/trip-notes/baggage'
+import { listBaggageSlots } from '../../../../lib/trip-notes/baggage'
 import {
   diffDays,
   formatDateJa,
@@ -324,7 +324,7 @@ function BookingRow({
     ({ place }) => place.localName !== undefined || place.address !== undefined,
   )
   const deadlines = deadlinesOf(booking, displayTz)
-  const baggageText = formatBookingBaggage(booking.baggage)
+  const baggageSlots = listBaggageSlots(booking.baggage)
 
   /*
     終了時刻の出し方は、終わる日が始まる日と同じかどうかで変える。
@@ -438,10 +438,20 @@ function BookingRow({
           </p>
         ) : null}
 
-        {baggageText !== null ? (
-          <p className="mt-[2pt] text-[8pt] leading-[1.35] text-gray-800">
-            荷物: {baggageText}
-          </p>
+        {baggageSlots !== null ? (
+          <div className="mt-[2pt] text-[8pt] leading-[1.35] text-gray-800">
+            <p className="font-semibold">荷物</p>
+            <ul className="mt-[1pt] space-y-[0.5pt]">
+              {baggageSlots.map((slot) => (
+                <li key={slot.slot}>
+                  {slot.label} {slot.metrics}
+                  {slot.note !== undefined ? (
+                    <span className="text-gray-600"> — {slot.note}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         {booking.confirmationNumber !== undefined ||

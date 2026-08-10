@@ -51,7 +51,10 @@ import {
 import { MILESTONE_LABELS } from '../../../../lib/trip-notes/milestones'
 import { isTransportKind } from '../../../../lib/trip-notes/nights'
 import { bookingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
-import { formatBookingBaggage } from '../../../../lib/trip-notes/baggage'
+import {
+  formatBookingBaggage,
+  listBaggageSlots,
+} from '../../../../lib/trip-notes/baggage'
 import { copyText, formatMoney } from '../-lib/format'
 import { iconButtonClass, unverifiedFieldClass } from '../-lib/styles'
 import { BOOKING_KIND_LABELS, KindIcon } from './KindIcon'
@@ -614,7 +617,7 @@ function BookingDetails({
 }) {
   const isUnverified = (field: FieldKey) =>
     unverified.includes(field) ? unverifiedFieldClass : ''
-  const baggageText = formatBookingBaggage(booking.baggage)
+  const baggageSlots = listBaggageSlots(booking.baggage)
   const timingRows = transportTimingRows(booking, displayTz)
 
   return (
@@ -702,13 +705,11 @@ function BookingDetails({
             {formatDateJa(booking.freeCancelUntil)}
           </DetailRow>
         ) : null}
-        {baggageText !== null ? (
-          <DetailRow
-            label={FIELD_LABELS.baggage}
+        {baggageSlots !== null ? (
+          <BaggageDetail
+            slots={baggageSlots}
             valueClass={isUnverified('baggage')}
-          >
-            {baggageText}
-          </DetailRow>
+          />
         ) : null}
         {booking.note !== undefined ? (
           <DetailRow
@@ -790,6 +791,44 @@ function DetailRow({
       <dt className="w-24 shrink-0 text-gray-500">{label}</dt>
       <dd className={`min-w-0 flex-1 break-words text-gray-800 ${valueClass}`}>
         {children}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * 荷物枠。1 本の長文にせず、スロットごとに行を分ける。
+ *
+ * 身の回り・機内・受託は空港で見る単位が違うので、短いラベルの横に
+ * 個数・寸法だけを先に読ませる。note(「前の座席の下」「合計 7kg」など)は
+ * 次の行に小さく置き、数値と混ぜない。
+ */
+function BaggageDetail({
+  slots,
+  valueClass,
+}: {
+  slots: NonNullable<ReturnType<typeof listBaggageSlots>>
+  valueClass: string
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+      <dt className="w-24 shrink-0 text-gray-500">{FIELD_LABELS.baggage}</dt>
+      <dd className={`min-w-0 flex-1 space-y-1.5 ${valueClass}`}>
+        {slots.map((slot) => (
+          <div key={slot.slot} className="min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="shrink-0 font-medium text-gray-700">
+                {slot.label}
+              </span>
+              <span className="text-gray-800">{slot.metrics}</span>
+            </div>
+            {slot.note !== undefined ? (
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                {slot.note}
+              </p>
+            ) : null}
+          </div>
+        ))}
       </dd>
     </div>
   )
