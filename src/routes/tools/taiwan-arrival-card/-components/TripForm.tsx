@@ -28,6 +28,7 @@ import {
   subtleButtonClass,
 } from '../-lib/styles'
 import { LIST_IDS, ListField, SelectField, TextField } from './Fields'
+import { SubmissionWindowBanner } from './SubmissionWindowBanner'
 import type {
   Accommodation,
   ModeOfTravel,
@@ -272,6 +273,8 @@ export function TripForm({
             }
           />
         </div>
+        {/* 入国日ベースの TWAC 提出可否。未入力・不正日付では何も出さない */}
+        <SubmissionWindowBanner entryDate={trip.dateOfEntry} />
       </fieldset>
 
       <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3">
