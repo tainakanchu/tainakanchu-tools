@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -199,6 +199,42 @@ const ICONS = {
       ['path', { d: 'M5 22h14' }],
     ],
   },
+  layers: {
+    all: [
+      [
+        'path',
+        {
+          d: 'M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z',
+        },
+      ],
+      [
+        'path',
+        {
+          d: 'M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12',
+        },
+      ],
+      [
+        'path',
+        {
+          d: 'M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17',
+        },
+      ],
+    ],
+  },
+  palette: {
+    all: [
+      [
+        'path',
+        {
+          d: 'M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z',
+        },
+      ],
+      ['circle', { cx: '13.5', cy: '6.5', r: '.5' }],
+      ['circle', { cx: '17.5', cy: '10.5', r: '.5' }],
+      ['circle', { cx: '6.5', cy: '12.5', r: '.5' }],
+      ['circle', { cx: '8.5', cy: '7.5', r: '.5' }],
+    ],
+  },
 } as const satisfies Record<string, IconParts>
 
 type IconName = keyof typeof ICONS
@@ -320,6 +356,43 @@ const CARDS: ReadonlyArray<CardDef> = [
         cy: 195,
         size: 70,
         rotate: -18,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'risograph',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'リソ風分版', y: 300 },
+      { text: 'メーカー', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'layers',
+        part: 'all',
+        cx: 940,
+        cy: 300,
+        size: 195,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'palette',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 105,
+        rotate: -9,
+        color: 'sub',
+      },
+      {
+        icon: 'stamp',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 72,
+        rotate: 0,
         color: 'accent',
       },
     ],

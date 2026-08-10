@@ -5,6 +5,7 @@ import {
   Drum,
   ExternalLink,
   Home,
+  Layers,
   Luggage,
   Map,
   Menu,
@@ -19,6 +20,7 @@ import { getCatalogByCategory, type CatalogItem } from '../lib/site-meta'
 /** Header 専用: site-meta に lucide を入れないため slug → icon はここで持つ */
 const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'actual-size-layout': Printer,
+  risograph: Layers,
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,
