@@ -4,7 +4,8 @@
  * 物理モデルには一切使用しない(仕様書 §1)。
  * driverInput はプリンタへ送る入力色の初期値(= 参照色と同じ hex から出発)。
  */
-import { linearRgbToXyz, srgb8ToLinear, type RGB, type XYZ } from './color'
+import { linearRgbToXyz, srgb8ToLinear } from './color'
+import type { RGB, XYZ } from './color'
 import type { SimInkDef } from './press-sim'
 
 export function hexToLinear(hex: string): RGB {

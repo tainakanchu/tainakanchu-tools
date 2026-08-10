@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { useMemo, useState, type ComponentType } from 'react'
+import { useMemo, useState } from 'react'
+import type { ComponentType } from 'react'
 import {
   Dices,
   Drum,
@@ -15,7 +16,8 @@ import {
   X,
   ZoomIn,
 } from 'lucide-react'
-import { getCatalogByCategory, type CatalogItem } from '../lib/site-meta'
+import { getCatalogByCategory } from '../lib/site-meta'
+import type { CatalogItem } from '../lib/site-meta'
 
 /** Header 専用: site-meta に lucide を入れないため slug → icon はここで持つ */
 const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {

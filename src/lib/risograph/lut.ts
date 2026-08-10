@@ -6,21 +6,20 @@
  * - ガモットマッピングは LUT 構築時にノード target へ適用(§9.3)
  * - 決定的: 同一入力で bit-identical(反復順・演算順固定)
  */
-import { deltaE00, srgbToLinear, xyzToLab, linearRgbToXyz, type Lab } from './color'
-import { createForwardContext, forward, type ForwardContext } from './forward'
-import { buildGamutTable, mapToGamut, type GamutTable } from './gamut'
-import {
-  createSolverContext,
-  projectConstraints,
-  solveNode,
-  type SolverContext,
-} from './solver'
+import { deltaE00, linearRgbToXyz, srgbToLinear, xyzToLab } from './color'
+import type { Lab } from './color'
+import { createForwardContext, forward } from './forward'
+import type { ForwardContext } from './forward'
+import { buildGamutTable, mapToGamut } from './gamut'
+import type { GamutTable } from './gamut'
+import { createSolverContext, projectConstraints, solveNode } from './solver'
+import type { SolverContext } from './solver'
 import type { InkId, PressProfile, SeparationConfig } from './types'
 
 export interface SeparationLut {
   size: number
   inkCount: number
-  inkIds: InkId[]
+  inkIds: Array<InkId>
   /** size³ × N。index = ((z*size + y)*size + x)*N + ink */
   data: Float32Array
 }
@@ -28,7 +27,7 @@ export interface SeparationLut {
 export type ProgressCallback = (fraction: number, message: string) => void
 
 /** レベル列。9³ → 17³ (→ 33³) */
-function levelsFor(finalSize: 17 | 33): number[] {
+function levelsFor(finalSize: 17 | 33): Array<number> {
   return finalSize === 33 ? [9, 17, 33] : [9, 17]
 }
 
@@ -37,18 +36,14 @@ function buildTargets(
   size: number,
   gamut: GamutTable,
   config: SeparationConfig,
-): Lab[] {
-  const targets: Lab[] = new Array(size * size * size)
+): Array<Lab> {
+  const targets: Array<Lab> = Array.from({ length: size * size * size })
   let idx = 0
   for (let z = 0; z < size; z++) {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         // LUT domain は linear sRGB(x=R, y=G, z=B)
-        const rgb = [
-          x / (size - 1),
-          y / (size - 1),
-          z / (size - 1),
-        ] as const
+        const rgb = [x / (size - 1), y / (size - 1), z / (size - 1)] as const
         const lab = xyzToLab(linearRgbToXyz(rgb))
         targets[idx++] = mapToGamut(lab, gamut, config.gamutMap)
       }
@@ -143,7 +138,7 @@ function neighborMeanOf(
 function sweepLevel(
   data: Float32Array,
   size: number,
-  targets: Lab[],
+  targets: Array<Lab>,
   config: SeparationConfig,
   solverCtx: SolverContext,
   fwd: ForwardContext,
@@ -239,7 +234,7 @@ export function buildSeparationLut(
     const targets = buildTargets(size, gamut, config)
 
     if (data === null) {
-      // 9³ レベル: 独立 solve(λ_smooth = 0、粗グリッド初期化)
+      // 9³ レベル: まず独立 solve(λ_smooth = 0、粗グリッド初期化)で種を作る
       data = new Float32Array(size * size * size * inkCount)
       const out = new Float32Array(inkCount)
       const nodeCount = size * size * size
@@ -253,6 +248,20 @@ export function buildSeparationLut(
           )
         }
       }
+      // 最粗レベルでも Jacobi スイープを回す。ここが独立 solve のままだと
+      // 隣り合うノードが別々の局所解に落ちたまま上のレベルへ持ち上がり、
+      // 以降の平滑化では戻せない不連続が LUT に焼き付く。
+      sweepLevel(
+        data,
+        size,
+        targets,
+        config,
+        solverCtx,
+        fwd,
+        onProgress,
+        progressBase,
+        span,
+      )
     } else {
       data = upsample(data, prevSize, size, inkCount)
       // upsample 直後は制約を満たさない可能性があるため必ず射影(§10.6)
@@ -334,7 +343,7 @@ export function applyLutToImage(
   rgba: Uint8ClampedArray,
   width: number,
   height: number,
-): Float32Array[] {
+): Array<Float32Array> {
   const n = lut.inkCount
   const maps = Array.from({ length: n }, () => new Float32Array(width * height))
   // 8bit → linear の変換表
@@ -395,7 +404,7 @@ export function evaluateLut(result: BuildLutResult): {
   }
 
   // 隣接ノード間 L2
-  const dists: number[] = []
+  const dists: Array<number> = []
   for (let z = 0; z < s; z++) {
     for (let y = 0; y < s; y++) {
       for (let x = 0; x + 1 < s; x++) {

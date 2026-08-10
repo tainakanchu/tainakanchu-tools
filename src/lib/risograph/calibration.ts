@@ -5,7 +5,8 @@
  * - Yule-Nielsen n の交互フィット（粗探索 → 黄金分割）
  * - ホールドアウト検証統計
  */
-import { deltaE00Xyz, type XYZ } from './color'
+import { deltaE00Xyz } from './color'
+import type { XYZ } from './color'
 import { createForwardContext, forward } from './forward'
 import type {
   InkId,
@@ -17,8 +18,8 @@ import type {
 } from './types'
 
 export interface ChartPatch {
-  inkIds: InkId[]
-  coverage: number[]
+  inkIds: Array<InkId>
+  coverage: Array<number>
 }
 
 export const WEDGE_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -31,8 +32,8 @@ const TRIPLE_PATCHES = [
 ]
 
 /** §7.2 のチャート構成。先頭は紙白 */
-export function generateChart(inkIds: InkId[]): ChartPatch[] {
-  const patches: ChartPatch[] = [{ inkIds: [], coverage: [] }]
+export function generateChart(inkIds: Array<InkId>): Array<ChartPatch> {
+  const patches: Array<ChartPatch> = [{ inkIds: [], coverage: [] }]
   for (const id of inkIds) {
     for (const s of WEDGE_STEPS) patches.push({ inkIds: [id], coverage: [s] })
   }
@@ -72,7 +73,7 @@ function indexHash(i: number): number {
  * ペアサンプルの約 20% を決定的に holdout にする（§7.4）。
  * 2 色ベタ（primary として使う）は holdout にしない。
  */
-export function assignHoldout(samples: OverprintSample[]): void {
+export function assignHoldout(samples: Array<OverprintSample>): void {
   samples.forEach((s, i) => {
     const isSolidPair =
       s.inkIds.length === 2 && s.coverage.every((c) => c >= 0.999)
@@ -81,10 +82,10 @@ export function assignHoldout(samples: OverprintSample[]): void {
 }
 
 /** pool-adjacent-violators による単調非減少射影（等重み） */
-export function pava(values: readonly number[]): number[] {
+export function pava(values: ReadonlyArray<number>): Array<number> {
   const n = values.length
-  const level: number[] = []
-  const weight: number[] = []
+  const level: Array<number> = []
+  const weight: Array<number> = []
   for (let i = 0; i < n; i++) {
     let v = values[i]
     let w = 1
@@ -97,7 +98,7 @@ export function pava(values: readonly number[]): number[] {
     level.push(v)
     weight.push(w)
   }
-  const out: number[] = []
+  const out: Array<number> = []
   for (let i = 0; i < level.length; i++) {
     for (let k = 0; k < weight[i]; k++) out.push(level[i])
   }
@@ -149,9 +150,9 @@ export interface WedgeStepMeasurement {
 export function fitToneResponse(
   paperWhite: XYZ,
   solid: XYZ,
-  wedge: WedgeStepMeasurement[],
+  wedge: Array<WedgeStepMeasurement>,
   n: number,
-): number[] {
+): Array<number> {
   const invN = 1 / n
   const pw = paperWhite.map((v) => Math.pow(Math.max(v, 0), invN))
   const sw = solid.map((v) => Math.pow(Math.max(v, 0), invN))
@@ -161,7 +162,7 @@ export function fitToneResponse(
     Math.pow((1 - e) * pw[2] + e * sw[2], n),
   ]
 
-  const sorted = [...wedge].sort((a, b) => a.coverage - b.coverage)
+  const sorted = wedge.toSorted((a, b) => a.coverage - b.coverage)
   if (sorted.length !== WEDGE_STEPS.length) {
     throw new Error(
       `wedge must have ${WEDGE_STEPS.length} steps, got ${sorted.length}`,
@@ -177,29 +178,29 @@ export function fitToneResponse(
 export interface CalibrationMeasurements {
   paperWhite: XYZ
   /** インクごとの wedge（100% 段がベタ実測を兼ねる） */
-  wedges: Map<InkId, WedgeStepMeasurement[]>
+  wedges: Map<InkId, Array<WedgeStepMeasurement>>
   /** ペア実測（holdout フラグは assignHoldout 済みであること） */
-  pairSamples: OverprintSample[]
+  pairSamples: Array<OverprintSample>
   /** 3 インク検証パッチ（fitting には使わない） */
-  tripleSamples: OverprintSample[]
+  tripleSamples: Array<OverprintSample>
 }
 
 export interface CalibrationResult {
   n: number
-  toneResponses: Map<InkId, number[]>
+  toneResponses: Map<InkId, Array<number>>
   solids: Map<InkId, XYZ>
   fitStats: {
     holdoutDeltaEMean: number
     holdoutDeltaEP95: number
     threeInkDeltaEMean: number | null
   }
-  warnings: string[]
+  warnings: Array<string>
 }
 
 const N_MIN = 1.0
 const N_MAX = 4.0
 
-function solidOf(wedge: WedgeStepMeasurement[]): XYZ {
+function solidOf(wedge: Array<WedgeStepMeasurement>): XYZ {
   const top = wedge.reduce((a, b) => (b.coverage > a.coverage ? b : a))
   return top.measured
 }
@@ -207,18 +208,20 @@ function solidOf(wedge: WedgeStepMeasurement[]): XYZ {
 /** 評価用のミニ profile を組んで forward を回す */
 function makeEvalProfile(
   meas: CalibrationMeasurements,
-  toneResponses: Map<InkId, number[]>,
+  toneResponses: Map<InkId, Array<number>>,
   n: number,
 ): PressProfile {
-  const inks: VirtualInk[] = [...meas.wedges.entries()].map(([id, wedge]) => ({
-    id,
-    name: id,
-    driverInput: [0, 0, 0],
-    measuredSolid: solidOf(wedge),
-    toneResponse: toneResponses.get(id)!,
-    maxCoverage: 1,
-    feasibility: 'measured',
-  }))
+  const inks: Array<VirtualInk> = [...meas.wedges.entries()].map(
+    ([id, wedge]) => ({
+      id,
+      name: id,
+      driverInput: [0, 0, 0],
+      measuredSolid: solidOf(wedge),
+      toneResponse: toneResponses.get(id)!,
+      maxCoverage: 1,
+      feasibility: 'measured',
+    }),
+  )
   return {
     id: 'eval',
     createdAt: '',
@@ -258,7 +261,7 @@ function sampleDeltaE(
 
 /** ペア内点（非 holdout・ベタ以外）の残差 Σ ΔE00² */
 function pairResidual(meas: CalibrationMeasurements, n: number): number {
-  const toneResponses = new Map<InkId, number[]>()
+  const toneResponses = new Map<InkId, Array<number>>()
   for (const [id, wedge] of meas.wedges) {
     toneResponses.set(
       id,
@@ -287,7 +290,7 @@ function pairResidual(meas: CalibrationMeasurements, n: number): number {
   return residual
 }
 
-function percentile(sortedAsc: number[], p: number): number {
+function percentile(sortedAsc: Array<number>, p: number): number {
   if (sortedAsc.length === 0) return 0
   const idx = Math.min(
     sortedAsc.length - 1,
@@ -303,7 +306,7 @@ function percentile(sortedAsc: number[], p: number): number {
 export function fitCalibration(
   meas: CalibrationMeasurements,
 ): CalibrationResult {
-  const warnings: string[] = []
+  const warnings: Array<string> = []
 
   // 粗探索
   let bestN = N_MIN
@@ -329,7 +332,7 @@ export function fitCalibration(
     )
   }
 
-  const toneResponses = new Map<InkId, number[]>()
+  const toneResponses = new Map<InkId, Array<number>>()
   const solids = new Map<InkId, XYZ>()
   for (const [id, wedge] of meas.wedges) {
     const solid = solidOf(wedge)
@@ -342,7 +345,7 @@ export function fitCalibration(
   const holdoutDeltas = meas.pairSamples
     .filter((s) => s.holdout)
     .map((s) => sampleDeltaE(profile, s, n))
-    .sort((a, b) => a - b)
+    .toSorted((a, b) => a - b)
   const holdoutDeltaEMean =
     holdoutDeltas.length > 0
       ? holdoutDeltas.reduce((a, b) => a + b, 0) / holdoutDeltas.length
@@ -380,7 +383,7 @@ export interface ProfileBuildInput {
   createdAt: string
   printCondition: PrintCondition
   paperLabel: string
-  printOrder: InkId[]
+  printOrder: Array<InkId>
   inkDefs: Array<{
     id: InkId
     name: string
@@ -395,10 +398,10 @@ export interface ProfileBuildInput {
 /** 実測（または合成測定）から PressProfile を構築する */
 export function buildPressProfile(input: ProfileBuildInput): {
   profile: PressProfile
-  warnings: string[]
+  warnings: Array<string>
 } {
   const result = fitCalibration(input.measurements)
-  const inks: VirtualInk[] = input.inkDefs.map((def) => {
+  const inks: Array<VirtualInk> = input.inkDefs.map((def) => {
     const solid = result.solids.get(def.id)
     const tone = result.toneResponses.get(def.id)
     if (!solid || !tone) throw new Error(`No measurements for ink ${def.id}`)

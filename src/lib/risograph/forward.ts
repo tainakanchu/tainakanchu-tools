@@ -7,13 +7,14 @@
  * - 内側ループの Math.pow は外側の ^n のみ（primary^(1/n) は事前計算）
  * - forward は allocation free
  */
-import { linearRgbToXyz, xyzToReflectance, type XYZ } from './color'
+import { linearRgbToXyz, xyzToReflectance } from './color'
+import type { XYZ } from './color'
 import type { InkId, PressProfile, VirtualInk } from './types'
 
 export interface ForwardContext {
   profile: PressProfile
-  inkIds: InkId[]
-  inks: VirtualInk[]
+  inkIds: Array<InkId>
+  inks: Array<VirtualInk>
   inkCount: number
   /** 2^N × 3。primary(S)^(1/n) を展開済み */
   primaryPow: Float32Array
@@ -28,7 +29,11 @@ export interface ForwardContext {
 }
 
 /** toneResponse（11 点）の区分線形補間 */
-export function interpTone(tone: ArrayLike<number>, offset: number, a: number): number {
+export function interpTone(
+  tone: ArrayLike<number>,
+  offset: number,
+  a: number,
+): number {
   const x = a <= 0 ? 0 : a >= 1 ? 1 : a
   const scaled = x * 10
   let idx = Math.floor(scaled)
@@ -44,7 +49,10 @@ export function interpTone(tone: ArrayLike<number>, offset: number, a: number): 
  * - paper / 単色ベタ / 2色ベタ: 実測
  * - 3色以上: 下位 primary × (単色ベタ / 紙白) の積による推定
  */
-export function buildPrimaries(profile: PressProfile, inkIds: InkId[]): XYZ[] {
+export function buildPrimaries(
+  profile: PressProfile,
+  inkIds: Array<InkId>,
+): Array<XYZ> {
   const inks = inkIds.map((id) => {
     const ink = profile.inks.find((i) => i.id === id)
     if (!ink) throw new Error(`Unknown ink id: ${id}`)
@@ -53,7 +61,7 @@ export function buildPrimaries(profile: PressProfile, inkIds: InkId[]): XYZ[] {
   const n = inkIds.length
   const size = 1 << n
   const paper = profile.paperWhite
-  const primaries: XYZ[] = new Array(size)
+  const primaries: Array<XYZ> = Array.from({ length: size })
   primaries[0] = paper
 
   // 単色ベタ
@@ -90,7 +98,7 @@ export function buildPrimaries(profile: PressProfile, inkIds: InkId[]): XYZ[] {
 
   for (let mask = 1; mask < size; mask++) {
     if (primaries[mask]) continue
-    const bits: number[] = []
+    const bits: Array<number> = []
     for (let i = 0; i < n; i++) if (mask & (1 << i)) bits.push(i)
     if (bits.length === 2) {
       const measured = solidPair(inkIds[bits[0]], inkIds[bits[1]])
@@ -109,7 +117,7 @@ export function buildPrimaries(profile: PressProfile, inkIds: InkId[]): XYZ[] {
 
 export function createForwardContext(
   profile: PressProfile,
-  inkIds: InkId[],
+  inkIds: Array<InkId>,
   nOverride?: number,
 ): ForwardContext {
   const inks = inkIds.map((id) => profile.inks.find((i) => i.id === id)!)
@@ -190,7 +198,10 @@ export function forward(
 }
 
 /** テスト・単発評価用の便宜ラッパ（allocation あり） */
-export function forwardXyz(coverage: ArrayLike<number>, ctx: ForwardContext): XYZ {
+export function forwardXyz(
+  coverage: ArrayLike<number>,
+  ctx: ForwardContext,
+): XYZ {
   const out = new Float32Array(3)
   forward(coverage, ctx, out)
   return [out[0], out[1], out[2]]

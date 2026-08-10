@@ -47,7 +47,11 @@ describe('mapToGamut', () => {
 
   it('ガモット外の高彩度色が境界内へ写る', () => {
     const wild = [55, 90, -80] as const // 2 インク構成では確実にガモット外
-    for (const mode of ['clip', 'chroma-compress', 'lightness-first'] as const) {
+    for (const mode of [
+      'clip',
+      'chroma-compress',
+      'lightness-first',
+    ] as const) {
       const mapped = mapToGamut(wild, table, { mode, knee: 0.8, strength: 1 })
       const [l, c, h] = labToLch(mapped)
       expect(l).toBeGreaterThanOrEqual(table.lMin - 0.5)

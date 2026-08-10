@@ -8,7 +8,8 @@ import {
   goldenSection,
   pava,
 } from './calibration'
-import { linearRgbToXyz, type XYZ } from './color'
+import { linearRgbToXyz } from './color'
+import type { XYZ } from './color'
 import { simulateMeasurements } from './press-sim'
 import { INK_PRESETS } from './presets'
 import type { OverprintSample } from './types'
@@ -21,15 +22,15 @@ describe('generateChart', () => {
   })
 })
 
-describe('assignHoldout', () => {
-  const makeSamples = (count: number): OverprintSample[] =>
-    Array.from({ length: count }, (_, i) => ({
-      inkIds: ['a', 'b'],
-      coverage: [0.2 + (i % 4) * 0.2, 0.4],
-      measured: [0.5, 0.5, 0.5] as XYZ,
-      holdout: false,
-    }))
+const makeSamples = (count: number): Array<OverprintSample> =>
+  Array.from({ length: count }, (_, i) => ({
+    inkIds: ['a', 'b'],
+    coverage: [0.2 + (i % 4) * 0.2, 0.4],
+    measured: [0.5, 0.5, 0.5] as XYZ,
+    holdout: false,
+  }))
 
+describe('assignHoldout', () => {
   it('決定的で、およそ 20% を holdout にする', () => {
     const s1 = makeSamples(100)
     const s2 = makeSamples(100)
@@ -42,7 +43,7 @@ describe('assignHoldout', () => {
   })
 
   it('2 色ベタ(primary)は holdout にしない', () => {
-    const samples: OverprintSample[] = Array.from({ length: 50 }, () => ({
+    const samples: Array<OverprintSample> = Array.from({ length: 50 }, () => ({
       inkIds: ['a', 'b'],
       coverage: [1, 1],
       measured: [0.5, 0.5, 0.5] as XYZ,
@@ -75,21 +76,23 @@ describe('goldenSection', () => {
   })
 })
 
+/** ドットゲイン形状（既知の toneResponse） */
+const trueTone = (a: number) => Math.min(1, a * (1.4 - 0.4 * a))
+
 describe('fitToneResponse', () => {
   it('既知の toneResponse を持つ合成 wedge から曲線を復元する', () => {
     const paper = linearRgbToXyz([0.95, 0.95, 0.95])
     const solid = linearRgbToXyz([0.6, 0.1, 0.2])
     const n = 2.0
     const invN = 1 / n
-    const trueTone = (a: number) => Math.min(1, a * (1.4 - 0.4 * a)) // ドットゲイン形状
     const wedge = WEDGE_STEPS.map((coverage) => {
       const e = trueTone(coverage)
-      const measured = [0, 1, 2].map((c) =>
+      const mix = (c: number) =>
         Math.pow(
           (1 - e) * Math.pow(paper[c], invN) + e * Math.pow(solid[c], invN),
           n,
-        ),
-      ) as unknown as XYZ
+        )
+      const measured: XYZ = [mix(0), mix(1), mix(2)]
       return { coverage, measured }
     })
     const tone = fitToneResponse(paper, solid, wedge, n)

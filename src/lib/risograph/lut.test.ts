@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyLutToImage, buildSeparationLut, evaluateLut, sampleLut } from './lut'
+import {
+  applyLutToImage,
+  buildSeparationLut,
+  evaluateLut,
+  sampleLut,
+} from './lut'
 import { createSyntheticProfile } from './press-sim'
 import { INK_PRESETS } from './presets'
 import { defaultSeparationConfig } from './types'
@@ -59,10 +64,9 @@ describe('sampleLut / applyLutToImage', () => {
   })
 
   it('画像適用でインクごとの map が返る', () => {
-    const rgba = new Uint8ClampedArray([
-      255, 255, 255, 255, // 白
-      255, 72, 176, 255, // 蛍光ピンク相当
-    ])
+    const white = [255, 255, 255, 255]
+    const pink = [255, 72, 176, 255] // 蛍光ピンク相当
+    const rgba = new Uint8ClampedArray([...white, ...pink])
     const maps = applyLutToImage(result.lut, rgba, 2, 1)
     expect(maps.length).toBe(2)
     expect(maps[0].length).toBe(2)

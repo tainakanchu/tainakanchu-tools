@@ -16,9 +16,9 @@ export interface RegistrationError {
 export function randomRegistration(
   seed: number,
   plateCount: number,
-): RegistrationError[] {
+): Array<RegistrationError> {
   const rng = mulberry32(seed)
-  const errors: RegistrationError[] = []
+  const errors: Array<RegistrationError> = []
   for (let i = 0; i < plateCount; i++) {
     if (i === 0) {
       // 1 版目は基準

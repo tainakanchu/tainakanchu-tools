@@ -69,7 +69,9 @@ describe('XYZ ↔ Lab (D50)', () => {
 
 describe('ΔE00', () => {
   // Sharma, Wu, Dalal (2005) の公式テストデータより抜粋
-  const cases: Array<[[number, number, number], [number, number, number], number]> = [
+  const cases: Array<
+    [[number, number, number], [number, number, number], number]
+  > = [
     [[50, 2.6772, -79.7751], [50, 0, -82.7485], 2.0425],
     [[50, 3.1571, -77.2803], [50, 0, -82.7485], 2.8615],
     [[50, 2.8361, -74.02], [50, 0, -82.7485], 3.4412],

@@ -25,7 +25,7 @@ export interface VirtualInk {
   measuredSolid: XYZ
 
   /** nominal coverage → effective coverage。長さ 11（0, 0.1, ... 1.0）。単調 */
-  toneResponse: number[]
+  toneResponse: Array<number>
 
   maxCoverage: number
   feasibility: Feasibility
@@ -46,9 +46,9 @@ export interface PrintCondition {
 }
 
 export interface OverprintSample {
-  inkIds: InkId[]
+  inkIds: Array<InkId>
   /** inkIds に対応する nominal coverage */
-  coverage: number[]
+  coverage: Array<number>
   measured: XYZ
   /** true の場合、モデル fitting から除外して検証にのみ使う */
   holdout: boolean
@@ -71,10 +71,10 @@ export interface PressProfile {
   paperWhite: XYZ
 
   /** 印刷順。profile identity の一部 */
-  printOrder: InkId[]
+  printOrder: Array<InkId>
 
-  inks: VirtualInk[]
-  overprintSamples: OverprintSample[]
+  inks: Array<VirtualInk>
+  overprintSamples: Array<OverprintSample>
 
   yuleNielsenN: number
   totalInkLimit: number
@@ -101,7 +101,7 @@ export interface GamutMapConfig {
 }
 
 export interface SeparationConfig {
-  inkIds: InkId[] // 2..5
+  inkIds: Array<InkId> // 2..5
 
   lambdaTotalInk: number // default 0.02
   lambdaInkCount: number // default 0.01
@@ -120,7 +120,9 @@ export const DEFAULT_GAMUT_MAP: GamutMapConfig = {
   strength: 1.0,
 }
 
-export function defaultSeparationConfig(inkIds: InkId[]): SeparationConfig {
+export function defaultSeparationConfig(
+  inkIds: Array<InkId>,
+): SeparationConfig {
   return {
     inkIds,
     lambdaTotalInk: 0.02,
@@ -154,7 +156,7 @@ export interface PlateRender {
 }
 
 /** 版数 → 推奨スクリーン角度（§12.4） */
-export function recommendedAngles(count: number): number[] {
+export function recommendedAngles(count: number): Array<number> {
   if (count <= 2) return [15, 45]
   if (count === 3) return [15, 45, 75]
   return [0, 15, 45, 75, 30].slice(0, count)

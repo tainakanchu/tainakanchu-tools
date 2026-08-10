@@ -5,15 +5,17 @@
  * DOM 非依存(Canvas への転送は呼び出し側)。
  */
 import { linearToSrgb, xyzToLinearRgb } from './color'
-import { forward, type ForwardContext } from './forward'
-import { samplePlate, type PlateTransformPx } from './registration'
+import { forward } from './forward'
+import type { ForwardContext } from './forward'
+import { samplePlate } from './registration'
+import type { PlateTransformPx } from './registration'
 
 /**
  * plates は fwd.inkIds と同順の coverage map(width×height)。
  * transforms が null の版は変換なし。out は width×height×4 の RGBA。
  */
 export function renderComposite(
-  plates: Float32Array[],
+  plates: Array<Float32Array>,
   width: number,
   height: number,
   transforms: Array<PlateTransformPx | null>,
@@ -36,9 +38,7 @@ export function renderComposite(
     toSrgb[i] = Math.round(linearToSrgb(i / (LEVELS - 1)) * 255)
   }
   const encode = (v: number) =>
-    toSrgb[
-      Math.min(LEVELS - 1, Math.max(0, Math.round(v * (LEVELS - 1))))
-    ]
+    toSrgb[Math.min(LEVELS - 1, Math.max(0, Math.round(v * (LEVELS - 1))))]
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {

@@ -68,11 +68,21 @@ export function linearRgbToXyz(rgb: RGB): XYZ {
 export function xyzToLinearRgb(xyz: XYZ): RGB {
   const [x, y, z] = xyz
   return [
-    clamp01(M_XYZ_TO_RGB[0][0] * x + M_XYZ_TO_RGB[0][1] * y + M_XYZ_TO_RGB[0][2] * z),
-    clamp01(M_XYZ_TO_RGB[1][0] * x + M_XYZ_TO_RGB[1][1] * y + M_XYZ_TO_RGB[1][2] * z),
-    clamp01(M_XYZ_TO_RGB[2][0] * x + M_XYZ_TO_RGB[2][1] * y + M_XYZ_TO_RGB[2][2] * z),
+    clamp01(
+      M_XYZ_TO_RGB[0][0] * x + M_XYZ_TO_RGB[0][1] * y + M_XYZ_TO_RGB[0][2] * z,
+    ),
+    clamp01(
+      M_XYZ_TO_RGB[1][0] * x + M_XYZ_TO_RGB[1][1] * y + M_XYZ_TO_RGB[1][2] * z,
+    ),
+    clamp01(
+      M_XYZ_TO_RGB[2][0] * x + M_XYZ_TO_RGB[2][1] * y + M_XYZ_TO_RGB[2][2] * z,
+    ),
   ]
 }
+
+const REFLECTANCE_FLOOR = 1e-5
+const floorReflectance = (v: number) =>
+  v < REFLECTANCE_FLOOR ? REFLECTANCE_FLOOR : v
 
 /**
  * 減法混色（重ね刷り）の積を取るための 3ch 反射率プロキシ。
@@ -83,11 +93,16 @@ export function xyzToLinearRgb(xyz: XYZ): RGB {
  */
 export function xyzToReflectance(xyz: XYZ): RGB {
   const [x, y, z] = xyz
-  const floor = (v: number) => (v < 1e-5 ? 1e-5 : v)
   return [
-    floor(M_XYZ_TO_RGB[0][0] * x + M_XYZ_TO_RGB[0][1] * y + M_XYZ_TO_RGB[0][2] * z),
-    floor(M_XYZ_TO_RGB[1][0] * x + M_XYZ_TO_RGB[1][1] * y + M_XYZ_TO_RGB[1][2] * z),
-    floor(M_XYZ_TO_RGB[2][0] * x + M_XYZ_TO_RGB[2][1] * y + M_XYZ_TO_RGB[2][2] * z),
+    floorReflectance(
+      M_XYZ_TO_RGB[0][0] * x + M_XYZ_TO_RGB[0][1] * y + M_XYZ_TO_RGB[0][2] * z,
+    ),
+    floorReflectance(
+      M_XYZ_TO_RGB[1][0] * x + M_XYZ_TO_RGB[1][1] * y + M_XYZ_TO_RGB[1][2] * z,
+    ),
+    floorReflectance(
+      M_XYZ_TO_RGB[2][0] * x + M_XYZ_TO_RGB[2][1] * y + M_XYZ_TO_RGB[2][2] * z,
+    ),
   ]
 }
 
@@ -148,8 +163,8 @@ export function deltaE00(lab1: Lab, lab2: Lab): number {
   const C1p = Math.hypot(a1p, b1)
   const C2p = Math.hypot(a2p, b2)
 
-  const h1p = C1p === 0 ? 0 : ((Math.atan2(b1, a1p) / DEG) + 360) % 360
-  const h2p = C2p === 0 ? 0 : ((Math.atan2(b2, a2p) / DEG) + 360) % 360
+  const h1p = C1p === 0 ? 0 : (Math.atan2(b1, a1p) / DEG + 360) % 360
+  const h2p = C2p === 0 ? 0 : (Math.atan2(b2, a2p) / DEG + 360) % 360
 
   const dLp = L2 - L1
   const dCp = C2p - C1p

@@ -8,23 +8,20 @@
  * （ドットゲイン形状・トラッピングは fitting モデルに存在しない）。
  * これによりキャリブレーション経路が実際に仕事をする。
  */
-import {
-  labToXyz,
-  linearRgbToXyz,
-  xyzToLab,
-  xyzToLinearRgb,
-  type RGB,
-  type XYZ,
-} from './color'
-import {
-  assignHoldout,
-  buildPressProfile,
-  generateChart,
-  type CalibrationMeasurements,
-  type WedgeStepMeasurement,
+import { labToXyz, linearRgbToXyz, xyzToLab, xyzToLinearRgb } from './color'
+import type { RGB, XYZ } from './color'
+import { assignHoldout, buildPressProfile, generateChart } from './calibration'
+import type {
+  CalibrationMeasurements,
+  WedgeStepMeasurement,
 } from './calibration'
 import { gaussian, mulberry32 } from './random'
-import type { InkId, OverprintSample, PressProfile, PrintCondition } from './types'
+import type {
+  InkId,
+  OverprintSample,
+  PressProfile,
+  PrintCondition,
+} from './types'
 
 export interface SimInkDef {
   id: InkId
@@ -54,15 +51,15 @@ interface SimContext {
   paperWhite: XYZ
   /** インクの 3ch 透過率（driverInput 由来） */
   transmittance: Map<InkId, RGB>
-  printOrder: InkId[]
+  printOrder: Array<InkId>
   simN: number
   dotGain: number
   trapping: number
 }
 
 function makeSimContext(
-  inks: SimInkDef[],
-  printOrder: InkId[],
+  inks: Array<SimInkDef>,
+  printOrder: Array<InkId>,
   opts: PressSimOptions,
 ): SimContext {
   const paperWhite = opts.paperWhite ?? linearRgbToXyz(DEFAULT_PAPER)
@@ -96,8 +93,8 @@ function simEffectiveCoverage(a: number, dotGain: number): number {
 /** 1 パッチの反射色を合成する */
 export function simulatePatch(
   ctx: SimContext,
-  inkIds: InkId[],
-  coverage: number[],
+  inkIds: Array<InkId>,
+  coverage: Array<number>,
 ): XYZ {
   const n = inkIds.length
   // printOrder 内の位置（トラッピング計算用）
@@ -139,8 +136,8 @@ export function simulatePatch(
 
 /** チャート全体を合成測定する */
 export function simulateMeasurements(
-  inks: SimInkDef[],
-  printOrder: InkId[],
+  inks: Array<SimInkDef>,
+  printOrder: Array<InkId>,
   opts: PressSimOptions = {},
 ): CalibrationMeasurements {
   const ctx = makeSimContext(inks, printOrder, opts)
@@ -160,10 +157,10 @@ export function simulateMeasurements(
   const inkIds = inks.map((i) => i.id)
   const patches = generateChart(inkIds)
 
-  const wedges = new Map<InkId, WedgeStepMeasurement[]>()
+  const wedges = new Map<InkId, Array<WedgeStepMeasurement>>()
   for (const id of inkIds) wedges.set(id, [])
-  const pairSamples: OverprintSample[] = []
-  const tripleSamples: OverprintSample[] = []
+  const pairSamples: Array<OverprintSample> = []
+  const tripleSamples: Array<OverprintSample> = []
 
   for (const patch of patches) {
     if (patch.inkIds.length === 0) continue // 紙白は paperWhite として別途保持
@@ -211,10 +208,10 @@ export const SYNTHETIC_PRINT_CONDITION: PrintCondition = {
 
 /** 合成測定から既定 PressProfile を構築する */
 export function createSyntheticProfile(
-  inks: SimInkDef[],
-  printOrder: InkId[],
+  inks: Array<SimInkDef>,
+  printOrder: Array<InkId>,
   opts: PressSimOptions = {},
-): { profile: PressProfile; warnings: string[] } {
+): { profile: PressProfile; warnings: Array<string> } {
   const measurements = simulateMeasurements(inks, printOrder, opts)
   return buildPressProfile({
     id: `synthetic-${printOrder.join('-')}`,

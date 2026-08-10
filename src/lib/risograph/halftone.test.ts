@@ -35,23 +35,47 @@ describe('circleSquareArea', () => {
 describe('halftonePlate (AM)', () => {
   it('coverage 0 で全点 0、1 で全点 1', () => {
     const size = 128
-    const zeros = halftonePlate(uniformField(0, size), size, size, RENDER_AM, 300)
+    const zeros = halftonePlate(
+      uniformField(0, size),
+      size,
+      size,
+      RENDER_AM,
+      300,
+    )
     expect(mean(zeros)).toBe(0)
-    const ones = halftonePlate(uniformField(1, size), size, size, RENDER_AM, 300)
+    const ones = halftonePlate(
+      uniformField(1, size),
+      size,
+      size,
+      RENDER_AM,
+      300,
+    )
     expect(mean(ones)).toBe(1)
   })
 
   it('二値化後の平均が入力 coverage を近似する(不偏スクリーン)', () => {
     const size = 256
     for (const c of [0.2, 0.5, 0.8]) {
-      const out = halftonePlate(uniformField(c, size), size, size, RENDER_AM, 300)
+      const out = halftonePlate(
+        uniformField(c, size),
+        size,
+        size,
+        RENDER_AM,
+        300,
+      )
       expect(Math.abs(mean(out) - c)).toBeLessThan(0.03)
     }
   })
 
   it('出力は 0/1 のみ', () => {
     const size = 64
-    const out = halftonePlate(uniformField(0.5, size), size, size, RENDER_AM, 300)
+    const out = halftonePlate(
+      uniformField(0.5, size),
+      size,
+      size,
+      RENDER_AM,
+      300,
+    )
     for (const v of out) expect(v === 0 || v === 1).toBe(true)
   })
 })
@@ -61,7 +85,7 @@ describe('halftonePlate (blue-noise)', () => {
     const a = getBlueNoiseMask()
     const b = getBlueNoiseMask()
     expect(a).toBe(b) // キャッシュ
-    const sorted = [...a].sort((x, y) => x - y)
+    const sorted = [...a].toSorted((x, y) => x - y)
     for (let i = 1; i < sorted.length; i++) {
       expect(sorted[i]).toBeGreaterThan(sorted[i - 1])
     }
@@ -70,7 +94,13 @@ describe('halftonePlate (blue-noise)', () => {
   it('二値化後の平均が入力 coverage を近似する', () => {
     const size = 256
     for (const c of [0.25, 0.6]) {
-      const out = halftonePlate(uniformField(c, size), size, size, RENDER_BN, 300)
+      const out = halftonePlate(
+        uniformField(c, size),
+        size,
+        size,
+        RENDER_BN,
+        300,
+      )
       expect(Math.abs(mean(out) - c)).toBeLessThan(0.02)
     }
   })
@@ -79,7 +109,13 @@ describe('halftonePlate (blue-noise)', () => {
 describe('halftonePlate (none)', () => {
   it('連続値をそのままコピーする', () => {
     const src = new Float32Array([0, 0.25, 0.5, 1])
-    const out = halftonePlate(src, 2, 2, { method: 'none', lpi: 60, angleDeg: 0 }, 300)
+    const out = halftonePlate(
+      src,
+      2,
+      2,
+      { method: 'none', lpi: 60, angleDeg: 0 },
+      300,
+    )
     expect(out).toEqual(src)
     expect(out).not.toBe(src)
   })

@@ -39,7 +39,7 @@ export function getBlueNoiseMask(): Float32Array {
 
   const sigma = 1.6
   const radius = 7
-  const kernel: number[] = []
+  const kernel: Array<number> = []
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       kernel.push(Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma)))
@@ -118,10 +118,7 @@ export function halftonePlate(
       const cv = v - Math.floor(v) - 0.5
       const r = Math.hypot(cu, cv)
       // 端点保証: coverage=1 で全点が立ち、0 で全点が落ちるようにクランプ
-      const threshold = Math.min(
-        1 - 1e-6,
-        Math.max(1e-6, circleSquareArea(r)),
-      )
+      const threshold = Math.min(1 - 1e-6, Math.max(1e-6, circleSquareArea(r)))
       const idx = y * width + x
       out[idx] = coverage[idx] > threshold ? 1 : 0
     }

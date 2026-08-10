@@ -3,8 +3,10 @@
  * 射影勾配法 + backtracking。勾配は中心差分（N ≤ 5）。
  * 決定的（同一入力で bit-identical）にするため、反復順・演算順は固定。
  */
-import { deltaE00, xyzToLab, type Lab } from './color'
-import { forward, type ForwardContext } from './forward'
+import { deltaE00, xyzToLab } from './color'
+import type { Lab } from './color'
+import { forward } from './forward'
+import type { ForwardContext } from './forward'
 
 export interface SolverContext {
   fwd: ForwardContext
@@ -34,6 +36,14 @@ export function createSolverContext(
 }
 
 const SPARSE_EPS = 1e-4
+
+/**
+ * 平滑化項の coverage は面積率なので百分率で評価する。
+ * 0..1 のまま二乗すると、データ項の ΔE00（0..100 のオーダー）に対して
+ * 4 桁小さくなり、λ_smooth をいくら既定値どおりに与えても連続性の制約として
+ * 働かない（隣接ノードの解が別々の局所解へ落ちても咎められない）。
+ */
+const COVERAGE_PERCENT = 100
 
 /**
  * 制約射影（§10.8）: [0, maxCoverage] クリップ → 総インク量の一様スケール。
@@ -85,10 +95,12 @@ export function objective(
   if (neighborMean !== null && lambdaSmoothEff > 0) {
     let d2 = 0
     for (let i = 0; i < n; i++) {
-      const d = a[i] - neighborMean[i]
+      const d = (a[i] - neighborMean[i]) * COVERAGE_PERCENT
       d2 += d * d
     }
-    obj += lambdaSmoothEff * d2
+    // インク数で割って平均にする。総和のままだと同じ λ_smooth でもインクが
+    // 増えるほど平滑化が強くなり、版数を変えただけで再現性が落ちる。
+    obj += (lambdaSmoothEff * d2) / n
   }
   return obj
 }

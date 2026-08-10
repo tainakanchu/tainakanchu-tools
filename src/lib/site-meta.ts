@@ -135,26 +135,26 @@ export type CatalogItem =
   (ToolMeta & { kind: 'internal' }) | (ExternalTool & { kind: 'external' })
 
 /** カテゴリ内の表示順（slug） */
-const ORDER_BY_CATEGORY: Record<ToolCategoryId, readonly string[]> = {
+const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
   travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card'],
   desk: ['actual-size-layout', 'risograph', 'magnify-image'],
   event: ['drum-roll', 'online-roulette'],
 }
 
 function sortByCategoryOrder(
-  items: CatalogItem[],
+  items: Array<CatalogItem>,
   categoryId: ToolCategoryId,
-): CatalogItem[] {
+): Array<CatalogItem> {
   const order = ORDER_BY_CATEGORY[categoryId]
   const indexOf = (slug: string) => {
     const i = order.indexOf(slug)
     return i === -1 ? order.length : i
   }
-  return [...items].sort((a, b) => indexOf(a.slug) - indexOf(b.slug))
+  return items.toSorted((a, b) => indexOf(a.slug) - indexOf(b.slug))
 }
 
 /** 内部 + 外部を kind 付きでフラットに返す（カテゴリ順・カテゴリ内順） */
-export function getCatalogItems(): CatalogItem[] {
+export function getCatalogItems(): Array<CatalogItem> {
   return getCatalogByCategory().flatMap((group) => group.items)
 }
 
@@ -162,13 +162,13 @@ export function getCatalogItems(): CatalogItem[] {
 export function getCatalogByCategory(): Array<{
   id: ToolCategoryId
   name: string
-  items: CatalogItem[]
+  items: Array<CatalogItem>
 }> {
-  const internal: CatalogItem[] = TOOL_META.map((tool) => ({
+  const internal: Array<CatalogItem> = TOOL_META.map((tool) => ({
     ...tool,
     kind: 'internal' as const,
   }))
-  const external: CatalogItem[] = EXTERNAL_TOOLS.map((tool) => ({
+  const external: Array<CatalogItem> = EXTERNAL_TOOLS.map((tool) => ({
     ...tool,
     kind: 'external' as const,
   }))
