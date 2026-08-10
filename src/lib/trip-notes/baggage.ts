@@ -11,6 +11,11 @@
  *   pieces: 0 は「無料枠なし」(LCC の手ぶら運賃など)。
  *   pieces が無い / スロット自体が無いのは「書類に書かれていない・未入力」。
  *   後者を 0 に正規化すると、分からないのに「無い」と断言してしまう。
+ *
+ * ■ 表示は「数・寸法」と「注記」を分ける
+ *   note に「前の座席の下」「総重量 7kg まで」のような長い説明が入りやすく、
+ *   個数・寸法と同じ・で繋ぐと 1 行が読めなくなる。metrics と note を分け、
+ *   カードはスロットごとに行を分けて出す。
  */
 
 import type { BaggageAllowance, BookingBaggage } from './types'
@@ -29,10 +34,32 @@ export const BAGGAGE_SLOTS: Array<BaggageSlot> = [
   'checked',
 ]
 
+/** フォーム・詳細見出し用のフルラベル */
 export const BAGGAGE_SLOT_LABELS: Record<BaggageSlot, string> = {
   personal: '身の回り品',
   cabin: '機内/車内持込',
   checked: '受託手荷物',
+}
+
+/**
+ * カード・印刷・1 行要約用の短いラベル。
+ * 一覧で 3 行並ぶとき「身の回り品」「機内/車内持込」だとラベルが値より重い。
+ */
+export const BAGGAGE_SLOT_SHORT_LABELS: Record<BaggageSlot, string> = {
+  personal: '身の回り',
+  cabin: '機内持込',
+  checked: '受託',
+}
+
+/** カード展開などで 1 スロット分を行にするときの形 */
+export interface BaggageSlotView {
+  slot: BaggageSlot
+  /** 短いラベル(身の回り / 機内持込 / 受託) */
+  label: string
+  /** 個数・重量・寸法だけ。「1個 · 23kg · 55×40×20cm」 */
+  metrics: string
+  /** 補足。無ければ undefined */
+  note?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -97,8 +124,11 @@ export function parseBookingBaggage(raw: unknown): BookingBaggage | undefined {
   return Object.keys(baggage).length > 0 ? baggage : undefined
 }
 
-/** 1 スロットを短い日本語にする。「1個・7kg・55×40×20cm」など */
-export function formatBaggageAllowance(allowance: BaggageAllowance): string {
+/**
+ * 個数・重量・寸法だけを短い日本語にする。note は含めない。
+ * 例: 「1個 · 7kg · 55×40×20cm」「なし」
+ */
+export function formatBaggageMetrics(allowance: BaggageAllowance): string {
   const parts: Array<string> = []
 
   if (allowance.pieces !== undefined) {
@@ -110,31 +140,60 @@ export function formatBaggageAllowance(allowance: BaggageAllowance): string {
   if (allowance.dimensions !== undefined) {
     parts.push(allowance.dimensions)
   }
-  if (allowance.note !== undefined) {
-    parts.push(allowance.note)
-  }
 
-  return parts.join('・')
+  return parts.join(' · ')
 }
 
 /**
- * 荷物枠全体の 1 行要約。
- * 例: 「身の回り品 1個・3kg / 機内/車内持込 1個・7kg / 受託手荷物 1個・23kg」
- * 空なら null(呼び出し側で行ごと出さない)。
+ * 1 スロットの全文(metrics + note)。未確認チェックリストなど 1 文字列が要るとき用。
+ * note は括弧に入れ、metrics と混ぜない。
+ */
+export function formatBaggageAllowance(allowance: BaggageAllowance): string {
+  const metrics = formatBaggageMetrics(allowance)
+  if (allowance.note === undefined) return metrics
+  if (metrics.length === 0) return allowance.note
+  return `${metrics}（${allowance.note}）`
+}
+
+/**
+ * カード・印刷向けに、埋まっているスロットを行の配列にする。
+ * 空なら null(呼び出し側でブロックごと出さない)。
+ */
+export function listBaggageSlots(
+  baggage: BookingBaggage | undefined,
+): Array<BaggageSlotView> | null {
+  if (baggage === undefined) return null
+
+  const rows: Array<BaggageSlotView> = []
+  for (const slot of BAGGAGE_SLOTS) {
+    const allowance = baggage[slot]
+    if (allowance === undefined) continue
+    const metrics = formatBaggageMetrics(allowance)
+    // metrics も note も空はありえない(parse が弾く)が、防御的に飛ばす
+    if (metrics.length === 0 && allowance.note === undefined) continue
+    rows.push({
+      slot,
+      label: BAGGAGE_SLOT_SHORT_LABELS[slot],
+      metrics: metrics.length > 0 ? metrics : '—',
+      ...(allowance.note !== undefined ? { note: allowance.note } : {}),
+    })
+  }
+
+  return rows.length > 0 ? rows : null
+}
+
+/**
+ * 荷物枠の 1 行要約(注記なし)。
+ * 例: 「身の回り 1個 · 3kg / 機内持込 1個 · 7kg / 受託 1個 · 23kg」
+ * 空なら null。印刷の 1 行や、未確認チェックの要約に使う。
+ *
+ * note を載せないのは、総重量の説明などがスロットをまたいで重複し、
+ * 1 行が画面幅を食い潰すため。詳細は listBaggageSlots で出す。
  */
 export function formatBookingBaggage(
   baggage: BookingBaggage | undefined,
 ): string | null {
-  if (baggage === undefined) return null
-
-  const parts: Array<string> = []
-  for (const slot of BAGGAGE_SLOTS) {
-    const allowance = baggage[slot]
-    if (allowance === undefined) continue
-    const body = formatBaggageAllowance(allowance)
-    if (body.length === 0) continue
-    parts.push(`${BAGGAGE_SLOT_LABELS[slot]} ${body}`)
-  }
-
-  return parts.length > 0 ? parts.join(' / ') : null
+  const rows = listBaggageSlots(baggage)
+  if (rows === null) return null
+  return rows.map((row) => `${row.label} ${row.metrics}`).join(' / ')
 }

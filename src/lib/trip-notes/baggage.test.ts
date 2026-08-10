@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatBaggageAllowance,
+  formatBaggageMetrics,
   formatBookingBaggage,
+  listBaggageSlots,
   parseBaggageAllowance,
   parseBookingBaggage,
 } from './baggage'
@@ -69,28 +71,86 @@ describe('parseBookingBaggage', () => {
   })
 })
 
-describe('formatBookingBaggage', () => {
-  it('スロットごとのラベル付き 1 行にする', () => {
+describe('formatBaggageMetrics / formatBaggageAllowance', () => {
+  it('metrics は個数・重量・寸法だけを · でつなぐ', () => {
     expect(
-      formatBookingBaggage({
-        personal: { pieces: 1, weightKg: 3 },
-        cabin: { pieces: 1, weightKg: 7 },
-        checked: { pieces: 1, weightKg: 23 },
+      formatBaggageMetrics({
+        pieces: 1,
+        weightKg: 7,
+        dimensions: '55x40x20cm',
+        note: '前の座席の下',
       }),
-    ).toBe(
-      '身の回り品 1個・3kg / 機内/車内持込 1個・7kg / 受託手荷物 1個・23kg',
-    )
+    ).toBe('1個 · 7kg · 55x40x20cm')
+  })
+
+  it('note は metrics に混ぜず、allowance 全文では括弧に回す', () => {
+    expect(
+      formatBaggageAllowance({
+        pieces: 1,
+        dimensions: '40x30x15cm',
+        note: '前の座席の下に収納できるもの',
+      }),
+    ).toBe('1個 · 40x30x15cm（前の座席の下に収納できるもの）')
   })
 
   it('pieces: 0 は「なし」と出す', () => {
-    expect(formatBaggageAllowance({ pieces: 0 })).toBe('なし')
-    expect(formatBookingBaggage({ checked: { pieces: 0 } })).toBe(
-      '受託手荷物 なし',
-    )
+    expect(formatBaggageMetrics({ pieces: 0 })).toBe('なし')
+  })
+})
+
+describe('listBaggageSlots / formatBookingBaggage', () => {
+  it('スロットを短いラベルの行に分ける。note は別フィールド', () => {
+    expect(
+      listBaggageSlots({
+        personal: {
+          pieces: 1,
+          dimensions: '40x30x15cm',
+          note: '前の座席の下。合計7kgまで',
+        },
+        cabin: { pieces: 1, dimensions: '56x36x23cm' },
+        checked: { pieces: 1, weightKg: 23 },
+      }),
+    ).toEqual([
+      {
+        slot: 'personal',
+        label: '身の回り',
+        metrics: '1個 · 40x30x15cm',
+        note: '前の座席の下。合計7kgまで',
+      },
+      {
+        slot: 'cabin',
+        label: '機内持込',
+        metrics: '1個 · 56x36x23cm',
+      },
+      {
+        slot: 'checked',
+        label: '受託',
+        metrics: '1個 · 23kg',
+      },
+    ])
+  })
+
+  it('1 行要約は短いラベル + metrics のみ(note なし)', () => {
+    expect(
+      formatBookingBaggage({
+        personal: {
+          pieces: 1,
+          weightKg: 3,
+          note: '長い注記は 1 行に載せない',
+        },
+        cabin: { pieces: 1, weightKg: 7 },
+        checked: { pieces: 1, weightKg: 23 },
+      }),
+    ).toBe('身の回り 1個 · 3kg / 機内持込 1個 · 7kg / 受託 1個 · 23kg')
+  })
+
+  it('pieces: 0 は「なし」と出す', () => {
+    expect(formatBookingBaggage({ checked: { pieces: 0 } })).toBe('受託 なし')
   })
 
   it('空なら null', () => {
     expect(formatBookingBaggage(undefined)).toBeNull()
     expect(formatBookingBaggage({})).toBeNull()
+    expect(listBaggageSlots(undefined)).toBeNull()
   })
 })
