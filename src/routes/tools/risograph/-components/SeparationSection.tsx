@@ -1,6 +1,6 @@
 import { Play, TriangleAlert } from 'lucide-react'
 import { deltaE00Xyz } from '../../../../lib/risograph/color'
-import { INK_PRESETS } from '../../../../lib/risograph/presets'
+import { INK_PRESETS, PAPER_PRESETS } from '../../../../lib/risograph/presets'
 import {
   fieldClass,
   labelClass,
@@ -18,6 +18,8 @@ type Props = {
   onGamutModeChange: (mode: GamutMapMode) => void
   lutSize: 17 | 33
   onLutSizeChange: (size: 17 | 33) => void
+  paperId: string
+  onPaperIdChange: (id: string) => void
   canRun: boolean
   running: boolean
   progress: { fraction: number; message: string } | null
@@ -75,6 +77,8 @@ export function SeparationSection({
   onGamutModeChange,
   lutSize,
   onLutSizeChange,
+  paperId,
+  onPaperIdChange,
   canRun,
   running,
   progress,
@@ -132,6 +136,40 @@ export function SeparationSection({
             高品質は数十秒かかることがあります。
           </span>
         </label>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <span className={labelClass}>紙</span>
+        <ul className="flex flex-wrap gap-2">
+          {PAPER_PRESETS.map((paper) => {
+            const selected = paper.id === paperId
+            return (
+              <li key={paper.id}>
+                <button
+                  type="button"
+                  onClick={() => onPaperIdChange(paper.id)}
+                  aria-pressed={selected}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition ${
+                    selected
+                      ? 'border-cyan-400 bg-cyan-500/10 text-cyan-100'
+                      : 'border-white/15 text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  <span
+                    className="h-5 w-5 rounded-full border border-white/30"
+                    style={{ backgroundColor: paper.hex }}
+                    aria-hidden
+                  />
+                  {paper.name}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+        <p className="text-xs leading-relaxed text-gray-500">
+          紙の色は分版そのものに反映されます（暗い紙では出せる色が狭くなります）。
+          変更すると分版はやり直しになります。
+        </p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

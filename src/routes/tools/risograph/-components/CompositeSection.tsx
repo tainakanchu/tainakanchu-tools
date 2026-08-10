@@ -3,6 +3,7 @@ import { Dices } from 'lucide-react'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
 import { renderComposite } from '../../../../lib/risograph/preview'
 import { putRgbaToCanvas } from '../-lib/image'
+import { PAPER_GRAIN_SEED, applyPaperGrain } from '../-lib/paperGrain'
 import { MAX_OFFSET_MM, MAX_ROTATION_DEG } from '../-lib/plates'
 import {
   fieldClass,
@@ -28,6 +29,8 @@ type Props = {
   height: number
   fwd: ForwardContext
   transforms: Array<PlateTransformPx | null>
+  /** 紙の粗さ 0..1（プレビューにだけ乗せる質感） */
+  grain: number
   originalDataUrl: string
   mode: RegistrationMode
   onModeChange: (mode: RegistrationMode) => void
@@ -51,6 +54,7 @@ export function CompositeSection({
   height,
   fwd,
   transforms,
+  grain,
   originalDataUrl,
   mode,
   onModeChange,
@@ -70,10 +74,12 @@ export function CompositeSection({
     const handle = requestAnimationFrame(() => {
       const rgba = new Uint8ClampedArray(width * height * 4)
       renderComposite(maps, width, height, transforms, fwd, rgba)
+      // 紙の質感は書き出しデータには入れず、画面の見えだけに乗せる
+      applyPaperGrain(rgba, width, height, grain, PAPER_GRAIN_SEED)
       putRgbaToCanvas(canvas, rgba, width, height)
     })
     return () => cancelAnimationFrame(handle)
-  }, [maps, width, height, transforms, fwd, view])
+  }, [maps, width, height, transforms, fwd, grain, view])
 
   return (
     <section className={sectionClass}>
@@ -83,6 +89,7 @@ export function CompositeSection({
       <p className={`${sectionNoteClass} mt-2`}>
         版ごとのハーフトーンを適用したうえで、順モデルで重ね刷りの色を予測しています。
         版ズレは 300dpi を仮定して mm から画素へ換算しています。
+        紙の色は分版に反映され、紙の質感（ざらつき）はこのプレビューにだけ乗せています。
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

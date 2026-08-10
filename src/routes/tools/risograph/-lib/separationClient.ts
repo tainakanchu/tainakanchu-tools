@@ -21,6 +21,8 @@ export type SeparationInput = {
   height: number
   lutSize: 17 | 33
   gamutMap: GamutMapMode
+  /** 紙プリセット id（PAPER_PRESETS） */
+  paperId: string
 }
 
 export type SeparationResult = {
@@ -93,6 +95,7 @@ export class SeparationClient {
         height: input.height,
         lutSize: input.lutSize,
         gamutMap: input.gamutMap,
+        paperId: input.paperId,
       }
       worker.postMessage(request, [request.rgba])
     })

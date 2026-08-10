@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { createForwardContext } from '../../../lib/risograph/forward'
-import { halftonePlate } from '../../../lib/risograph/halftone'
+import { getPaperPreset } from '../../../lib/risograph/presets'
 import { randomRegistration } from '../../../lib/risograph/registration'
 import { ImageSection } from './-components/ImageSection'
 import { InkSection } from './-components/InkSection'
@@ -10,6 +10,7 @@ import { SeparationSection } from './-components/SeparationSection'
 import { PlatesSection } from './-components/PlatesSection'
 import { CompositeSection } from './-components/CompositeSection'
 import { ExportSection } from './-components/ExportSection'
+import { renderPlateCoverage } from './-lib/density'
 import { downscaleCoverage } from './-lib/downscale'
 import { loadImageFile } from './-lib/image'
 import {
@@ -44,6 +45,7 @@ export const Route = createFileRoute('/tools/risograph/')({
 })
 
 const DEFAULT_INKS: Array<InkId> = ['fluor-pink', 'blue']
+const DEFAULT_PAPER_ID = 'white'
 
 function RisographPage() {
   const [image, setImage] = useState<LoadedImage | null>(null)
@@ -57,6 +59,7 @@ function RisographPage() {
 
   const [gamutMode, setGamutMode] = useState<GamutMapMode>('chroma-compress')
   const [lutSize, setLutSize] = useState<17 | 33>(17)
+  const [paperId, setPaperId] = useState(DEFAULT_PAPER_ID)
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<{
     fraction: number
@@ -120,6 +123,13 @@ function RisographPage() {
     setHalftoned(null)
   }
 
+  const handlePaperChange = (next: string) => {
+    setPaperId(next)
+    // 紙白は分版そのものに効くので、インク変更と同じく結果を捨てる
+    setResult(null)
+    setHalftoned(null)
+  }
+
   const runSeparation = async () => {
     if (!image) return
     setRunning(true)
@@ -135,6 +145,7 @@ function RisographPage() {
           height: image.height,
           lutSize,
           gamutMap: gamutMode,
+          paperId,
         },
         (fraction, message) => setProgress({ fraction, message }),
       )
@@ -179,7 +190,7 @@ function RisographPage() {
     const handle = requestAnimationFrame(() => {
       setHalftoned(
         previewMaps.map((map, index) =>
-          halftonePlate(
+          renderPlateCoverage(
             map,
             preview.width,
             preview.height,
@@ -237,6 +248,9 @@ function RisographPage() {
     [image],
   )
 
+  // 紙を変えると分版はやり直しになるので、選択中の紙＝結果の紙とみなしてよい
+  const paperGrain = getPaperPreset(paperId)?.grain ?? 0
+
   const ready =
     result !== null &&
     preview !== null &&
@@ -277,6 +291,8 @@ function RisographPage() {
           onGamutModeChange={setGamutMode}
           lutSize={lutSize}
           onLutSizeChange={setLutSize}
+          paperId={paperId}
+          onPaperIdChange={handlePaperChange}
           canRun={image !== null}
           running={running}
           progress={progress}
@@ -307,6 +323,7 @@ function RisographPage() {
               height={preview.height}
               fwd={fwd}
               transforms={previewTransforms}
+              grain={paperGrain}
               originalDataUrl={image ? image.dataUrl : ''}
               mode={registrationMode}
               onModeChange={setRegistrationMode}
@@ -328,6 +345,7 @@ function RisographPage() {
               baseName={baseName}
               registrations={safeRegistrations}
               registrationEnabled={registrationMode !== 'none'}
+              grain={paperGrain}
               bake={bake}
               onBakeChange={setBake}
             />

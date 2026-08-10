@@ -19,6 +19,8 @@ describe('initialPlateSettings: 版設定の初期値', () => {
     // 実機リソの入稿は濃淡のままが標準なので既定は階調(none)
     expect(settings.map((s) => s.method)).toEqual(['none', 'none', 'none'])
     expect(settings.map((s) => s.lpi)).toEqual([60, 60, 60])
+    // インク濃度はドラム濃度の標準に当たる 3
+    expect(settings.map((s) => s.density)).toEqual([3, 3, 3])
   })
 })
 
@@ -27,12 +29,15 @@ describe('reconcilePlateSettings: インク差し替え時の引き継ぎ', () =
     const previous = initialPlateSettings(['blue', 'red'])
     previous[0].lpi = 85
     previous[0].method = 'blue-noise'
+    previous[0].density = 5
 
     const next = reconcilePlateSettings(['blue', 'yellow'], previous)
     expect(next[0].lpi).toBe(85)
     expect(next[0].method).toBe('blue-noise')
+    expect(next[0].density).toBe(5)
     expect(next[1].inkId).toBe('yellow')
     expect(next[1].lpi).toBe(60)
+    expect(next[1].density).toBe(3)
   })
 
   it('刷り順を入れ替えても設定はインクについて回る', () => {

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Download } from 'lucide-react'
-import { halftonePlate } from '../../../../lib/risograph/halftone'
 import { renderComposite } from '../../../../lib/risograph/preview'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
+import { renderPlateCoverage } from '../-lib/density'
 import { coverageToGrayscale, downloadRgbaAsPng } from '../-lib/image'
 import { coverageToInkColor } from '../-lib/inkColor'
+import { PAPER_GRAIN_SEED, applyPaperGrain } from '../-lib/paperGrain'
 import {
   ASSUMED_DPI,
   colorPlateFileName,
@@ -32,6 +33,8 @@ type Props = {
   baseName: string
   registrations: Array<RegistrationError>
   registrationEnabled: boolean
+  /** 紙の粗さ 0..1（合成プレビューの書き出しにだけ乗せる） */
+  grain: number
   bake: boolean
   onBakeChange: (bake: boolean) => void
 }
@@ -50,14 +53,16 @@ export function ExportSection({
   baseName,
   registrations,
   registrationEnabled,
+  grain,
   bake,
   onBakeChange,
 }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const { width, height } = result
 
+  // 濃度 → ハーフトーンの順はプレビューと同じ共通経路を通す
   const halftonedAt = (index: number): Float32Array =>
-    halftonePlate(
+    renderPlateCoverage(
       result.maps[index],
       width,
       height,
@@ -123,6 +128,8 @@ export function ExportSection({
       const transforms = toPlateTransforms(registrations, ASSUMED_DPI, baked)
       const rgba = new Uint8ClampedArray(width * height * 4)
       renderComposite(plates, width, height, transforms, fwd, rgba)
+      // 合成プレビューは「見たまま」の用途なので紙の質感も乗せる（版の PNG には乗せない）
+      applyPaperGrain(rgba, width, height, grain, PAPER_GRAIN_SEED)
       await downloadRgbaAsPng(
         rgba,
         width,

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
 import { renderSinglePlate } from '../../../../lib/risograph/preview'
 import { putRgbaToCanvas } from '../-lib/image'
-import { MAX_LPI, MIN_LPI } from '../-lib/plates'
+import { MAX_DENSITY, MAX_LPI, MIN_DENSITY, MIN_LPI } from '../-lib/plates'
 import {
   fieldClass,
   labelClass,
@@ -15,10 +15,27 @@ import type { ForwardContext } from '../../../../lib/risograph/forward'
 import type { HalftoneMethod } from '../../../../lib/risograph/types'
 import type { PlateSetting } from '../-lib/plates'
 
-const METHODS: Array<{ value: HalftoneMethod; label: string }> = [
-  { value: 'none', label: 'なし（階調のまま）' },
-  { value: 'am', label: 'AM 網点' },
-  { value: 'blue-noise', label: 'blue-noise' },
+const METHODS: Array<{ value: HalftoneMethod; label: string; note: string }> = [
+  {
+    value: 'none',
+    label: 'なし（階調のまま）',
+    note: '濃淡のまま入稿する既定の方式',
+  },
+  {
+    value: 'am',
+    label: 'AM 網点',
+    note: '線数と網角を自分で決める規則的な網点',
+  },
+  {
+    value: 'blue-noise',
+    label: 'blue-noise',
+    note: '粒が均等に散る不規則な網',
+  },
+  {
+    value: 'grain',
+    label: 'グレイン（誤差拡散）',
+    note: '実機のグレインタッチ相当。写真の粒状感が出る',
+  },
 ]
 
 type CardProps = {
@@ -98,6 +115,28 @@ function PlateCard({
               </option>
             ))}
           </select>
+          <span className="block text-[11px] leading-relaxed text-gray-500">
+            {METHODS.find((m) => m.value === setting.method)?.note}
+          </span>
+        </label>
+
+        <label className="block space-y-1">
+          <span className={labelClass}>印刷濃度 {setting.density}</span>
+          <input
+            type="range"
+            className={sliderClass}
+            min={MIN_DENSITY}
+            max={MAX_DENSITY}
+            step={1}
+            value={setting.density}
+            onChange={(event) =>
+              onChange({ ...setting, density: Number(event.target.value) })
+            }
+          />
+          <span className="block text-[11px] leading-relaxed text-gray-500">
+            実機のドラム濃度設定に相当。3
+            が標準で、上げるほどインクが厚く乗った見えになります。
+          </span>
         </label>
 
         <label className="block space-y-1">
@@ -165,6 +204,8 @@ export function PlatesSection({
         版ごとの網のかけ方です。実機リソの入稿は濃淡（グレースケール）のままが標準で、
         網点化は製版機側で行われるため、既定は「階調のまま」です。網点はドットの粗さや
         網角をあえて自分で決めたいときの表現オプションとして使ってください。
+        「グレイン（誤差拡散）」は実機のグレインタッチ相当で、線数と網角は使いません。
+        印刷濃度は実機のドラム濃度設定に相当し、網をかける前の面積率に効きます。
         プレビューは「その版だけを紙に刷った見え」を順モデルで予測しています。
         網点はプレビューの縮小率に合わせて表示しているため、実寸（300dpi
         想定）ではもう少し細かくなります。

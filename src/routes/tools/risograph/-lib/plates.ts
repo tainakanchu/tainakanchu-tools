@@ -27,11 +27,18 @@ export const MAX_LPI = 85
 export const MAX_OFFSET_MM = 3
 export const MAX_ROTATION_DEG = 1
 
+/** インク濃度（実機のドラム濃度設定に相当）のレンジ */
+export const MIN_DENSITY = 1
+export const MAX_DENSITY = 5
+export const DEFAULT_DENSITY = 3
+
 export type PlateSetting = {
   inkId: InkId
   method: HalftoneMethod
   lpi: number
   angleDeg: number
+  /** インク濃度 1〜5（3 が標準）。実機のドラム濃度設定に相当 */
+  density: number
 }
 
 /**
@@ -48,11 +55,12 @@ export function initialPlateSettings(
     method: 'none' as HalftoneMethod,
     lpi: DEFAULT_LPI,
     angleDeg: index < angles.length ? angles[index] : 45,
+    density: DEFAULT_DENSITY,
   }))
 }
 
 /**
- * インク構成が変わっても、同じインクの設定は引き継ぐ。
+ * インク構成が変わっても、同じインクの設定は引き継ぐ（濃度も含む）。
  * 新規インクだけ推奨角の初期値を入れる。
  */
 export function reconcilePlateSettings(
@@ -62,7 +70,7 @@ export function reconcilePlateSettings(
   const defaults = initialPlateSettings(inkIds)
   return defaults.map((fallback) => {
     const kept = previous.find((p) => p.inkId === fallback.inkId)
-    return kept ? { ...kept } : fallback
+    return kept ? { ...fallback, ...kept } : fallback
   })
 }
 

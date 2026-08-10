@@ -3,7 +3,7 @@
  * 仮想プレスのプロファイル合成 → LUT 構築 → 画像への適用まで、
  * 秒単位かかる計算をまとめてメインスレッドの外でやる。
  */
-import { INK_PRESETS } from '../../../../lib/risograph/presets'
+import { INK_PRESETS, getPaperPreset } from '../../../../lib/risograph/presets'
 import { createSyntheticProfile } from '../../../../lib/risograph/press-sim'
 import {
   applyLutToImage,
@@ -25,6 +25,8 @@ export type SeparateRequest = {
   height: number
   lutSize: 17 | 33
   gamutMap: GamutMapMode
+  /** 紙プリセット id（PAPER_PRESETS）。紙白は分版そのものに効く */
+  paperId: string
 }
 
 export type LutQuality = {
@@ -69,8 +71,14 @@ function separate(request: SeparateRequest): void {
     return preset
   })
 
+  const paper = getPaperPreset(request.paperId)
+  if (!paper) throw new Error(`未知の紙です: ${request.paperId}`)
+
   post({ type: 'progress', fraction: 0.01, message: '仮想プレスを合成中' })
-  const { profile, warnings } = createSyntheticProfile(inks, request.inkIds)
+  const { profile, warnings } = createSyntheticProfile(inks, request.inkIds, {
+    paperWhite: paper.paperWhite,
+    paperLabel: paper.name,
+  })
 
   const config = defaultSeparationConfig(request.inkIds)
   config.lutSize = request.lutSize
