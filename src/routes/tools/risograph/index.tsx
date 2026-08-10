@@ -252,8 +252,8 @@ function RisographPage() {
           <p className="max-w-3xl text-sm leading-relaxed text-gray-400">
             画像を 2〜4
             色の特色インクへ分版し、網点をかけて重ね刷りした結果を予測します。
-            版ごとのグレースケール PNG
-            を書き出せるので、そのまま製版データとして使えます。
+            版ごとに、製版用のグレースケール PNG と、家庭用プリンタで
+            そのまま刷れる単色 PNG の両方を書き出せます。
           </p>
           <p className="max-w-3xl rounded-xl border border-cyan-400/20 bg-cyan-500/5 px-3 py-2 text-xs leading-relaxed text-cyan-100/80">
             このツールは実測プロファイルではなく、仮想プレス（シミュレーション）で

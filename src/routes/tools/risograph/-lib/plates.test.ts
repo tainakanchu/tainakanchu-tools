@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  colorPlateFileName,
   compositeFileName,
   fitLongSide,
   initialPlateSettings,
@@ -119,6 +120,12 @@ describe('書き出しファイル名', () => {
   it('版 PNG は 1 始まりの版番号とインク id を含む', () => {
     expect(plateFileName('sunset', 0, 'fluor-pink')).toBe(
       'sunset_plate1_fluor-pink.png',
+    )
+  })
+
+  it('単色 PNG は _color を付けてグレースケール版と区別する', () => {
+    expect(colorPlateFileName('sunset', 1, 'blue')).toBe(
+      'sunset_plate2_blue_color.png',
     )
   })
 

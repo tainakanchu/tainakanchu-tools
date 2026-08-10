@@ -132,6 +132,15 @@ export function plateFileName(
   return `${baseName}_plate${index + 1}_${inkId}.png`
 }
 
+/** 版ごとの単色（印刷用）PNG のファイル名（版番号は 1 始まり） */
+export function colorPlateFileName(
+  baseName: string,
+  index: number,
+  inkId: InkId,
+): string {
+  return `${baseName}_plate${index + 1}_${inkId}_color.png`
+}
+
 /** 合成プレビュー PNG のファイル名 */
 export function compositeFileName(baseName: string, baked: boolean): string {
   return baked
