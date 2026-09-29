@@ -1,9 +1,17 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Check, Link2, List, Map as MapIcon, X } from 'lucide-react'
+import { Check, Link2, List, Map as MapIcon, RotateCw, X } from 'lucide-react'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import {
   filterFromSearch,
+  orderTaiwanMapSearch,
   parseTaiwanMapSearch,
   serializeTaiwanMapSearch,
 } from '../../../lib/taiwan-map/query'
@@ -17,8 +25,9 @@ import {
   statusName,
 } from './-components/Badges'
 import { FilterBar } from './-components/FilterBar'
+import { MapErrorBoundary } from './-components/MapErrorBoundary'
 import { Landing } from './-components/Landing'
-import { SpotCard, spotElementId } from './-components/SpotCard'
+import { SpotCard } from './-components/SpotCard'
 import { copyText, shareUrl } from './-lib/copy'
 import {
   actionButtonClass,
@@ -27,7 +36,7 @@ import {
   segmentedClass,
 } from './-lib/styles'
 import { useMediaQuery } from './-lib/useMediaQuery'
-import { useTaiwanMapData } from './-lib/useTaiwanMapData'
+import { spotLinkStatus, useTaiwanMapData } from './-lib/useTaiwanMapData'
 import type { FlyRequest } from './-components/MapView'
 import type { TaiwanMapSearch } from '../../../lib/taiwan-map/query'
 import type { ResultsData } from './-lib/useTaiwanMapData'
@@ -36,7 +45,8 @@ import type { ResultsData } from './-lib/useTaiwanMapData'
 const tool = getToolMeta('taiwan-map')!
 
 // 地図（maplibre-gl）は実際に地図を出す画面でだけ読む。
-// 詳しくは MapView.tsx 冒頭のコメント参照
+// 詳しくは MapView.tsx 冒頭のコメント参照。読み込みに失敗したときは
+// MapErrorBoundary が地図の枠の中だけで受け止める
 const MapView = lazy(() => import('./-components/MapView'))
 
 // モジュールに 1 つだけ持つ。Promise キャッシュを画面遷移をまたいで効かせるため
@@ -77,6 +87,28 @@ function TaiwanMapPage() {
   const navigate = useNavigate({ from: Route.fullPath })
   const data = useTaiwanMapData(repository, search)
 
+  const onNavigate = useCallback(
+    (patch: Partial<TaiwanMapSearch>, replace = true) =>
+      void navigate({
+        // キー順を共有用 URL（serializeTaiwanMapSearch）と揃える
+        search: (prev) => orderTaiwanMapSearch({ ...prev, ...patch }),
+        replace,
+      }),
+    [navigate],
+  )
+
+  // ?spot=<id> だけの共有リンクは、スポットの都市が分かった時点で
+  // ?city=<都市>&spot=<id> に置き換える。こうすると都市・エリアのチップが
+  // 正しく押された状態で出て、以降カードを選んでも「都市つき」の読み込み
+  // （= 同じ都市 JSON・同じピン）のまま動く
+  const resolvedSpotCity =
+    data.mode === 'results' ? data.data?.resolvedSpotCity : undefined
+  useEffect(() => {
+    if (search.city === undefined && resolvedSpotCity !== undefined) {
+      onNavigate({ city: resolvedSpotCity })
+    }
+  }, [search.city, resolvedSpotCity, onNavigate])
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 text-gray-900">
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
@@ -96,19 +128,19 @@ function TaiwanMapPage() {
       </div>
 
       {data.mode === 'landing' ? (
-        <Landing manifest={data.manifest} error={data.error} />
+        <Landing
+          manifest={data.manifest}
+          error={data.error}
+          onRetry={data.retry}
+        />
       ) : (
         <Results
           search={search}
           data={data.data}
           loading={data.loading}
           error={data.error}
-          onNavigate={(patch, replace = true) =>
-            void navigate({
-              search: (prev) => ({ ...prev, ...patch }),
-              replace,
-            })
-          }
+          onRetry={data.retry}
+          onNavigate={onNavigate}
         />
       )}
     </main>
@@ -120,13 +152,22 @@ type ResultsProps = {
   data: ResultsData | null
   loading: boolean
   error: string | null
+  onRetry: () => void
   onNavigate: (patch: Partial<TaiwanMapSearch>, replace?: boolean) => void
 }
 
-function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
+function Results({
+  search,
+  data,
+  loading,
+  error,
+  onRetry,
+  onNavigate,
+}: ResultsProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
   const [flyRequest, setFlyRequest] = useState<FlyRequest | null>(null)
   const [copied, setCopied] = useState(false)
+  const clearFlyRequest = useCallback(() => setFlyRequest(null), [])
 
   const spots = useMemo(() => data?.spots ?? [], [data])
   const areaById = useMemo(
@@ -140,9 +181,16 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
   const selectedArea = search.area ? areaById.get(search.area) : undefined
   const multiCity = (data?.cities.length ?? 0) > 1
   const selectedSpot = spots.find((s) => s.id === search.spot)
+  const spotStatus = spotLinkStatus(search.spot, data)
 
   const showMap = isDesktop || search.view === 'map'
   const showList = isDesktop || search.view !== 'map'
+
+  // 一覧 ⇔ 地図を切り替えたら、未処理の「そこへ飛ぶ」依頼は捨てる
+  // （地図を開き直したときに、昔押したスポットへ勝手に飛ばないように）
+  useEffect(() => {
+    if (!showMap) setFlyRequest(null)
+  }, [showMap])
 
   const handleFilterChange = useCallback(
     (patch: Partial<TaiwanMapSearch>) => {
@@ -197,7 +245,11 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
             <span className="font-medium text-gray-800">{conditionText}</span>
           )}
           {conditionText && ' ・ '}
-          {data ? `${spots.length} 件` : '読み込み中…'}
+          {data
+            ? `${spots.length} 件`
+            : error
+              ? '読み込めませんでした'
+              : '読み込み中…'}
           {loading && data && (
             <span className="ml-2 text-gray-400">更新中…</span>
           )}
@@ -223,21 +275,33 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
       </div>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
-          データを読み込めませんでした: {error}
-        </p>
+          <p>データを読み込めませんでした: {error}</p>
+          <button type="button" onClick={onRetry} className={actionButtonClass}>
+            <RotateCw size={14} aria-hidden />
+            再試行
+          </button>
+        </div>
       )}
 
-      {data?.spotNotFound && (
+      {spotStatus === 'missing' && (
         <p
           role="status"
           className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
         >
           リンクのスポットが見つかりませんでした。削除されたか、id
           が変わった可能性があります。
+        </p>
+      )}
+      {spotStatus === 'filtered' && (
+        <p
+          role="status"
+          className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          リンクのスポットは、今の絞り込み条件には含まれていません。
         </p>
       )}
 
@@ -297,7 +361,12 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
         {showList && (
-          <div>
+          <section aria-labelledby="tw-spot-list">
+            {/* 見出しの階層（h1 → h2 → カードの h3）を保つための見出し。
+                見た目は上の件数表示で足りているので視覚的には隠す */}
+            <h2 id="tw-spot-list" className="sr-only">
+              スポット一覧
+            </h2>
             {data && spots.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
                 この条件の場所はまだ記録していません。
@@ -318,27 +387,45 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
                 ))}
               </ul>
             )}
-          </div>
+          </section>
         )}
 
-        {showMap && data && (
+        {/* 地図は「表示するスポットがあるとき」だけ読む。0 件なのに
+            maplibre（約 1MB）を落とさせても、何も無い地図が出るだけなので */}
+        {showMap && data && spots.length === 0 && isDesktop && (
+          <aside
+            className="hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500 lg:sticky lg:top-20 lg:block"
+            aria-label="地図"
+          >
+            地図に出す場所がありません。
+          </aside>
+        )}
+        {showMap && data && spots.length === 0 && !isDesktop && (
+          <p className="rounded-2xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+            この条件の場所はまだ記録していません。
+          </p>
+        )}
+        {showMap && data && spots.length > 0 && (
           <aside className="space-y-2 lg:sticky lg:top-20" aria-label="地図">
             <div className="h-[65vh] overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm lg:h-[calc(100vh-7rem)]">
-              <Suspense
-                fallback={
-                  <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                    地図を読み込み中…
-                  </p>
-                }
-              >
-                <MapView
-                  spots={spots}
-                  fallbackCity={search.city ?? data.cities.at(0) ?? 'taipei'}
-                  selectedId={search.spot}
-                  flyRequest={flyRequest}
-                  onSelect={handleSelect}
-                />
-              </Suspense>
+              <MapErrorBoundary>
+                <Suspense
+                  fallback={
+                    <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                      地図を読み込み中…
+                    </p>
+                  }
+                >
+                  <MapView
+                    spots={spots}
+                    fallbackCity={search.city ?? data.cities.at(0) ?? 'taipei'}
+                    selectedId={search.spot}
+                    flyRequest={flyRequest}
+                    onFlyDone={clearFlyRequest}
+                    onSelect={handleSelect}
+                  />
+                </Suspense>
+              </MapErrorBoundary>
             </div>
             <MapLegend />
             {/* スマホの地図表示では一覧が見えないので、選んだ場所の要点を地図の下に出す */}
@@ -359,17 +446,9 @@ function Results({ search, data, loading, error, onNavigate }: ResultsProps) {
                 <button
                   type="button"
                   className={actionButtonClass}
-                  onClick={() => {
-                    onNavigate({ view: undefined })
-                    // 一覧に戻ったら、選んだカードの位置へ（SpotCard 側でも寄せるが念のためフォーカスも移す）
-                    window.setTimeout(
-                      () =>
-                        document
-                          .getElementById(spotElementId(selectedSpot.id))
-                          ?.focus(),
-                      0,
-                    )
-                  }}
+                  // 一覧に戻ると選択中のカードがマウントされ、SpotCard 側の
+                  // effect がそのカードへスクロールしてフォーカスを移す
+                  onClick={() => onNavigate({ view: undefined })}
                 >
                   <List size={14} aria-hidden />
                   一覧でくわしく見る

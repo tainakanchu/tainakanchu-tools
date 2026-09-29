@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   filterFromSearch,
+  orderTaiwanMapSearch,
   parseTaiwanMapSearch,
   serializeTaiwanMapSearch,
 } from './query.ts'
@@ -83,5 +84,20 @@ describe('filterFromSearch', () => {
     expect(filter).not.toHaveProperty('spot')
     expect(filter).not.toHaveProperty('view')
     expect(filter.city).toBe('taipei')
+  })
+})
+
+describe('orderTaiwanMapSearch', () => {
+  it('キーを serialize と同じ順に並べ、undefined を落とす', () => {
+    const ordered = orderTaiwanMapSearch({
+      view: 'map',
+      spot: 'x',
+      category: undefined,
+      city: 'taipei',
+    })
+    expect(Object.keys(ordered)).toEqual(['city', 'spot', 'view'])
+    expect(new URLSearchParams(ordered).toString()).toBe(
+      serializeTaiwanMapSearch(ordered),
+    )
   })
 })

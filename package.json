@@ -24,8 +24,8 @@
     "typescript"
   ],
   "scripts": {
-    "dev": "pnpm taiwan:build-data && vite --port 3000",
-    "build": "pnpm taiwan:build-data && vite build && tsc",
+    "dev": "vite --port 3000",
+    "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
     "lint": "oxlint",

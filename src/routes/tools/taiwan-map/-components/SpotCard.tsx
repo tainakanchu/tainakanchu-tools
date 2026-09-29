@@ -57,13 +57,21 @@ export function SpotCard({
     (spot.tags?.length ?? 0) > 0 ||
     spot.officialUrl !== undefined
 
-  // 地図のピンや共有リンクで選ばれたら、開いて見える位置まで寄せる。
+  // 地図のピン・共有リンク・地図からの「一覧でくわしく見る」で選ばれたら、
+  // 開いて見える位置まで寄せ、フォーカスもカードへ移す（スクリーンリーダーで
+  // 「どのカードが選ばれたか」が伝わるように）。
   // block: 'nearest' にしているのは、デスクトップで地図のピンを押したときに
-  // 一覧が毎回大きく飛ぶと、今どこを見ていたか分からなくなるため
+  // 一覧が毎回大きく飛ぶと、今どこを見ていたか分からなくなるため。
+  // スクロールは scrollIntoView に任せたいので、focus 側はスクロールさせない。
+  // カードの中のボタン（名前など）を押して選んだときは、そのボタンに
+  // フォーカスを残す（押した場所からフォーカスを奪わない）。
   useEffect(() => {
     if (!selected) return
     setOpen(true)
-    ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    const el = ref.current
+    if (!el) return
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
   }, [selected])
 
   const mapsUrl =
@@ -86,7 +94,7 @@ export function SpotCard({
       tabIndex={-1}
       aria-labelledby={`${detailId}-name`}
       // scroll-mt はスティッキーなサイトヘッダー（h-16）の下に隠れないように
-      className={`scroll-mt-20 rounded-2xl border p-4 shadow-sm transition sm:p-5 ${
+      className={`scroll-mt-20 rounded-2xl focus:outline-none border p-4 shadow-sm transition sm:p-5 ${
         wantToGo
           ? 'border-dashed border-slate-300 bg-slate-50/70'
           : 'border-gray-200 bg-white'

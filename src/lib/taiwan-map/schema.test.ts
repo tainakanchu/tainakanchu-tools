@@ -154,6 +154,29 @@ describe('validateTaiwanData', () => {
     ).toContain('want_to_go')
   })
 
+  it('want_to_go に labels / tried があるとエラー（空配列は許す）', () => {
+    const base = { status: 'want_to_go', visitedAt: undefined }
+    expect(
+      errorText(data([spot({ ...base, labels: ['favorite'] })])),
+    ).toContain('.labels')
+    expect(errorText(data([spot({ ...base, tried: ['豆花'] })]))).toContain(
+      '.tried',
+    )
+    expect(errorText(data([spot({ ...base, labels: [], tried: [] })]))).toBe('')
+  })
+
+  it('未知のキーは typo の可能性として警告する（エラーにはしない）', () => {
+    const result = validateTaiwanData({
+      areas: [{ ...area, centre: { lat: 25, lng: 121 } }],
+      cityFiles: { taipei: [spot({ visited_at: '2026-08' })] },
+    })
+    expect(result.errors).toEqual([])
+    expect(result.warnings.map((w) => w.path)).toEqual([
+      'areas.json[0].centre',
+      'taipei.json[0](some-shop).visited_at',
+    ])
+  })
+
   it('visitedAt は YYYY-MM か YYYY-MM-DD のみ', () => {
     expect(errorText(data([spot({ visitedAt: '2026-08-15' })]))).toBe('')
     expect(errorText(data([spot({ visitedAt: '2026/08' })]))).toContain(

@@ -7,6 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { ogPagesPlugin } from './scripts/vite-plugin-og-pages'
+import { taiwanMapDataPlugin } from './scripts/vite-plugin-taiwan-map-data.ts'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -17,6 +18,8 @@ export default defineConfig({
     }),
     viteReact(),
     tailwindcss(),
+    // 台湾マップの配信用 JSON を src/data/taiwan/ から生成する（dev は監視つき）
+    taiwanMapDataPlugin(),
     VitePWA({
       // 新しいデプロイを開いたら黙って更新する。「更新があります」バナーを
       // 出す手もあるが、このツール集には通知 UI の仕組みが無く、そのために
@@ -62,19 +65,24 @@ export default defineConfig({
         // 出ないので、本体さえキャッシュできれば機内モードや圏外でも開ける。
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
         // ただし「かんちゅの台湾マップ」の地図まわりは precache から外す。
-        // - assets/MapView-*: maplibre-gl 本体（JS 約 1MB + CSS）を抱えた
-        //   遅延チャンク。precache に入れると、このサイトを一度開いただけの
-        //   人（台湾マップを使わない人、台北の一覧しか見ない人）にまで
-        //   地図ライブラリを裏で落とさせてしまう。地図を実際に表示したとき
-        //   だけ取りに行けば十分で、そもそも地図タイルはオフラインでは
-        //   取れないので、JS だけキャッシュしても圏外では役に立たない。
-        //   ファイル名は src/routes/tools/taiwan-map/-components/MapView.tsx
-        //   から来ているので、リネームするときはここも合わせること。
+        // - assets/maplibre-*: maplibre-gl 本体（JS 約 1MB + CSS）。下の
+        //   build.rolldownOptions で決まった名前のチャンクにしている。
+        //   precache に入れると、このサイトを一度開いただけの人（台湾マップを
+        //   使わない人、台北の一覧しか見ない人）にまで地図ライブラリを裏で
+        //   落とさせてしまう。地図を実際に表示したときだけ取りに行けば十分で、
+        //   そもそも地図タイルはオフラインでは取れないので、JS だけキャッシュ
+        //   しても圏外では役に立たない。
+        // - assets/MapView-*: maplibre を包む React 部品の小さな遅延チャンク。
+        //   単体では使い道が無いので一緒に外す。
         // - data/taiwan/**: 都市ごとに分けた配信用 JSON。見る都市のぶんだけ
         //   読む設計なので、全都市ぶんを precache したら分けた意味が無くなる
         //   （json は globPatterns に入っていないが、意図を明示しておく）。
         //   見たことのある都市は下の runtimeCaching でオフラインでも開ける。
-        globIgnores: ['assets/MapView-*', 'data/taiwan/**'],
+        globIgnores: [
+          'assets/maplibre-*',
+          'assets/MapView-*',
+          'data/taiwan/**',
+        ],
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
@@ -137,6 +145,24 @@ export default defineConfig({
     // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
     ogPagesPlugin(),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          // maplibre-gl（JS と CSS）を必ず maplibre-*.js / maplibre-*.css という
+          // 名前のチャンクに隔離する。PWA の precache から名指しで外す
+          // （workbox.globIgnores）ために、読み込み元のファイル名に左右されない
+          // 決まった名前が要る。
+          groups: [
+            {
+              name: 'maplibre',
+              test: /node_modules[\\/]maplibre-gl[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -92,6 +92,21 @@ export function serializeTaiwanMapSearch(search: TaiwanMapSearch): string {
   return params.toString()
 }
 
+/**
+ * キーを KEY_ORDER の順に並べ直し、undefined のキーを落とした新しいオブジェクト。
+ * TanStack Router はオブジェクトのキー順のまま URL にするので、navigate の
+ * 前にこれを通すと、アドレスバーの URL と「リンクをコピー」の URL が
+ * 同じ並びになる（同じ条件なのに見た目の違う URL が出回らない）。
+ */
+export function orderTaiwanMapSearch(search: TaiwanMapSearch): TaiwanMapSearch {
+  const ordered: Record<string, string> = {}
+  for (const key of KEY_ORDER) {
+    const value = search[key]
+    if (value !== undefined) ordered[key] = value
+  }
+  return ordered
+}
+
 export function filterFromSearch(search: TaiwanMapSearch): SpotFilter {
   const { city, area, category, status, label } = search
   return { city, area, category, status, label }

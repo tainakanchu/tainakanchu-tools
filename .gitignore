@@ -10,5 +10,5 @@ count.txt
 .tanstack
 .wrangler
 # かんちゅの台湾マップの配信用 JSON。src/data/taiwan/ から
-# `pnpm taiwan:build-data` で毎回生成する（dev / build が自動で実行する）
+# dev / build 時に Vite プラグイン（scripts/vite-plugin-taiwan-map-data.ts）が毎回生成する
 public/data/taiwan/

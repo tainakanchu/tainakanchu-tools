@@ -34,12 +34,19 @@ const SPOT_ZOOM = 16
 
 export type FlyRequest = { id: string; nonce: number }
 
+/** ピンを作り直す必要があるかの判定用。中身の id 列が同じなら同じ地図 */
+function spotsKeyOf(spots: ReadonlyArray<TaiwanSpot>): string {
+  return spots.map((s) => s.id).join('\n')
+}
+
 type Props = {
   spots: ReadonlyArray<TaiwanSpot>
   /** 何も無いときの初期表示位置 */
   fallbackCity: CityId
   selectedId: string | undefined
   flyRequest: FlyRequest | null
+  /** flyRequest を処理し終えたら呼ぶ。親が null に戻し、再マウントで二度飛ばない */
+  onFlyDone: () => void
   onSelect: (id: string) => void
 }
 
@@ -71,6 +78,7 @@ export default function MapView({
   fallbackCity,
   selectedId,
   flyRequest,
+  onFlyDone,
   onSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -79,11 +87,23 @@ export default function MapView({
     new Map<string, { marker: maplibregl.Marker; spot: TaiwanSpot }>(),
   )
   const onSelectRef = useRef(onSelect)
+  const onFlyDoneRef = useRef(onFlyDone)
+  const spotsRef = useRef(spots)
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     onSelectRef.current = onSelect
-  }, [onSelect])
+    onFlyDoneRef.current = onFlyDone
+    spotsRef.current = spots
+  })
+
+  /**
+   * ピンの張り替えと表示範囲の合わせ直しは、表示するスポットの顔ぶれが
+   * 変わったときだけにする。選択（selectedId）が変わっただけ、あるいは
+   * 同じ中身の配列が作り直されただけで作り直すと、ピンを押すたびに
+   * 地図が初期範囲へ跳ね戻って、見ていた場所を見失う。
+   */
+  const spotsKey = spotsKeyOf(spots)
 
   // 地図本体はマウント時に 1 度だけ作る
   useEffect(() => {
@@ -103,8 +123,20 @@ export default function MapView({
       'top-right',
     )
     // error リスナーを付けておくと maplibre は console.error を出さない。
-    // 圏外でタイルが取れないのは想定内なので、画面に一言出すだけにする
-    map.on('error', () => setLoadError(true))
+    // 知らせるのは「style（地図の定義）そのものが読めなかった」ときだけ。
+    // タイル 1 枚・グリフ 1 つの失敗は地図の端が欠ける程度なので黙っておく
+    // （そのたびに帯が出ると、ほぼ使えている地図に不安な表示が居座る）。
+    // style の読み込み完了（load）より前に、ソースに紐づかない error が
+    // 来たら style の失敗とみなす。
+    let styleLoaded = false
+    map.on('load', () => {
+      styleLoaded = true
+      setLoadError(false)
+    })
+    map.on('error', (e) => {
+      if (styleLoaded || 'sourceId' in e || 'tile' in e) return
+      setLoadError(true)
+    })
     mapRef.current = map
     const markers = markersRef.current
     return () => {
@@ -120,11 +152,12 @@ export default function MapView({
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
+    const current = spotsRef.current
     const markers = markersRef.current
     for (const { marker } of markers.values()) marker.remove()
     markers.clear()
 
-    for (const spot of spots) {
+    for (const spot of current) {
       const el = document.createElement('button')
       el.type = 'button'
       el.setAttribute(
@@ -142,48 +175,46 @@ export default function MapView({
       markers.set(spot.id, { marker, spot })
     }
 
-    if (spots.length === 1) {
-      const { lat, lng } = spots[0].location
+    if (current.length === 1) {
+      const { lat, lng } = current[0].location
       map.jumpTo({ center: [lng, lat], zoom: SPOT_ZOOM })
-    } else if (spots.length > 1) {
+    } else if (current.length > 1) {
       const bounds = new maplibregl.LngLatBounds()
-      for (const s of spots) bounds.extend([s.location.lng, s.location.lat])
+      for (const s of current) bounds.extend([s.location.lng, s.location.lat])
       map.fitBounds(bounds, { padding: 48, maxZoom: SPOT_ZOOM, duration: 0 })
     }
-  }, [spots])
+  }, [spotsKey])
 
   // 選択中のピンだけ大きく・枠つきにする
   useEffect(() => {
     for (const [id, { marker, spot }] of markersRef.current) {
       styleMarker(marker.getElement(), spot, id === selectedId)
     }
-  }, [selectedId, spots])
+  }, [selectedId, spotsKey])
 
   // 一覧の「地図で見る」→ そのピンへ飛ぶ
   useEffect(() => {
     if (!flyRequest) return
     const entry = markersRef.current.get(flyRequest.id)
     const map = mapRef.current
-    if (!entry || !map) return
-    map.flyTo({
-      center: [entry.spot.location.lng, entry.spot.location.lat],
-      zoom: Math.max(map.getZoom(), SPOT_ZOOM),
-      essential: true,
-    })
+    if (entry && map) {
+      map.flyTo({
+        center: [entry.spot.location.lng, entry.spot.location.lat],
+        zoom: Math.max(map.getZoom(), SPOT_ZOOM),
+        essential: true,
+      })
+    }
+    onFlyDoneRef.current()
   }, [flyRequest])
 
   return (
     <div className="relative h-full w-full">
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        role="region"
-        aria-label="スポットの地図"
-      />
+      {/* ランドマークは親の <aside aria-label="地図"> が担うので、ここには role を付けない */}
+      <div ref={containerRef} className="h-full w-full" />
       {loadError && (
         <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow">
-          地図の一部を読み込めませんでした（圏外かもしれません）。一覧と Google
-          Maps のリンクはそのまま使えます。
+          地図を読み込めませんでした（圏外かもしれません）。一覧と Google Maps
+          のリンクはそのまま使えます。
         </p>
       )}
     </div>

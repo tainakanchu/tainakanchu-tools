@@ -73,6 +73,53 @@ const REQUIRED_SPOT_FIELDS = [
 
 const REQUIRED_AREA_FIELDS = ['id', 'city', 'name', 'summary'] as const
 
+/**
+ * 既知のキー。これ以外のキーは「typo の可能性あり」として警告する
+ * （例: visitedAt を visited_at と書くと、エラーにならないまま黙って
+ * 表示されなくなるため）。
+ */
+const KNOWN_SPOT_KEYS: ReadonlyArray<string> = [
+  'id',
+  'name',
+  'nameZh',
+  'city',
+  'area',
+  'location',
+  'categories',
+  'tags',
+  'status',
+  'labels',
+  'summary',
+  'note',
+  'visitedAt',
+  'tried',
+  'googleMapsUrl',
+  'officialUrl',
+] satisfies ReadonlyArray<keyof TaiwanSpot>
+
+const KNOWN_AREA_KEYS: ReadonlyArray<string> = [
+  'id',
+  'city',
+  'name',
+  'nameZh',
+  'summary',
+  'note',
+  'center',
+] satisfies ReadonlyArray<keyof TaiwanArea>
+
+function warnUnknownKeys(
+  value: Record<string, unknown>,
+  known: ReadonlyArray<string>,
+  path: string,
+  warn: (path: string, message: string) => void,
+): void {
+  for (const key of Object.keys(value)) {
+    if (!known.includes(key)) {
+      warn(`${path}.${key}`, `未知の項目です（typo の可能性）: "${key}"`)
+    }
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -111,6 +158,7 @@ export function validateTaiwanData(input: RawTaiwanData): ValidationResult {
         error(path, 'オブジェクトである必要があります')
         return
       }
+      warnUnknownKeys(area, KNOWN_AREA_KEYS, path, warn)
       for (const field of REQUIRED_AREA_FIELDS) {
         if (!isNonEmptyString(area[field])) {
           error(`${path}.${field}`, '必須項目です（空文字不可）')
@@ -160,6 +208,7 @@ export function validateTaiwanData(input: RawTaiwanData): ValidationResult {
         return
       }
       const label = isNonEmptyString(spot.id) ? `${path}(${spot.id})` : path
+      warnUnknownKeys(spot, KNOWN_SPOT_KEYS, label, warn)
 
       for (const field of REQUIRED_SPOT_FIELDS) {
         if (spot[field] === undefined || spot[field] === null) {
@@ -259,6 +308,20 @@ export function validateTaiwanData(input: RawTaiwanData): ValidationResult {
           `${label}.status`,
           `未知のステータスです: ${JSON.stringify(spot.status)}`,
         )
+      }
+
+      if (spot.status === 'want_to_go') {
+        // 気持ちラベル（♥ 特に好き など）や「食べたもの」は行った人にしか
+        // 付けられない。未訪問の場所に付いていると、行った上でのおすすめに見える
+        for (const field of ['labels', 'tried'] as const) {
+          const value = spot[field]
+          if (Array.isArray(value) && value.length > 0) {
+            error(
+              `${label}.${field}`,
+              `want_to_go のスポットに ${field} は書けません（行ってから付ける）`,
+            )
+          }
+        }
       }
 
       if (spot.visitedAt !== undefined) {

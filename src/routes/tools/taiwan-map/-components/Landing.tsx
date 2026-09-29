@@ -8,18 +8,24 @@
  */
 
 import { Link } from '@tanstack/react-router'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, RotateCw } from 'lucide-react'
 import { SPOT_LABELS } from '../../../../lib/taiwan-map/types'
-import { bigChoiceClass, cardClass, sectionTitleClass } from '../-lib/styles'
+import {
+  actionButtonClass,
+  bigChoiceClass,
+  cardClass,
+  sectionTitleClass,
+} from '../-lib/styles'
 import { categoryName } from './Badges'
 import type { TaiwanManifest } from '../../../../lib/taiwan-map/types'
 
 type Props = {
   manifest: TaiwanManifest | null
   error: string | null
+  onRetry: () => void
 }
 
-export function Landing({ manifest, error }: Props) {
+export function Landing({ manifest, error, onRetry }: Props) {
   return (
     <div className="space-y-8">
       <section className={`${cardClass} space-y-3 text-gray-700`}>
@@ -49,12 +55,16 @@ export function Landing({ manifest, error }: Props) {
       </section>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
-          データを読み込めませんでした: {error}
-        </p>
+          <p>データを読み込めませんでした: {error}</p>
+          <button type="button" onClick={onRetry} className={actionButtonClass}>
+            <RotateCw size={14} aria-hidden />
+            再試行
+          </button>
+        </div>
       )}
 
       <section aria-labelledby="tw-cities" className="space-y-3">
@@ -101,7 +111,7 @@ export function Landing({ manifest, error }: Props) {
                 <span className="font-medium text-gray-900">
                   {categoryName(cat.id)}
                 </span>
-                <span className="text-sm text-gray-500">{cat.count}</span>
+                <span className="text-sm text-gray-500">{cat.count} 件</span>
               </Link>
             </li>
           ))}
