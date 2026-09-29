@@ -61,6 +61,20 @@ export default defineConfig({
         // 旅のしおりのデータは最初から localStorage にあってネットワークに
         // 出ないので、本体さえキャッシュできれば機内モードや圏外でも開ける。
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        // ただし「かんちゅの台湾マップ」の地図まわりは precache から外す。
+        // - assets/MapView-*: maplibre-gl 本体（JS 約 1MB + CSS）を抱えた
+        //   遅延チャンク。precache に入れると、このサイトを一度開いただけの
+        //   人（台湾マップを使わない人、台北の一覧しか見ない人）にまで
+        //   地図ライブラリを裏で落とさせてしまう。地図を実際に表示したとき
+        //   だけ取りに行けば十分で、そもそも地図タイルはオフラインでは
+        //   取れないので、JS だけキャッシュしても圏外では役に立たない。
+        //   ファイル名は src/routes/tools/taiwan-map/-components/MapView.tsx
+        //   から来ているので、リネームするときはここも合わせること。
+        // - data/taiwan/**: 都市ごとに分けた配信用 JSON。見る都市のぶんだけ
+        //   読む設計なので、全都市ぶんを precache したら分けた意味が無くなる
+        //   （json は globPatterns に入っていないが、意図を明示しておく）。
+        //   見たことのある都市は下の runtimeCaching でオフラインでも開ける。
+        globIgnores: ['assets/MapView-*', 'data/taiwan/**'],
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
@@ -68,8 +82,27 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // runtimeCaching を書いていないのは、このアプリが外部リソースを
-        // 一切読み込まないから。外部を読むようになったらその時に足す。
+        // 実行時キャッシュは台湾マップの配信用 JSON だけ。旅行中（圏外や
+        // 不安定な回線）でも「一度見た都市」はもう一度開けるようにする。
+        // NetworkFirst にしているのは、データを更新したのに古いコメントが
+        // 出続けるのを避けたいから。回線が遅いときは 3 秒で見切ってキャッシュを
+        // 返す。正規表現は URL の途中にマッチするので、別オリジンの URL には
+        // workbox の仕様上マッチしない（同一オリジンの /data/taiwan/ だけ）。
+        //
+        // 地図タイル（tiles.openfreemap.org）はあえてキャッシュしない。量が
+        // 読めない上に、利用規約上もブラウザの通常の HTTP キャッシュに任せる
+        // のが無難なため。それ以外の外部リソースは読み込んでいない。
+        runtimeCaching: [
+          {
+            urlPattern: /\/data\/taiwan\/[a-z0-9-]+\.json$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'taiwan-map-data',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 16 },
+            },
+          },
+        ],
       },
       // glob (js/css/html/svg/フォント) に入らない画像のうち、オフラインで
       // も要るものだけを名指しで足す。avatar.png は全ページのヘッダーに出る

@@ -9,6 +9,7 @@ import {
   Layers,
   Luggage,
   Map,
+  MapPinned,
   Menu,
   PlaneLanding,
   Printer,
@@ -27,6 +28,7 @@ const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'trip-notes': Luggage,
   'drum-roll': Drum,
   'taiwan-arrival-card': PlaneLanding,
+  'taiwan-map': MapPinned,
   'magnify-image': ZoomIn,
   'online-roulette': Dices,
 }

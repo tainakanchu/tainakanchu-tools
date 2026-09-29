@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,map-pinned,coffee,heart}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -107,6 +107,46 @@ const ICONS = {
       ],
       ['path', { d: 'M15 5.764v15' }],
       ['path', { d: 'M9 3.236v15' }],
+    ],
+  },
+  'map-pinned': {
+    all: [
+      [
+        'path',
+        {
+          d: 'M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0',
+        },
+      ],
+      ['circle', { cx: '12', cy: '8', r: '2' }],
+      [
+        'path',
+        {
+          d: 'M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712',
+        },
+      ],
+    ],
+  },
+  coffee: {
+    all: [
+      ['path', { d: 'M10 2v2' }],
+      ['path', { d: 'M14 2v2' }],
+      [
+        'path',
+        {
+          d: 'M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1',
+        },
+      ],
+      ['path', { d: 'M6 2v2' }],
+    ],
+  },
+  heart: {
+    all: [
+      [
+        'path',
+        {
+          d: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5',
+        },
+      ],
     ],
   },
   'train-front': {
@@ -527,6 +567,44 @@ const CARDS: ReadonlyArray<CardDef> = [
       },
       {
         icon: 'stamp',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 72,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'taiwan-map',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'かんちゅの', y: 300 },
+      { text: '台湾マップ', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'map-pinned',
+        part: 'all',
+        cx: 940,
+        cy: 305,
+        size: 190,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'coffee',
+        part: 'all',
+        // 地図ピンの台座が横に広いので、既定位置 (1030, 420) より少し外へ逃がす
+        cx: 1048,
+        cy: 438,
+        size: 100,
+        rotate: -8,
+        color: 'sub',
+      },
+      {
+        icon: 'heart',
         part: 'all',
         cx: 828,
         cy: 195,

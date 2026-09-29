@@ -76,6 +76,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     ogImagePath: '/assets/og/taiwan-arrival-card.png',
     category: 'travel',
   },
+  {
+    slug: 'taiwan-map',
+    name: 'かんちゅの台湾マップ',
+    description:
+      '台湾で実際に行った場所を、かんちゅの主観コメントつきで記録した個人マップ。都市・エリア・やりたいことで絞り込んだ URL をそのまま共有できる。',
+    path: '/tools/taiwan-map',
+    ogImagePath: '/assets/og/taiwan-map.png',
+    category: 'travel',
+  },
   // デスク
   {
     slug: 'actual-size-layout',
@@ -136,7 +145,7 @@ export type CatalogItem =
 
 /** カテゴリ内の表示順（slug） */
 const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
-  travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card'],
+  travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card', 'taiwan-map'],
   desk: ['actual-size-layout', 'risograph', 'magnify-image'],
   event: ['drum-roll', 'online-roulette'],
 }
