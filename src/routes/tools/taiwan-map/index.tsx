@@ -200,13 +200,21 @@ function Results({
     [onNavigate],
   )
 
+  // URL から開いた直後の選択ではカードへフォーカスを移さず、ピン・カード・
+  // 「一覧でくわしく見る」など画面上の操作のあとからだけ移す
+  const [focusOnSelect, setFocusOnSelect] = useState(false)
+
   const handleSelect = useCallback(
-    (id: string) => onNavigate({ spot: id }),
+    (id: string) => {
+      setFocusOnSelect(true)
+      onNavigate({ spot: id })
+    },
     [onNavigate],
   )
 
   const handleShowOnMap = useCallback(
     (id: string) => {
+      setFocusOnSelect(true)
       setFlyRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
       if (isDesktop) {
         onNavigate({ spot: id })
@@ -380,6 +388,7 @@ function Results({
                       area={spot.area ? areaById.get(spot.area) : undefined}
                       showCity={multiCity}
                       selected={spot.id === search.spot}
+                      focusOnSelect={focusOnSelect}
                       onSelect={handleSelect}
                       onShowOnMap={handleShowOnMap}
                     />
@@ -448,7 +457,10 @@ function Results({
                   className={actionButtonClass}
                   // 一覧に戻ると選択中のカードがマウントされ、SpotCard 側の
                   // effect がそのカードへスクロールしてフォーカスを移す
-                  onClick={() => onNavigate({ view: undefined })}
+                  onClick={() => {
+                    setFocusOnSelect(true)
+                    onNavigate({ view: undefined })
+                  }}
                 >
                   <List size={14} aria-hidden />
                   一覧でくわしく見る

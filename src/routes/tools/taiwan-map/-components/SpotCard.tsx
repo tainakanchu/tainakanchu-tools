@@ -29,6 +29,12 @@ type Props = {
   /** 複数都市をまたいだ一覧のときだけ都市名を出す */
   showCity: boolean
   selected: boolean
+  /**
+   * 選ばれたときにフォーカスまで移すか。共有リンクを開いた直後に
+   * フォーカスを奪うと、キーボード・スクリーンリーダー利用者がページ
+   * 途中から始まってしまうので、ユーザー操作で選んだときだけ true にする。
+   */
+  focusOnSelect: boolean
   onSelect: (id: string) => void
   onShowOnMap: (id: string) => void
 }
@@ -42,6 +48,7 @@ export function SpotCard({
   area,
   showCity,
   selected,
+  focusOnSelect,
   onSelect,
   onShowOnMap,
 }: Props) {
@@ -71,8 +78,9 @@ export function SpotCard({
     const el = ref.current
     if (!el) return
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
-  }, [selected])
+    if (focusOnSelect && !el.contains(document.activeElement))
+      el.focus({ preventScroll: true })
+  }, [selected, focusOnSelect])
 
   const mapsUrl =
     spot.googleMapsUrl ?? googleMapsSearchUrl(spot.nameZh ?? spot.name)
