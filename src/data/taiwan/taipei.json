@@ -1,0 +1,95 @@
+[
+  {
+    "id": "sidoli-radio",
+    "name": "SIDOLI RADIO 小島裡",
+    "nameZh": "小島裡",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05217,
+      "lng": 121.51128
+    },
+    "categories": ["drink", "music"],
+    "tags": ["カフェ", "レコード", "カセット"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=SIDOLI%20RADIO%20%E5%B0%8F%E5%B3%B6%E8%A3%A1%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%95%B7%E5%AE%89%E8%A5%BF%E8%B7%AF245%E8%99%9F",
+    "officialUrl": "https://sidoli.tw/"
+  },
+  {
+    "id": "south-st-delight",
+    "name": "南街得意",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05593,
+      "lng": 121.51012
+    },
+    "categories": ["drink"],
+    "tags": ["茶館"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%8D%97%E8%A1%97%E5%BE%97%E6%84%8F%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%BF%AA%E5%8C%96%E8%A1%97%E4%B8%80%E6%AE%B567%E8%99%9F"
+  },
+  {
+    "id": "director-douhua",
+    "name": "導演的豆花店",
+    "nameZh": "夢想基地 導演的豆花店",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05942,
+      "lng": 121.5087
+    },
+    "categories": ["food"],
+    "tags": ["豆花", "甘味"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%B0%8E%E6%BC%94%E7%9A%84%E8%B1%86%E8%8A%B1%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%BF%AA%E5%8C%96%E8%A1%97%E4%B8%80%E6%AE%B5224%E5%B7%B724%E8%99%9F"
+  },
+  {
+    "id": "jiang-niu-lou",
+    "name": "江牛樓",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05574,
+      "lng": 121.51081
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%B1%9F%E7%89%9B%E6%A8%93%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E6%B0%91%E6%A8%82%E8%A1%976%E8%99%9F"
+  },
+  {
+    "id": "lin-mao-sen-tea",
+    "name": "林茂森茶行",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.06043,
+      "lng": 121.5138
+    },
+    "categories": ["shopping"],
+    "tags": ["茶葉"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9E%97%E8%8C%82%E6%A3%AE%E8%8C%B6%E8%A1%8C%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%87%8D%E6%85%B6%E5%8C%97%E8%B7%AF%E4%BA%8C%E6%AE%B5195-3%E8%99%9F"
+  },
+  {
+    "id": "lin-hua-tai-tea",
+    "name": "林華泰茶行",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.06012,
+      "lng": 121.51377
+    },
+    "categories": ["shopping"],
+    "tags": ["茶葉"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9E%97%E8%8F%AF%E6%B3%B0%E8%8C%B6%E8%A1%8C%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%87%8D%E6%85%B6%E5%8C%97%E8%B7%AF%E4%BA%8C%E6%AE%B5193%E8%99%9F"
+  }
+]

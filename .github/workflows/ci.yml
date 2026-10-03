@@ -27,11 +27,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm run build
+      # 台湾マップの正本データ（src/data/taiwan/）の検証。エラーなら
+      # ここで落として、どのファイルのどこが壊れているかをログに出す。
+      # 配信用 JSON の生成は build（Vite プラグイン）に任せる
+      - name: Validate Taiwan map data
+        run: pnpm taiwan:validate
+
+      - name: Test
+        run: pnpm test
 
       - name: Type check
         run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
 
       - name: Validate Cloudflare Workers config
         run: pnpm exec wrangler deploy --dry-run
