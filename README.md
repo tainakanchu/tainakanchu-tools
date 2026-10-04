@@ -84,6 +84,18 @@
   別ホストで公開しているツールへのリンクです（このリポジトリには埋め込んでいません）。  
   URL: https://online-roulette-mu.vercel.app/
 
+### その他
+
+- **BPM電卓**（外部）  
+  DJ向けのBPM計算ツール。  
+  別リポジトリへのリンクです（このリポジトリには埋め込んでいません）。  
+  URL: https://github.com/tainakanchu/bpm-calculator-for-dj
+
+- **フライトメール**（外部）  
+  フライトメールをカレンダーに入れる補助。  
+  別リポジトリへのリンクです（このリポジトリには埋め込んでいません）。  
+  URL: https://github.com/tainakanchu/manual-auto-flight-mail
+
 ## 🛠 技術スタック
 
 - Vite + React 19
