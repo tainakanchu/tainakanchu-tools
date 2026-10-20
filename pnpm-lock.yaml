@@ -17,6 +17,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.8)
+      '@mediabunny/mp3-encoder':
+        specifier: ^1.61.6
+        version: 1.61.6(mediabunny@1.61.6)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.20.6))
@@ -1261,6 +1264,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@mediabunny/mp3-encoder@1.61.6':
+    resolution: {integrity: sha512-QiXZY9e7+LhM/R+1rnQSKD+l53jRu+ku3OPVDcIHffDMSA0bjkRr1Dw2BY68AhBV5qibLoBiQeH+pToWjasxYA==}
+    peerDependencies:
+      mediabunny: ^1.0.0
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
@@ -4967,6 +4975,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@mediabunny/mp3-encoder@1.61.6(mediabunny@1.61.6)':
+    dependencies:
+      mediabunny: 1.61.6
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true

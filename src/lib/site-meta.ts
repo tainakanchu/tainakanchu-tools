@@ -99,7 +99,7 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     slug: 'meeting-recorder',
     name: 'Web会議レコーダー',
     description:
-      'イヤホン使用中でも、Web会議の相手の音声（タブ / システム音声）と自分のマイクを左右別チャンネルで録音。文字起こし向けに Opus で軽量に書き出せるブラウザ完結ツール。',
+      'イヤホン使用中でも、Web会議の相手の音声（タブ / システム音声）と自分のマイクを左右別チャンネルで録音。文字起こし向けに MP3 / Opus などで軽量に書き出せるブラウザ完結ツール。',
     path: '/tools/meeting-recorder',
     ogImagePath: '/assets/og/meeting-recorder.png',
     category: 'desk',

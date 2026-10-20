@@ -290,7 +290,9 @@ function MeetingRecorderPage() {
           <strong className="font-semibold text-gray-800">
             相手の音声（タブ / システム音声）と自分のマイクを左右別のチャンネル
           </strong>
-          で録音します。書き出しは文字起こしに向いた軽量な Opus が既定です。
+          で録音します。書き出しは NotebookLM
+          などの文字起こしサービスにそのまま渡せる MP3 が既定です（より軽量な
+          Opus や WAV も選べます）。
         </p>
         <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
           <ShieldCheck

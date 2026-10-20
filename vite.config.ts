@@ -61,6 +61,11 @@ export default defineConfig({
         // 旅のしおりのデータは最初から localStorage にあってネットワークに
         // 出ないので、本体さえキャッシュできれば機内モードや圏外でも開ける。
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        // Web会議レコーダーの書き出しワーカー (export.worker-*.js) も js なのでここで
+        // precache される。MP3 エンコーダー (LAME の WASM を base64 で埋め込んだ JS) を
+        // 同梱していて約 510KB (gzip 約 180KB) あるが、既定の上限
+        // (maximumFileSizeToCacheInBytes = 2MiB) には収まるので、オフラインでも
+        // MP3 で書き出せる。
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
@@ -109,7 +114,10 @@ export default defineConfig({
     // 開発サーバーの依存スキャンが初回の書き出し時まで気づかない。そのとき
     // 「optimized dependencies changed. reloading」でページごとリロードされ、
     // 書き出しが中断されてしまうので、最初から事前バンドルの対象にしておく。
-    include: ['mediabunny'],
+    // @mediabunny/mp3-encoder も同じ理由（MP3 書き出し時にワーカーが動的 import する）。
+    // 両者を一緒に事前バンドルすることで、エンコーダーの登録先の mediabunny が
+    // 書き出し側と同じインスタンスになる。
+    include: ['mediabunny', '@mediabunny/mp3-encoder'],
   },
   resolve: {
     alias: {
