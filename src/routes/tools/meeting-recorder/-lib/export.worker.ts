@@ -1,22 +1,34 @@
 /**
  * 書き出しワーカー。OPFS の録音原本（Int16 ステレオ）をチャンクごとに読み、
- * モードに応じて分解・ミックスしてから WAV / Opus(.ogg) / AAC(.m4a) に書き出す。
+ * モードに応じて分解・ミックスしてから WAV / MP3 / Opus(.ogg) / AAC(.m4a) に書き出す。
  *
  * - 原本は File.slice() で数秒ずつしか読まないので、何時間の録音でもメモリに載せない
- * - 圧縮形式は WebCodecs の AudioEncoder で符号化し、mediabunny でコンテナに詰める
+ * - Opus / AAC は WebCodecs の AudioEncoder で符号化し、mediabunny でコンテナに詰める
  *   （mediabunny 任せの符号化だと Opus の application / signal を渡せないため自前で回す）
+ * - MP3 はブラウザの WebCodecs に符号化器が無いので、mediabunny の符号化経路
+ *   （AudioSampleSource）に @mediabunny/mp3-encoder（LAME の WASM 版）を登録して使う。
+ *   このパッケージは MP3 を書き出すときにだけワーカー内で動的 import する。
+ *   ワーカーは単一ファイル（iife）にバンドルされるので、本番では WASM 入りの JS も
+ *   このワーカーのファイルに同梱される（約 510KB / gzip 180KB、PWA の precache 対象）。
+ *   動的 import のおかげで評価・WASM の起動は MP3 のときだけ
  * - 出力先は「ユーザーが選んだファイル（FileSystemFileHandle）」か
  *   「OPFS の一時ファイル（あとでメインスレッドがダウンロードさせる）」のどちらか。
  *   どちらも位置指定で書けるので、mp4 の後書きヘッダーにも対応できる
  */
 import {
+  AudioSample,
+  AudioSampleSource,
   EncodedAudioPacketSource,
   EncodedPacket,
+  Mp3OutputFormat,
   Mp4OutputFormat,
   OggOutputFormat,
   Output,
+  Quality,
   StreamTarget,
+  canEncodeAudio,
 } from 'mediabunny'
+import { isValidMp3Bitrate } from '../../../../lib/meeting-recorder/export-options'
 import {
   extractChannelInt16,
   framesFromBytes,
@@ -329,6 +341,95 @@ async function createCodecWriter(
   }
 }
 
+// ---------------------------------------------------------------------------
+// MP3
+// ---------------------------------------------------------------------------
+
+/**
+ * MP3 エンコーダーを使える状態にして、使うエンコーダーの説明を返す。
+ * ブラウザ内蔵の MP3 エンコーダーがあればそちらを優先し、無ければ（現状の Chrome / Edge
+ * はこちら）LAME の WASM 版を登録する。WASM は JS に埋め込まれていて、
+ * 動的 import した時点で読み込まれる（実際の起動は mediabunny がさらに内側の
+ * ワーカーで行う）。
+ */
+async function prepareMp3Encoder(): Promise<string> {
+  if (await canEncodeAudio('mp3')) return 'MP3: ブラウザ内蔵エンコーダー（CBR）'
+  let registerMp3Encoder: () => void
+  try {
+    const encoderModule = await import('@mediabunny/mp3-encoder')
+    registerMp3Encoder = encoderModule.registerMp3Encoder
+  } catch (error) {
+    // 本番ではワーカーと同じファイルに入っているので通信では失敗しない。開発サーバー
+    // （別モジュールとして取りに行く）やオフラインで取りこぼしたとき用
+    throw new Error(
+      `MP3 エンコーダーを読み込めませんでした。オンラインでページを開き直してから再度お試しください（または WAV で書き出してください）。${error instanceof Error ? `（${error.message}）` : ''}`,
+      { cause: error },
+    )
+  }
+  registerMp3Encoder()
+  return 'MP3: LAME（WASM・CBR）'
+}
+
+const MP3_WRITE_CHUNK_BYTES = 1024 * 1024
+
+/**
+ * MP3 の書き手。Int16 をそのまま AudioSample（s16 インターリーブ）にして
+ * mediabunny の AudioSampleSource に渡す。add() の Promise がエンコーダーと
+ * 書き込みの背圧を兼ねる。
+ */
+async function createMp3Writer(
+  sink: ByteSink,
+  numberOfChannels: number,
+  sampleRate: number,
+  bitrate: number,
+): Promise<ChannelWriter> {
+  const output = new Output({
+    // Xing ヘッダー（総フレーム数・シーク表）を先頭に後書きする。位置指定で書ける sink なので可
+    format: new Mp3OutputFormat(),
+    target: new StreamTarget(
+      new WritableStream<StreamTargetChunk>({
+        write: (chunk) => sink.write(chunk.data, chunk.position),
+      }),
+      // MP3 の muxer はフレーム（16kHz なら 36ms・数百バイト）ごとに flush するので、
+      // そのままだと 30 分で 5 万回の細かい書き込みになり、それが律速して実時間の
+      // 35 倍程度しか出なかった。1MiB ずつまとめて書く
+      { chunked: true, chunkSize: MP3_WRITE_CHUNK_BYTES },
+    ),
+  })
+  const source = new AudioSampleSource({
+    codec: 'mp3',
+    quality: new Quality({ bitrate, bitrateMode: 'constant' }),
+  })
+  output.addAudioTrack(source)
+  await output.start()
+
+  return {
+    write: async (samples, frameOffset) => {
+      const sample = new AudioSample({
+        data: samples,
+        format: 's16',
+        numberOfChannels,
+        sampleRate,
+        timestamp: frameOffset / sampleRate,
+      })
+      try {
+        await source.add(sample)
+      } finally {
+        sample.close()
+      }
+    },
+    finish: async () => {
+      source.close()
+      await output.finalize()
+      await sink.close()
+    },
+    abort: async () => {
+      await output.cancel()
+      await sink.abort()
+    },
+  }
+}
+
 /** 原本のチャンク（インターリーブ・ステレオ）から出力に渡す並びを作る */
 function selectSamples(
   interleaved: Int16Array,
@@ -354,7 +455,14 @@ async function runExport(request: ExportRequest) {
 
   let encoderNote: string | null = null
   const configs = new Map<number, AudioEncoderConfig>()
-  if (format !== 'wav') {
+  if (format === 'mp3') {
+    if (!isValidMp3Bitrate(sampleRate, request.bitrate)) {
+      throw new Error(
+        `MP3 は ${sampleRate}Hz / ${request.bitrate / 1000}kbps の組み合わせで書き出せません`,
+      )
+    }
+    encoderNote = await prepareMp3Encoder()
+  } else if (format !== 'wav') {
     for (const channels of new Set(
       request.outputs.map((o) => o.target.channels),
     )) {
@@ -382,9 +490,26 @@ async function runExport(request: ExportRequest) {
       sinks.push(byteSink)
       const config = configs.get(target.channels)
       writers.push(
-        format === 'wav' || !config
-          ? createWavWriter(byteSink, target.channels, sampleRate, totalFrames)
-          : await createCodecWriter(byteSink, format, config, target.trackName),
+        format === 'mp3'
+          ? await createMp3Writer(
+              byteSink,
+              target.channels,
+              sampleRate,
+              request.bitrate,
+            )
+          : format === 'wav' || !config
+            ? createWavWriter(
+                byteSink,
+                target.channels,
+                sampleRate,
+                totalFrames,
+              )
+            : await createCodecWriter(
+                byteSink,
+                format,
+                config,
+                target.trackName,
+              ),
       )
     }
 

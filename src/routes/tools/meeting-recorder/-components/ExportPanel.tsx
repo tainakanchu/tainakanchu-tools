@@ -157,16 +157,23 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
         <fieldset className="space-y-2">
           <legend className={labelClass}>形式</legend>
           {formats.map((option) => (
-            <label key={option.id} className="flex items-center gap-2 text-sm">
+            <label key={option.id} className="flex items-start gap-2 text-sm">
               <input
                 type="radio"
                 name={`format-${meta.id}`}
-                className={radioClass}
+                className={`${radioClass} mt-0.5`}
                 checked={format === option.id}
                 disabled={running}
                 onChange={() => setFormat(option.id)}
               />
-              <span className="text-gray-800">{option.label}</span>
+              <span>
+                <span className="text-gray-800">{option.label}</span>
+                {option.note && (
+                  <span className="block text-xs text-gray-500">
+                    {option.note}
+                  </span>
+                )}
+              </span>
             </label>
           ))}
         </fieldset>
