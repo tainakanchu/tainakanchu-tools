@@ -10,6 +10,7 @@ import {
   Luggage,
   Map,
   Menu,
+  Mic,
   PlaneLanding,
   Printer,
   Sparkles,
@@ -23,6 +24,7 @@ import type { CatalogItem } from '../lib/site-meta'
 const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'actual-size-layout': Printer,
   risograph: Layers,
+  'meeting-recorder': Mic,
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,

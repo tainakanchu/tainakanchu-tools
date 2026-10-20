@@ -47,6 +47,7 @@
     "@tanstack/router-plugin": "^1.168.29",
     "fflate": "^0.8.3",
     "lucide-react": "^1.31.0",
+    "mediabunny": "^1.61.6",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
