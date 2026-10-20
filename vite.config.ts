@@ -104,6 +104,13 @@ export default defineConfig({
     // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
     ogPagesPlugin(),
   ],
+  optimizeDeps: {
+    // mediabunny は Web会議レコーダーの書き出しワーカーからしか import されないので、
+    // 開発サーバーの依存スキャンが初回の書き出し時まで気づかない。そのとき
+    // 「optimized dependencies changed. reloading」でページごとリロードされ、
+    // 書き出しが中断されてしまうので、最初から事前バンドルの対象にしておく。
+    include: ['mediabunny'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

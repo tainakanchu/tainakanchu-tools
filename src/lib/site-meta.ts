@@ -95,6 +95,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     ogImagePath: '/assets/og/risograph.png',
     category: 'desk',
   },
+  {
+    slug: 'meeting-recorder',
+    name: 'Web会議レコーダー',
+    description:
+      'イヤホン使用中でも、Web会議の相手の音声（タブ / システム音声）と自分のマイクを左右別チャンネルで録音。文字起こし向けに Opus で軽量に書き出せるブラウザ完結ツール。',
+    path: '/tools/meeting-recorder',
+    ogImagePath: '/assets/og/meeting-recorder.png',
+    category: 'desk',
+  },
   // イベント
   {
     slug: 'drum-roll',
@@ -137,7 +146,12 @@ export type CatalogItem =
 /** カテゴリ内の表示順（slug） */
 const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
   travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card'],
-  desk: ['actual-size-layout', 'risograph', 'magnify-image'],
+  desk: [
+    'actual-size-layout',
+    'risograph',
+    'meeting-recorder',
+    'magnify-image',
+  ],
   event: ['drum-roll', 'online-roulette'],
 }
 

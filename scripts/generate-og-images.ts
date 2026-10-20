@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,mic,headphones,audio-lines}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -235,6 +235,33 @@ const ICONS = {
       ['circle', { cx: '8.5', cy: '7.5', r: '.5' }],
     ],
   },
+  mic: {
+    all: [
+      ['path', { d: 'M12 19v3' }],
+      ['path', { d: 'M19 10v2a7 7 0 0 1-14 0v-2' }],
+      ['rect', { x: '9', y: '2', width: '6', height: '13', rx: '3' }],
+    ],
+  },
+  headphones: {
+    all: [
+      [
+        'path',
+        {
+          d: 'M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3',
+        },
+      ],
+    ],
+  },
+  'audio-lines': {
+    all: [
+      ['path', { d: 'M2 10v3' }],
+      ['path', { d: 'M6 6v11' }],
+      ['path', { d: 'M10 3v18' }],
+      ['path', { d: 'M14 8v7' }],
+      ['path', { d: 'M18 5v13' }],
+      ['path', { d: 'M22 10v3' }],
+    ],
+  },
 } as const satisfies Record<string, IconParts>
 
 type IconName = keyof typeof ICONS
@@ -392,6 +419,43 @@ const CARDS: ReadonlyArray<CardDef> = [
         cx: 828,
         cy: 195,
         size: 72,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'meeting-recorder',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'Web会議', y: 300 },
+      { text: 'レコーダー', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'mic',
+        part: 'all',
+        cx: 940,
+        cy: 300,
+        size: 195,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'headphones',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 105,
+        rotate: -9,
+        color: 'sub',
+      },
+      {
+        icon: 'audio-lines',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 76,
         rotate: 0,
         color: 'accent',
       },
