@@ -170,6 +170,7 @@ function TaiwanArrivalCardPage() {
     return () => {
       window.removeEventListener('pagehide', flush)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      flush()
     }
   }, [])
 
