@@ -590,6 +590,7 @@ export function renderCopy(a: TemplateArgs): LayoutResult {
   drawRows(ctx, layout, rowColors(ctx), {
     offsetY: dy,
     dividers: null,
+    ink: 'marker',
   })
   const footY = Math.min(inner.y + inner.h, listTop + used + footer)
   const count = trackCountText(meta).toUpperCase()

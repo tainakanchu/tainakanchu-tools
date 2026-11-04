@@ -13,11 +13,19 @@ import {
   wrapText,
 } from './textfit'
 import type { Measure } from './fit'
+import { markFor } from './redact'
+import type { Marks, PlacedMark } from './redact'
 import type { LongTextMode } from './textfit'
 
 export type CenterRole = 'num' | 'artist' | 'sep' | 'title' | 'more'
 
-export type CenterItem = { num: string; artist: string; title: string }
+export type CenterItem = {
+  num: string
+  artist: string
+  title: string
+  /** 隠した欄を印で描く（rows の RowItem と同じ） */
+  mark?: Marks
+}
 
 export type CenterParams = { columns: number; size: number }
 
@@ -28,6 +36,8 @@ export type CenterRun = {
   x: number
   width: number
   scaleX: number
+  /** 文字の代わりに印を描く（隠した欄） */
+  mark?: PlacedMark
 }
 
 export type CenterLine = { runs: Array<CenterRun>; width: number }
@@ -94,7 +104,15 @@ function buildItem(
       if (!p.text) continue
       const scaleX = p.scaleX ?? 1
       const width = measure(p.text, fontOf(p.role)) * scaleX
-      runs.push({ text: p.text, role: p.role, x, width, scaleX })
+      const mark = markFor(item.mark, p.role)
+      runs.push({
+        text: p.text,
+        role: p.role,
+        x,
+        width,
+        scaleX,
+        ...(mark ? { mark } : {}),
+      })
       x += width
     }
     return { runs, width: x }

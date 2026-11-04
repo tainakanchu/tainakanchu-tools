@@ -19,6 +19,11 @@ export type Track = {
   durationSec?: number
   genre?: string
   label?: string
+  /**
+   * 隠す欄（未発表の曲など）。かけたことは見せたまま、画像ではアーティスト名・曲名を
+   * 伏せる。元の文字は残すので、いつでも戻せる。
+   */
+  hidden?: { artist: boolean; title: boolean }
 }
 
 export type Setlist = {

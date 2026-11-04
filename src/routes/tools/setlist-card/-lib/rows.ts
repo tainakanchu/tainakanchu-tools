@@ -17,6 +17,8 @@ import {
   wrapText,
 } from './textfit'
 import type { Measure, Rect } from './fit'
+import { markFor } from './redact'
+import type { Marks, PlacedMark } from './redact'
 import type { LongTextMode } from './textfit'
 
 export type RowStyle = 'double' | 'single' | 'compact'
@@ -34,6 +36,11 @@ export type RowItem = {
   title: string
   /** 補足列（左から 時刻 / BPM / Key のうち表示するもの） */
   meta: Array<string>
+  /**
+   * 隠した欄を印（黒塗り / ぐちゃぐちゃ）で描く。そのときの artist / title は
+   * 印の幅を測るための置き換え文字で、文字としては描かない
+   */
+  mark?: Marks
 }
 
 export type FontFor = (role: Role, size: number, style: RowStyle) => string
@@ -49,6 +56,8 @@ export type PlacedText = {
   font: string
   /** 2 行組みの曲名など、控えめな色で描くもの */
   muted: boolean
+  /** 文字の代わりに印を描く（隠した欄） */
+  mark?: PlacedMark
 }
 
 export type PlacedRow = {
@@ -255,6 +264,7 @@ function buildRow(
     extra: Partial<PlacedText> = {},
   ) => {
     if (!text) return
+    const mark = markFor(item.mark, role)
     texts.push({
       text,
       role,
@@ -264,6 +274,7 @@ function buildRow(
       scaleX: 1,
       align: 'left',
       muted: false,
+      ...(mark ? { mark } : {}),
       ...extra,
     })
   }

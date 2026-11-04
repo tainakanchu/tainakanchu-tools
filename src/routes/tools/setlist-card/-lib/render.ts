@@ -11,7 +11,6 @@
  * 曲が多いときは 1 枚を複数ページに分けられる（renderPage を枚数ぶん呼ぶ）。
  * 2 枚目以降は 1 枚目と同じ組み方（段数・行の形・文字サイズ）にそろえる。
  */
-import { cleanArtistName, cleanTitle } from './clean'
 import { hexToRgb, readableOn, rgbToHex } from './color'
 import {
   drawGrain,
@@ -34,7 +33,7 @@ import {
 import { SCRIM_MIN, ditherStops, duotoneStops } from './palettes'
 import { photoSampler, processedPhoto } from './photo'
 import { resolvePhotoColors } from './photo-contrast'
-import { formatBpm, formatOffset } from './text'
+import { META_LABELS, sideNumber, toItems } from './items'
 import { renderCenter } from './tpl-center'
 import { renderCopy, renderPhoto } from './tpl-photo'
 import { renderEditorial, renderMinimal, renderTracklist } from './tpl-simple'
@@ -60,7 +59,6 @@ import type {
 import type { Palette } from './palettes'
 import type { LoadedPhoto } from './photo'
 import type { Sample } from './photo-contrast'
-import type { RowItem } from './rows'
 import type {
   LayoutResult,
   Meta,
@@ -68,7 +66,9 @@ import type {
   PageSpec,
   TemplateArgs,
 } from './template-types'
-import type { Setlist, Track } from './types'
+import type { MetaKey } from './items'
+import type { RedactOptions } from './redact'
+import type { Setlist } from './types'
 
 export { resetMeasureCache }
 export type { DisplayOptions, StyleOptions, TextOptions } from './draw'
@@ -91,16 +91,13 @@ export type RenderInput = {
   text: TextOptions
   columns: ColumnsSetting
   split: SplitOptions
+  /** 隠した曲の見せ方 */
+  redact: RedactOptions
   photo: { image: LoadedPhoto; settings: PhotoSettings } | null
 }
 
-export type MetaKey = 'time' | 'bpm' | 'key' | 'label'
-export const META_LABELS: Record<MetaKey, string> = {
-  time: '開始時刻',
-  bpm: 'BPM',
-  key: 'Key',
-  label: 'レーベル',
-}
+export { META_LABELS, sideNumber }
+export type { MetaKey }
 
 export type RenderInfo = {
   overflow: boolean
@@ -133,54 +130,32 @@ export type RenderInfo = {
 // 曲データ → 表示用
 // ---------------------------------------------------------------------------
 
-const LABEL_MAX = 18
-
-/** A1 / A2 … B1 のような面ごとの番号（12 曲までは 2 面、それより多ければ 6 曲ずつ） */
-export function sideNumber(index: number, count: number): string {
-  const perSide = count <= 12 ? Math.max(1, Math.ceil(count / 2)) : 6
-  const side = Math.min(25, Math.floor(index / perSide))
-  return `${String.fromCharCode(65 + side)}${(index % perSide) + 1}`
+function itemsOf(input: RenderInput) {
+  return toItems(input.setlist.tracks, {
+    display: input.display,
+    text: input.text,
+    redact: input.redact,
+    sideNumbers: input.style.sideNumbers && input.layout === 'tracklist',
+    qmark: qmarkGlyph(input),
+  })
 }
 
-function toItems(
-  tracks: ReadonlyArray<Track>,
-  input: Pick<RenderInput, 'display' | 'text' | 'style' | 'layout'>,
-): { items: Array<RowItem>; metaKeys: Array<MetaKey> } {
-  const { display, text } = input
-  const starts = tracks
-    .map((t) => t.startAt)
-    .filter((v): v is number => v !== undefined)
-  const origin = starts.length > 0 ? Math.min(...starts) : undefined
-  const keys: Array<MetaKey> = ['time', 'bpm', 'key', 'label']
-  const raw = tracks.map((track) => ({
-    time:
-      display.time && track.startAt !== undefined && origin !== undefined
-        ? formatOffset(track.startAt - origin)
-        : '',
-    bpm: display.bpm && track.bpm !== undefined ? formatBpm(track.bpm) : '',
-    key: display.key && track.key ? track.key : '',
-    label:
-      display.label && track.label
-        ? Array.from(track.label).length > LABEL_MAX
-          ? `${Array.from(track.label)
-              .slice(0, LABEL_MAX - 1)
-              .join('')
-              .trimEnd()}…`
-          : track.label
-        : '',
-  }))
-  // 1 曲も値が無い列は詰める
-  const metaKeys = keys.filter((k) => raw.some((r) => r[k] !== ''))
-  const sides = input.style.sideNumbers && input.layout === 'tracklist'
-  const items = tracks.map((track, index) => ({
-    num: sides
-      ? sideNumber(index, tracks.length)
-      : String(index + 1).padStart(2, '0'),
-    artist: cleanArtistName(track.artist, text),
-    title: cleanTitle(track.title, text),
-    meta: metaKeys.map((k) => raw[index][k]),
-  }))
-  return { items, metaKeys }
+/** 曲の行を明朝で組むテンプレート（エディトリアル・Y2K はゴシック、コピーは等幅で固定） */
+const SERIF_ROWS: ReadonlySet<LayoutId> = new Set<LayoutId>([
+  'minimal',
+  'photo',
+  'tracklist',
+  'center',
+])
+
+/**
+ * ？？？ の字。曲の行が明朝（和文の書体が先頭）なら全角の ？、欧文の書体
+ * （Geist・Geist Mono）なら半角の ?（全角は和文フォントへ落ちて間延びする）。
+ */
+function qmarkGlyph(input: RenderInput): '?' | '？' {
+  return input.style.family === 'serif' && SERIF_ROWS.has(input.layout)
+    ? '？'
+    : '?'
 }
 
 /** レコードの品番風の ID（DJ 名の頭 3 文字 + 日付の数字） */
@@ -372,7 +347,7 @@ function paint(
       ? planPhotoBlock(input.layout, input.size)
       : null
   const meta = metaOf(input.setlist)
-  const { items: all, metaKeys } = toItems(input.setlist.tracks, input)
+  const { items: all, metaKeys } = itemsOf(input)
   const items = all.slice(page.start, page.end)
   const frame = plan ? plan.content : { x: 0, y: 0, w: W, h: H }
   const render = RENDERERS[input.layout]
@@ -526,7 +501,7 @@ function paint(
 }
 
 function hiddenMetaOf(input: RenderInput, shown: number): Array<MetaKey> {
-  const { metaKeys } = toItems(input.setlist.tracks, input)
+  const { metaKeys } = itemsOf(input)
   return metaKeys.slice(shown)
 }
 

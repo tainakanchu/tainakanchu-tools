@@ -109,6 +109,19 @@ export function outputFormat(
   return choice === 'png' ? PNG : JPEG
 }
 
+/**
+ * 書き出しファイル名の元（イベント名と日付だけから作る）。曲の情報は受け取らないので、
+ * 隠した曲名がファイル名・ZIP の中の名前・共有に混ざることはない。
+ */
+export function fileBaseName(meta: { title?: string; date?: string }): string {
+  const source = [meta.title, meta.date].filter(Boolean).join('-')
+  const cleaned = source
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 60)
+  return cleaned ? `setlist-${cleaned}` : 'setlist'
+}
+
 export function exportFileName(
   base: string,
   index: number,

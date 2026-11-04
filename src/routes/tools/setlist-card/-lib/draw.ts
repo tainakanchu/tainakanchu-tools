@@ -4,12 +4,14 @@
  * - 文字を描く・文字の範囲を記録する（写真の上の読みやすさの判定に使う）
  * - 曲の行・罫線・ページ見出し・クレジット・幕・粒子
  */
-import { rgba } from './color'
+import { contrastRatio, hexToRgb, rgba } from './color'
+import { mulberry32 } from './random'
 import { FONT_STACKS, noteFontUse } from './fonts'
 import type { Measure, Rect } from './fit'
 import type { FontStack } from './fonts'
 import type { FontFamily } from './layouts'
 import type { Palette } from './palettes'
+import type { PlacedMark } from './redact'
 import type { Role as RowRole, RowsLayout } from './rows'
 import type { LongTextMode } from './textfit'
 
@@ -355,6 +357,170 @@ export function rowColors(
   }
 }
 
+/**
+ * 印の描き方。solid は角のわずかに丸い帯、marker はマーカーで引いたような
+ * 端の揺れた帯（コピー向け）。ぐちゃぐちゃはどちらでも同じペンの跡。
+ */
+export type MarkInk = 'solid' | 'marker'
+
+/** ぐちゃぐちゃの色: 差し色。地の色との差が小さければ文字色 */
+export function scribbleColor(ctx: Ctx): string {
+  const { pal } = ctx
+  const ground = ctx.onPhoto && ctx.zone >= 0 ? pal.scrim : pal.bg
+  return contrastRatio(hexToRgb(pal.accent), hexToRgb(ground)) >= 3
+    ? pal.accent
+    : pal.fg
+}
+
+/**
+ * 隠した欄の印を描く。x から幅 w、y は文字の縦中央、size は文字の大きさ。
+ * 形は mark.seed（曲順）だけで決まり、本当の文字は一切描かない。
+ */
+export function drawMark(
+  ctx: Ctx,
+  mark: PlacedMark,
+  x: number,
+  y: number,
+  w: number,
+  size: number,
+  color: string,
+  ink: MarkInk = 'solid',
+) {
+  if (w <= 0) return
+  if (ctx.boxes) {
+    ctx.boxes.push({
+      x,
+      y: y - size * 0.55,
+      w,
+      h: size * 1.05,
+      zone: ctx.zone,
+    })
+  }
+  const { c } = ctx
+  const rand = mulberry32(mark.seed * 7907 + 31)
+  c.save()
+  if (mark.kind === 'scribble') {
+    drawScribble(c, rand, x, y, w, size, scribbleColor(ctx))
+  } else if (ink === 'marker') {
+    drawMarkerBar(c, rand, x, y, w, size, color)
+  } else {
+    const h = size * 0.74
+    const top = y - h * 0.52
+    c.fillStyle = color
+    c.beginPath()
+    if (typeof c.roundRect === 'function')
+      c.roundRect(x, top, w, h, size * 0.06)
+    else c.rect(x, top, w, h)
+    c.fill()
+  }
+  c.restore()
+}
+
+/** マーカーで引いた帯（上下の縁がわずかに波打ち、端は斜めに切れる） */
+function drawMarkerBar(
+  c: CanvasRenderingContext2D,
+  rand: () => number,
+  x: number,
+  y: number,
+  w: number,
+  size: number,
+  color: string,
+) {
+  const h = size * 0.82
+  const top = y - h * 0.54
+  const jitter = () => (rand() - 0.5) * size * 0.07
+  const steps = Math.max(2, Math.round(w / (size * 0.6)))
+  const slant = size * 0.12
+  c.fillStyle = color
+  c.globalAlpha = 0.94
+  c.beginPath()
+  c.moveTo(x + slant * rand(), top + jitter())
+  for (let i = 1; i <= steps; i++) {
+    c.lineTo(
+      x + (w * i) / steps - (i === steps ? slant * rand() : 0),
+      top + jitter(),
+    )
+  }
+  for (let i = steps; i >= 0; i--) {
+    c.lineTo(
+      x + (w * i) / steps + (i === 0 ? slant * rand() * 0.6 : 0),
+      top + h + jitter(),
+    )
+  }
+  c.closePath()
+  c.fill()
+}
+
+/**
+ * ペンでぐちゃぐちゃに塗りつぶした跡。左右に往復する斜めのジグザグを 3 回重ね
+ * （最後は途中まで）、歩幅・振れ幅・位置を揺らして中点を通る曲線でつなぐ
+ * （幾何学模様に見えないように）。
+ * 線の太さは文字の大きさに比例（書き出しの倍率は ctx の scale で掛かる）。
+ */
+function drawScribble(
+  c: CanvasRenderingContext2D,
+  rand: () => number,
+  x: number,
+  y: number,
+  w: number,
+  size: number,
+  color: string,
+) {
+  const lw = size * (0.085 + rand() * 0.025)
+  const left = x + lw * 0.5
+  const right = x + w - lw * 0.5
+  if (right - left < size * 0.3) return
+  const half = size * 0.5
+  const points: Array<[number, number]> = []
+  /** 左右どちらかへ 1 往復ぶん。上下に振りながら、ペンを前へ倒して進む */
+  const pass = (from: number, to: number, ampK: number, shift: number) => {
+    const dir = to > from ? 1 : -1
+    let px = from
+    let up = rand() < 0.5
+    while ((to - px) * dir > 0) {
+      const step = size * (0.2 + rand() * 0.18)
+      px = Math.min(right, Math.max(left, px + step * dir))
+      const amp = half * ampK * (0.7 + rand() * 0.35)
+      const lean = (up ? 0.16 : -0.06) * size * dir
+      points.push([
+        Math.min(right, Math.max(left, px + lean)),
+        y + shift + (up ? -amp : amp) + (rand() - 0.5) * size * 0.06,
+      ])
+      up = !up
+    }
+  }
+  points.push([left, y + (rand() - 0.5) * half])
+  pass(left, right, 1, (rand() - 0.5) * size * 0.08)
+  pass(
+    right,
+    left + (right - left) * rand() * 0.12,
+    0.9,
+    (rand() - 0.5) * size * 0.1,
+  )
+  // 3 回目は途中まで（手で塗るときの最後のひと塗り）
+  pass(
+    points[points.length - 1][0],
+    left + (right - left) * (0.55 + rand() * 0.45),
+    0.75,
+    0,
+  )
+  c.strokeStyle = color
+  c.lineWidth = lw
+  c.lineCap = 'round'
+  c.lineJoin = 'round'
+  c.globalAlpha = 0.86 + rand() * 0.1
+  c.beginPath()
+  c.moveTo(points[0][0], points[0][1])
+  for (let i = 1; i < points.length - 1; i++) {
+    const [cx, cy] = points[i]
+    const [nx, ny] = points[i + 1]
+    c.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2)
+  }
+  const last = points[points.length - 1]
+  c.lineTo(last[0], last[1])
+  c.stroke()
+}
+
 export function drawRows(
   ctx: Ctx,
   layout: RowsLayout,
@@ -362,7 +528,8 @@ export function drawRows(
   opts: {
     dividers?: string | null
     offsetY?: number
-    /** 区切り線を行の上下どちらに引くか（top は 2 行目以降の上） */
+    /** 隠した欄の帯の描き方 */
+    ink?: MarkInk
   } = {},
 ) {
   const dy = opts.offsetY ?? 0
@@ -379,6 +546,20 @@ export function drawRows(
     for (const t of row.texts) {
       const color =
         t.role === 'title' && t.muted ? colors.mutedTitle : colors[t.role]
+      if (t.mark) {
+        drawMark(
+          ctx,
+          t.mark,
+          row.x + t.x,
+          row.y + dy + t.y,
+          ctx.measure(t.text, t.font) * t.scaleX,
+          fontSize(parseFont(t.font).css),
+          // 帯は名前の欄の色（曲名が控えめな色のテンプレートでは帯も控えめに）
+          color,
+          opts.ink,
+        )
+        continue
+      }
       drawScaled(
         ctx,
         t.text,
@@ -463,17 +644,6 @@ export function drawScrim(
     else c.fillRect(0, 0, x1, H)
   }
   c.restore()
-}
-
-function mulberry32(seed: number) {
-  let a = seed
-  return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
 }
 
 export { mulberry32 }

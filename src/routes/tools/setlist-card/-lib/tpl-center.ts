@@ -6,7 +6,15 @@
  * 飾りは付けない。単色のパレット（リソ・アシッド・ティールナイトなど）が合う。
  */
 import { fitCentered } from './center'
-import { drawCredit, drawScaled, drawText, font, innerOf, isWide } from './draw'
+import {
+  drawCredit,
+  drawMark,
+  drawScaled,
+  drawText,
+  font,
+  innerOf,
+  isWide,
+} from './draw'
 import { ellipsize, fitFontSize } from './fit'
 import { columnGap, metaStack, separatorOf } from './tpl-common'
 import { pageLabel } from './template-types'
@@ -192,6 +200,18 @@ export function renderCenter(a: TemplateArgs): LayoutResult {
       const x0 = cx - line.width / 2
       const y = offsetY + block.y + idx * extra + layout.lineHeight * (i + 0.5)
       for (const run of line.runs) {
+        if (run.mark) {
+          drawMark(
+            ctx,
+            run.mark,
+            x0 + run.x,
+            y,
+            run.width,
+            layout.size,
+            colorOf(run.role),
+          )
+          continue
+        }
         drawScaled(
           ctx,
           run.text,

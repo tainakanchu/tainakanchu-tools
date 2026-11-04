@@ -176,6 +176,7 @@ export function PreviewPanel({
       text: input.text,
       columns: input.columns,
       split: input.split,
+      redact: input.redact,
       photo: photoImage
         ? {
             image: photoImage,
@@ -195,6 +196,7 @@ export function PreviewPanel({
     input.text,
     input.columns,
     input.split,
+    input.redact,
     photoImage,
     photoMode,
     fontEpoch,

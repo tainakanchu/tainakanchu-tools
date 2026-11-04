@@ -7,6 +7,7 @@ import { PhotoSection } from './-components/PhotoSection'
 import { PreviewPanel } from './-components/PreviewPanel'
 import { SourceSection } from './-components/SourceSection'
 import { TrackSection } from './-components/TrackSection'
+import { fileBaseName } from './-lib/export'
 import { DEFAULT_LAYOUT, DEFAULT_PHOTO_SETTINGS, getSize } from './-lib/layouts'
 import {
   loadMyPalettes,
@@ -22,6 +23,7 @@ import {
 } from './-lib/palettes'
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
+import { DEFAULT_REDACT } from './-lib/redact'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
 import { templateStyle } from './-lib/tpl-common'
 import { createTrackId } from './-lib/types'
@@ -32,6 +34,7 @@ import type {
   PhotoSettings,
 } from './-lib/layouts'
 import type { Palette } from './-lib/palettes'
+import type { RedactOptions } from './-lib/redact'
 import type { LoadedPhoto } from './-lib/photo'
 import type {
   DisplayOptions,
@@ -83,16 +86,6 @@ const DEFAULT_SPLIT: SplitOptions = { enabled: false, mode: 'auto', count: 2 }
 
 const EMPTY_SETLIST: Setlist = { tracks: [] }
 
-/** 書き出しファイル名用（日付かイベント名から作る） */
-function toFileBaseName(setlist: Setlist): string {
-  const source = [setlist.title, setlist.date].filter(Boolean).join('-')
-  const cleaned = source
-    .replace(/[\\/:*?"<>|]+/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 60)
-  return cleaned ? `setlist-${cleaned}` : 'setlist'
-}
-
 function SetlistCardPage() {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -127,6 +120,7 @@ function SetlistCardPage() {
   const [textOptions, setTextOptions] = useState<TextOptions>(DEFAULT_TEXT)
   const [columns, setColumns] = useState<ColumnsSetting>('auto')
   const [split, setSplit] = useState<SplitOptions>(DEFAULT_SPLIT)
+  const [redact, setRedact] = useState<RedactOptions>(DEFAULT_REDACT)
 
   const [photo, setPhoto] = useState<LoadedPhoto | null>(null)
   const [photoLoading, setPhotoLoading] = useState(false)
@@ -265,6 +259,7 @@ function SetlistCardPage() {
       text: textOptions,
       columns,
       split,
+      redact,
       photo: photo ? { image: photo, settings: photoSettings } : null,
     }),
     [
@@ -277,6 +272,7 @@ function SetlistCardPage() {
       textOptions,
       columns,
       split,
+      redact,
       photo,
       photoSettings,
     ],
@@ -323,6 +319,9 @@ function SetlistCardPage() {
             <TrackSection
               tracks={setlist.tracks}
               onChange={(tracks) => setSetlist((prev) => ({ ...prev, tracks }))}
+              redact={redact}
+              onRedactChange={setRedact}
+              showMeta={display.bpm || display.key}
               onAdd={() =>
                 setSetlist((prev) => ({
                   ...prev,
@@ -390,7 +389,10 @@ function SetlistCardPage() {
           <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
             <PreviewPanel
               input={input}
-              fileBaseName={toFileBaseName(setlist)}
+              fileBaseName={fileBaseName({
+                title: setlist.title,
+                date: setlist.date,
+              })}
               onRendered={handleRendered}
               onPhotoSettingsChange={setPhotoSettings}
               onEnableSplit={() =>
