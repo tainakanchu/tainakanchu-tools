@@ -620,7 +620,7 @@ export function PreviewPanel({
               曲を「ほか {overflowInfo.hiddenCount} 曲」にまとめています。
               {input.split.enabled
                 ? '枚数を増やしてください。'
-                : `複数枚に分けるか、${input.layout === 'columns' ? '' : '段組み や '}${input.size.id === 'story' ? '' : '9:16 '}にすると全曲入ります。`}
+                : `複数枚に分ける${input.size.id === 'story' ? '' : 'か、9:16 にする'}と全曲入ります。`}
             </span>
           </p>
           {!input.split.enabled ? (

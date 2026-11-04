@@ -36,11 +36,6 @@ import { photoSampler, processedPhoto } from './photo'
 import { resolvePhotoColors } from './photo-contrast'
 import { formatBpm, formatOffset } from './text'
 import { renderCenter } from './tpl-center'
-import {
-  renderLegacyColumns,
-  renderLegacyList,
-  renderLegacyPoster,
-} from './tpl-legacy'
 import { renderCopy, renderPhoto } from './tpl-photo'
 import { renderEditorial, renderMinimal, renderTracklist } from './tpl-simple'
 import { renderY2k } from './tpl-y2k'
@@ -238,9 +233,6 @@ const RENDERERS: Record<LayoutId, (a: TemplateArgs) => LayoutResult> = {
   editorial: renderEditorial,
   copy: renderCopy,
   y2k: renderY2k,
-  list: renderLegacyList,
-  columns: renderLegacyColumns,
-  poster: renderLegacyPoster,
 }
 
 /** このサイズで選べる段数の上限（UI 用） */
@@ -285,7 +277,6 @@ function setupCtx(
     W,
     H,
     scale,
-    u: Math.min(W, H) / 1080,
     s: Math.min(W, H * 1.6) / 1080,
     minFont: minLegibleFont(input.size),
     pal: baseColors(input.palette),
@@ -695,8 +686,8 @@ function planWith(
 
 /**
  * 何枚に分けるか決める。
- * 自動なら、全曲が入り、1 枚目の文字が「最小サイズの 1.15 倍以上」で段が狭すぎない（ポスターは
- * 最小サイズ以上）になる最小の枚数。届かなければ全曲が入る最小の枚数。
+ * 自動なら、全曲が入り、1 枚目の文字が「最小サイズの 1.15 倍以上」（横長は最小サイズ以上）で
+ * 段が狭すぎないになる最小の枚数。届かなければ全曲が入る最小の枚数。
  * 手動なら指定の枚数で割り付け、入りきらなければ最後のページで「ほか N 曲」。
  */
 export function planPages(input: RenderInput): PagePlan {
@@ -712,14 +703,11 @@ export function planPages(input: RenderInput): PagePlan {
   if (input.split.mode === 'manual') {
     return planWith(input, Math.min(limit, Math.max(1, input.split.count))).plan
   }
-  // リスト系は最小サイズより一回り大きく読めるまで枚数を増やす。ポスターは
-  // 流し込みの密度そのものが見せ方なので、最小サイズで入れば増やさない
+  // 最小サイズより一回り大きく読めるまで枚数を増やす。
   // 横長（16:9）は高さが無いので、最小サイズで入れば増やさない
   const comfortable =
     minLegibleFont(input.size) *
-    (input.layout === 'poster' || input.size.width > input.size.height * 1.3
-      ? 1
-      : 1.15)
+    (input.size.width > input.size.height * 1.3 ? 1 : 1.15)
   let firstFit: PagePlan | undefined
   let last: PagePlan | undefined
   for (let count = 1; count <= limit; count++) {

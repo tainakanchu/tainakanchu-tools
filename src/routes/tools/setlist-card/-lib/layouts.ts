@@ -27,24 +27,14 @@ export const CANVAS_SIZES: ReadonlyArray<CanvasSize> = [
 
 /**
  * テンプレート（構図と文字組みだけを決める。色は持たない）。
- * 並びは汎用性の高い順。Y2K はイベントの趣向に合わせて選ぶもの、
- * リスト / 段組み / ポスターは旧テンプレート（配色の役割で描き直したもの）。
+ * 並びは汎用性の高い順。Y2K はイベントの趣向に合わせて選ぶもの。
  */
 export type LayoutId =
-  | 'minimal'
-  | 'photo'
-  | 'tracklist'
-  | 'center'
-  | 'editorial'
-  | 'copy'
-  | 'y2k'
-  | 'list'
-  | 'columns'
-  | 'poster'
+  'minimal' | 'photo' | 'tracklist' | 'center' | 'editorial' | 'copy' | 'y2k'
 
 export type FontFamily = 'sans' | 'serif'
 
-export type TemplateGroup = 'simple' | 'theme' | 'legacy'
+export type TemplateGroup = 'simple' | 'theme'
 
 export type TemplateMeta = {
   id: LayoutId
@@ -132,36 +122,6 @@ export const LAYOUTS: ReadonlyArray<TemplateMeta> = [
     columns: false,
     photoBlock: true,
   },
-  {
-    id: 'list',
-    name: 'リスト',
-    note: '旧テンプレート: 定番の縦リスト',
-    group: 'legacy',
-    family: 'sans',
-    grain: false,
-    columns: false,
-    photoBlock: true,
-  },
-  {
-    id: 'columns',
-    name: '段組み',
-    note: '旧テンプレート: 1〜3 段',
-    group: 'legacy',
-    family: 'sans',
-    grain: false,
-    columns: true,
-    photoBlock: true,
-  },
-  {
-    id: 'poster',
-    name: 'ポスター',
-    note: '旧テンプレート: 大きな DJ 名',
-    group: 'legacy',
-    family: 'sans',
-    grain: false,
-    columns: false,
-    photoBlock: true,
-  },
 ]
 
 export const DEFAULT_LAYOUT: LayoutId = 'minimal'
@@ -174,7 +134,7 @@ export function getSize(id: string): CanvasSize {
   return CANVAS_SIZES.find((s) => s.id === id) ?? CANVAS_SIZES[0]
 }
 
-export function isLandscape(size: { width: number; height: number }): boolean {
+function isLandscape(size: { width: number; height: number }): boolean {
   return size.width > size.height * 1.3
 }
 
@@ -220,10 +180,6 @@ const BAND_RATIO: Record<
   editorial: { portrait: 0.36, story: 0.4, square: 0.3 },
   copy: { portrait: 0.42, story: 0.44, square: 0.38 },
   y2k: { portrait: 0.36, story: 0.38, square: 0.32 },
-  // リストは見出しを写真の下部に重ねるので、帯を広めに取る
-  list: { portrait: 0.42, story: 0.4, square: 0.42 },
-  columns: { portrait: 0.24, story: 0.28, square: 0.22 },
-  poster: { portrait: 0.44, story: 0.46, square: 0.4 },
 }
 
 /** 横長で横に置くときの幅比 */
@@ -235,9 +191,6 @@ const SIDE_RATIO: Record<LayoutId, number> = {
   editorial: 0.4,
   copy: 0.42,
   y2k: 0.38,
-  list: 0.4,
-  columns: 0.34,
-  poster: 0.42,
 }
 
 export type PhotoPlan = {
@@ -245,12 +198,12 @@ export type PhotoPlan = {
   /** 文字を置く残りの領域 */
   content: Rect
   /** 写真がどちら側にあるか */
-  side: 'top' | 'left' | 'right'
+  side: 'top' | 'left'
 }
 
 /**
  * 写真枠モードでの写真と本文の領域。
- * 縦長・正方形は上の帯、横長は横の柱（ポスターだけ右側）。
+ * 縦長・正方形は上の帯、横長は左の柱。
  * 本文が狭くなりすぎる組み合わせは null を返し、呼び出し側は全面背景に戻す。
  */
 export function planPhotoBlock(
@@ -263,13 +216,6 @@ export function planPhotoBlock(
   if (size.id === 'wide' || isLandscape(size)) {
     const pw = Math.round(W * SIDE_RATIO[layout])
     if (W - pw < W * 0.5) return null
-    if (layout === 'poster') {
-      return {
-        photo: { x: W - pw, y: 0, w: pw, h: H },
-        content: { x: 0, y: 0, w: W - pw, h: H },
-        side: 'right',
-      }
-    }
     return {
       photo: { x: 0, y: 0, w: pw, h: H },
       content: { x: pw, y: 0, w: W - pw, h: H },

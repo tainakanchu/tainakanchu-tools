@@ -7,7 +7,7 @@ import {
   readableOn,
   rgbToHex,
 } from './color'
-import { ellipsize, fitFlow, fitFontSize, fitRows, flowSegments } from './fit'
+import { ellipsize, fitFontSize, fitRows } from './fit'
 import {
   CANVAS_SIZES,
   coverCrop,
@@ -15,7 +15,7 @@ import {
   panDelta,
   planPhotoBlock,
 } from './layouts'
-import type { Measure, Run } from './fit'
+import type { Measure } from './fit'
 
 /** 文字数 × フォントサイズ × 0.5 の等幅もどき（CJK も 1 文字扱い） */
 const measure: Measure = (text, font) => {
@@ -42,7 +42,6 @@ describe('ellipsize', () => {
 })
 
 const fontAt = (s: number) => `${s}px x`
-const fontFor = (_role: Run['role'], size: number) => `${size}px x`
 
 describe('fitFontSize', () => {
   it('幅に収まる最大サイズを返す', () => {
@@ -104,98 +103,6 @@ describe('fitRows', () => {
   })
 })
 
-const seg = (artist: string, title: string): Array<Run> => [
-  { text: artist, role: 'artist' },
-  { text: ` ${title}`, role: 'title' },
-]
-const sep: Run = { text: ' / ', role: 'sep' }
-
-describe('flowSegments', () => {
-  it('曲の途中で改行せず、区切りを挟んで行に詰める', () => {
-    const result = flowSegments({
-      segments: [seg('AA', 'aaaa'), seg('BB', 'bb'), seg('CCCC', 'cccccc')],
-      separator: sep,
-      width: 100, // 10px で 1 文字 5px → 20 文字
-      maxLines: 5,
-      fontFor: () => '10px x',
-      measure,
-    })
-    expect(result.placed).toBe(3)
-    expect(
-      result.lines.map((line) => line.map((r) => r.text).join('')),
-    ).toEqual(['AA aaaa / BB bb', 'CCCC cccccc'])
-    // x 座標は前の run の幅の累積
-    expect(result.lines[0][1].x).toBe(10)
-  })
-
-  it('1 行に入らない曲はタイトルから省略する', () => {
-    const result = flowSegments({
-      segments: [seg('Artist', 'Very Long Title Indeed')],
-      separator: sep,
-      width: 60,
-      maxLines: 2,
-      fontFor: () => '10px x',
-      measure,
-    })
-    const text = result.lines[0].map((r) => r.text).join('')
-    expect(text.startsWith('Artist')).toBe(true)
-    expect(text.endsWith('…')).toBe(true)
-    expect(measure(text, '10px x')).toBeLessThanOrEqual(60)
-  })
-
-  it('maxLines を超えたら打ち切って入った曲数を返す', () => {
-    const result = flowSegments({
-      segments: Array.from({ length: 10 }, () => seg('AAAAAAAA', 'aaaaaaaa')),
-      separator: sep,
-      width: 100,
-      maxLines: 3,
-      fontFor: () => '10px x',
-      measure,
-    })
-    expect(result.lines).toHaveLength(3)
-    expect(result.placed).toBe(3)
-  })
-})
-
-describe('fitFlow', () => {
-  it('全曲入る最大サイズを探す', () => {
-    const segments = Array.from({ length: 6 }, () => seg('AAAA', 'aaaa'))
-    const result = fitFlow({
-      segments,
-      separator: sep,
-      width: 400,
-      height: 300,
-      lineHeightRatio: 1.4,
-      min: 10,
-      max: 60,
-      fontFor,
-      measure,
-    })
-    expect(result.overflow).toBe(false)
-    expect(result.placed).toBe(6)
-    expect(result.lines.length * result.lineHeight).toBeLessThanOrEqual(300)
-    expect(result.size).toBeGreaterThan(20)
-  })
-
-  it('最小サイズでも入らなければあふれ扱い', () => {
-    const segments = Array.from({ length: 200 }, () => seg('AAAA', 'aaaa'))
-    const result = fitFlow({
-      segments,
-      separator: sep,
-      width: 200,
-      height: 100,
-      lineHeightRatio: 1.4,
-      min: 10,
-      max: 60,
-      fontFor,
-      measure,
-    })
-    expect(result.overflow).toBe(true)
-    expect(result.size).toBe(10)
-    expect(result.placed).toBeLessThan(200)
-  })
-})
-
 describe('layouts', () => {
   it('cover の切り出しは枠の縦横比を保ち、pos で寄せる', () => {
     const crop = coverCrop(2000, 1000, 500, 500, 1, 0, 0.5)
@@ -214,12 +121,11 @@ describe('layouts', () => {
   })
 
   it('写真枠は縦長なら上の帯、横長なら横の柱', () => {
-    const portrait = planPhotoBlock('list', getSize('portrait'))
+    const portrait = planPhotoBlock('minimal', getSize('portrait'))
     expect(portrait?.side).toBe('top')
     expect(portrait?.content.y).toBe(portrait?.photo.h)
-    const wide = planPhotoBlock('list', getSize('wide'))
+    const wide = planPhotoBlock('minimal', getSize('wide'))
     expect(wide?.side).toBe('left')
-    expect(planPhotoBlock('poster', getSize('wide'))?.side).toBe('right')
     // フォトは常に全面背景
     expect(planPhotoBlock('photo', getSize('portrait'))).toBeNull()
     // どの組み合わせでも本文が半分以上残る
@@ -231,9 +137,6 @@ describe('layouts', () => {
         'editorial',
         'copy',
         'y2k',
-        'list',
-        'columns',
-        'poster',
       ] as const) {
         const plan = planPhotoBlock(layout, size)
         expect(plan).not.toBeNull()

@@ -37,8 +37,6 @@ export const FONT_STACKS = {
   wide: `"Unbounded", ${JP_SANS}, ${SYSTEM_SANS}`,
   /** Y2K の小さなラベル（ドット文字） */
   pixel: `"DotGothic16", ${SYSTEM_MONO}`,
-  /** 旧テンプレートの極太見出し */
-  black: `"Archivo", ${JP_SANS}, "Arial Black", ${SYSTEM_SANS}`,
 } as const
 
 export type FontStack = keyof typeof FONT_STACKS

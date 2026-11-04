@@ -87,9 +87,7 @@ export type Ctx = {
    * これで装置の px に直す。
    */
   scale: number
-  /** 旧テンプレートの単位（短辺 1080px 基準） */
-  u: number
-  /** 新テンプレートの単位（幅 1080px 基準。横長は高さで抑える） */
+  /** 文字や余白の単位（幅 1080px 基準。横長は高さで抑える） */
   s: number
   /** 読める最小の文字サイズ */
   minFont: number
@@ -136,11 +134,6 @@ export function font(
   const css = `${opts.italic ? 'italic ' : ''}${weight} ${px}px ${FONT_STACKS[stack]}`
   if (!opts.tracking && (!opts.stretch || opts.stretch === 'normal')) return css
   return `${css}${SEP}${opts.tracking ?? 0}${SEP}${opts.stretch ?? 'normal'}`
-}
-
-/** 旧テンプレート用: 書体のスタックを直接渡す */
-export function cssFont(weight: number, size: number, family: string): string {
-  return `${weight} ${Math.max(1, Math.round(size * 10) / 10)}px ${family}`
 }
 
 export function fontSize(f: string): number {

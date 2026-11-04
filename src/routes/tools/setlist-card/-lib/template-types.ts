@@ -30,10 +30,7 @@ export type PageSpec = {
 
 /** 1 枚目の組み方。2 枚目以降をこれにそろえる */
 export type PageLock = {
-  /** ポスターで見出しを小さくした組みを使ったか */
-  posterTight?: boolean
   rows?: RowParams
-  flow?: { size: number; each: boolean; large: boolean; metaShown: number }
   /** 曲の領域の高さの割合（フォト）・見出しの縮め具合（エディトリアル）など */
   variant?: number
   center?: CenterParams

@@ -19,7 +19,6 @@ const THUMB_SIZE: CanvasSize = {
 const GROUP_LABELS: Record<TemplateGroup, string> = {
   simple: '',
   theme: 'テーマ',
-  legacy: '旧テンプレート',
 }
 
 type Props = {
@@ -93,7 +92,7 @@ export function TemplatePicker({ layout, onChange, input }: Props) {
     document.fonts.addEventListener('loadingdone', bump)
     return () => document.fonts.removeEventListener('loadingdone', bump)
   }, [])
-  const groups: Array<TemplateGroup> = ['simple', 'theme', 'legacy']
+  const groups: Array<TemplateGroup> = ['simple', 'theme']
   return (
     <fieldset className="space-y-2">
       <legend className={labelClass}>テンプレート</legend>
