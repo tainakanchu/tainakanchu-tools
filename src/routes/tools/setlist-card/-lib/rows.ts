@@ -67,9 +67,16 @@ export type RowParams = {
   size: number
   /** 表示する補足列の数（左から） */
   metaShown: number
+  /**
+   * 行の上下に足した余白（全部入って高さが余ったとき）。2 枚目以降は
+   * 1 枚目と同じ値にそろえて、行の間隔がページごとに変わらないようにする
+   */
+  extra?: number
 }
 
 export type RowsLayout = RowParams & {
+  /** 1 段の幅 */
+  colWidth: number
   rows: Array<PlacedRow>
   placed: number
   overflow: boolean
@@ -87,6 +94,11 @@ export type RowsInput = {
   measure: Measure
   /** 区切り（既定 " — "） */
   separator?: string
+  /**
+   * 全部入って高さが余るとき、行の上下に足してよい余白（文字サイズの倍率、既定 0.8）。
+   * 写真の下に小さく組むときなどは小さくする。
+   */
+  spread?: number
 }
 
 /** 補足列が段の幅に占めてよい割合 */
@@ -191,6 +203,30 @@ function sizeCapForText(
 ): number {
   const perPx = numberWidth(input, style, 100) / 100 + MIN_TEXT_EMS[style]
   return colW / perPx
+}
+
+/**
+ * 補足列の右端の位置（段の左端から）。表の見出し（TIME / BPM / Key）を
+ * 列にそろえるのに使う。
+ */
+export function metaColumnEdges(
+  input: RowsInput,
+  params: RowParams,
+): Array<number> {
+  const colW = columnWidth(input.area, params.columns, input.gap)
+  const meta = metaMetrics(input, params.style, params.size, params.metaShown)
+  const edges: Array<number> = []
+  let mx = colW
+  for (let i = meta.widths.length - 1; i >= 0; i--) {
+    edges[i] = mx
+    mx -= meta.widths[i] + meta.gap
+  }
+  return edges
+}
+
+/** 番号の欄の幅（曲名が始まる位置） */
+export function numberColumnWidth(input: RowsInput, params: RowParams): number {
+  return numberWidth(input, params.style, params.size)
 }
 
 type Built = { h: number; texts: Array<PlacedText> }
@@ -410,9 +446,18 @@ export function layoutRowsAt(input: RowsInput, params: RowParams): RowsLayout {
       }
       balanced = place(items.length, hi)
     }
+    const spread = spreadRows(
+      balanced.rows,
+      area.h,
+      size,
+      input.spread ?? 0.8,
+      params.extra,
+    )
     return {
       ...params,
-      rows: spreadRows(balanced.rows, area.h, size),
+      colWidth: colW,
+      extra: spread.extra,
+      rows: spread.rows,
       placed: all.placed,
       overflow: false,
       hidden: 0,
@@ -449,6 +494,7 @@ export function layoutRowsAt(input: RowsInput, params: RowParams): RowsLayout {
       })
       return {
         ...params,
+        colWidth: colW,
         rows: trial.rows,
         placed: count,
         overflow: true,
@@ -458,6 +504,7 @@ export function layoutRowsAt(input: RowsInput, params: RowParams): RowsLayout {
   }
   return {
     ...params,
+    colWidth: colW,
     rows: [],
     placed: 0,
     overflow: true,
@@ -479,26 +526,28 @@ function textRoomFactor(input: RowsInput, params: RowParams): number {
 
 /**
  * 全部入って高さが余るときは、行の上下の余白を少し広げて段の下に空きを残さない
- * （1 行あたり文字サイズの 0.8 倍まで）。
+ * （1 行あたり文字サイズの factor 倍まで）。
  */
 function spreadRows(
   rows: Array<PlacedRow>,
   areaH: number,
   size: number,
-): Array<PlacedRow> {
+  factor: number,
+  fixed?: number,
+): { rows: Array<PlacedRow>; extra: number } {
   const byCol = new Map<number, Array<PlacedRow>>()
   for (const row of rows) {
     const list = byCol.get(row.col)
     if (list) list.push(row)
     else byCol.set(row.col, [row])
   }
-  let extra = size * 0.8
+  let extra = fixed ?? size * factor
   for (const list of byCol.values()) {
     const used = list.reduce((sum, r) => sum + r.h, 0)
     extra = Math.min(extra, (areaH - used) / list.length)
   }
-  if (extra < 0.5) return rows
-  return Array.from(byCol.values()).flatMap((list) =>
+  if (extra < 0.5) return { rows, extra: Math.max(0, extra) }
+  const spread = Array.from(byCol.values()).flatMap((list) =>
     list.map((row, i) => ({
       ...row,
       y: row.y + extra * i,
@@ -507,6 +556,7 @@ function spreadRows(
       texts: row.texts.map((t) => ({ ...t, y: t.y + extra / 2 })),
     })),
   )
+  return { rows: spread, extra }
 }
 
 export type FitOptions = {

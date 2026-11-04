@@ -8,6 +8,7 @@ import {
   Info,
   Share2,
 } from 'lucide-react'
+import { loadPendingFonts } from '../-lib/fonts'
 import { DEFAULT_PHOTO_SETTINGS, panDelta } from '../-lib/layouts'
 import {
   META_LABELS,
@@ -133,13 +134,13 @@ export function PreviewPanel({
   // ページ数は写真の位置やぼかしでは変わらないので、それらを除いた入力で決める
   const photoImage = input.photo?.image ?? null
   const photoMode = input.photo?.settings.mode ?? 'block'
-  const useImageAccent = input.photo?.settings.useImageAccent ?? false
   const plan = useMemo(() => {
     const planInput: RenderInput = {
       setlist: input.setlist,
       layout: input.layout,
       size: input.size,
-      theme: input.theme,
+      palette: input.palette,
+      style: input.style,
       display: input.display,
       text: input.text,
       columns: input.columns,
@@ -147,11 +148,7 @@ export function PreviewPanel({
       photo: photoImage
         ? {
             image: photoImage,
-            settings: {
-              ...DEFAULT_PHOTO_SETTINGS,
-              mode: photoMode,
-              useImageAccent,
-            },
+            settings: { ...DEFAULT_PHOTO_SETTINGS, mode: photoMode },
           }
         : null,
     }
@@ -161,14 +158,14 @@ export function PreviewPanel({
     input.setlist,
     input.layout,
     input.size,
-    input.theme,
+    input.palette,
+    input.style,
     input.display,
     input.text,
     input.columns,
     input.split,
     photoImage,
     photoMode,
-    useImageAccent,
     fontEpoch,
   ])
   const pages = plan.pages
@@ -221,6 +218,12 @@ export function PreviewPanel({
       })
       setInfos(results)
       if (results[0]) onRenderedRef.current(results[0])
+      // 描いた文字の Web フォントを読み込み、読めたら描き直す（オフラインなら OS の書体のまま）
+      void loadPendingFonts().then((loaded) => {
+        if (!loaded) return
+        resetMeasureCache()
+        setFontEpoch((n) => n + 1)
+      })
       // 共有ボタンを押した瞬間に share() を呼べるよう、PNG を先に作っておく
       versionRef.current += 1
       setShareStatus('pending')

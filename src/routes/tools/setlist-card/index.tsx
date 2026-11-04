@@ -7,11 +7,18 @@ import { PhotoSection } from './-components/PhotoSection'
 import { PreviewPanel } from './-components/PreviewPanel'
 import { SourceSection } from './-components/SourceSection'
 import { TrackSection } from './-components/TrackSection'
-import { DEFAULT_PHOTO_SETTINGS, getSize } from './-lib/layouts'
+import { DEFAULT_LAYOUT, DEFAULT_PHOTO_SETTINGS, getSize } from './-lib/layouts'
+import {
+  loadMyPalettes,
+  newMyPaletteId,
+  saveMyPalettes,
+} from './-lib/my-palettes'
+import { autoCandidate, buildCandidates } from './-lib/palette-extract'
+import { DEFAULT_PALETTE_ID, PRESET_PALETTES, getPreset } from './-lib/palettes'
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
-import { getTheme } from './-lib/themes'
+import { templateStyle } from './-lib/tpl-common'
 import { createTrackId } from './-lib/types'
 import type {
   CanvasSize,
@@ -19,12 +26,14 @@ import type {
   LayoutId,
   PhotoSettings,
 } from './-lib/layouts'
+import type { Palette } from './-lib/palettes'
 import type { LoadedPhoto } from './-lib/photo'
 import type {
   DisplayOptions,
   RenderInfo,
   RenderInput,
   SplitOptions,
+  StyleOptions,
   TextOptions,
 } from './-lib/render'
 import type { ParseResult, Setlist } from './-lib/types'
@@ -47,8 +56,12 @@ const DEFAULT_DISPLAY: DisplayOptions = {
   bpm: false,
   key: false,
   time: false,
+  label: false,
   credit: true,
 }
+
+const DEFAULT_PALETTE: Palette =
+  getPreset(DEFAULT_PALETTE_ID) ?? PRESET_PALETTES[0]
 
 /**
  * ミックス表記を省くのは既定でオン: 「(Original Mix)」「[Extended Mix]」のような
@@ -83,9 +96,22 @@ function SetlistCardPage() {
   const [error, setError] = useState<string | null>(null)
   const [setlist, setSetlist] = useState<Setlist>(EMPTY_SETLIST)
 
-  const [layout, setLayout] = useState<LayoutId>('list')
+  const [layout, setLayoutState] = useState<LayoutId>(DEFAULT_LAYOUT)
+  const [style, setStyle] = useState<StyleOptions>(() =>
+    templateStyle(DEFAULT_LAYOUT),
+  )
+  // 自分でテンプレートを選んだか（まだなら、写真を入れたときにフォトへ切り替える）
+  const layoutTouched = useRef(false)
+  const setLayout = useCallback((next: LayoutId, byUser = true) => {
+    if (byUser) layoutTouched.current = true
+    setLayoutState(next)
+    setStyle((prev) => templateStyle(next, prev))
+  }, [])
   const [sizeId, setSizeId] = useState<CanvasSize['id']>('portrait')
-  const [themeId, setThemeId] = useState('neon')
+  const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE)
+  const [myPalettes, setMyPalettes] = useState<Array<Palette>>(() =>
+    loadMyPalettes(),
+  )
   const [display, setDisplay] = useState<DisplayOptions>(DEFAULT_DISPLAY)
   const [textOptions, setTextOptions] = useState<TextOptions>(DEFAULT_TEXT)
   const [columns, setColumns] = useState<ColumnsSetting>('auto')
@@ -98,6 +124,24 @@ function SetlistCardPage() {
     DEFAULT_PHOTO_SETTINGS,
   )
   const [photoFallback, setPhotoFallback] = useState(false)
+  const [photoContrast, setPhotoContrast] =
+    useState<RenderInfo['photoContrast']>(null)
+
+  const candidates = useMemo(
+    () => (photo ? buildCandidates(photo.swatches) : []),
+    [photo],
+  )
+  const photoAuto = useMemo((): Palette | null => {
+    if (!photo || candidates.length === 0) return null
+    const id = autoCandidate(photo.swatches)
+    const base = candidates.find((c) => c.candidate === id) ?? candidates[0]
+    return { ...base, id: 'photo-auto', name: '写真から自動' }
+  }, [photo, candidates])
+
+  const updateMyPalettes = (next: Array<Palette>): boolean => {
+    setMyPalettes(next)
+    return saveMyPalettes(next)
+  }
 
   // 差し替えた写真のビットマップを解放する
   const photoRef = useRef<LoadedPhoto | null>(null)
@@ -168,6 +212,9 @@ function SetlistCardPage() {
     try {
       const loaded = await loadPhoto(file)
       setPhoto(loaded)
+      // いちばんの使い方（写真を背景にセトリを重ねる）に合わせて、
+      // まだテンプレートを選んでいなければフォトにする
+      if (!layoutTouched.current) setLayout('photo', false)
       setPhotoSettings((prev) => ({
         ...DEFAULT_PHOTO_SETTINGS,
         mode: prev.mode,
@@ -181,14 +228,14 @@ function SetlistCardPage() {
     }
   }
 
-  const theme = getTheme(themeId)
   const size = getSize(sizeId)
   const input: RenderInput = useMemo(
     () => ({
       setlist,
       layout,
       size,
-      theme,
+      palette,
+      style,
       display,
       text: textOptions,
       columns,
@@ -199,7 +246,8 @@ function SetlistCardPage() {
       setlist,
       layout,
       size,
-      theme,
+      palette,
+      style,
       display,
       textOptions,
       columns,
@@ -211,6 +259,7 @@ function SetlistCardPage() {
 
   const handleRendered = useCallback((info: RenderInfo) => {
     setPhotoFallback(info.photoFallback)
+    setPhotoContrast(info.photoContrast)
   }, [])
 
   const hasStartTimes = setlist.tracks.some((t) => t.startAt !== undefined)
@@ -223,7 +272,7 @@ function SetlistCardPage() {
           <p className="max-w-3xl text-sm leading-relaxed text-gray-400">
             DJ ソフトの再生履歴を読み込んで、SNS
             にそのまま載せられるセトリ画像を作ります。曲名の直し・並べ替え・
-            レイアウトやテーマの切り替えをして、PNG で保存できます。
+            テンプレートやパレットの切り替えをして、PNG で保存できます。
           </p>
         </header>
 
@@ -263,8 +312,28 @@ function SetlistCardPage() {
               onLayoutChange={setLayout}
               sizeId={sizeId}
               onSizeChange={setSizeId}
-              themeId={themeId}
-              onThemeChange={setThemeId}
+              palette={palette}
+              onPaletteChange={setPalette}
+              myPalettes={myPalettes}
+              onSaveMine={(p, name) => {
+                const saved: Palette = { ...p, id: newMyPaletteId(), name }
+                const ok = updateMyPalettes([...myPalettes, saved])
+                setPalette(saved)
+                return ok
+              }}
+              onRenameMine={(id, name) => {
+                updateMyPalettes(
+                  myPalettes.map((p) => (p.id === id ? { ...p, name } : p)),
+                )
+                if (palette.id === id) setPalette({ ...palette, name })
+              }}
+              onDeleteMine={(id) => {
+                updateMyPalettes(myPalettes.filter((p) => p.id !== id))
+              }}
+              photoAuto={photoAuto}
+              style={style}
+              onStyleChange={setStyle}
+              previewInput={input}
               display={display}
               onDisplayChange={setDisplay}
               textOptions={textOptions}
@@ -284,6 +353,11 @@ function SetlistCardPage() {
               onFile={(file) => void handlePhoto(file)}
               onRemove={() => setPhoto(null)}
               fallback={photo !== null && photoFallback}
+              layout={layout}
+              palette={palette}
+              onPaletteChange={setPalette}
+              candidates={candidates}
+              contrast={photo ? photoContrast : null}
             />
           </div>
 

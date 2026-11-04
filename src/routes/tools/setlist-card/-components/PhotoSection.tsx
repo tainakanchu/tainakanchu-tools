@@ -1,6 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { ImagePlus, RotateCcw, X } from 'lucide-react'
-import { DEFAULT_PHOTO_SETTINGS } from '../-lib/layouts'
+import { DEFAULT_PHOTO_SETTINGS, getTemplate } from '../-lib/layouts'
+import { PALETTE_ROLES, ROLE_LABELS, fixPalette } from '../-lib/palettes'
+import { PaletteSwatch } from './PalettePicker'
 import {
   choiceClass,
   labelClass,
@@ -10,8 +12,10 @@ import {
   sliderClass,
   subtleButtonClass,
 } from '../-lib/styles'
-import type { PhotoSettings } from '../-lib/layouts'
+import type { LayoutId, PhotoSettings } from '../-lib/layouts'
+import type { Palette, PaletteRole } from '../-lib/palettes'
 import type { LoadedPhoto } from '../-lib/photo'
+import type { RenderInfo } from '../-lib/render'
 
 type Props = {
   photo: LoadedPhoto | null
@@ -23,6 +27,13 @@ type Props = {
   onRemove: () => void
   /** 写真枠では曲が入らず全面背景に回したか */
   fallback: boolean
+  layout: LayoutId
+  palette: Palette
+  onPaletteChange: (palette: Palette) => void
+  /** 写真から作った配色の候補 */
+  candidates: ReadonlyArray<Palette>
+  /** 写真の上の読みやすさの自動調整の結果 */
+  contrast: RenderInfo['photoContrast']
 }
 
 function Slider({
@@ -74,8 +85,21 @@ export function PhotoSection({
   onFile,
   onRemove,
   fallback,
+  layout,
+  palette,
+  onPaletteChange,
+  candidates,
+  contrast,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [picked, setPicked] = useState<string | null>(null)
+  const template = getTemplate(layout)
+  const forcedTint = layout === 'copy'
+  const assign = (role: PaletteRole, hex: string) => {
+    onPaletteChange(
+      fixPalette({ ...palette, id: 'custom', name: 'カスタム', [role]: hex }),
+    )
+  }
   const set = (patch: Partial<PhotoSettings>) =>
     onSettingsChange({ ...settings, ...patch })
 
@@ -151,7 +175,8 @@ export function PhotoSection({
                   key={mode}
                   type="button"
                   aria-pressed={settings.mode === mode}
-                  className={choiceClass(settings.mode === mode)}
+                  disabled={mode === 'block' && !template.photoBlock}
+                  className={`${choiceClass(settings.mode === mode)} disabled:cursor-not-allowed disabled:opacity-35`}
                   onClick={() => set({ mode })}
                 >
                   <span className="font-semibold">{name}</span>
@@ -159,6 +184,11 @@ export function PhotoSection({
                 </button>
               ))}
             </div>
+            {!template.photoBlock ? (
+              <p className="text-xs text-gray-500">
+                フォトは写真を全面に敷くテンプレートです（写真枠にはなりません）。
+              </p>
+            ) : null}
             {fallback ? (
               <p className="text-xs text-amber-200/80">
                 写真枠だと曲が入りきらないため、全面背景にして描いています。
@@ -204,14 +234,20 @@ export function PhotoSection({
             <div className="space-y-3">
               <p className={labelClass}>エフェクト</p>
               <Slider
-                label="暗さ"
+                label="幕を濃くする"
                 value={settings.dim}
                 min={0}
                 max={0.9}
                 step={0.01}
-                format={percent}
+                format={(v) => (v === 0 ? '自動' : percent(v))}
                 onChange={(dim) => set({ dim })}
               />
+              <p className="text-xs text-gray-500">
+                {contrast
+                  ? `文字の後ろの写真の明るさを測って、読める最小の濃さ（いま ${percent(contrast.scrim)}）の幕を敷いています。${contrast.flipped ? '写真に合わせて文字を反対の明るさにしています。' : ''}${contrast.adjusted ? '幕だけでは足りないため、文字色の明るさも補正しています。' : ''}`
+                  : '全面背景のとき、文字が読める最小の濃さの幕を自動で敷きます。'}
+                0 より上にすると、その濃さまでは必ず暗くします。
+              </p>
               <Slider
                 label="ぼかし"
                 value={settings.blur}
@@ -229,12 +265,15 @@ export function PhotoSection({
                       ['none', 'そのまま'],
                       ['mono', 'モノクロ'],
                       ['duotone', 'ダブルトーン'],
+                      ['xerox', 'コピー'],
+                      ['dither', 'ドット'],
                     ] as const
                   ).map(([tint, name]) => (
                     <button
                       key={tint}
                       type="button"
                       aria-pressed={settings.tint === tint}
+                      disabled={forcedTint}
                       className={`${choiceClass(settings.tint === tint)} items-center! px-2! py-1.5! text-xs`}
                       onClick={() => set({ tint })}
                     >
@@ -242,38 +281,90 @@ export function PhotoSection({
                     </button>
                   ))}
                 </div>
+                {forcedTint ? (
+                  <p className="text-xs text-gray-500">
+                    コピーのテンプレートは写真をコピー機風のモノクロにします。
+                  </p>
+                ) : layout === 'y2k' && settings.tint === 'none' ? (
+                  <p className="text-xs text-gray-500">
+                    Y2K では「そのまま」のときもドット（4×4
+                    のディザ）で描きます。
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-gray-200">
-            <input
-              type="checkbox"
-              className="mt-1 accent-cyan-500"
-              checked={settings.useImageAccent}
-              disabled={!photo.accent}
-              onChange={(event) =>
-                set({ useImageAccent: event.target.checked })
-              }
-            />
-            <span>
-              画像から色を取る
-              {photo.accent ? (
-                <span
-                  className="ml-2 inline-block h-3 w-6 rounded-sm align-middle"
-                  style={{
-                    background: `rgb(${photo.accent.map(Math.round).join(',')})`,
-                  }}
-                  aria-hidden
-                />
-              ) : null}
-              <span className="block text-xs text-gray-500">
-                {photo.accent
-                  ? '写真の中で目立つ色をアクセント色にします。背景とのコントラストは自動で補正します。'
-                  : 'この写真にはアクセントになる色がありません（モノクロに近い画像です）。'}
-              </span>
-            </span>
-          </label>
+          <div className="space-y-3 rounded-xl border border-white/10 bg-gray-950/40 p-3">
+            <p className={labelClass}>写真から作る</p>
+            {photo.swatches.length === 0 ? (
+              <p className="text-xs text-gray-500">
+                この写真からは色を取り出せませんでした。
+              </p>
+            ) : (
+              <>
+                <div
+                  className="flex flex-wrap gap-1.5"
+                  role="group"
+                  aria-label="写真の代表色"
+                >
+                  {photo.swatches.map((sw) => (
+                    <button
+                      key={sw.hex}
+                      type="button"
+                      aria-pressed={picked === sw.hex}
+                      className={`h-9 w-9 rounded-lg border-2 transition ${picked === sw.hex ? 'border-cyan-300' : 'border-white/15 hover:border-white/40'}`}
+                      style={{ background: sw.hex }}
+                      onClick={() =>
+                        setPicked(picked === sw.hex ? null : sw.hex)
+                      }
+                      title={`${sw.hex}（面積 ${Math.round(sw.share * 100)}%）`}
+                      aria-label={`${sw.hex} を選ぶ`}
+                    />
+                  ))}
+                </div>
+                {picked ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-gray-400">{picked} を</span>
+                    {PALETTE_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        className={`${choiceClass(false)} items-center! px-2.5! py-1! text-xs`}
+                        onClick={() => {
+                          assign(role, picked)
+                          setPicked(null)
+                        }}
+                      >
+                        {ROLE_LABELS[role]}
+                      </button>
+                    ))}
+                    <span className="text-xs text-gray-400">に使う</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    色をクリックすると、背景・文字・差し色などに割り当てられます（コントラストが足りなければ明るさを自動で直します）。
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  {candidates.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={palette.id === p.id}
+                      className={`${choiceClass(palette.id === p.id)} flex-row! items-center! gap-2! px-2! py-1.5!`}
+                      onClick={() => onPaletteChange(p)}
+                    >
+                      <PaletteSwatch palette={p} />
+                      <span className="text-xs font-medium">
+                        {p.name.replace('写真: ', '')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <button
             type="button"

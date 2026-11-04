@@ -4,7 +4,6 @@ import {
   contrastRatio,
   ensureContrast,
   hexToRgb,
-  pickAccentColor,
   readableOn,
   rgbToHex,
 } from './color'
@@ -221,9 +220,21 @@ describe('layouts', () => {
     const wide = planPhotoBlock('list', getSize('wide'))
     expect(wide?.side).toBe('left')
     expect(planPhotoBlock('poster', getSize('wide'))?.side).toBe('right')
+    // フォトは常に全面背景
+    expect(planPhotoBlock('photo', getSize('portrait'))).toBeNull()
     // どの組み合わせでも本文が半分以上残る
     for (const size of CANVAS_SIZES) {
-      for (const layout of ['list', 'columns', 'poster'] as const) {
+      for (const layout of [
+        'minimal',
+        'tracklist',
+        'center',
+        'editorial',
+        'copy',
+        'y2k',
+        'list',
+        'columns',
+        'poster',
+      ] as const) {
         const plan = planPhotoBlock(layout, size)
         expect(plan).not.toBeNull()
         if (!plan) continue
@@ -251,20 +262,6 @@ describe('color', () => {
     const dark = hexToRgb('#301030')
     const fixed = ensureContrast(dark, bg, 3)
     expect(contrastRatio(fixed, bg)).toBeGreaterThanOrEqual(3)
-  })
-
-  it('画像の代表色: 彩度の高い色相を選び、無彩色なら undefined', () => {
-    const pixels: Array<number> = []
-    for (let i = 0; i < 100; i++) pixels.push(128, 128, 128, 255)
-    for (let i = 0; i < 30; i++) pixels.push(230, 40, 40, 255)
-    const accent = pickAccentColor(pixels)
-    expect(accent).toBeDefined()
-    if (accent) {
-      expect(accent[0]).toBeGreaterThan(accent[1] * 2)
-    }
-    const gray: Array<number> = []
-    for (let i = 0; i < 100; i++) gray.push(90, 90, 90, 255)
-    expect(pickAccentColor(gray)).toBeUndefined()
   })
 
   it('duotone は暗部 → 明部へ写す', () => {

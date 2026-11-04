@@ -1,5 +1,5 @@
 /**
- * 色の計算（コントラスト・混色・画像からのアクセント抽出・トーン変換）。
+ * 色の計算（コントラスト・混色・トーン変換）。
  * canvas に依存しない純粋関数なので単体テストできる。
  */
 
@@ -120,95 +120,73 @@ export function ensureContrast(color: RGB, bg: RGB, min: number): RGB {
   return readableOn(bg)
 }
 
-/** RGBA 画素の平均色 */
-export function averageColor(data: ArrayLike<number>): RGB {
-  let r = 0
-  let g = 0
-  let b = 0
-  let n = 0
-  for (let i = 0; i + 3 < data.length; i += 4) {
-    const a = data[i + 3] / 255
-    r += data[i] * a
-    g += data[i + 1] * a
-    b += data[i + 2] * a
-    n += a
-  }
-  if (n === 0) return [0, 0, 0]
-  return [r / n, g / n, b / n]
-}
-
-/**
- * アクセントに使う代表色。色相を 24 分割して「彩度 × 画素数」の多いビンを選び、
- * そのビンの平均色を、アクセントとして映えるよう彩度と明度を整えて返す。
- * 無彩色の画像（モノクロ写真など）は undefined。
- */
-export function pickAccentColor(data: ArrayLike<number>): RGB | undefined {
-  const BINS = 24
-  const weight = new Float64Array(BINS)
-  const sums = Array.from({ length: BINS }, () => [0, 0, 0])
-  for (let i = 0; i + 3 < data.length; i += 4) {
-    if (data[i + 3] < 128) continue
-    const rgb: RGB = [data[i], data[i + 1], data[i + 2]]
-    const [h, s, l] = rgbToHsl(rgb)
-    // 白飛び・黒つぶれ・無彩色はアクセントにならない
-    if (s < 0.2 || l < 0.12 || l > 0.92) continue
-    const bin = Math.min(BINS - 1, Math.floor(h * BINS))
-    const w = s * (1 - Math.abs(l - 0.5))
-    weight[bin] += w
-    sums[bin][0] += rgb[0] * w
-    sums[bin][1] += rgb[1] * w
-    sums[bin][2] += rgb[2] * w
-  }
-  let best = -1
-  let bestWeight = 0
-  for (let i = 0; i < BINS; i++) {
-    // 隣のビンも少し足して、境界で割れた色相を拾う
-    const w =
-      weight[i] + 0.5 * (weight[(i + 1) % BINS] + weight[(i + BINS - 1) % BINS])
-    if (w > bestWeight) {
-      bestWeight = w
-      best = i
-    }
-  }
-  const total = data.length / 4
-  if (best === -1 || bestWeight < total * 0.01) return undefined
-  const w = weight[best]
-  const avg: RGB = [sums[best][0] / w, sums[best][1] / w, sums[best][2] / w]
-  const [h, s, l] = rgbToHsl(avg)
-  return hslToRgb(h, Math.max(0.6, s), Math.min(0.62, Math.max(0.48, l)))
-}
-
 /** 画素の明るさ 0..1（Rec.709 の重み、ガンマはそのまま） */
 function luma(r: number, g: number, b: number): number {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 }
 
-export type TintMode = 'none' | 'mono' | 'duotone'
+export type TintMode = 'none' | 'mono' | 'duotone' | 'dither' | 'xerox'
+
+/** 4×4 の Bayer 行列（0..15） */
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 /**
- * 画素のトーンを置き換える（in-place）。
- * mono はグレースケール、duotone は明るさに応じて shadow → mid → highlight の
- * 3 色グラデーションへ写す（リソのような 2 色刷り + 紙白の見え方）。
+ * 画素のトーンを置き換える（in-place）。stops は暗部 → 中間 → 明部の 3 色。
+ * - mono: グレースケール
+ * - duotone: 明るさに応じて 3 色のグラデーションへ写す（2 色刷り + 紙白）
+ * - xerox: コピー機風。レベル補正（入力 20〜235、ガンマ 1.2）で潰してから
+ *   暗部 → 明部の 2 色（インクと紙）へ写す
+ * - dither: 4×4 の Bayer 配列で 3 色 + 中間 2 段に減色する（Y2K 用）。
+ *   width（画像の幅）と cell（1 マスの px）が要る
  */
 export function applyTint(
   data: Uint8ClampedArray,
   mode: TintMode,
   stops: readonly [RGB, RGB, RGB],
+  opts: { width?: number; cell?: number } = {},
 ): void {
   if (mode === 'none') return
   const [shadow, mid, highlight] = stops
+  const width = Math.max(1, opts.width ?? 1)
+  const cell = Math.max(1, Math.round(opts.cell ?? 1))
+  // dither の段（暗部・暗部と中間の間・中間・中間と明部の間・明部）
+  const levels: Array<RGB> = [
+    shadow,
+    mix(shadow, mid, 0.5),
+    mid,
+    mix(mid, highlight, 0.5),
+    highlight,
+  ]
   for (let i = 0; i + 3 < data.length; i += 4) {
     const y = luma(data[i], data[i + 1], data[i + 2])
+    let c: RGB
     if (mode === 'mono') {
       const v = y * 255
-      data[i] = v
-      data[i + 1] = v
-      data[i + 2] = v
-      continue
+      c = [v, v, v]
+    } else if (mode === 'xerox') {
+      const v = clamp01((y * 255 - 20) / (235 - 20)) ** (1 / 1.2)
+      // コピーらしく中間調を少し飛ばす
+      const t = clamp01((v - 0.5) * 1.35 + 0.5)
+      c = mix(shadow, highlight, t)
+    } else if (mode === 'dither') {
+      const p = i / 4
+      const x = Math.floor((p % width) / cell) % 4
+      const yy = Math.floor(Math.floor(p / width) / cell) % 4
+      const threshold = (BAYER4[yy * 4 + x] + 0.5) / 16
+      const scaled = y * (levels.length - 1)
+      const base = Math.floor(scaled)
+      const level = Math.min(
+        levels.length - 1,
+        base + (scaled - base > threshold ? 1 : 0),
+      )
+      c = levels[level]
+    } else {
+      // 中間調を少し締めて、2 色の境目をはっきりさせる
+      const t = clamp01((y - 0.5) * 1.15 + 0.5)
+      c = t < 0.5 ? mix(shadow, mid, t * 2) : mix(mid, highlight, t * 2 - 1)
     }
-    // 中間調を少し締めて、2 色の境目をはっきりさせる
-    const t = Math.min(1, Math.max(0, (y - 0.5) * 1.15 + 0.5))
-    const c = t < 0.5 ? mix(shadow, mid, t * 2) : mix(mid, highlight, t * 2 - 1)
     data[i] = c[0]
     data[i + 1] = c[1]
     data[i + 2] = c[2]

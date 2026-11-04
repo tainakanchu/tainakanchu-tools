@@ -2,11 +2,12 @@
  * 写真の読み込みと加工（ブラウザ依存）。
  * ファイルは createImageBitmap でローカルに読むだけで、どこにも送らない。
  */
-import { applyTint, averageColor, hexToRgb, pickAccentColor } from './color'
+import { applyTint, rgbToHex } from './color'
 import { coverCrop } from './layouts'
+import { extractSwatches } from './palette-extract'
 import type { RGB, TintMode } from './color'
 import type { Rect } from './fit'
-import type { Theme } from './themes'
+import type { Swatch } from './palette-extract'
 
 /** 書き出しの最大長辺 1920px の約 1.5 倍。拡大しても粗が出にくく、メモリも抑えられる */
 export const PHOTO_MAX_LONG_SIDE = 2880
@@ -18,10 +19,8 @@ export type LoadedPhoto = {
   source: HTMLCanvasElement | ImageBitmap
   width: number
   height: number
-  /** 平均色（文字色の自動調整に使う） */
-  average: RGB
-  /** アクセント候補（無彩色の画像なら undefined） */
-  accent: RGB | undefined
+  /** 写真の代表色（「写真から作る」の見本） */
+  swatches: Array<Swatch>
 }
 
 let photoCounter = 0
@@ -41,7 +40,7 @@ function get2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
 
 /**
  * EXIF の向きを反映して読み込み、長辺 PHOTO_MAX_LONG_SIDE までに縮める。
- * 縮小後の小さなサンプルから平均色とアクセント候補も取っておく。
+ * 128px に縮めた画素から代表色（k-means）も取っておく。
  */
 export async function loadPhoto(file: File): Promise<LoadedPhoto> {
   const bitmap = await createImageBitmap(file, {
@@ -61,11 +60,15 @@ export async function loadPhoto(file: File): Promise<LoadedPhoto> {
     bitmap.close()
     source = canvas
   }
-  const sampleSize = 48
-  const sample = createCanvas(sampleSize, sampleSize)
+  // 縦横比を保って長辺 128px に縮める
+  const k = 128 / Math.max(width, height)
+  const sw = Math.max(1, Math.round(width * k))
+  const sh = Math.max(1, Math.round(height * k))
+  const sample = createCanvas(sw, sh)
   const sctx = get2d(sample)
-  sctx.drawImage(source, 0, 0, sampleSize, sampleSize)
-  const data = sctx.getImageData(0, 0, sampleSize, sampleSize).data
+  sctx.imageSmoothingQuality = 'high'
+  sctx.drawImage(source, 0, 0, sw, sh)
+  const data = sctx.getImageData(0, 0, sw, sh).data
   photoCounter += 1
   return {
     id: `photo-${photoCounter}`,
@@ -73,8 +76,7 @@ export async function loadPhoto(file: File): Promise<LoadedPhoto> {
     source,
     width,
     height,
-    average: averageColor(data),
-    accent: pickAccentColor(data),
+    swatches: extractSwatches(data),
   }
 }
 
@@ -91,7 +93,7 @@ export type PhotoEffect = {
 }
 
 const cache = new Map<string, HTMLCanvasElement>()
-const CACHE_LIMIT = 4
+const CACHE_LIMIT = 8
 
 function supportsCanvasFilter(ctx: CanvasRenderingContext2D): boolean {
   if (!('filter' in ctx)) return false
@@ -109,7 +111,8 @@ export function processedPhoto(
   photo: LoadedPhoto,
   rect: Rect,
   effect: PhotoEffect,
-  theme: Theme,
+  /** 色調に使う 3 色（暗部 → 中間 → 明部） */
+  stops: readonly [RGB, RGB, RGB],
 ): HTMLCanvasElement {
   const w = Math.max(1, Math.round(rect.w))
   const h = Math.max(1, Math.round(rect.h))
@@ -122,7 +125,9 @@ export function processedPhoto(
     effect.posY.toFixed(3),
     effect.blur.toFixed(1),
     effect.tint,
-    effect.tint === 'duotone' ? theme.duotone.join(',') : '',
+    effect.tint === 'none' || effect.tint === 'mono'
+      ? ''
+      : stops.map((c) => rgbToHex(c)).join(','),
   ].join('|')
   const hit = cache.get(key)
   if (hit) {
@@ -197,8 +202,11 @@ export function processedPhoto(
 
   if (effect.tint !== 'none') {
     const image = ctx.getImageData(0, 0, w, h)
-    const [a, b, c] = theme.duotone
-    applyTint(image.data, effect.tint, [hexToRgb(a), hexToRgb(b), hexToRgb(c)])
+    applyTint(image.data, effect.tint, stops, {
+      width: w,
+      // ドットは出力幅 1080px で 3px 角（縮めて見ても粒が分かる大きさ）
+      cell: Math.max(2, Math.round(w / 360)),
+    })
     ctx.putImageData(image, 0, 0)
   }
 
@@ -211,15 +219,38 @@ export function processedPhoto(
   return canvas
 }
 
-/** 加工後の平均色の近似（duotone / mono を反映） */
-export function effectiveAverage(
-  photo: LoadedPhoto,
-  tint: TintMode,
-  theme: Theme,
-): RGB {
-  if (tint === 'none') return photo.average
-  const data = new Uint8ClampedArray([...photo.average, 255])
-  const [a, b, c] = theme.duotone
-  applyTint(data, tint, [hexToRgb(a), hexToRgb(b), hexToRgb(c)])
-  return [data[0], data[1], data[2]]
+const samplers = new WeakMap<
+  HTMLCanvasElement,
+  { at: (x: number, y: number) => RGB; step: number }
+>()
+
+/**
+ * 加工済みの写真を 1/8 に縮め、書き出し座標の (x, y) の色を返す関数を作る。
+ * 文字の後ろの画素の明るさを測るのに使う（縮小で 8px 角の平均になる）。
+ */
+export function photoSampler(canvas: HTMLCanvasElement): {
+  at: (x: number, y: number) => RGB
+  step: number
+} {
+  const hit = samplers.get(canvas)
+  if (hit) return hit
+  const step = 8
+  const w = Math.max(1, Math.round(canvas.width / step))
+  const h = Math.max(1, Math.round(canvas.height / step))
+  const small = createCanvas(w, h)
+  const sctx = get2d(small)
+  sctx.imageSmoothingQuality = 'high'
+  sctx.drawImage(canvas, 0, 0, w, h)
+  const data = sctx.getImageData(0, 0, w, h).data
+  const kx = w / canvas.width
+  const ky = h / canvas.height
+  const at = (x: number, y: number): RGB => {
+    const px = Math.min(w - 1, Math.max(0, Math.floor(x * kx)))
+    const py = Math.min(h - 1, Math.max(0, Math.floor(y * ky)))
+    const i = (py * w + px) * 4
+    return [data[i], data[i + 1], data[i + 2]]
+  }
+  const sampler = { at, step: canvas.width / w }
+  samplers.set(canvas, sampler)
+  return sampler
 }

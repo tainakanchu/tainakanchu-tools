@@ -216,40 +216,6 @@ describe('density helpers', () => {
   })
 })
 
-describe('placeDisc', () => {
-  it('文字の領域を避けて、入る中でいちばん大きな盤を置く', async () => {
-    const { placeDisc } = await import('./layouts')
-    const avoid = [
-      { x: 0, y: 0, w: 1080, h: 300 },
-      { x: 0, y: 300, w: 600, h: 1050 },
-    ]
-    const disc = placeDisc({
-      width: 1080,
-      height: 1350,
-      avoid,
-      radii: [600, 300, 200],
-      margin: 10,
-      step: 20,
-    })
-    expect(disc).not.toBeNull()
-    if (!disc) return
-    expect(disc.r).toBe(300)
-    // 避ける領域と重ならない
-    expect(disc.cy - disc.r).toBeGreaterThanOrEqual(300)
-    expect(disc.cx - disc.r).toBeGreaterThanOrEqual(600)
-    expect(
-      placeDisc({
-        width: 1080,
-        height: 1350,
-        avoid: [{ x: 0, y: 0, w: 1080, h: 1350 }],
-        radii: [100],
-        margin: 0,
-        step: 20,
-      }),
-    ).toBeNull()
-  })
-})
-
 /** 1 枚目は 10 曲まで、2 枚目以降は 12 曲まで入る想定 */
 const cap = (i: number, _start: number, want: number) =>
   Math.min(want, i === 0 ? 10 : 12)

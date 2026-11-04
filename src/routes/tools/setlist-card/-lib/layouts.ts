@@ -1,6 +1,7 @@
 /**
  * 書き出しサイズ・レイアウト・写真の配置（純粋な幾何計算）。
  */
+import type { TintMode } from './color'
 import type { Rect } from './fit'
 
 export type CanvasSize = {
@@ -24,17 +25,150 @@ export const CANVAS_SIZES: ReadonlyArray<CanvasSize> = [
   { id: 'wide', label: '16:9', note: '横長', width: 1200, height: 675 },
 ]
 
-export type LayoutId = 'list' | 'columns' | 'poster'
+/**
+ * テンプレート（構図と文字組みだけを決める。色は持たない）。
+ * 並びは汎用性の高い順。Y2K はイベントの趣向に合わせて選ぶもの、
+ * リスト / 段組み / ポスターは旧テンプレート（配色の役割で描き直したもの）。
+ */
+export type LayoutId =
+  | 'minimal'
+  | 'photo'
+  | 'tracklist'
+  | 'center'
+  | 'editorial'
+  | 'copy'
+  | 'y2k'
+  | 'list'
+  | 'columns'
+  | 'poster'
 
-export const LAYOUTS: ReadonlyArray<{
+export type FontFamily = 'sans' | 'serif'
+
+export type TemplateGroup = 'simple' | 'theme' | 'legacy'
+
+export type TemplateMeta = {
   id: LayoutId
   name: string
   note: string
-}> = [
-  { id: 'list', name: 'リスト', note: '定番の縦リスト' },
-  { id: 'columns', name: '段組み', note: '長いセット向け・1〜3 段' },
-  { id: 'poster', name: 'ポスター', note: 'フライヤー風' },
+  group: TemplateGroup
+  /** テンプレートを選んだときの書体の既定 */
+  family: FontFamily
+  /** 粒子（グレイン）の既定 */
+  grain: boolean
+  /** 段数の設定が効くか */
+  columns: boolean
+  /** 写真枠（帯）に対応するか。しないものは常に全面背景 */
+  photoBlock: boolean
+}
+
+export const LAYOUTS: ReadonlyArray<TemplateMeta> = [
+  {
+    id: 'minimal',
+    name: 'ミニマル',
+    note: '余白の広い端正なリスト',
+    group: 'simple',
+    family: 'sans',
+    grain: false,
+    columns: true,
+    photoBlock: true,
+  },
+  {
+    id: 'photo',
+    name: 'フォト',
+    note: '写真を全面に、曲はキャプションのように',
+    group: 'simple',
+    family: 'sans',
+    grain: true,
+    columns: true,
+    photoBlock: false,
+  },
+  {
+    id: 'tracklist',
+    name: 'トラックリスト',
+    note: 'レコードの裏ジャケ風の表組み',
+    group: 'simple',
+    family: 'sans',
+    grain: false,
+    columns: true,
+    photoBlock: true,
+  },
+  {
+    id: 'center',
+    name: 'センター',
+    note: 'フライヤーのラインナップ風に中央揃え',
+    group: 'simple',
+    family: 'sans',
+    grain: false,
+    columns: false,
+    photoBlock: true,
+  },
+  {
+    id: 'editorial',
+    name: 'エディトリアル',
+    note: '大きなセリフの見出しと小さなリスト',
+    group: 'simple',
+    family: 'serif',
+    grain: true,
+    columns: false,
+    photoBlock: true,
+  },
+  {
+    id: 'copy',
+    name: 'コピー',
+    note: 'コピー機で刷ったようなモノクロのジン風',
+    group: 'simple',
+    family: 'sans',
+    grain: false,
+    columns: false,
+    photoBlock: true,
+  },
+  {
+    id: 'y2k',
+    name: 'Y2K',
+    note: 'クロームの見出しとウィンドウ。Y2K ナイト向け',
+    group: 'theme',
+    family: 'sans',
+    grain: false,
+    columns: false,
+    photoBlock: true,
+  },
+  {
+    id: 'list',
+    name: 'リスト',
+    note: '旧テンプレート: 定番の縦リスト',
+    group: 'legacy',
+    family: 'sans',
+    grain: false,
+    columns: false,
+    photoBlock: true,
+  },
+  {
+    id: 'columns',
+    name: '段組み',
+    note: '旧テンプレート: 1〜3 段',
+    group: 'legacy',
+    family: 'sans',
+    grain: false,
+    columns: true,
+    photoBlock: true,
+  },
+  {
+    id: 'poster',
+    name: 'ポスター',
+    note: '旧テンプレート: 大きな DJ 名',
+    group: 'legacy',
+    family: 'sans',
+    grain: false,
+    columns: false,
+    photoBlock: true,
+  },
 ]
+
+export const DEFAULT_LAYOUT: LayoutId = 'minimal'
+
+export function getTemplate(id: LayoutId): TemplateMeta {
+  return LAYOUTS.find((t) => t.id === id) ?? LAYOUTS[0]
+}
 
 export function getSize(id: string): CanvasSize {
   return CANVAS_SIZES.find((s) => s.id === id) ?? CANVAS_SIZES[0]
@@ -54,13 +188,14 @@ export type PhotoSettings = {
   posY: number
   /** 1 = cover ちょうど */
   zoom: number
-  /** 文字を読みやすくする暗幕 0..1 */
+  /**
+   * 写真に敷く幕の最低の濃さ 0..1。0 なら自動（文字が読める最小の濃さ）。
+   * 自動で決まる濃さがこれより薄いときだけ、この値まで濃くする
+   */
   dim: number
   /** ぼかし（書き出し解像度での px） */
   blur: number
-  tint: 'none' | 'mono' | 'duotone'
-  /** 画像から取った色をアクセントにする */
-  useImageAccent: boolean
+  tint: TintMode
 }
 
 export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
@@ -68,17 +203,23 @@ export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
   posX: 0.5,
   posY: 0.5,
   zoom: 1,
-  dim: 0.55,
+  dim: 0,
   blur: 0,
   tint: 'none',
-  useImageAccent: false,
 }
 
-/** 写真枠の高さ比（縦長・正方形は上に帯で置く） */
+/** 写真枠の高さ比（縦長・正方形は上に帯で置く）。null は写真枠に対応しない */
 const BAND_RATIO: Record<
   LayoutId,
-  Record<Exclude<CanvasSize['id'], 'wide'>, number>
+  Record<Exclude<CanvasSize['id'], 'wide'>, number> | null
 > = {
+  minimal: { portrait: 0.4, story: 0.42, square: 0.36 },
+  photo: null,
+  tracklist: { portrait: 0.3, story: 0.34, square: 0.26 },
+  center: { portrait: 0.38, story: 0.4, square: 0.34 },
+  editorial: { portrait: 0.36, story: 0.4, square: 0.3 },
+  copy: { portrait: 0.42, story: 0.44, square: 0.38 },
+  y2k: { portrait: 0.36, story: 0.38, square: 0.32 },
   // リストは見出しを写真の下部に重ねるので、帯を広めに取る
   list: { portrait: 0.42, story: 0.4, square: 0.42 },
   columns: { portrait: 0.24, story: 0.28, square: 0.22 },
@@ -87,6 +228,13 @@ const BAND_RATIO: Record<
 
 /** 横長で横に置くときの幅比 */
 const SIDE_RATIO: Record<LayoutId, number> = {
+  minimal: 0.4,
+  photo: 0.4,
+  tracklist: 0.34,
+  center: 0.4,
+  editorial: 0.4,
+  copy: 0.42,
+  y2k: 0.38,
   list: 0.4,
   columns: 0.34,
   poster: 0.42,
@@ -110,6 +258,8 @@ export function planPhotoBlock(
   size: CanvasSize,
 ): PhotoPlan | null {
   const { width: W, height: H } = size
+  const band = BAND_RATIO[layout]
+  if (!band) return null
   if (size.id === 'wide' || isLandscape(size)) {
     const pw = Math.round(W * SIDE_RATIO[layout])
     if (W - pw < W * 0.5) return null
@@ -126,7 +276,7 @@ export function planPhotoBlock(
       side: 'left',
     }
   }
-  const ratio = BAND_RATIO[layout][size.id]
+  const ratio = band[size.id]
   const ph = Math.round(H * ratio)
   if (H - ph < H * 0.5) return null
   return {
@@ -244,49 +394,6 @@ export function splitEvenly(
     start += len
   }
   return ranges
-}
-
-// ---------------------------------------------------------------------------
-// 飾りのレコード盤の置き場所
-// ---------------------------------------------------------------------------
-
-function circleHitsRect(
-  cx: number,
-  cy: number,
-  r: number,
-  rect: Rect,
-): boolean {
-  const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w))
-  const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h))
-  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r
-}
-
-/**
- * 文字のどれにも重ならない、なるべく大きなレコード盤の位置を探す。
- * 盤は画面の左右の端からはみ出させる（その方が飾りらしく見える）。右側・上寄りを優先。
- * 置けなければ null（無理に重ねない）。
- */
-export function placeDisc(opts: {
-  width: number
-  height: number
-  /** 避ける領域（文字や帯） */
-  avoid: ReadonlyArray<Rect>
-  radii: ReadonlyArray<number>
-  margin: number
-  step: number
-}): { cx: number; cy: number; r: number } | null {
-  const { width: W, height: H, avoid, margin, step } = opts
-  for (const r of opts.radii) {
-    const xs = [W - r * 0.3, W - r * 0.55, W - r * 0.8, r * 0.3, r * 0.55]
-    for (const cx of xs) {
-      for (let cy = r * 0.4; cy <= H - r * 0.4; cy += step) {
-        if (!avoid.some((rect) => circleHitsRect(cx, cy, r + margin, rect))) {
-          return { cx, cy, r }
-        }
-      }
-    }
-  }
-  return null
 }
 
 /**

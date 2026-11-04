@@ -73,8 +73,33 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // runtimeCaching を書いていないのは、このアプリが外部リソースを
-        // 一切読み込まないから。外部を読むようになったらその時に足す。
+        // 外部から読むのはセトリ画像メーカーの Web フォント (Google Fonts) だけ。
+        // canvas の出力を端末の標準フォントに左右されないようにするために読む。
+        // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
+        // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
+        // StaleWhileRevalidate、フォント本体はファイル名が版ごとに変わるので
+        // CacheFirst。和文フォントは unicode-range で 100 個前後に分かれるので
+        // 件数の上限は多めに取る。
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts-css' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-files',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+            },
+          },
+        ],
       },
       // glob (js/css/html/svg/フォント) に入らない画像のうち、オフラインで
       // も要るものだけを名指しで足す。avatar.png は全ページのヘッダーに出る

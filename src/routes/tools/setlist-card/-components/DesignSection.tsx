@@ -1,22 +1,40 @@
-import { CANVAS_SIZES, LAYOUTS, MAX_PAGES, getSize } from '../-lib/layouts'
+import { SEPARATORS } from '../-lib/draw'
+import { CANVAS_SIZES, MAX_PAGES, getSize, getTemplate } from '../-lib/layouts'
 import { columnsLimit } from '../-lib/render'
-import { THEMES } from '../-lib/themes'
 import {
   choiceClass,
   labelClass,
   sectionClass,
   sectionTitleClass,
 } from '../-lib/styles'
+import { PalettePicker } from './PalettePicker'
+import { TemplatePicker } from './TemplatePicker'
 import type { CanvasSize, ColumnsSetting, LayoutId } from '../-lib/layouts'
-import type { DisplayOptions, SplitOptions, TextOptions } from '../-lib/render'
+import type { Palette } from '../-lib/palettes'
+import type {
+  DisplayOptions,
+  RenderInput,
+  SplitOptions,
+  StyleOptions,
+  TextOptions,
+} from '../-lib/render'
 
 type Props = {
   layout: LayoutId
   onLayoutChange: (layout: LayoutId) => void
   sizeId: CanvasSize['id']
   onSizeChange: (id: CanvasSize['id']) => void
-  themeId: string
-  onThemeChange: (id: string) => void
+  palette: Palette
+  onPaletteChange: (palette: Palette) => void
+  myPalettes: ReadonlyArray<Palette>
+  onSaveMine: (palette: Palette, name: string) => boolean
+  onRenameMine: (id: string, name: string) => void
+  onDeleteMine: (id: string) => void
+  photoAuto: Palette | null
+  style: StyleOptions
+  onStyleChange: (style: StyleOptions) => void
+  /** テンプレートの見本を描くための今の設定 */
+  previewInput: RenderInput
   display: DisplayOptions
   onDisplayChange: (display: DisplayOptions) => void
   /** 開始時刻を持つ曲があるか（無ければ注記を出す） */
@@ -44,6 +62,7 @@ const TOGGLES: ReadonlyArray<{ key: keyof DisplayOptions; label: string }> = [
   { key: 'bpm', label: 'BPM' },
   { key: 'key', label: 'Key' },
   { key: 'time', label: '開始時刻' },
+  { key: 'label', label: 'レーベル' },
   { key: 'credit', label: 'クレジット' },
 ]
 
@@ -52,8 +71,16 @@ export function DesignSection({
   onLayoutChange,
   sizeId,
   onSizeChange,
-  themeId,
-  onThemeChange,
+  palette,
+  onPaletteChange,
+  myPalettes,
+  onSaveMine,
+  onRenameMine,
+  onDeleteMine,
+  photoAuto,
+  style,
+  onStyleChange,
+  previewInput,
   display,
   onDisplayChange,
   hasStartTimes,
@@ -65,6 +92,9 @@ export function DesignSection({
   onSplitChange,
 }: Props) {
   const maxColumns = columnsLimit(getSize(sizeId))
+  const template = getTemplate(layout)
+  const setStyle = (patch: Partial<StyleOptions>) =>
+    onStyleChange({ ...style, ...patch })
   return (
     <section className={sectionClass}>
       <h2 className={sectionTitleClass}>
@@ -72,23 +102,13 @@ export function DesignSection({
       </h2>
 
       <div className="mt-4 space-y-5">
-        <fieldset className="space-y-2">
-          <legend className={labelClass}>レイアウト</legend>
-          <div className="grid grid-cols-3 gap-2">
-            {LAYOUTS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={layout === item.id}
-                className={choiceClass(layout === item.id)}
-                onClick={() => onLayoutChange(item.id)}
-              >
-                <span className="font-semibold">{item.name}</span>
-                <span className="text-xs text-gray-400">{item.note}</span>
-              </button>
-            ))}
-          </div>
-          {layout === 'columns' ? (
+        <div className="space-y-2">
+          <TemplatePicker
+            layout={layout}
+            onChange={onLayoutChange}
+            input={previewInput}
+          />
+          {template.columns ? (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-sm text-gray-300">段数</span>
               {(['auto', 1, 2, 3] as const).map((value) => {
@@ -117,7 +137,7 @@ export function DesignSection({
               </span>
             </div>
           ) : null}
-        </fieldset>
+        </div>
 
         <fieldset className="space-y-2">
           <legend className={labelClass}>サイズ</legend>
@@ -142,35 +162,105 @@ export function DesignSection({
           </div>
         </fieldset>
 
+        <PalettePicker
+          palette={palette}
+          onChange={onPaletteChange}
+          myPalettes={myPalettes}
+          onSaveMine={onSaveMine}
+          onRenameMine={onRenameMine}
+          onDeleteMine={onDeleteMine}
+          photoAuto={photoAuto}
+        />
+
         <fieldset className="space-y-2">
-          <legend className={labelClass}>テーマ</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {THEMES.map((theme) => (
+          <legend className={labelClass}>文字組み</legend>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-300">書体</span>
+            {(
+              [
+                ['sans', 'ゴシック'],
+                ['serif', '明朝'],
+              ] as const
+            ).map(([family, name]) => (
               <button
-                key={theme.id}
+                key={family}
                 type="button"
-                aria-pressed={themeId === theme.id}
-                className={`${choiceClass(themeId === theme.id)} flex-row! items-center! gap-2!`}
-                onClick={() => onThemeChange(theme.id)}
+                aria-pressed={style.family === family}
+                className={`${choiceClass(style.family === family)} items-center! px-3! py-1! text-xs`}
+                onClick={() => setStyle({ family })}
               >
-                <span
-                  className="flex h-7 w-10 shrink-0 overflow-hidden rounded-md border border-white/20"
-                  aria-hidden
-                >
-                  <span className="flex-1" style={{ background: theme.bg }} />
-                  <span
-                    className="w-2.5"
-                    style={{ background: theme.accent }}
-                  />
-                  <span
-                    className="w-2.5"
-                    style={{ background: theme.accent2 }}
-                  />
-                </span>
-                <span className="text-xs font-medium">{theme.name}</span>
+                {name}
               </button>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-300">区切り</span>
+            {SEPARATORS.filter(
+              (sep) => sep.id !== 'stack' || layout === 'center',
+            ).map((sep) => (
+              <button
+                key={sep.id}
+                type="button"
+                aria-pressed={style.separator === sep.id}
+                className={`${choiceClass(style.separator === sep.id)} items-center! px-3! py-1! text-xs`}
+                onClick={() => setStyle({ separator: sep.id })}
+                title={
+                  sep.id === 'stack'
+                    ? 'アーティストと曲名を 2 行に分ける'
+                    : `Artist${sep.text}Title`
+                }
+              >
+                {sep.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                [
+                  'monoMeta',
+                  '番号・時刻を等幅に',
+                  '番号・時刻・BPM・Key を等幅の書体にして桁をそろえます',
+                ],
+                [
+                  'grain',
+                  '粒子',
+                  '紙やフィルムのような細かな粒を全体に重ねます',
+                ],
+                ...(layout === 'tracklist'
+                  ? ([
+                      [
+                        'sideNumbers',
+                        'A1・B1 の面番号',
+                        'レコードの面ごとの番号にします（12 曲までは A/B 面、それより多ければ 6 曲ずつ）',
+                      ],
+                    ] as const)
+                  : []),
+              ] as const
+            ).map(([key, label, note]) => (
+              <label
+                key={key}
+                title={note}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-sm text-gray-200 has-[:checked]:border-cyan-400/70 has-[:checked]:bg-cyan-500/10"
+              >
+                <input
+                  type="checkbox"
+                  className="accent-cyan-500"
+                  checked={style[key]}
+                  onChange={(event) =>
+                    setStyle({ [key]: event.target.checked })
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {sizeId === 'story' ? (
+            <p className="text-xs text-gray-500">
+              9:16 は上下の約 13%
+              を空けて組みます（ストーリーズの名前やボタンに隠れないように）。写真と背景は端まで敷きます。
+            </p>
+          ) : null}
         </fieldset>
 
         <fieldset className="space-y-2">
