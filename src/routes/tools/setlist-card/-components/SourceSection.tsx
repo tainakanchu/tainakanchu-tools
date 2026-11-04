@@ -18,7 +18,8 @@ type Props = {
   loading: boolean
   error: string | null
   onFile: (file: File) => void
-  onSample: () => void
+  /** count を渡すと長いセットのサンプル */
+  onSample: (count?: number) => void
   onSelectPlaylist: (index: number) => void
 }
 
@@ -102,14 +103,29 @@ export function SourceSection({
             }}
           />
         </label>
-        <button
-          type="button"
-          className={`${subtleButtonClass} sm:h-full sm:flex-col sm:px-5`}
-          onClick={onSample}
-        >
-          <Sparkles size={18} className="text-cyan-300" aria-hidden />
-          サンプルで試す
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            className={`${subtleButtonClass} sm:flex-1 sm:flex-col sm:px-5`}
+            onClick={() => onSample()}
+          >
+            <Sparkles size={18} className="text-cyan-300" aria-hidden />
+            サンプルで試す
+          </button>
+          <div className="flex gap-1.5">
+            {[50, 80].map((count) => (
+              <button
+                key={count}
+                type="button"
+                className={`${subtleButtonClass} flex-1 px-2! py-1! text-xs`}
+                onClick={() => onSample(count)}
+                title="長い曲名・アーティスト名を含む長いセットのサンプル"
+              >
+                {count}曲
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-emerald-200/80">

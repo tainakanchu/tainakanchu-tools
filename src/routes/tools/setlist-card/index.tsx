@@ -10,12 +10,23 @@ import { TrackSection } from './-components/TrackSection'
 import { DEFAULT_PHOTO_SETTINGS, getSize } from './-lib/layouts'
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
-import { createSampleSetlist } from './-lib/sample'
+import { createSampleSetlist, createStressSetlist } from './-lib/sample'
 import { getTheme } from './-lib/themes'
 import { createTrackId } from './-lib/types'
-import type { CanvasSize, LayoutId, PhotoSettings } from './-lib/layouts'
+import type {
+  CanvasSize,
+  ColumnsSetting,
+  LayoutId,
+  PhotoSettings,
+} from './-lib/layouts'
 import type { LoadedPhoto } from './-lib/photo'
-import type { DisplayOptions, RenderInfo, RenderInput } from './-lib/render'
+import type {
+  DisplayOptions,
+  RenderInfo,
+  RenderInput,
+  SplitOptions,
+  TextOptions,
+} from './-lib/render'
 import type { ParseResult, Setlist } from './-lib/types'
 
 // head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
@@ -38,6 +49,19 @@ const DEFAULT_DISPLAY: DisplayOptions = {
   time: false,
   credit: true,
 }
+
+/**
+ * ミックス表記を省くのは既定でオン: 「(Original Mix)」「[Extended Mix]」のような
+ * 汎用の表記は長いセットで曲名の幅を大きく食う割に情報が無く、人名入りの
+ * リミックス表記は残すので失うものが少ない。feat. はクレジットなので既定では残す。
+ */
+const DEFAULT_TEXT: TextOptions = {
+  longText: 'ellipsis',
+  stripMix: true,
+  stripFeat: false,
+}
+
+const DEFAULT_SPLIT: SplitOptions = { enabled: false, mode: 'auto', count: 2 }
 
 const EMPTY_SETLIST: Setlist = { tracks: [] }
 
@@ -63,6 +87,9 @@ function SetlistCardPage() {
   const [sizeId, setSizeId] = useState<CanvasSize['id']>('portrait')
   const [themeId, setThemeId] = useState('neon')
   const [display, setDisplay] = useState<DisplayOptions>(DEFAULT_DISPLAY)
+  const [textOptions, setTextOptions] = useState<TextOptions>(DEFAULT_TEXT)
+  const [columns, setColumns] = useState<ColumnsSetting>('auto')
+  const [split, setSplit] = useState<SplitOptions>(DEFAULT_SPLIT)
 
   const [photo, setPhoto] = useState<LoadedPhoto | null>(null)
   const [photoLoading, setPhotoLoading] = useState(false)
@@ -121,11 +148,11 @@ function SetlistCardPage() {
     }
   }
 
-  const handleSample = () => {
+  const handleSample = (count?: number) => {
     setParseResult(null)
     setFileName(null)
     setError(null)
-    setSetlist(createSampleSetlist())
+    setSetlist(count ? createStressSetlist(count) : createSampleSetlist())
     setDisplay((prev) => ({ ...prev, bpm: true, key: true, time: true }))
   }
 
@@ -163,9 +190,23 @@ function SetlistCardPage() {
       size,
       theme,
       display,
+      text: textOptions,
+      columns,
+      split,
       photo: photo ? { image: photo, settings: photoSettings } : null,
     }),
-    [setlist, layout, size, theme, display, photo, photoSettings],
+    [
+      setlist,
+      layout,
+      size,
+      theme,
+      display,
+      textOptions,
+      columns,
+      split,
+      photo,
+      photoSettings,
+    ],
   )
 
   const handleRendered = useCallback((info: RenderInfo) => {
@@ -226,6 +267,12 @@ function SetlistCardPage() {
               onThemeChange={setThemeId}
               display={display}
               onDisplayChange={setDisplay}
+              textOptions={textOptions}
+              onTextOptionsChange={setTextOptions}
+              columns={columns}
+              onColumnsChange={setColumns}
+              split={split}
+              onSplitChange={setSplit}
               hasStartTimes={hasStartTimes}
             />
             <PhotoSection
@@ -246,6 +293,9 @@ function SetlistCardPage() {
               fileBaseName={toFileBaseName(setlist)}
               onRendered={handleRendered}
               onPhotoSettingsChange={setPhotoSettings}
+              onEnableSplit={() =>
+                setSplit((prev) => ({ ...prev, enabled: true, mode: 'auto' }))
+              }
             />
           </div>
         </div>

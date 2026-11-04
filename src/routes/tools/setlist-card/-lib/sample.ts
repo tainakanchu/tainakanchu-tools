@@ -41,3 +41,49 @@ export function createSampleSetlist(): Setlist {
     })),
   }
 }
+
+/**
+ * 長いセット・長い名前の確認用（架空）。
+ * 実際の履歴で見かける「連名 + feat.」「リミックス + 版表記 + リマスター」や、
+ * 空白の無い長い日本語タイトルを混ぜて、詰め込みと省略の挙動を試せるようにする。
+ */
+const LONG_ARTISTS = [
+  'Mika Tanabe, Leon Varga & Oskar Lindqvist feat. Hana Okada',
+  'The Midnight Laundromat Orchestra & Friends',
+  '深夜喫茶サウンドシステム',
+  'Nils Okafor',
+  'Yuzu Kurokawa vs. The Paper Kites Collective feat. MC Sorano',
+  'Rin',
+  'Aurelio Benedetti, Kenta Shiraishi & Ilse Marchetti',
+  'ゆうやけプラネタリウム楽団',
+]
+const LONG_TITLES = [
+  'Something Beautiful Happens After Midnight (Leon Varga Remix) [Extended Mix] - 2024 Remaster',
+  'Glass Pavilion (Original Mix)',
+  '真夜中の高速道路でカーラジオから流れてきたあの曲をもう一度だけ聴きたかった',
+  'Heat',
+  'Dancing Through the Static of a Thousand Radio Stations (Radio Edit)',
+  'Afterglow [Kenta Shiraishi Edit]',
+  'Tidal Memory feat. Hana Okada (Club Mix)',
+  '夜明け前',
+  'Second Wind - Extended Version',
+  'Undercurrent (Rin & Nils Okafor Dub) [Remastered 2019]',
+]
+const KEYS = ['Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'Bbm', 'Fm', 'Cm']
+
+export function createStressSetlist(count: number): Setlist {
+  return {
+    title: `LONG NIGHT SESSION ${count}`,
+    djName: 'KANCHU b2b The Midnight Laundromat Orchestra',
+    date: '2026.11.03',
+    venue: 'SHIBUYA SOUND LAB',
+    tracks: Array.from({ length: count }, (_, i) => ({
+      id: createTrackId(),
+      artist: LONG_ARTISTS[i % LONG_ARTISTS.length],
+      title: LONG_TITLES[(i * 3) % LONG_TITLES.length],
+      bpm: 118 + (i % 12),
+      key: KEYS[i % KEYS.length],
+      startAt: START + i * 4 * 60 + (i % 3) * 37,
+    })),
+  }
+}

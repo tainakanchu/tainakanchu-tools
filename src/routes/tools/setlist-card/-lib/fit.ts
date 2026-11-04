@@ -4,6 +4,9 @@
  * canvas の無いテスト環境でも同じロジックを検証できる。
  */
 
+import { CONDENSE_MIN, wrapRuns } from './textfit'
+import type { LongTextMode } from './textfit'
+
 export type Measure = (text: string, font: string) => number
 
 export type Rect = { x: number; y: number; w: number; h: number }
@@ -96,7 +99,7 @@ export type Run = {
   role: 'num' | 'artist' | 'title' | 'sep' | 'meta'
 }
 
-export type PlacedRun = Run & { x: number; width: number }
+export type PlacedRun = Run & { x: number; width: number; scaleX?: number }
 export type FlowLine = Array<PlacedRun>
 
 export type FlowResult = {
@@ -118,8 +121,11 @@ export function flowSegments(opts: {
   measure: Measure
   /** true なら 1 曲 1 行（区切り文字なし） */
   breakEach?: boolean
+  /** 1 行に入らない曲の扱い（既定は省略） */
+  mode?: LongTextMode
 }): FlowResult {
   const { segments, separator, width, maxLines, fontFor, measure } = opts
+  const mode = opts.mode ?? 'ellipsis'
   const widthOf = (run: Run) => measure(run.text, fontFor(run.role))
   const sepWidth = widthOf(separator)
   const lines: Array<FlowLine> = []
@@ -127,38 +133,67 @@ export function flowSegments(opts: {
   let x = 0
   let placed = 0
 
-  const fitSegment = (segment: ReadonlyArray<Run>): Array<Run> => {
+  /** 1 行に入らない曲を、省略 / 横に縮める で 1 行ぶんにする */
+  const fitSegment = (
+    segment: ReadonlyArray<Run>,
+  ): { runs: Array<Run>; scale: number } => {
     const runs = segment.map((r) => ({ ...r }))
     const total = () => runs.reduce((sum, r) => sum + widthOf(r), 0)
+    let scale = 1
+    let room = width
+    if (mode === 'condense' && total() > width) {
+      scale = Math.max(CONDENSE_MIN, width / total())
+      room = width / scale
+    }
     for (const role of ['title', 'artist'] as const) {
-      const over = total() - width
+      const over = total() - room
       if (over <= 0) break
       const run = runs.find((r) => r.role === role)
       if (!run) continue
       const allowed = Math.max(0, widthOf(run) - over)
       run.text = ellipsize(run.text, allowed, fontFor(role), measure)
     }
-    return runs.filter((r) => r.text !== '')
+    return { runs: runs.filter((r) => r.text !== ''), scale }
+  }
+
+  const breakLine = (): boolean => {
+    lines.push(line)
+    line = []
+    x = 0
+    return lines.length < maxLines
   }
 
   for (const segment of segments) {
-    const runs = fitSegment(segment)
-    const segWidth = runs.reduce((sum, r) => sum + widthOf(r), 0)
+    const natural = segment.reduce((sum, r) => sum + widthOf(r), 0)
+    if (mode === 'wrap' && natural > width) {
+      // 折り返し: 長い曲は自分の行から始めて最大 2 行に折る
+      if (line.length > 0 && !breakLine()) break
+      const wrapped = wrapRuns(segment, width, 2, fontFor, measure)
+      if (lines.length + wrapped.length > maxLines) break
+      wrapped.forEach((wl, i) => {
+        line = wl.map((r) => ({ ...r }))
+        x = wl.reduce((sum, r) => sum + r.width, 0)
+        if (i < wrapped.length - 1) breakLine()
+      })
+      placed += 1
+      // 次の曲は新しい行から
+      if (!breakLine()) break
+      continue
+    }
+    const { runs, scale } = fitSegment(segment)
+    const segWidth = runs.reduce((sum, r) => sum + widthOf(r), 0) * scale
     const needsSep = line.length > 0
     const required = segWidth + (needsSep ? sepWidth : 0)
     if (needsSep && (opts.breakEach === true || x + required > width)) {
-      lines.push(line)
-      line = []
-      x = 0
-      if (lines.length >= maxLines) break
+      if (!breakLine()) break
     }
     if (line.length > 0) {
       line.push({ ...separator, x, width: sepWidth })
       x += sepWidth
     }
     for (const run of runs) {
-      const w = widthOf(run)
-      line.push({ ...run, x, width: w })
+      const w = widthOf(run) * scale
+      line.push({ ...run, x, width: w, scaleX: scale })
       x += w
     }
     placed += 1
@@ -182,6 +217,7 @@ export function fitFlow(opts: {
   fontFor: (role: Run['role'], size: number) => string
   measure: Measure
   breakEach?: boolean
+  mode?: LongTextMode
 }): FlowResult & { size: number; lineHeight: number; overflow: boolean } {
   const { segments, height, lineHeightRatio, min, max } = opts
   const run = (size: number) => {
@@ -195,6 +231,7 @@ export function fitFlow(opts: {
       fontFor: (role) => opts.fontFor(role, size),
       measure: opts.measure,
       breakEach: opts.breakEach,
+      mode: opts.mode,
     })
     return { ...result, size, lineHeight }
   }

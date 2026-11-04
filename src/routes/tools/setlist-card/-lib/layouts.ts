@@ -32,7 +32,7 @@ export const LAYOUTS: ReadonlyArray<{
   note: string
 }> = [
   { id: 'list', name: 'リスト', note: '定番の縦リスト' },
-  { id: 'columns', name: '2カラム', note: '長いセット向け' },
+  { id: 'columns', name: '段組み', note: '長いセット向け・1〜3 段' },
   { id: 'poster', name: 'ポスター', note: 'フライヤー風' },
 ]
 
@@ -186,4 +186,105 @@ export function panDelta(
     dx: spareX > 0.5 ? (-dx * k) / spareX : 0,
     dy: spareY > 0.5 ? (-dy * k) / spareY : 0,
   }
+}
+
+// ---------------------------------------------------------------------------
+// 密度（最小文字サイズ・段数・ページ分割）
+// ---------------------------------------------------------------------------
+
+/** 読める最小の文字サイズ（幅 1080px で 20px、出力幅に比例） */
+export function minLegibleFont(size: { width: number }): number {
+  return (20 * size.width) / 1080
+}
+
+/** 1 段の最小幅（最小文字サイズで 15 文字ぶん） */
+export function minColumnWidth(size: { width: number }): number {
+  return minLegibleFont(size) * 15
+}
+
+/** この幅で読める段数の上限（最大 3） */
+export function maxColumnsFor(
+  size: { width: number },
+  areaWidth: number,
+  gap: number,
+): number {
+  const n = Math.floor((areaWidth + gap) / (minColumnWidth(size) + gap))
+  return Math.max(1, Math.min(3, n))
+}
+
+export type ColumnsSetting = 'auto' | 1 | 2 | 3
+
+/** 段組みの候補（自動なら 1〜上限、手動なら上限で頭打ち） */
+export function columnOptions(
+  setting: ColumnsSetting,
+  max: number,
+): Array<number> {
+  if (setting === 'auto') return Array.from({ length: max }, (_, i) => i + 1)
+  return [Math.min(setting, max)]
+}
+
+export const MAX_PAGES = 10
+
+/**
+ * 曲を pages 枚に均等に分ける（先頭のページから 1 曲ずつ多くする）。
+ * 返すのは各ページの [start, end) の範囲。
+ */
+export function splitEvenly(
+  count: number,
+  pages: number,
+): Array<{ start: number; end: number }> {
+  const n = Math.max(1, Math.min(pages, Math.max(1, count)))
+  const base = Math.floor(count / n)
+  const extra = count % n
+  const ranges: Array<{ start: number; end: number }> = []
+  let start = 0
+  for (let i = 0; i < n; i++) {
+    const len = base + (i < extra ? 1 : 0)
+    ranges.push({ start, end: start + len })
+    start += len
+  }
+  return ranges
+}
+
+// ---------------------------------------------------------------------------
+// 飾りのレコード盤の置き場所
+// ---------------------------------------------------------------------------
+
+function circleHitsRect(
+  cx: number,
+  cy: number,
+  r: number,
+  rect: Rect,
+): boolean {
+  const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w))
+  const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h))
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r
+}
+
+/**
+ * 文字のどれにも重ならない、なるべく大きなレコード盤の位置を探す。
+ * 盤は画面の左右の端からはみ出させる（その方が飾りらしく見える）。右側・上寄りを優先。
+ * 置けなければ null（無理に重ねない）。
+ */
+export function placeDisc(opts: {
+  width: number
+  height: number
+  /** 避ける領域（文字や帯） */
+  avoid: ReadonlyArray<Rect>
+  radii: ReadonlyArray<number>
+  margin: number
+  step: number
+}): { cx: number; cy: number; r: number } | null {
+  const { width: W, height: H, avoid, margin, step } = opts
+  for (const r of opts.radii) {
+    const xs = [W - r * 0.3, W - r * 0.55, W - r * 0.8, r * 0.3, r * 0.55]
+    for (const cx of xs) {
+      for (let cy = r * 0.4; cy <= H - r * 0.4; cy += step) {
+        if (!avoid.some((rect) => circleHitsRect(cx, cy, r + margin, rect))) {
+          return { cx, cy, r }
+        }
+      }
+    }
+  }
+  return null
 }
