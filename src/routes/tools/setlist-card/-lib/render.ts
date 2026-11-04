@@ -20,12 +20,12 @@ import { ellipsize, fitFlow, fitFontSize } from './fit'
 import {
   MAX_PAGES,
   columnOptions,
+  distributePages,
   isLandscape,
   maxColumnsFor,
   minLegibleFont,
   placeDisc,
   planPhotoBlock,
-  splitEvenly,
 } from './layouts'
 import { effectiveAverage, processedPhoto } from './photo'
 import { fitRowsLayout } from './rows'
@@ -97,6 +97,8 @@ export type PageSpec = {
 
 /** 1 枚目の組み方。2 枚目以降をこれにそろえる */
 export type PageLock = {
+  /** ポスターで見出しを小さくした組みを使ったか */
+  posterTight?: boolean
   rows?: RowParams
   flow?: { size: number; each: boolean; large: boolean; metaShown: number }
 }
@@ -1194,13 +1196,21 @@ function renderPoster(
     total,
     lock,
   ] as const
-  let chosen = composePoster(...args, false)
+  let tight = lock?.posterTight ?? false
+  let chosen = composePoster(...args, tight)
   if (chosen.result.overflow && !lock) {
-    const tight = composePoster(...args, true)
-    if (tight.result.hidden < chosen.result.hidden) chosen = tight
+    const alt = composePoster(...args, true)
+    if (alt.result.hidden < chosen.result.hidden) {
+      chosen = alt
+      tight = true
+    }
   }
   chosen.draw()
-  return chosen.result
+  // 2 枚目以降（とページ割りの試算）で見出しの大きさをそろえる
+  return {
+    ...chosen.result,
+    lock: { ...chosen.result.lock, posterTight: tight },
+  }
 }
 
 function composePoster(
@@ -1511,10 +1521,6 @@ function composePoster(
         breakEach: lockedFlow.each,
       })
     : fitFlow(flowOpts)
-  if (lockedFlow && flow.overflow) {
-    // 1 枚目と同じ大きさで入らないページは、それより小さい範囲で組み直す
-    flow = fitFlow({ ...flowOpts, max: Math.max(minF, lockedFlow.size) })
-  }
   // 入りきらないときは、補足列（時刻 / BPM / Key）を外すと入るか試す
   if (!lockedFlow && flow.overflow && withMeta && metaCount > 0) {
     const bare = buildSegments(false)
@@ -1936,10 +1942,18 @@ export function renderPage(
   return info(r, mode, fallback)
 }
 
-export type PagePlan = { pages: Array<PageSpec>; auto: boolean }
+export type PagePlan = {
+  pages: Array<PageSpec>
+  auto: boolean
+  /** 全ページをそろえる組み方（分割しないときは無し） */
+  lock?: PageLock
+  /** 最後のページに入りきらない曲があるか */
+  overflow: boolean
+}
 
-function pagesFor(count: number, n: number): Array<PageSpec> {
-  const ranges = splitEvenly(n, count)
+function toSpecs(
+  ranges: Array<{ start: number; end: number }>,
+): Array<PageSpec> {
   return ranges.map((r, index) => ({
     index,
     count: ranges.length,
@@ -1949,33 +1963,84 @@ function pagesFor(count: number, n: number): Array<PageSpec> {
 }
 
 /**
+ * count 枚に割り付ける。1 枚目に均等割りぶんの曲を入れて組み方（lock）を決め、
+ * 以降は全ページをその組み方で、実際に入る曲数を測りながら詰める。
+ * 入りきらない曲は次のページへ送り、「ほか N 曲」は最後のページにしか出ない。
+ */
+function planWith(
+  input: RenderInput,
+  count: number,
+): { plan: PagePlan; textSize: number } {
+  const n = input.setlist.tracks.length
+  const c = scratchContext()
+  const spec = (index: number, start: number, end: number): PageSpec => ({
+    index,
+    count,
+    start,
+    end,
+  })
+  const first = renderPage(
+    c,
+    input,
+    spec(0, 0, Math.ceil(n / count)),
+    undefined,
+    true,
+  )
+  const lock = first.lock
+  const fits = (index: number, start: number, k: number) =>
+    !renderPage(c, input, spec(index, start, start + k), lock, true).overflow
+  const capacity = (index: number, start: number, want: number) => {
+    if (fits(index, start, want)) return want
+    let lo = 0
+    let hi = want
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2)
+      if (fits(index, start, mid)) lo = mid
+      else hi = mid
+    }
+    return lo
+  }
+  const { ranges, overflow } = distributePages(n, count, capacity)
+  return {
+    plan: { pages: toSpecs(ranges), auto: false, lock, overflow },
+    textSize: first.textSize,
+  }
+}
+
+/**
  * 何枚に分けるか決める。
- * 自動なら、1 枚目（いちばん曲が多く、見出しも大きい）が「最小サイズの 1.15 倍以上」で
- * 収まる最小の枚数。どの枚数でも届かなければ、とにかく収まる最小の枚数。
+ * 自動なら、全曲が入り、かつ 1 枚目の文字が「最小サイズの 1.15 倍以上」（ポスターは
+ * 最小サイズ以上）になる最小の枚数。届かなければ全曲が入る最小の枚数。
+ * 手動なら指定の枚数で割り付け、入りきらなければ最後のページで「ほか N 曲」。
  */
 export function planPages(input: RenderInput): PagePlan {
   const n = input.setlist.tracks.length
-  if (!input.split.enabled || n === 0)
-    return { pages: pagesFor(1, n), auto: false }
+  if (!input.split.enabled || n === 0) {
+    return {
+      pages: toSpecs([{ start: 0, end: n }]),
+      auto: false,
+      overflow: false,
+    }
+  }
   const limit = Math.min(MAX_PAGES, Math.max(1, n))
   if (input.split.mode === 'manual') {
-    return {
-      pages: pagesFor(Math.min(limit, Math.max(1, input.split.count)), n),
-      auto: false,
-    }
+    return planWith(input, Math.min(limit, Math.max(1, input.split.count))).plan
   }
   // リスト系は最小サイズより一回り大きく読めるまで枚数を増やす。ポスターは
   // 流し込みの密度そのものが見せ方なので、最小サイズで入れば増やさない
   const comfortable =
     minLegibleFont(input.size) * (input.layout === 'poster' ? 1 : 1.15)
-  const c = scratchContext()
-  let firstFit: number | undefined
+  let firstFit: PagePlan | undefined
+  let last: PagePlan | undefined
   for (let count = 1; count <= limit; count++) {
-    const pages = pagesFor(count, n)
-    const info = renderPage(c, input, pages[0], undefined, true)
-    if (info.overflow) continue
-    firstFit ??= count
-    if (info.textSize >= comfortable) return { pages, auto: true }
+    const { plan, textSize } = planWith(input, count)
+    last = plan
+    if (plan.overflow) continue
+    firstFit ??= plan
+    if (textSize >= comfortable) return { ...plan, auto: true }
   }
-  return { pages: pagesFor(firstFit ?? limit, n), auto: true }
+  const chosen = firstFit ?? last
+  return chosen
+    ? { ...chosen, auto: true }
+    : { pages: toSpecs([{ start: 0, end: n }]), auto: true, overflow: true }
 }

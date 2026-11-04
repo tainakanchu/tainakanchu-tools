@@ -288,3 +288,36 @@ export function placeDisc(opts: {
   }
   return null
 }
+
+/**
+ * 曲を count 枚に割り付ける（純粋関数）。
+ * 各ページは「残りを残りのページ数で均等に割った数」を目安にし、実際に入る数
+ * （capacity）で頭打ちにする。入らなかった曲は次のページへ送るので、どの曲も
+ * ちょうど 1 回だけどこかのページに載る。最後のページは残り全部を受け持ち、
+ * 入りきらなければ overflow（そこでだけ「ほか N 曲」になる）。
+ * 均等割りを目安にするので、最後のページだけ極端に少ない、にもなりにくい。
+ */
+export function distributePages(
+  n: number,
+  count: number,
+  capacity: (pageIndex: number, start: number, want: number) => number,
+): { ranges: Array<{ start: number; end: number }>; overflow: boolean } {
+  const ranges: Array<{ start: number; end: number }> = []
+  let start = 0
+  let overflow = false
+  for (let i = 0; i < count && start < n; i++) {
+    const remaining = n - start
+    if (i === count - 1) {
+      ranges.push({ start, end: n })
+      overflow = capacity(i, start, remaining) < remaining
+      start = n
+      break
+    }
+    const want = Math.ceil(remaining / (count - i))
+    const take = Math.max(1, Math.min(want, capacity(i, start, want)))
+    ranges.push({ start, end: start + take })
+    start += take
+  }
+  if (ranges.length === 0) ranges.push({ start: 0, end: n })
+  return { ranges, overflow }
+}

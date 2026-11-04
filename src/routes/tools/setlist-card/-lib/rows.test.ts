@@ -249,3 +249,91 @@ describe('placeDisc', () => {
     ).toBeNull()
   })
 })
+
+/** 1 枚目は 10 曲まで、2 枚目以降は 12 曲まで入る想定 */
+const cap = (i: number, _start: number, want: number) =>
+  Math.min(want, i === 0 ? 10 : 12)
+
+describe('distributePages', () => {
+  it('入らない曲は次のページへ送り、最後のページだけがあふれる', async () => {
+    const { distributePages } = await import('./layouts')
+    // 1 枚 10 曲まで、2 枚目以降は 12 曲まで
+    expect(distributePages(30, 3, cap)).toEqual({
+      ranges: [
+        { start: 0, end: 10 },
+        { start: 10, end: 20 },
+        { start: 20, end: 30 },
+      ],
+      overflow: false,
+    })
+    const tight = distributePages(40, 3, cap)
+    expect(tight.ranges.at(-1)).toEqual({ start: 22, end: 40 })
+    expect(tight.overflow).toBe(true)
+  })
+
+  for (const mode of ['ellipsis', 'condense', 'wrap'] as const) {
+    for (const pages of [2, 3]) {
+      it(`どの曲もちょうど 1 回だけ載る（${mode} / ${pages} 枚）`, async () => {
+        const { distributePages } = await import('./layouts')
+        const long = items(50).map((item, i) => ({
+          ...item,
+          artist:
+            i % 3 === 0
+              ? 'Artist A, Artist B & Artist C feat. Artist D'
+              : 'Rin',
+          title:
+            i % 4 === 0
+              ? 'Something Beautiful (Artist X Remix) [Extended Mix] - 2024 Remaster'
+              : i % 4 === 1
+                ? '真夜中の高速道路でカーラジオから流れてきたあの曲をもう一度だけ聴きたかった'
+                : 'Heat',
+        }))
+        const base = input(50, 900, 1100, { mode })
+        const params = {
+          columns: 1,
+          style: 'single' as const,
+          size: 22,
+          metaShown: 3,
+        }
+        const capacity = (_i: number, start: number, want: number) => {
+          let k = want
+          while (k > 0) {
+            const r = layoutRowsAt(
+              { ...base, items: long.slice(start, start + k) },
+              params,
+            )
+            if (!r.overflow) return k
+            k -= 1
+          }
+          return 0
+        }
+        const { ranges, overflow } = distributePages(
+          long.length,
+          pages,
+          capacity,
+        )
+        const seen = ranges.flatMap((r) =>
+          Array.from({ length: r.end - r.start }, (_, j) => r.start + j),
+        )
+        expect(seen).toEqual(Array.from({ length: long.length }, (_, j) => j))
+        // 最後以外のページはあふれない
+        ranges.slice(0, -1).forEach((r) => {
+          const layout = layoutRowsAt(
+            { ...base, items: long.slice(r.start, r.end) },
+            params,
+          )
+          expect(layout.overflow).toBe(false)
+        })
+        if (!overflow) {
+          const lastRange = ranges[ranges.length - 1]
+          expect(
+            layoutRowsAt(
+              { ...base, items: long.slice(lastRange.start, lastRange.end) },
+              params,
+            ).overflow,
+          ).toBe(false)
+        }
+      })
+    }
+  }
+})

@@ -172,6 +172,7 @@ export function PreviewPanel({
     fontEpoch,
   ])
   const pages = plan.pages
+  const planLock = plan.lock
 
   const fileNames = useMemo(
     () =>
@@ -203,7 +204,9 @@ export function PreviewPanel({
   useEffect(() => {
     const handle = requestAnimationFrame(() => {
       const results: Array<RenderInfo> = []
-      let lock: PageLock | undefined
+      // 分割時はページ割りを決めたときの組み方で全ページを描く（ページごとに
+      // 組み直すと、割り付けた曲数と実際に入る曲数がずれるため）
+      let lock: PageLock | undefined = planLock
       pages.forEach((page, i) => {
         const canvas = canvasRefs.current[i]
         if (!canvas) return
@@ -223,7 +226,7 @@ export function PreviewPanel({
       setShareStatus('pending')
     })
     return () => cancelAnimationFrame(handle)
-  }, [input, pages, fontEpoch])
+  }, [input, pages, planLock, fontEpoch])
 
   useEffect(() => {
     const version = versionRef.current

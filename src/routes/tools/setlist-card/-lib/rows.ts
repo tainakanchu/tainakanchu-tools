@@ -541,24 +541,8 @@ export function fitRowsLayout(input: RowsInput, opts: FitOptions): RowsLayout {
         metaShownFor(input, lock.style, lock.size, colW),
       ),
     })
-    if (!locked.overflow) return locked
-    // 折り返しで行の高さが変わり、同じ組みでは入らないページは、
-    // 1 枚目より大きくならない範囲で組み直す
-    const cap = (st: RowStyle) => {
-      const [lo, hi] = opts.sizeRange[st]
-      return [lo, Math.max(lo, Math.min(hi, lock.size))] as const
-    }
-    const capped: Record<RowStyle, readonly [number, number]> = {
-      double: cap('double'),
-      single: cap('single'),
-      compact: cap('compact'),
-    }
-    return fitRowsLayout(input, {
-      ...opts,
-      lock: undefined,
-      columnsOptions: [lock.columns],
-      sizeRange: capped,
-    })
+    // 入らない分はページ分割の側で次のページへ送る（組み方は 1 枚目にそろえたまま）
+    return locked
   }
   const styles = opts.styles ?? ROW_STYLES
   type Candidate = RowParams & { score: number }
