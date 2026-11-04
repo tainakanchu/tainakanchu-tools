@@ -33,6 +33,8 @@ export type PageLock = {
   rows?: RowParams
   /** 曲の領域の高さの割合（フォト）・見出しの縮め具合（エディトリアル）など */
   variant?: number
+  /** フォトで曲が少ないときに見出しと曲を大きくした段階（0..1。大きくしていなければ無し） */
+  boost?: number
   center?: CenterParams
 }
 

@@ -3,8 +3,10 @@
  *
  * フォト: 写真を全面に敷き、上に小さな見出し、下に曲をキャプションのように組む。
  *   曲が多いときは、曲の領域を下から高くしていき、それでも窮屈なら段を増やす
- *   （fitRowsLayout に任せる）。幕は下（横長は左）からの滑らかなグラデーションで、
- *   濃さは render 側で文字の後ろの画素から決める。
+ *   （fitRowsLayout に任せる）。曲が少なく余白があるときは、曲のリストを高さの半分まで
+ *   に抑えたまま、見出しと曲を一回り大きくする（写真が主役のまま、小さすぎない）。
+ *   幕は下（横長は左）からの滑らかなグラデーションで、濃さは render 側で文字の後ろの
+ *   画素から決める。
  * コピー: コピー機で刷ったジン。写真はモノクロに潰し、文字は 1 色だけ。
  *   見出しだけインクがかすれたような質感を付ける。写真を全面に敷いたときは、
  *   文字を紙の切れ端（背景色の面）に載せる。
@@ -48,8 +50,42 @@ import type {
   TemplateArgs,
 } from './template-types'
 
-/** 見出し（左にイベント名と DJ 名、右に日付と会場）。高さを返す */
-function drawPhotoHeader(ctx: Ctx, meta: Meta, rect: Rect): number {
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+/** 曲が少ないときに大きくする上限（幅 1080px での px）: 曲 3.4%W・見出し 7%W */
+const BOOST_TRACK_MAX = 0.034 * 1080
+const BOOST_TITLE_MAX = 0.07 * 1080
+/** 大きくするときの段階（1 が上限。0 は大きくしない既定の上限） */
+const BOOST_STEPS = [1, 0.75, 0.5, 0.25, 0]
+/**
+ * 大きくしたときに曲のリスト（曲数の行を含む）が使ってよい高さの割合。
+ * 写真が主役なので半分前後まで（縦に長い 9:16 は 50%、ほかは 55%）。
+ */
+function boostListShare(ctx: Ctx): number {
+  return ctx.H > ctx.W * 1.5 ? 0.5 : 0.55
+}
+
+/** 名前を省略した・縮めた曲の数（大きくして名前が切れるなら大きくしない） */
+function clippedCount(layout: RowsLayout): number {
+  let n = 0
+  for (const row of layout.rows) {
+    if (
+      row.texts.some(
+        (t) =>
+          (t.role === 'artist' || t.role === 'title') &&
+          (t.scaleX < 0.999 || t.text.endsWith('…')),
+      )
+    )
+      n += 1
+  }
+  return n
+}
+
+/**
+ * 見出し（左にイベント名と DJ 名、右に日付と会場）。高さを返す。
+ * boost（0..1）で見出しを大きくする（曲が少なく余白があるとき）。
+ */
+function drawPhotoHeader(ctx: Ctx, meta: Meta, rect: Rect, boost = 0): number {
   const { s, pal } = ctx
   const lf = font(400, labelSize(ctx), 'mono')
   const ls = labelSize(ctx)
@@ -63,7 +99,15 @@ function drawPhotoHeader(ctx: Ctx, meta: Meta, rect: Rect): number {
   const heading = meta.event || meta.dj || 'Setlist'
   const titleAt = (size: number) =>
     font(body === 'serif' ? 700 : 500, size, body, { tracking: TITLE_TRACKING })
-  const t = fitTitle(ctx, heading, leftW, titleAt, 32 * s, 52 * s, 2)
+  const t = fitTitle(
+    ctx,
+    heading,
+    leftW,
+    titleAt,
+    32 * s,
+    lerp(52, BOOST_TITLE_MAX, boost) * s,
+    2,
+  )
   const lh = t.size * 1.08
   t.lines.forEach((line, i) =>
     drawText(
@@ -78,16 +122,17 @@ function drawPhotoHeader(ctx: Ctx, meta: Meta, rect: Rect): number {
   let y = rect.y + t.size * 0.8 + lh * (t.lines.length - 1) + t.size * 0.2
   const sub = meta.event ? meta.dj : ''
   if (sub) {
-    const f = font(400, 28 * s, body)
+    const k = lerp(1, 1.25, boost)
+    const f = font(400, 28 * s * k, body)
     drawText(
       ctx,
       ellipsize(sub, leftW, f, ctx.measure),
       rect.x,
-      y + 36 * s,
+      y + 36 * s * k,
       f,
       pal.fg,
     )
-    y += 44 * s
+    y += 44 * s * k
   }
   right.forEach((text, i) =>
     drawText(
@@ -120,7 +165,7 @@ function fitBottomList(
   fonts: FontFor,
   fractions: ReadonlyArray<number>,
   opts: { maxColumns: number; spread: number; scale?: number },
-): { layout: RowsLayout; area: Rect; fraction: number } {
+): BottomFit {
   const gap = columnGap(ctx)
   const avail = Math.max(0, column.bottom - column.top)
   const build = (fraction: number, lock: PageLock | undefined) => {
@@ -156,6 +201,65 @@ function fitBottomList(
   return firstFit ?? last ?? build(1, undefined)
 }
 
+type BottomFit = { layout: RowsLayout; area: Rect; fraction: number }
+
+/**
+ * 曲が少なく余白があるときの組み方。曲の領域を高さの半分前後（boostListShare）までに
+ * 抑え、文字をちょうど上限の大きさ（boost の段階ごと）で組めるいちばん大きい段階を選ぶ。
+ * いつもの組み方（normal）より名前が切れる曲が増える段階は使わない。
+ * どの段階でも入らなければ null（いつもの fitBottomList に任せる。曲が多いときの
+ * 組み方は変わらない）。
+ */
+function fitBoostedList(
+  ctx: Ctx,
+  a: TemplateArgs,
+  column: { x: number; w: number; bottom: number },
+  /** その段階の見出しの下端（曲のキャプションの行を含めた、曲を置ける上端） */
+  topFor: (boost: number) => number,
+  fonts: FontFor,
+  normal: () => BottomFit,
+): { fit: BottomFit; boost: number } | null {
+  const { s, H } = ctx
+  const gap = columnGap(ctx)
+  const labelH = 52 * s
+  const build = (boost: number, lock: PageLock | undefined) => {
+    const avail = column.bottom - topFor(boost)
+    const h = Math.min(avail, H * boostListShare(ctx) - labelH)
+    if (h <= 0) return null
+    const area: Rect = { x: column.x, y: column.bottom - h, w: column.w, h }
+    const size = lerp(32, BOOST_TRACK_MAX, boost) * s
+    const exact = [size, size] as const
+    const layout = fitRowsLayout(
+      // 行間は広げすぎない（余った高さは写真に残す）
+      rowsInputFor(ctx, a.items, area, gap, fonts, { spread: 0.12 }),
+      {
+        // キャプションらしく 1 段だけ（2 段で大きくすると名前が切れやすい）
+        columnsOptions: [1],
+        // 大きさは固定（詰めた組みは使わない）。入らなければこの段階は諦める
+        styles: ['double', 'single'],
+        sizeRange: { double: exact, single: exact, compact: exact },
+        lock: lock?.rows,
+      },
+    )
+    return { fit: { layout, area, fraction: 1 }, boost }
+  }
+  if (a.lock) {
+    const boost = a.lock.boost
+    return boost === undefined ? null : build(boost, a.lock)
+  }
+  let limit: number | undefined
+  for (const boost of BOOST_STEPS) {
+    const trial = build(boost, undefined)
+    if (!trial || trial.fit.layout.overflow) continue
+    const base = normal().layout
+    // いつもの組み方の方が大きければ（曲がごく少ないとき）大きくしない
+    if (base.size >= trial.fit.layout.size) return null
+    limit ??= clippedCount(base)
+    if (clippedCount(trial.fit.layout) <= limit) return trial
+  }
+  return null
+}
+
 /** 下寄せにしたときの行のずらし量（曲の塊の下端を領域の下端にそろえる） */
 function bottomOffset(layout: RowsLayout, area: Rect): number {
   const used =
@@ -170,34 +274,60 @@ export function renderPhoto(a: TemplateArgs): LayoutResult {
   const wide = isWide(frame)
   const fonts = trackFonts(ctx)
 
-  // 見出し（幕の区域 0）
-  ctx.zone = 0
-  const headerH =
+  const header = (target: Ctx, boost: number) =>
     page.index > 0
-      ? drawPageHeader(ctx, meta, inner, page, { rule: false })
+      ? drawPageHeader(target, meta, inner, page, { rule: false })
       : drawPhotoHeader(
-          ctx,
+          target,
           meta,
           wide ? { ...inner, w: inner.w * 0.72 } : inner,
+          boost,
         )
+  const footer = ctx.display.credit ? 44 * s : 0
+  const labelH = 52 * s
+  const headerGap = (wide ? 36 : 120) * s
+  // 横長は左の 7 割強に組む（2 段にできる幅）
+  const colW = wide ? Math.round(inner.w * 0.72) : inner.w
+  const bottom = inner.y + inner.h - footer
+
+  const topFor = (boost: number) =>
+    inner.y +
+    measureHeight(ctx, (dry) => header(dry, boost)) +
+    headerGap +
+    labelH
+  const fractions = a.photoBg ? PHOTO_FRACTIONS : PHOTO_FRACTIONS.slice(2)
+  // いつもの組み方: 読める大きさで全曲入る、いちばん低い曲の領域
+  let normalFit: BottomFit | undefined
+  const normal = () =>
+    (normalFit ??= fitBottomList(
+      ctx,
+      a,
+      { x: inner.x, w: colW, top: topFor(0), bottom },
+      fonts,
+      fractions,
+      { maxColumns: 2, spread: 0.3 },
+    ))
+
+  // 曲が少なければ、見出しと曲を一回り大きくする（横長は高さが無いのでしない）
+  const boosted = wide
+    ? null
+    : fitBoostedList(
+        ctx,
+        a,
+        { x: inner.x, w: colW, bottom },
+        topFor,
+        fonts,
+        normal,
+      )
+  const boost = boosted?.boost
+
+  // 見出し（幕の区域 0）
+  ctx.zone = 0
+  const headerH = header(ctx, boost ?? 0)
   const headerBottom = inner.y + headerH
 
   // 曲（幕の区域 1）
-  const footer = ctx.display.credit ? 44 * s : 0
-  const labelH = 52 * s
-  // 横長は左の 7 割強に組む（2 段にできる幅）
-  const colW = wide ? Math.round(inner.w * 0.72) : inner.w
-  const column = {
-    x: inner.x,
-    w: colW,
-    top: headerBottom + (wide ? 36 : 120) * s + labelH,
-    bottom: inner.y + inner.h - footer,
-  }
-  const fractions = a.photoBg ? PHOTO_FRACTIONS : PHOTO_FRACTIONS.slice(2)
-  const fit = fitBottomList(ctx, a, column, fonts, fractions, {
-    maxColumns: 2,
-    spread: 0.3,
-  })
+  const fit = boosted?.fit ?? normal()
   const dy = bottomOffset(fit.layout, fit.area)
   const listTop = fit.area.y + dy
   ctx.zone = wide ? 0 : 1
@@ -206,12 +336,12 @@ export function renderPhoto(a: TemplateArgs): LayoutResult {
   const caption = [trackCountText(meta), setLengthText(meta)]
     .filter(Boolean)
     .join(' · ')
-  drawText(ctx, caption, column.x, listTop - 30 * s, lf, pal.muted)
-  hairline(ctx, column.x, listTop - 14 * s, colW, pal.rule)
+  drawText(ctx, caption, inner.x, listTop - 30 * s, lf, pal.muted)
+  hairline(ctx, inner.x, listTop - 14 * s, colW, pal.rule)
   drawRows(ctx, fit.layout, rowColors(ctx, { title: pal.muted }), {
     offsetY: dy,
   })
-  drawCredit(ctx, column.x, inner.y + inner.h, 'left')
+  drawCredit(ctx, inner.x, inner.y + inner.h, 'left')
 
   // 幕: 下（横長は左）からの滑らかなグラデーション。見出しの側にも薄い幕
   const textTop = listTop - 30 * s - labelSize(ctx)
@@ -232,7 +362,10 @@ export function renderPhoto(a: TemplateArgs): LayoutResult {
         },
       ]
   const result = fromRows(fit.layout, { scrim })
-  return { ...result, lock: { ...result.lock, variant: fit.fraction } }
+  return {
+    ...result,
+    lock: { ...result.lock, variant: fit.fraction, boost },
+  }
 }
 
 // ---------------------------------------------------------------------------
