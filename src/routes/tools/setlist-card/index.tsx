@@ -14,7 +14,12 @@ import {
   saveMyPalettes,
 } from './-lib/my-palettes'
 import { autoCandidate, buildCandidates } from './-lib/palette-extract'
-import { DEFAULT_PALETTE_ID, PRESET_PALETTES, getPreset } from './-lib/palettes'
+import {
+  DEFAULT_PALETTE_ID,
+  PRESET_PALETTES,
+  getPreset,
+  sameColors,
+} from './-lib/palettes'
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
@@ -108,7 +113,13 @@ function SetlistCardPage() {
     setStyle((prev) => templateStyle(next, prev))
   }, [])
   const [sizeId, setSizeId] = useState<CanvasSize['id']>('portrait')
-  const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE)
+  const [palette, setPaletteState] = useState<Palette>(DEFAULT_PALETTE)
+  // 自分でパレットを選んだか（まだなら、写真を入れたときに「写真から自動」にする）
+  const paletteTouched = useRef(false)
+  const setPalette = useCallback((next: Palette) => {
+    paletteTouched.current = true
+    setPaletteState(next)
+  }, [])
   const [myPalettes, setMyPalettes] = useState<Array<Palette>>(() =>
     loadMyPalettes(),
   )
@@ -137,6 +148,13 @@ function SetlistCardPage() {
     const base = candidates.find((c) => c.candidate === id) ?? candidates[0]
     return { ...base, id: 'photo-auto', name: '写真から自動' }
   }, [photo, candidates])
+
+  // 「写真から自動」を選んでいるときに写真を差し替えたら、新しい写真の配色にする
+  useEffect(() => {
+    if (palette.id === 'photo-auto' && photoAuto && palette !== photoAuto) {
+      if (!sameColors(palette, photoAuto)) setPaletteState(photoAuto)
+    }
+  }, [palette, photoAuto])
 
   const updateMyPalettes = (next: Array<Palette>): boolean => {
     setMyPalettes(next)
@@ -215,6 +233,13 @@ function SetlistCardPage() {
       // いちばんの使い方（写真を背景にセトリを重ねる）に合わせて、
       // まだテンプレートを選んでいなければフォトにする
       if (!layoutTouched.current) setLayout('photo', false)
+      if (!paletteTouched.current) {
+        const fresh = buildCandidates(loaded.swatches)
+        const id = autoCandidate(loaded.swatches)
+        const auto = fresh.find((c) => c.candidate === id)
+        if (auto)
+          setPaletteState({ ...auto, id: 'photo-auto', name: '写真から自動' })
+      }
       setPhotoSettings((prev) => ({
         ...DEFAULT_PHOTO_SETTINGS,
         mode: prev.mode,

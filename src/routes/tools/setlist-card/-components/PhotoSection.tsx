@@ -170,19 +170,25 @@ export function PhotoSection({
                     '画面いっぱいに敷いて文字を重ねる',
                   ],
                 ] as const
-              ).map(([mode, name, note]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={settings.mode === mode}
-                  disabled={mode === 'block' && !template.photoBlock}
-                  className={`${choiceClass(settings.mode === mode)} disabled:cursor-not-allowed disabled:opacity-35`}
-                  onClick={() => set({ mode })}
-                >
-                  <span className="font-semibold">{name}</span>
-                  <span className="text-xs text-gray-400">{note}</span>
-                </button>
-              ))}
+              ).map(([mode, name, note]) => {
+                // 写真枠に対応しないテンプレートでは、常に全面背景として見せる
+                const active = template.photoBlock
+                  ? settings.mode === mode
+                  : mode === 'background'
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={mode === 'block' && !template.photoBlock}
+                    className={`${choiceClass(active)} disabled:cursor-not-allowed disabled:opacity-35`}
+                    onClick={() => set({ mode })}
+                  >
+                    <span className="font-semibold">{name}</span>
+                    <span className="text-xs text-gray-400">{note}</span>
+                  </button>
+                )
+              })}
             </div>
             {!template.photoBlock ? (
               <p className="text-xs text-gray-500">
