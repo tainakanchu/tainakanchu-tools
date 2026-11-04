@@ -262,14 +262,18 @@ function drawInkStarved(
   const widths = lines.map((l) => ctx.measure(l, f))
   const w = Math.ceil(Math.max(1, ...widths) + size * 0.2)
   const h = Math.ceil(lh * (lines.length - 1) + size * 1.3)
+  // 下描きの canvas は書き出しの倍率で作る（点と筋の数・位置は論理 px で決めるので、
+  // 縮めれば 1x と同じかすれになる）
+  const k = ctx.scale
   const off = document.createElement('canvas')
-  off.width = w
-  off.height = h
+  off.width = Math.ceil(w * k)
+  off.height = Math.ceil(h * k)
   const oc = off.getContext('2d')
   if (!oc) {
     lines.forEach((line, i) => drawText(ctx, line, x, y + i * lh, f, color))
     return
   }
+  oc.scale(k, k)
   const octx: Ctx = { ...ctx, c: oc, boxes: null }
   lines.forEach((line, i) =>
     drawText(octx, line, 0, size * 0.95 + i * lh, f, color),
@@ -289,7 +293,7 @@ function drawInkStarved(
     oc.globalAlpha = 0.08 + rand() * 0.12
     oc.fillRect(0, rand() * h, w, (0.6 + rand() * 1.6) * (ctx.W / 1080))
   }
-  c.drawImage(off, x, y - size * 0.95)
+  c.drawImage(off, x, y - size * 0.95, off.width / k, off.height / k)
 }
 
 /** コピーの見出し（幅を詰めた太いグロテスク） */

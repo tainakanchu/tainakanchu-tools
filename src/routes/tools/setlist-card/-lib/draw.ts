@@ -78,8 +78,15 @@ export type TextBox = Rect & { zone: number }
 
 export type Ctx = {
   c: CanvasRenderingContext2D
+  /** 論理 px の幅と高さ（書き出しの倍率に関係なく 4:5 なら 1080×1350） */
   W: number
   H: number
+  /**
+   * 書き出しの倍率（canvas の画素 / 論理 px）。c には scale が掛かっているので、
+   * ふだんは論理 px のまま描けばよい。shadowBlur・filter・画素を直接作る加工だけ
+   * これで装置の px に直す。
+   */
+  scale: number
   /** 旧テンプレートの単位（短辺 1080px 基準） */
   u: number
   /** 新テンプレートの単位（幅 1080px 基準。横長は高さで抑える） */
@@ -301,7 +308,10 @@ export function measureHeight(ctx: Ctx, draw: (dry: Ctx) => number): number {
   return draw({ ...ctx, c: scratchContext(), boxes: null })
 }
 
-/** 罫線（細線は出力幅 1080px で 1px） */
+/**
+ * 罫線（細線は出力幅 1080px で 1px）。太さも位置の丸めも論理 px なので、
+ * 2x では 2 画素の線になり、縮めれば 1x と同じ線になる。
+ */
 export function hairline(
   ctx: Ctx,
   x: number,
@@ -500,12 +510,17 @@ function getGrainTile(): HTMLCanvasElement {
   return canvas
 }
 
-/** 粒子を全体（文字の上にも）に重ねる。opacity は 0.06〜0.12 程度 */
+/**
+ * 粒子を全体（文字の上にも）に重ねる。opacity は 0.06〜0.12 程度。
+ * 粒は論理 1px（2x なら 2×2 画素）を補間せずに敷く。装置の 1px にすると、縮めたときに
+ * 4 粒が平均されて粒立ちが半分になり、1x と見え方が変わってしまうため。
+ */
 export function drawGrain(ctx: Ctx, opacity: number) {
   const { c, W, H } = ctx
   const pattern = c.createPattern(getGrainTile(), 'repeat')
   if (!pattern) return
   c.save()
+  c.imageSmoothingEnabled = false
   c.globalAlpha = opacity
   c.fillStyle = pattern
   c.fillRect(0, 0, W, H)

@@ -297,7 +297,8 @@ function SetlistCardPage() {
           <p className="max-w-3xl text-sm leading-relaxed text-gray-400">
             DJ ソフトの再生履歴を読み込んで、SNS
             にそのまま載せられるセトリ画像を作ります。曲名の直し・並べ替え・
-            テンプレートやパレットの切り替えをして、PNG で保存できます。
+            テンプレートやパレットの切り替えをして、PNG / JPEG
+            で保存できます（高解像度 2x にも対応）。
           </p>
         </header>
 

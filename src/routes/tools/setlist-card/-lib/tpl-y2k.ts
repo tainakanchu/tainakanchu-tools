@@ -18,6 +18,7 @@ import {
   isWide,
   rowColors,
 } from './draw'
+import { devicePx } from './export'
 import { ellipsize } from './fit'
 import { isDarkPalette } from './palettes'
 import { fitRowsLayout } from './rows'
@@ -75,7 +76,8 @@ function drawChrome(
     const by = y + i * lh
     // 暗いずらし影（1 つだけ・ぼかさない）
     drawText(ctx, line, x + 5 * s, by + 5 * s, f, shadow)
-    // 上端の白いハイライト（1px 上にずらして下に敷く）
+    // 上端の白いハイライト（1px 上にずらして下に敷く）。ずらし幅は論理 px なので
+    // 2x では 3 画素ぶんずれ、縮めれば 1x と同じ太さになる
     const boxes = ctx.boxes
     ctx.boxes = null
     drawText(ctx, line, x, by - Math.max(1, 1.5 * s), f, '#ffffff')
@@ -133,7 +135,8 @@ function drawLoadingBar(
   const glow = palette.glow ?? { color: pal.accent, alpha: 0.4 }
   c.save()
   c.shadowColor = `rgba(${hexToRgb(glow.color).map(Math.round).join(',')},${glow.alpha})`
-  c.shadowBlur = 0.008 * ctx.W
+  // shadowBlur は ctx.scale が効かないので、倍率を掛けて装置の px にする
+  c.shadowBlur = devicePx(0.008 * ctx.W, ctx.scale)
   c.fillStyle = pal.accent
   const inset = 4 * s
   const blockW = 14 * s

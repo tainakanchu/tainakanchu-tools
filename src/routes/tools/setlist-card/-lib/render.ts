@@ -1,7 +1,8 @@
 /**
  * セトリ画像を Canvas 2D に描く（入口）。
- * プレビューも書き出しも同じ関数・同じ解像度で描き、プレビューは CSS で縮めるだけ
- * にしているので、見たものと書き出した PNG が一致する。
+ * プレビューも書き出しも同じ関数・同じ論理 px のレイアウトで描く。書き出しだけ
+ * canvas を倍率ぶん大きくして ctx.scale を掛ける（devicePixelRatio と同じ）ので、
+ * 見たものと書き出した画像は、細かさが違うだけで同じ絵になる。
  *
  * テンプレート（構図と文字組み）とパレット（色の役割）は独立していて、
  * どのテンプレートもどのパレットで描ける。写真を全面に敷くときは、
@@ -275,6 +276,7 @@ function setupCtx(
   c: CanvasRenderingContext2D,
   input: RenderInput,
   onPhoto: boolean,
+  scale: number,
 ): Ctx {
   const { width: W, height: H } = input.size
   const safe = input.size.id === 'story' ? Math.round(H * 0.13) : 0
@@ -282,6 +284,7 @@ function setupCtx(
     c,
     W,
     H,
+    scale,
     u: Math.min(W, H) / 1080,
     s: Math.min(W, H * 1.6) / 1080,
     minFont: minLegibleFont(input.size),
@@ -339,12 +342,16 @@ function drawMaskedUnderlay(
   blurred: HTMLCanvasElement,
   zones: ReadonlyArray<ScrimZone>,
 ) {
-  const { W, H } = ctx
+  const { W, H, scale } = ctx
+  // 重ね用の canvas も書き出しの画素数で持つ（1x に戻れば縮め直す）
+  const pw = Math.round(W * scale)
+  const ph = Math.round(H * scale)
   underlay ??= document.createElement('canvas')
-  if (underlay.width !== W) underlay.width = W
-  if (underlay.height !== H) underlay.height = H
+  if (underlay.width !== pw) underlay.width = pw
+  if (underlay.height !== ph) underlay.height = ph
   const u = underlay.getContext('2d')
   if (!u) return
+  u.setTransform(scale, 0, 0, scale, 0, 0)
   for (const zone of zones) {
     u.globalCompositeOperation = 'source-over'
     u.clearRect(0, 0, W, H)
@@ -352,7 +359,7 @@ function drawMaskedUnderlay(
     u.globalCompositeOperation = 'destination-in'
     drawScrim({ ...ctx, c: u }, zone, '#000000', 1)
     u.globalCompositeOperation = 'source-over'
-    ctx.c.drawImage(underlay, 0, 0)
+    ctx.c.drawImage(underlay, 0, 0, W, H)
   }
 }
 
@@ -363,9 +370,10 @@ function paint(
   page: PageSpec,
   lock: PageLock | undefined,
   dry: boolean,
+  scale: number,
 ): PaintResult {
   const photoBg = input.photo !== null && mode === 'background'
-  const ctx = setupCtx(c, input, photoBg)
+  const ctx = setupCtx(c, input, photoBg, scale)
   const { W, H } = ctx
   // 写真枠は 1 枚目だけ（2 枚目以降は曲に場所を回す）
   const plan =
@@ -394,6 +402,8 @@ function paint(
   }
 
   c.save()
+  // 以降はすべて論理 px で描く（canvas は論理 px × scale の画素）
+  c.setTransform(scale, 0, 0, scale, 0, 0)
   c.clearRect(0, 0, W, H)
   c.fillStyle = ctx.pal.bg
   c.fillRect(0, 0, W, H)
@@ -414,7 +424,13 @@ function paint(
     tint === 'dither' ? ditherStops(input.palette) : duotoneStops(input.palette)
   if (photo && effect && photoBg) {
     photoRect = { x: 0, y: 0, w: W, h: H }
-    const processed = processedPhoto(photo.image, photoRect, effect, stops)
+    const processed = processedPhoto(
+      photo.image,
+      photoRect,
+      effect,
+      stops,
+      scale,
+    )
     c.drawImage(processed, 0, 0, W, H)
     // 下描きで文字の範囲を集め、その後ろの画素で幕の濃さと文字色を決める
     const probe: Ctx = { ...ctx, c: scratchContext(), boxes: [] }
@@ -422,18 +438,32 @@ function paint(
     if (!trial.solidText) {
       const zones: Array<ScrimZone> = trial.scrim ?? [{ edge: 'all' }]
       const uniform = zones.length === 1 && zones[0].edge === 'all'
-      let behind = processed
+      // 文字の後ろの画素は、倍率に関係なく 1x で加工した写真から測る（プレビューで
+      // 作ったものがキャッシュにあるので安く、書き出しの倍率で幕の濃さが変わらない）
+      let behind1x =
+        scale === 1
+          ? processed
+          : processedPhoto(photo.image, photoRect, effect, stops, 1)
       if (!uniform) {
         // 文字の下だけ写真を少しぼかす（幕を薄くできる）。幕と同じグラデーションで馴染ませる
-        behind = processedPhoto(
+        const underEffect = {
+          ...effect,
+          blur: Math.max(effect.blur, 6 * ctx.s),
+        }
+        const behind = processedPhoto(
           photo.image,
           photoRect,
-          { ...effect, blur: Math.max(effect.blur, 6 * ctx.s) },
+          underEffect,
           stops,
+          scale,
         )
         drawMaskedUnderlay(ctx, behind, zones)
+        behind1x =
+          scale === 1
+            ? behind
+            : processedPhoto(photo.image, photoRect, underEffect, stops, 1)
       }
-      const sampler = photoSampler(behind)
+      const sampler = photoSampler(behind1x)
       const samples = collectSamples(
         sampler.at,
         sampler.step,
@@ -466,7 +496,13 @@ function paint(
   }
   if (photo && effect && plan) {
     photoRect = plan.photo
-    const processed = processedPhoto(photo.image, plan.photo, effect, stops)
+    const processed = processedPhoto(
+      photo.image,
+      plan.photo,
+      effect,
+      stops,
+      scale,
+    )
     c.drawImage(
       processed,
       plan.photo.x,
@@ -507,6 +543,8 @@ function hiddenMetaOf(input: RenderInput, shown: number): Array<MetaKey> {
  * 1 枚描く。写真枠で曲があふれるときは、全面背景なら入るか試して切り替える
  * （複数枚に分ける設定のときはページで解決するので切り替えない）。
  * dry なら背景や写真を描かずに組み方だけ計算する（ページ数の試算用）。
+ * scale は書き出しの倍率。canvas は呼び出し側で論理 px × scale の大きさにしておく
+ * （組み方は倍率に関係なく同じ）。
  */
 export function renderPage(
   c: CanvasRenderingContext2D,
@@ -514,6 +552,7 @@ export function renderPage(
   page: PageSpec,
   lock?: PageLock,
   dry = false,
+  scale = 1,
 ): RenderInfo {
   const info = (
     r: PaintResult,
@@ -532,7 +571,7 @@ export function renderPage(
     photoContrast: r.photoContrast,
   })
   if (!input.photo)
-    return info(paint(c, input, null, page, lock, dry), null, false)
+    return info(paint(c, input, null, page, lock, dry, scale), null, false)
 
   let mode = input.photo.settings.mode
   let fallback = false
@@ -541,17 +580,17 @@ export function renderPage(
     // 写真枠に対応しないテンプレート（フォト）は、切り替えたとは言わない
     fallback = getTemplate(input.layout).photoBlock
   }
-  let r = paint(c, input, mode, page, lock, dry)
+  let r = paint(c, input, mode, page, lock, dry, scale)
   if (
     mode === 'block' &&
     r.overflow &&
     !input.split.enabled &&
     page.index === 0
   ) {
-    const alt = paint(c, input, 'background', page, lock, dry)
+    const alt = paint(c, input, 'background', page, lock, dry, scale)
     if (alt.overflow) {
       // 背景にしても入らないなら、写真枠のまま描き直す（ユーザーの選択を尊重）
-      r = paint(c, input, 'block', page, lock, dry)
+      r = paint(c, input, 'block', page, lock, dry, scale)
     } else {
       r = alt
       mode = 'background'

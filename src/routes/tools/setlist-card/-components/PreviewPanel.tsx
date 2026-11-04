@@ -8,6 +8,21 @@ import {
   Info,
   Share2,
 } from 'lucide-react'
+import {
+  DEFAULT_EXPORT_SCALE,
+  DEFAULT_FORMAT,
+  EXPORT_SCALES,
+  FORMAT_CHOICES,
+  JPEG_QUALITY,
+  MAX_EXPORT_LONG_SIDE,
+  X_IMAGE_LIMIT_BYTES,
+  effectiveScale,
+  exportFileName,
+  exportPixelSize,
+  formatBytes,
+  maxExportScale,
+  outputFormat,
+} from '../-lib/export'
 import { loadPendingFonts } from '../-lib/fonts'
 import { DEFAULT_PHOTO_SETTINGS, panDelta } from '../-lib/layouts'
 import {
@@ -17,13 +32,16 @@ import {
   resetMeasureCache,
 } from '../-lib/render'
 import {
+  choiceClass,
   iconButtonClass,
+  labelClass,
   primaryButtonClass,
   sectionClass,
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { ExportScale, FormatChoice, OutputFormat } from '../-lib/export'
 import type { PhotoSettings } from '../-lib/layouts'
 import type { PageLock, RenderInfo, RenderInput } from '../-lib/render'
 
@@ -35,12 +53,19 @@ type Props = {
   onEnableSplit: () => void
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  format: OutputFormat,
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('PNG を作れませんでした'))
-    }, 'image/png')
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('画像を作れませんでした'))
+      },
+      format.mime,
+      format.quality,
+    )
   })
 }
 
@@ -69,7 +94,7 @@ function canShareFiles(files: Array<File>): boolean {
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
 
-/** ポインター位置を書き出し解像度の座標にする */
+/** ポインター位置を論理 px の座標にする（プレビューの canvas は論理 px の大きさ） */
 function toCanvas(event: ReactPointerEvent<HTMLCanvasElement>) {
   const canvas = event.currentTarget
   const box = canvas.getBoundingClientRect()
@@ -79,13 +104,13 @@ function toCanvas(event: ReactPointerEvent<HTMLCanvasElement>) {
   }
 }
 
-/** 共有・保存用の PNG を先に作っておくまでの待ち時間 */
+/** 共有・保存用の画像を先に作っておくまでの待ち時間（高解像度は重いので長めに待つ） */
 const PREPARE_DELAY_MS = 300
 
 /**
- * プレビュー兼書き出し用の canvas（ページごとに 1 枚）。書き出しサイズそのままで描き、
- * CSS で縮めて見せる。複数枚のときは横スワイプのカルーセルにする（Instagram の
- * 複数枚投稿と同じ見え方）。
+ * プレビュー用の canvas（ページごとに 1 枚）。論理 px（1x）で描き、CSS で縮めて見せる。
+ * 書き出し（保存・共有）のときだけ、別の canvas に出力解像度の倍率で描き直す。
+ * 複数枚のときは横スワイプのカルーセルにする（Instagram の複数枚投稿と同じ見え方）。
  */
 export function PreviewPanel({
   input,
@@ -102,7 +127,12 @@ export function PreviewPanel({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [shareSupported] = useState(() => supportsFileShare())
-  /** 作り置きの PNG を canShare で確かめた結果 */
+  const [scaleChoice, setScaleChoice] =
+    useState<ExportScale>(DEFAULT_EXPORT_SCALE)
+  const [formatChoice, setFormatChoice] = useState<FormatChoice>(DEFAULT_FORMAT)
+  /** 作り置きの画像のファイルサイズ（作り終えるまで null） */
+  const [sizes, setSizes] = useState<Array<number> | null>(null)
+  /** 作り置きの画像を canShare で確かめた結果 */
   const [shareStatus, setShareStatus] = useState<'pending' | 'ok' | 'no'>(
     'pending',
   )
@@ -112,7 +142,8 @@ export function PreviewPanel({
     onRenderedRef.current = onRendered
   }, [onRendered])
 
-  // 描くたびに版を進め、先に作っておいた PNG が今の絵と一致するかを判定する
+  // 描くたびに（と出力解像度・形式を変えるたびに）版を進め、先に作っておいた画像が
+  // 今の絵・今の書き出し設定と一致するかを判定する
   const versionRef = useRef(0)
   const cacheRef = useRef<{ version: number; files: Array<File> } | null>(null)
 
@@ -171,27 +202,52 @@ export function PreviewPanel({
   const pages = plan.pages
   const planLock = plan.lock
 
+  const hasPhoto = input.photo !== null
+  const scale = effectiveScale(input.size, scaleChoice)
+  const maxScale = maxExportScale(input.size)
+  const format = outputFormat(hasPhoto, formatChoice)
+  const pixel = exportPixelSize(input.size, scale)
+  const exportKey = `${scale}|${format.mime}`
+  const prepareDelay = PREPARE_DELAY_MS * (scale > 1 ? 2 : 1)
+
   const fileNames = useMemo(
     () =>
       pages.map((_, i) =>
-        pages.length > 1
-          ? `${fileBaseName || 'setlist'}-${i + 1}.png`
-          : `${fileBaseName || 'setlist'}.png`,
+        exportFileName(fileBaseName, i, pages.length, format.ext),
       ),
-    [pages, fileBaseName],
+    [pages, fileBaseName, format.ext],
   )
 
-  const buildFiles = async (): Promise<Array<File>> => {
-    const canvases = pages.map((_, i) => canvasRefs.current[i])
-    const blobs = await Promise.all(
-      canvases.map((canvas) => {
-        if (!canvas) throw new Error('プレビューがまだ描けていません')
-        return canvasToBlob(canvas)
-      }),
-    )
-    return blobs.map(
-      (blob, i) => new File([blob], fileNames[i], { type: 'image/png' }),
-    )
+  /**
+   * 書き出し用の画像を作る。プレビューとは別の canvas に出力解像度で 1 枚ずつ描き、
+   * 画像にしてから次のページへ進む（大きな canvas を 1 枚しか持たない）。
+   * 途中で絵や設定が変わったら（isStale）やめて null を返す。
+   */
+  const buildFiles = async (
+    isStale: () => boolean = () => false,
+  ): Promise<Array<File> | null> => {
+    const canvas = document.createElement('canvas')
+    canvas.width = pixel.width
+    canvas.height = pixel.height
+    const c = canvas.getContext('2d')
+    if (!c) throw new Error('canvas の 2D コンテキストを取得できませんでした')
+    const files: Array<File> = []
+    // プレビューと同じく、ページ割りを決めたときの組み方で全ページを描く
+    let lock: PageLock | undefined = planLock
+    try {
+      for (const [i, page] of pages.entries()) {
+        if (isStale()) return null
+        const info = renderPage(c, input, page, lock, false, scale)
+        lock ??= info.lock
+        const blob = await canvasToBlob(canvas, format)
+        files.push(new File([blob], fileNames[i], { type: format.mime }))
+      }
+    } finally {
+      // 大きな canvas の画素をすぐに手放す
+      canvas.width = 0
+      canvas.height = 0
+    }
+    return isStale() ? null : files
   }
   const buildFilesRef = useRef(buildFiles)
   useEffect(() => {
@@ -224,27 +280,48 @@ export function PreviewPanel({
         resetMeasureCache()
         setFontEpoch((n) => n + 1)
       })
-      // 共有ボタンを押した瞬間に share() を呼べるよう、PNG を先に作っておく
+      // 共有ボタンを押した瞬間に share() を呼べるよう、画像を先に作っておく
       versionRef.current += 1
       setShareStatus('pending')
+      setSizes(null)
     })
     return () => cancelAnimationFrame(handle)
   }, [input, pages, planLock, fontEpoch])
 
+  // 出力解像度・形式を変えたら、作り置きの画像は使えない（下の作り置きより先に走らせる）
+  const exportKeyRef = useRef(exportKey)
+  useEffect(() => {
+    if (exportKeyRef.current === exportKey) return
+    exportKeyRef.current = exportKey
+    versionRef.current += 1
+    setShareStatus('pending')
+    setSizes(null)
+  }, [exportKey])
+
+  const remember = (version: number, files: Array<File>) => {
+    if (version !== versionRef.current) return
+    cacheRef.current = { version, files }
+    setSizes(files.map((f) => f.size))
+    setShareStatus(canShareFiles(files) ? 'ok' : 'no')
+  }
+  const rememberRef = useRef(remember)
+  useEffect(() => {
+    rememberRef.current = remember
+  })
+
   useEffect(() => {
     const version = versionRef.current
+    const stale = () => version !== versionRef.current
     const timer = window.setTimeout(() => {
-      void buildFilesRef.current().then(
+      void buildFilesRef.current(stale).then(
         (files) => {
-          if (version !== versionRef.current) return
-          cacheRef.current = { version, files }
-          setShareStatus(canShareFiles(files) ? 'ok' : 'no')
+          if (files) rememberRef.current(version, files)
         },
         () => undefined,
       )
-    }, PREPARE_DELAY_MS)
+    }, prepareDelay)
     return () => window.clearTimeout(timer)
-  }, [infos])
+  }, [infos, exportKey, prepareDelay])
 
   // ページ数が減ったら表示中のページを戻す
   useEffect(() => {
@@ -260,7 +337,13 @@ export function PreviewPanel({
     setBusy(true)
     setMessage(null)
     try {
-      const files = freshFiles() ?? (await buildFiles())
+      let files = freshFiles()
+      if (!files) {
+        const version = versionRef.current
+        files = await buildFiles()
+        if (!files) throw new Error('書き出しに失敗しました')
+        remember(version, files)
+      }
       let blob: Blob
       let name: string
       if (files.length === 1) {
@@ -271,7 +354,7 @@ export function PreviewPanel({
         for (const file of files) {
           entries[file.name] = new Uint8Array(await file.arrayBuffer())
         }
-        // PNG はすでに圧縮済みなので、zip では圧縮しない（速さ優先）
+        // PNG / JPEG はすでに圧縮済みなので、zip では圧縮しない（速さ優先）
         blob = new Blob([zipSync(entries, { level: 0 })], {
           type: 'application/zip',
         })
@@ -305,9 +388,9 @@ export function PreviewPanel({
       const version = versionRef.current
       void buildFiles()
         .then((built) => {
-          cacheRef.current = { version, files: built }
+          if (!built) throw new Error('stale')
+          remember(version, built)
           const ok = canShareFiles(built)
-          setShareStatus(ok ? 'ok' : 'no')
           setMessage(
             ok
               ? '準備できました。もう一度押してください'
@@ -343,6 +426,14 @@ export function PreviewPanel({
   const multi = pages.length > 1
   const perPage = Math.round(input.setlist.tracks.length / pages.length)
   const { width: W, height: H } = input.size
+  const formatLabel = format.ext === 'jpg' ? 'JPEG' : 'PNG'
+  const totalBytes = sizes ? sizes.reduce((a, b) => a + b, 0) : 0
+  const largest = sizes ? Math.max(0, ...sizes) : 0
+  const tooLarge = largest > X_IMAGE_LIMIT_BYTES
+  const sizeTips = [
+    hasPhoto && format.ext === 'png' ? '形式を JPEG にする' : '',
+    scale > 1 ? '出力解像度を「標準」にする' : '',
+  ].filter(Boolean)
 
   return (
     <section className={`${sectionClass} space-y-4`}>
@@ -484,7 +575,17 @@ export function PreviewPanel({
       ) : null}
 
       <p className="text-center font-mono text-xs text-gray-500">
-        {W}×{H} px{multi ? ` × ${pages.length} 枚` : ''}
+        {pixel.width}×{pixel.height} px{multi ? ` × ${pages.length} 枚` : ''}
+        {' · '}
+        {formatLabel}
+        {' · '}
+        <span aria-live="polite">
+          {sizes
+            ? multi
+              ? `合計 ${formatBytes(totalBytes)}（最大 ${formatBytes(largest)}/枚）`
+              : formatBytes(totalBytes)
+            : 'サイズを計算中…'}
+        </span>
       </p>
 
       {multi ? (
@@ -534,6 +635,89 @@ export function PreviewPanel({
         </div>
       ) : null}
 
+      <div className="space-y-3">
+        <fieldset className="space-y-2">
+          <legend className={labelClass}>出力解像度</legend>
+          <div className="grid grid-cols-3 gap-2">
+            {EXPORT_SCALES.map((option) => {
+              const disabled = option.value > maxScale
+              const px = exportPixelSize(input.size, option.value)
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={scale === option.value}
+                  className={`${choiceClass(scale === option.value)} disabled:cursor-not-allowed disabled:opacity-40`}
+                  disabled={disabled}
+                  title={
+                    disabled
+                      ? `このサイズでは長辺が ${MAX_EXPORT_LONG_SIDE}px を超えるため選べません`
+                      : undefined
+                  }
+                  onClick={() => setScaleChoice(option.value)}
+                >
+                  <span className="font-semibold">
+                    {option.label}{' '}
+                    <span className="font-normal text-gray-400">
+                      {option.value}x
+                    </span>
+                  </span>
+                  <span className="font-mono text-[11px] text-gray-500">
+                    {px.width}×{px.height}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-500">
+            プレビューは標準のまま。保存・共有のときだけ選んだ解像度で描き直します
+            {maxScale < 3
+              ? `（最高 3x は長辺 ${MAX_EXPORT_LONG_SIDE}px までのサイズだけ）`
+              : ''}
+            。
+          </p>
+        </fieldset>
+
+        {hasPhoto ? (
+          <fieldset className="space-y-2">
+            <legend className={labelClass}>形式</legend>
+            <div className="grid grid-cols-3 gap-2">
+              {FORMAT_CHOICES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={formatChoice === option.value}
+                  className={choiceClass(formatChoice === option.value)}
+                  onClick={() => setFormatChoice(option.value)}
+                >
+                  <span className="font-semibold">{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              自動は写真が入っているので JPEG（品質{' '}
+              {Math.round(JPEG_QUALITY * 100)}%）。PNG
+              は劣化しませんが、写真入りだと数 MB になります。
+            </p>
+          </fieldset>
+        ) : null}
+      </div>
+
+      {tooLarge ? (
+        <p className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            {`${multi ? '1 枚あたり' : '画像が'} 5MB を超えています（${formatBytes(largest)}）。`}
+            {
+              'X（旧 Twitter）では再圧縮されたり、投稿できなかったりすることがあります。'
+            }
+            {sizeTips.length > 0
+              ? `${sizeTips.join('か、')}と小さくなります。`
+              : ''}
+          </span>
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -542,7 +726,7 @@ export function PreviewPanel({
           disabled={busy}
         >
           <Download size={16} aria-hidden />
-          {multi ? `ZIP で保存（${pages.length} 枚）` : 'PNG を保存'}
+          {multi ? `ZIP で保存（${pages.length} 枚）` : `${formatLabel} を保存`}
         </button>
         {shareSupported ? (
           <button
