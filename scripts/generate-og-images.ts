@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,mic,headphones,audio-lines}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,mic,headphones,audio-lines,disc-3,list-music,image}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -262,6 +262,30 @@ const ICONS = {
       ['path', { d: 'M22 10v3' }],
     ],
   },
+  'disc-3': {
+    all: [
+      ['circle', { cx: '12', cy: '12', r: '10' }],
+      ['path', { d: 'M6 12c0-1.7.7-3.2 1.8-4.2' }],
+      ['circle', { cx: '12', cy: '12', r: '2' }],
+      ['path', { d: 'M18 12c0 1.7-.7 3.2-1.8 4.2' }],
+    ],
+  },
+  'list-music': {
+    all: [
+      ['path', { d: 'M16 5H3' }],
+      ['path', { d: 'M11 12H3' }],
+      ['path', { d: 'M11 19H3' }],
+      ['path', { d: 'M21 16V5' }],
+      ['circle', { cx: '18', cy: '16', r: '3' }],
+    ],
+  },
+  image: {
+    all: [
+      ['rect', { width: '18', height: '18', x: '3', y: '3', rx: '2', ry: '2' }],
+      ['circle', { cx: '9', cy: '9', r: '2' }],
+      ['path', { d: 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21' }],
+    ],
+  },
 } as const satisfies Record<string, IconParts>
 
 type IconName = keyof typeof ICONS
@@ -490,6 +514,43 @@ const CARDS: ReadonlyArray<CardDef> = [
         cx: 1055,
         cy: 185,
         size: 80,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'setlist-card',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'セトリ画像', y: 300 },
+      { text: 'メーカー', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'disc-3',
+        part: 'all',
+        cx: 940,
+        cy: 300,
+        size: 195,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'image',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 105,
+        rotate: -9,
+        color: 'sub',
+      },
+      {
+        icon: 'list-music',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 76,
         rotate: 0,
         color: 'accent',
       },

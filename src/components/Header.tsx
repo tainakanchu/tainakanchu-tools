@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
   Dices,
+  Disc3,
   Drum,
   ExternalLink,
   Home,
@@ -28,6 +29,7 @@ const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,
+  'setlist-card': Disc3,
   'taiwan-arrival-card': PlaneLanding,
   'magnify-image': ZoomIn,
   'online-roulette': Dices,

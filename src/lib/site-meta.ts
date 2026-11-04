@@ -114,6 +114,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     ogImagePath: '/assets/og/drum-roll.png',
     category: 'event',
   },
+  {
+    slug: 'setlist-card',
+    name: 'セトリ画像メーカー',
+    description:
+      'rekordbox・Traktor・Serato の再生履歴を読み込んで、SNS にそのまま載せられるセトリ画像を PNG で作れるブラウザ完結ツール。',
+    path: '/tools/setlist-card',
+    ogImagePath: '/assets/og/setlist-card.png',
+    category: 'event',
+  },
 ]
 
 /**
@@ -152,7 +161,7 @@ const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
     'meeting-recorder',
     'magnify-image',
   ],
-  event: ['drum-roll', 'online-roulette'],
+  event: ['drum-roll', 'setlist-card', 'online-roulette'],
 }
 
 function sortByCategoryOrder(
