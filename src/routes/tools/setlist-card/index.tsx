@@ -23,8 +23,21 @@ import {
 } from './-lib/palettes'
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
+import { mulberry32 } from './-lib/random'
 import { DEFAULT_REDACT } from './-lib/redact'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
+import {
+  EMPTY_HISTORY,
+  afterShuffle,
+  canGoBack,
+  canGoForward,
+  comboKey,
+  goBack,
+  goForward,
+  pushRecent,
+  randomLayouts,
+  shuffleDesign,
+} from './-lib/shuffle'
 import { templateStyle } from './-lib/tpl-common'
 import { createTrackId } from './-lib/types'
 import type {
@@ -33,8 +46,10 @@ import type {
   LayoutId,
   PhotoSettings,
 } from './-lib/layouts'
+import type { ShuffleActions } from './-components/ShuffleControls'
 import type { Palette } from './-lib/palettes'
 import type { RedactOptions } from './-lib/redact'
+import type { Design, DesignHistory, ShuffleLocks } from './-lib/shuffle'
 import type { LoadedPhoto } from './-lib/photo'
 import type {
   DisplayOptions,
@@ -247,6 +262,64 @@ function SetlistCardPage() {
     }
   }
 
+  // ランダム: テンプレート × パレット × 文字組みだけを選び直す（曲・サイズ・写真の位置などは触らない）
+  const [locks, setLocks] = useState<ShuffleLocks>({
+    layout: false,
+    palette: false,
+  })
+  const [history, setHistory] = useState<DesignHistory>(EMPTY_HISTORY)
+  const [recent, setRecent] = useState<Array<string>>([])
+  const rngRef = useRef(mulberry32(Date.now() % 2147483647))
+  const design: Design = { layout, palette, style }
+  const applyDesign = (next: Design) => {
+    layoutTouched.current = true
+    paletteTouched.current = true
+    setLayoutState(next.layout)
+    setStyle(next.style)
+    setPaletteState(next.palette)
+  }
+  const handleShuffle = () => {
+    const next = shuffleDesign(design, {
+      locks,
+      layouts: randomLayouts(photo !== null, photoSettings.mode === 'block'),
+      presets: PRESET_PALETTES,
+      photoPalettes: candidates,
+      recent,
+      rng: rngRef.current,
+    })
+    if (!next) return
+    setHistory(afterShuffle(history, design, next))
+    setRecent(
+      pushRecent(
+        recent,
+        comboKey(design.layout, design.palette),
+        comboKey(next.layout, next.palette),
+      ),
+    )
+    applyDesign(next)
+  }
+  const handleBack = () => {
+    const r = goBack(history, design)
+    if (!r) return
+    setHistory(r.history)
+    applyDesign(r.design)
+  }
+  const handleForward = () => {
+    const r = goForward(history, design)
+    if (!r) return
+    setHistory(r.history)
+    applyDesign(r.design)
+  }
+  const shuffleProps: ShuffleActions = {
+    onShuffle: handleShuffle,
+    onBack: handleBack,
+    onForward: handleForward,
+    canBack: canGoBack(history, design),
+    canForward: canGoForward(history, design),
+    locks,
+    onLocksChange: setLocks,
+  }
+
   const size = getSize(sizeId)
   const input: RenderInput = useMemo(
     () => ({
@@ -333,6 +406,7 @@ function SetlistCardPage() {
               }
             />
             <DesignSection
+              shuffle={shuffleProps}
               layout={layout}
               onLayoutChange={setLayout}
               sizeId={sizeId}
@@ -388,6 +462,7 @@ function SetlistCardPage() {
 
           <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
             <PreviewPanel
+              shuffle={shuffleProps}
               input={input}
               fileBaseName={fileBaseName({
                 title: setlist.title,

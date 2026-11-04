@@ -40,14 +40,18 @@ import {
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
+import { ShuffleControls } from './ShuffleControls'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { ExportScale, FormatChoice, OutputFormat } from '../-lib/export'
 import type { PhotoSettings } from '../-lib/layouts'
 import type { PageLock, RenderInfo, RenderInput } from '../-lib/render'
+import type { ShuffleActions } from './ShuffleControls'
 
 type Props = {
   input: RenderInput
   fileBaseName: string
+  /** 見出しの横に置くランダム（おまかせ）の操作 */
+  shuffle: ShuffleActions
   onRendered: (info: RenderInfo) => void
   onPhotoSettingsChange: (settings: PhotoSettings) => void
   onEnableSplit: () => void
@@ -113,6 +117,7 @@ const PREPARE_DELAY_MS = 300
  * 複数枚のときは横スワイプのカルーセルにする（Instagram の複数枚投稿と同じ見え方）。
  */
 export function PreviewPanel({
+  shuffle,
   input,
   fileBaseName,
   onRendered,
@@ -439,8 +444,11 @@ export function PreviewPanel({
 
   return (
     <section className={`${sectionClass} space-y-4`}>
-      <div className="flex items-center justify-between gap-2">
-        <h2 className={sectionTitleClass}>プレビュー</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className={sectionTitleClass}>プレビュー</h2>
+          <ShuffleControls variant="compact" {...shuffle} />
+        </div>
         {multi ? (
           <div className="flex items-center gap-1.5">
             <button

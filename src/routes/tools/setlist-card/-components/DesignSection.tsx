@@ -8,9 +8,11 @@ import {
   sectionTitleClass,
 } from '../-lib/styles'
 import { PalettePicker } from './PalettePicker'
+import { ShuffleControls } from './ShuffleControls'
 import { TemplatePicker } from './TemplatePicker'
 import type { CanvasSize, ColumnsSetting, LayoutId } from '../-lib/layouts'
 import type { Palette } from '../-lib/palettes'
+import type { ShuffleActions } from './ShuffleControls'
 import type {
   DisplayOptions,
   RenderInput,
@@ -20,6 +22,8 @@ import type {
 } from '../-lib/render'
 
 type Props = {
+  /** ランダム（おまかせ）と戻る / 進む */
+  shuffle: ShuffleActions
   layout: LayoutId
   onLayoutChange: (layout: LayoutId) => void
   sizeId: CanvasSize['id']
@@ -67,6 +71,7 @@ const TOGGLES: ReadonlyArray<{ key: keyof DisplayOptions; label: string }> = [
 ]
 
 export function DesignSection({
+  shuffle,
   layout,
   onLayoutChange,
   sizeId,
@@ -102,6 +107,7 @@ export function DesignSection({
       </h2>
 
       <div className="mt-4 space-y-5">
+        <ShuffleControls variant="full" {...shuffle} />
         <div className="space-y-2">
           <TemplatePicker
             layout={layout}
