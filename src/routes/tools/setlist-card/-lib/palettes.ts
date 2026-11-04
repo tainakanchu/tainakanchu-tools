@@ -175,8 +175,8 @@ export const PRESET_PALETTES: ReadonlyArray<Palette> = [
     scrimMax: 0.75,
   },
   {
-    id: 'y2k-ice',
-    name: 'Y2K アイス',
+    id: 'ice',
+    name: 'アイス',
     bg: '#dde3ea',
     fg: '#0b1020',
     muted: '#4f5c70',
@@ -194,8 +194,8 @@ export const PRESET_PALETTES: ReadonlyArray<Palette> = [
     glow: { color: '#9fb4ff', alpha: 0.4 },
   },
   {
-    id: 'y2k-night',
-    name: 'Y2K ナイト',
+    id: 'midnight',
+    name: 'ミッドナイト',
     bg: '#07090f',
     fg: '#e9eef5',
     muted: '#7c889a',
@@ -214,11 +214,6 @@ export const PRESET_PALETTES: ReadonlyArray<Palette> = [
     glow: { color: '#b6ff3b', alpha: 0.35 },
   },
 ]
-
-/** Y2K 用のパレット（一覧ではシンプルなものの後ろに出す） */
-export function isY2kPalette(p: { id: string }): boolean {
-  return p.id.startsWith('y2k-')
-}
 
 export const DEFAULT_PALETTE_ID = 'ink'
 

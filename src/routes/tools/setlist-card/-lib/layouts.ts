@@ -115,7 +115,7 @@ export const LAYOUTS: ReadonlyArray<TemplateMeta> = [
   {
     id: 'y2k',
     name: 'Y2K',
-    note: 'クロームの見出しとウィンドウ。Y2K ナイト向け',
+    note: 'クロームの見出しとウィンドウ。アイスやミッドナイトと好相性',
     group: 'theme',
     family: 'sans',
     grain: false,

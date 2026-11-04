@@ -7,7 +7,6 @@ import {
   PRESET_PALETTES,
   ROLE_LABELS,
   contrastReport,
-  isY2kPalette,
 } from '../-lib/palettes'
 import {
   choiceClass,
@@ -113,8 +112,6 @@ export function PalettePicker({
     Partial<Record<PaletteRole, string>>
   >({})
 
-  const simple = PRESET_PALETTES.filter((p) => !isY2kPalette(p))
-  const y2k = PRESET_PALETTES.filter((p) => isY2kPalette(p))
   const report = contrastReport(palette)
 
   const edit = (role: PaletteRole, hex: string) =>
@@ -150,7 +147,7 @@ export function PalettePicker({
             label="写真から自動"
           />
         ) : null}
-        {simple.map((p) => (
+        {PRESET_PALETTES.map((p) => (
           <PaletteButton
             key={p.id}
             palette={p}
@@ -158,19 +155,6 @@ export function PalettePicker({
             onClick={() => onChange(p)}
           />
         ))}
-      </div>
-      <div className="space-y-1.5">
-        <p className="text-xs text-gray-500">Y2K（Y2K テンプレート向け）</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {y2k.map((p) => (
-            <PaletteButton
-              key={p.id}
-              palette={p}
-              active={palette.id === p.id}
-              onClick={() => onChange(p)}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="space-y-1.5">
