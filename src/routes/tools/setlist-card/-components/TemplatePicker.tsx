@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { withoutNewCjkFonts } from '../-lib/fonts'
 import { LAYOUTS } from '../-lib/layouts'
 import { renderPage, resetMeasureCache } from '../-lib/render'
 import { createSampleSetlist } from '../-lib/sample'
@@ -68,13 +69,17 @@ function Thumb({
         display: { ...input.display, credit: false },
       }
       try {
-        renderPage(
-          c,
-          thumbInput,
-          { index: 0, count: 1, start: 0, end },
-          undefined,
-          false,
-          scale,
+        // 中国語・韓国語の書体は本体の画像で読んだものだけ使う（サムネのためだけに
+        // 明朝などの分割ファイルを読まない。読んでいない書体は OS の書体で描く）
+        withoutNewCjkFonts(() =>
+          renderPage(
+            c,
+            thumbInput,
+            { index: 0, count: 1, start: 0, end },
+            undefined,
+            false,
+            scale,
+          ),
         )
       } catch {
         // 見本が描けなくても本体には影響させない

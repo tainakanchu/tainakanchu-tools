@@ -49,7 +49,21 @@ const CJK_FAMILIES: Record<CjkRole, Record<CjkScript, string>> = {
   },
 }
 
-/** 体系ごとの CJK 書体の順（先頭が選んだ書体、残りは字が無いときの控え） */
+/**
+ * 体系ごとの CJK の Web フォントの順（先頭が選んだ書体、残りは字が無いときの控え）。
+ * 中国語・韓国語の文字列には和文の書体を入れない: その CSS を読む前の 1 回目の
+ * 描画で、ブラウザーが漢字を和文の書体で描こうとして、使わない分割ファイルを
+ * 大量に読んでしまうため（Noto の TC / SC はかなも持っているので、控えは要らない）。
+ */
+const CJK_WEB_ORDER: Record<Script, ReadonlyArray<CjkScript>> = {
+  latin: ['ja', 'zh-hant', 'zh-hans', 'ko'],
+  ja: ['ja', 'zh-hant', 'zh-hans', 'ko'],
+  'zh-hant': ['zh-hant', 'zh-hans'],
+  'zh-hans': ['zh-hans', 'zh-hant'],
+  ko: ['ko', 'zh-hant', 'zh-hans'],
+}
+
+/** 体系ごとの CJK の OS 標準フォントの順（入っているものを使うだけなので全部並べる） */
 const CJK_ORDER: Record<Script, ReadonlyArray<CjkScript>> = {
   latin: ['ja', 'zh-hant', 'zh-hans', 'ko'],
   ja: ['ja', 'zh-hant', 'zh-hans', 'ko'],
@@ -155,9 +169,24 @@ function defFor(stack: FontStack, script: Script): StackDef {
 /** スタックに並ぶ Web フォント（先頭から順に） */
 export function webFamilies(stack: FontStack, script: Script): Array<string> {
   const def = defFor(stack, script)
-  const cjk = CJK_ORDER[script].map((s) => CJK_FAMILIES[def.cjk][s])
-  // 欧文の書体が先頭にあれば、その後ろに足りない欧文、CJK の順。
-  // 明朝のように欧文の書体が無ければ、選んだ CJK 書体を先頭にする
+  const cjk = CJK_WEB_ORDER[script].map((s) => CJK_FAMILIES[def.cjk][s])
+  // 和文・欧文の文字列は、欧文の書体の後ろに足りない欧文（ギリシャ文字など）、CJK の順。
+  // 明朝のように欧文の書体が無ければ、選んだ和文の書体（の欧文）を先頭にする。
+  // 中国語・韓国語の文字列は、欧文の書体に無い字も選んだ CJK 書体で描く（CSS を
+  // 読む前の 1 回目の描画で、控えの Noto Sans / Serif を余分に読まないよう後ろに回す）
+  const cjkFirst =
+    script === 'zh-hant' || script === 'zh-hans' || script === 'ko'
+  if (cjkFirst) {
+    // 明朝の中国語・韓国語の文字列の欧文は Noto Serif で描く（Noto Serif TC などは
+    // ē のような声調記号つきの字を持たず、記号の位置がずれるため）
+    const head = def.head.length > 0 ? def.head : [def.extra]
+    return [
+      ...head,
+      ...cjk,
+      ...(head.includes(def.extra) ? [] : [def.extra]),
+      THAI,
+    ]
+  }
   const families =
     def.head.length > 0
       ? [...def.head, def.extra, ...cjk]
@@ -264,24 +293,119 @@ export function parseFont(f: string): ParsedFont {
  * 文字体系を決めた font にする（スタックの CJK 書体の順を入れ替える）。
  * font() で作っていない文字列（テストの '10px x' など）はそのまま返す。
  */
+const scriptMemo = new Map<string, string>()
+
 export function withScript(f: string, script: Script): string {
+  const key = `${script}\u0002${f}`
+  const hit = scriptMemo.get(key)
+  if (hit !== undefined) return hit
+  let value = f
   const p = parseFont(f)
-  if (!p.stack) return f
-  const head = /^(.*?\d+(?:\.\d+)?px) /.exec(p.css)?.[1]
-  if (!head) return f
-  return [
-    `${head} ${fontStack(p.stack, script)}`,
-    p.tracking,
-    p.stretch,
-    p.stack,
-    script,
-  ].join(SEP)
+  const head = p.stack ? /^(.*?\d+(?:\.\d+)?px) /.exec(p.css)?.[1] : undefined
+  if (p.stack && head) {
+    value = [
+      `${head} ${fontStack(p.stack, script)}`,
+      p.tracking,
+      p.stretch,
+      p.stack,
+      script,
+    ].join(SEP)
+  }
+  if (scriptMemo.size > 5000) scriptMemo.clear()
+  scriptMemo.set(key, value)
+  return value
 }
 
 /** 文字体系がまだ決まっていなければ、text から決める */
 export function forScript(f: string, script: () => Script): string {
   const p = parseFont(f)
   return p.stack && !p.script ? withScript(f, script()) : f
+}
+
+// ---------------------------------------------------------------------------
+// canvas に渡す font
+// ---------------------------------------------------------------------------
+
+/** Web フォントの書体名（OS 標準フォントと見分ける） */
+const WEB_FAMILIES: ReadonlySet<string> = new Set([
+  ...Object.values(CJK_FAMILIES).flatMap((byScript) => Object.values(byScript)),
+  ...Object.values(STACK_DEFS).flatMap((d) => [...d.head, d.extra]),
+  ...PIXEL_DEF.head,
+  THAI,
+])
+const CJK_WEB: ReadonlySet<string> = new Set(
+  Object.values(CJK_FAMILIES).flatMap((byScript) => Object.values(byScript)),
+)
+const GENERIC_NAMES: ReadonlySet<string> = new Set(Object.values(GENERIC))
+
+/** CSS を読み終えた中国語・韓国語の書体 */
+const lazyLoaded = new Set<string>()
+let lazyVersion = 0
+
+/** 中国語・韓国語の CSS を読むたびに変わる値（文字幅のメモのキーに混ぜる） */
+export function fontsVersion(): number {
+  return lazyVersion
+}
+
+const canvasMemo = new Map<string, string>()
+
+/**
+ * canvas に渡す CSS の font。選んだ中国語・韓国語の書体の CSS をまだ読んでいない
+ * 間は、その後ろの Web フォント（和文・欧文の控え）を外して OS 標準フォントで描く。
+ * そのままだとブラウザーが控えの書体で描こうとして、使わない分割ファイルを読んで
+ * しまうため。CSS を読んだら（fontsVersion が変わったら）元のスタックで描き直す。
+ */
+export function canvasFont(css: string): string {
+  const key = `${lazyVersion}\u0000${css}`
+  const hit = canvasMemo.get(key)
+  if (hit !== undefined) return hit
+  let value = css
+  const use = parseFontUse(css)
+  const head = /^(?:italic )?\d+ [\d.]+px /.exec(css)?.[0]
+  const firstCjk = use ? waitingCjk(use) : -1
+  if (use && head && firstCjk >= 0) {
+    const kept = use.families.filter(
+      (f, i) => i < firstCjk || !WEB_FAMILIES.has(f),
+    )
+    value =
+      head + kept.map((f) => (GENERIC_NAMES.has(f) ? f : quote(f))).join(', ')
+  }
+  if (canvasMemo.size > 2000) canvasMemo.clear()
+  canvasMemo.set(key, value)
+  return value
+}
+
+/**
+ * 選んだ CJK 書体（スタックで最初の CJK 書体）が、CSS をまだ読んでいない
+ * 中国語・韓国語の書体なら、その位置。そうでなければ -1
+ */
+function waitingCjk(use: FontUse): number {
+  const index = use.families.findIndex((f) => CJK_WEB.has(f))
+  const chosen = use.families[index] as string | undefined
+  return chosen && chosen in LAZY_FONTS_CSS && !lazyLoaded.has(chosen)
+    ? index
+    : -1
+}
+
+let quiet = 0
+
+/** withoutNewCjkFonts の中か */
+export function fontRequestsPaused(): boolean {
+  return quiet > 0
+}
+
+/**
+ * fn の中で描く・測る文字では、まだ CSS を読んでいない中国語・韓国語の書体を
+ * 読みに行かない（テンプレートのサムネ用。小さな見本のために明朝の分割ファイルまで
+ * 読まない。本体の画像で読んだ書体は、サムネでもそのまま使う）。
+ */
+export function withoutNewCjkFonts<T>(fn: () => T): T {
+  quiet++
+  try {
+    return fn()
+  } finally {
+    quiet--
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -400,6 +524,10 @@ const requested = new Map<string, Set<string>>()
  */
 export function noteFontUse(cssFont: string, text: string): void {
   if (!text || typeof document === 'undefined') return
+  if (quiet > 0) {
+    const use = parseFontUse(cssFont)
+    if (use && waitingCjk(use) >= 0) return
+  }
   // 大きさは読み込む face に関係ないので外してまとめる
   const key = cssFont.replace(/ [\d.]+px /, ' ')
   const done = requested.get(key)
@@ -510,22 +638,25 @@ function indexFaces(): Map<string, Array<FontFace>> {
 /**
  * 1 文字を描くときにブラウザーが選ぶ face。スタックを先頭から見て、太さ・斜体の
  * 合う face 群のうち unicode-range がその字を含むものを返す。
- * まだ CSS を読んでいない中国語・韓国語の書体に当たったら needCss に入れて止まる。
+ * まだ CSS を読んでいない中国語・韓国語の書体は飛ばす（ブラウザーにとっても
+ * まだ無い書体）。needCss を渡したときは、CJK の字がそこに当たったら needCss に
+ * 入れて止まる（その書体の CSS を読む理由になる）。
  */
 function faceFor(
   index: Map<string, Array<FontFace>>,
   use: FontUse,
   ch: string,
   lazyDone: ReadonlySet<string>,
-  needCss: Set<string>,
+  needCss?: Set<string>,
 ): FontFace | undefined {
   const code = ch.codePointAt(0) ?? 0
   for (const family of use.families) {
     if (family in LAZY_FONTS_CSS && !lazyDone.has(family)) {
-      // CJK 書体でしか描けない字だけが、その書体の CSS を読む理由になる
-      if (!isCjkChar(ch)) continue
-      needCss.add(family)
-      return undefined
+      if (needCss && isCjkChar(ch)) {
+        needCss.add(family)
+        return undefined
+      }
+      continue
     }
     const faces = index.get(family)
     if (!faces) continue
@@ -535,7 +666,7 @@ function faceFor(
   return undefined
 }
 
-/** 読み込んだ face（確認用の記録） */
+/** 読み込んだ face と、それを読む理由になった字（確認用の記録） */
 export const loadedFaceLog: Array<string> = []
 
 /**
@@ -558,9 +689,10 @@ export async function loadPendingFonts(): Promise<boolean> {
     for (const ch of chars) done.add(ch)
   }
 
-  const faces = new Set<FontFace>()
-  const lazyDone = new Set<string>()
-  const lazyFailed = new Set<string>()
+  const faces = new Map<FontFace, Set<string>>()
+  const lazyDone = new Set<string>(lazyLoaded)
+  /** 中国語・韓国語の CSS を新しく読んだら変わる（canvas に渡す font が変わるので描き直す） */
+  const versionBefore = lazyVersion
   let index = indexFaces()
   if (index.size === 0) {
     // FontFace を辿れないブラウザー: スタックごと読み込む（余分な分も読む）
@@ -574,36 +706,53 @@ export async function loadPendingFonts(): Promise<boolean> {
     )
     return loaded.some((n) => n > 0)
   }
+  // 先に、CJK の字が当たる中国語・韓国語の書体の CSS を読む（読んだ書体の
+  // unicode-range で、さらに先の書体が要るかが変わるので、要らなくなるまで繰り返す）
   for (let round = 0; round < 4; round++) {
     const needCss = new Set<string>()
     for (const [, { use, chars }] of work) {
       for (const ch of chars) {
-        const face = faceFor(index, use, ch, lazyDone, needCss)
-        if (face) faces.add(face)
+        if (isCjkChar(ch)) faceFor(index, use, ch, lazyDone, needCss)
       }
     }
-    const todo = Array.from(needCss).filter((f) => !lazyFailed.has(f))
+    const todo = Array.from(needCss)
     if (todo.length === 0) break
     const results = await Promise.all(
       todo.map((family) => ensureStylesheet(LAZY_FONTS_CSS[family])),
     )
     todo.forEach((family, i) => {
-      // 読めなかった書体は、この回は無いものとして先の書体へ進む
+      // 読めなかった書体は face が無いので、この回は無いものとして先の書体へ進む
       lazyDone.add(family)
-      if (!results[i]) lazyFailed.add(family)
+      if (results[i] && !lazyLoaded.has(family)) {
+        lazyLoaded.add(family)
+        lazyVersion++
+      }
     })
     index = indexFaces()
   }
-  const jobs = Array.from(faces).map(async (face) => {
+  // CSS がそろってから、字ごとに face を決める（欧文の字も、先に並ぶ CJK 書体が
+  // 持っていればそちらで描かれるので、控えの書体を余分に読まない）
+  for (const [, { use, chars }] of work) {
+    for (const ch of chars) {
+      const face = faceFor(index, use, ch, lazyDone)
+      if (!face) continue
+      const list = faces.get(face)
+      if (list) list.add(ch)
+      else faces.set(face, new Set([ch]))
+    }
+  }
+  const jobs = Array.from(faces).map(async ([face, chars]) => {
     if (face.status === 'loaded' || face.status === 'error') return false
     try {
       await (face.status === 'loading' ? face.loaded : face.load())
-      loadedFaceLog.push(`${face.family} ${face.weight} ${face.style}`)
+      loadedFaceLog.push(
+        `${face.family} ${face.weight} ${face.style}: ${Array.from(chars).join('')}`,
+      )
       return true
     } catch {
       return false
     }
   })
   const loaded = await Promise.all(jobs)
-  return loaded.some(Boolean)
+  return lazyVersion !== versionBefore || loaded.some(Boolean)
 }

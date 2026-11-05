@@ -177,27 +177,42 @@ describe('文字列ごとのスタック', () => {
   it('選んだ体系の書体を CJK の先頭に置き、残りは控えに残す', () => {
     expect(webFamilies('sans', 'zh-hans')).toEqual([
       'Geist',
-      'Noto Sans',
       'Noto Sans SC',
       'Noto Sans TC',
-      'Zen Kaku Gothic New',
-      'Noto Sans KR',
+      'Noto Sans',
       'Noto Sans Thai',
+    ])
+    // 中国語・韓国語の文字列に和文の書体は入れない（漢字を和文の書体で描かない）
+    expect(webFamilies('serif', 'ko')).toEqual([
+      'Noto Serif',
+      'Noto Serif KR',
+      'Noto Serif TC',
+      'Noto Serif SC',
+      'Noto Sans Thai',
+    ])
+    // 和文・欧文は、欧文の書体に無い欧文（ギリシャ文字など）を CJK 書体より先に
+    expect(webFamilies('sans', 'ja').slice(0, 3)).toEqual([
+      'Geist',
+      'Noto Sans',
+      'Zen Kaku Gothic New',
     ])
     expect(firstCjk('sans', 'ko')).toBe('Noto Sans KR')
     expect(firstCjk('sans', 'ja')).toBe('Zen Kaku Gothic New')
     expect(firstCjk('sans', 'latin')).toBe('Zen Kaku Gothic New')
   })
 
-  it('明朝は欧文も CJK 書体のもの（漢字を明朝体の別の書体と混ぜない）', () => {
-    expect(webFamilies('serif', 'zh-hant').slice(0, 2)).toEqual([
+  it('明朝: 和文は欧文も Shippori Mincho、中国語・韓国語の欧文は Noto Serif', () => {
+    expect(webFamilies('serif', 'zh-hant').slice(0, 3)).toEqual([
+      'Noto Serif',
       'Noto Serif TC',
+      'Noto Serif SC',
+    ])
+    expect(webFamilies('serif', 'ja').slice(0, 2)).toEqual([
+      'Shippori Mincho',
       'Noto Serif',
     ])
-    expect(webFamilies('serif', 'ja')[0]).toBe('Shippori Mincho')
-    expect(webFamilies('display', 'zh-hans').slice(0, 3)).toEqual([
+    expect(webFamilies('display', 'zh-hans').slice(0, 2)).toEqual([
       'Instrument Serif',
-      'Noto Serif',
       'Noto Serif SC',
     ])
   })

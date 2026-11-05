@@ -7,8 +7,11 @@
 import { contrastRatio, hexToRgb, rgba } from './color'
 import { mulberry32 } from './random'
 import {
+  canvasFont,
   font,
+  fontRequestsPaused,
   fontSize,
+  fontsVersion,
   forScript,
   noteFontUse,
   parseFont,
@@ -146,7 +149,7 @@ const isStretch = (v: string): v is CanvasFontStretch => STRETCHES.includes(v)
 
 export function applyFont(c: CanvasRenderingContext2D, f: string): void {
   const p = parseFont(f)
-  c.font = p.css
+  c.font = canvasFont(p.css)
   // font を設定すると字幅は normal に戻るので、その後で設定する
   if (supportsStretch && isStretch(p.stretch)) c.fontStretch = p.stretch
   if (supportsLetterSpacing) {
@@ -171,13 +174,24 @@ export function scratchContext(): CanvasRenderingContext2D {
   return scratch
 }
 
-const measureMemo = new Map<string, number>()
+const measureMemo = new Map<
+  string,
+  { width: number; css: string; noted: boolean }
+>()
 
 /** 文字幅の計測（書体 + 文字列でメモ化。ページ数の試算で何度も測るため） */
 export const sharedMeasure: Measure = (text, given) => {
-  const key = `${given}\u0000${text}`
+  // 中国語・韓国語の CSS を読むと canvas に渡す font が変わるので、版もキーに入れる
+  const key = `${fontsVersion()}\u0000${given}\u0000${text}`
   const hit = measureMemo.get(key)
-  if (hit !== undefined) return hit
+  if (hit !== undefined) {
+    // サムネで測っただけの文字は、本体で測るときに読み込む書体として記録する
+    if (!hit.noted && !fontRequestsPaused()) {
+      noteFontUse(hit.css, text)
+      hit.noted = true
+    }
+    return hit.width
+  }
   // 描くときと同じく、文字体系の決まっていない font は測る文字列から決める
   const f = forText(given, text)
   const c = scratchContext()
@@ -190,7 +204,7 @@ export const sharedMeasure: Measure = (text, given) => {
     width -= p.tracking * fontSize(p.css)
   }
   if (measureMemo.size > 60000) measureMemo.clear()
-  measureMemo.set(key, width)
+  measureMemo.set(key, { width, css: p.css, noted: !fontRequestsPaused() })
   return width
 }
 

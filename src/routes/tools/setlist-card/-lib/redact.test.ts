@@ -65,11 +65,17 @@ const SECRET_WORDS = [
 ]
 
 /**
- * 韓国語・簡体字の書体を先頭に選んだ font（見本のセトリには無いので、出てきたら
- * 隠した欄の本当の文字から選んだことになる）
+ * 韓国語・簡体字を選んだ font（見本のセトリには無いので、出てきたら隠した欄の
+ * 本当の文字から選んだことになる）。Web フォントの CSS を読む前は OS 標準フォントの
+ * 並びで出る。記録は JSON（入れ子のこともある）なので " の前に \\ が付く
  */
-const SECRET_SCRIPT_FONT =
-  /"Noto Sans", "Noto Sans (KR|SC)"|"Noto Serif (KR|SC)", "Noto Serif"/
+const SECRET_SCRIPT_FONT = new RegExp(
+  [
+    String.raw`(Geist|Geist Mono|Archivo|Unbounded|Instrument Serif|Noto Serif)\\*", \\*"Noto (Sans|Serif) (KR|SC)`,
+    String.raw`px \\*"Noto Serif (KR|SC)`,
+    String.raw`(Arial|Roman|Mono)\\*"?, \\*"?(Apple SD Gothic Neo|AppleMyungjo|PingFang SC|Songti SC)`,
+  ].join('|'),
+)
 
 /** 3 曲目は両方、6 曲目はアーティストだけ、10 曲目は曲名だけを隠す */
 const HIDES: ReadonlyArray<[number, Track['hidden']]> = [
@@ -496,6 +502,20 @@ describe('canvas に届くものは本当の文字によらない', () => {
       })
     }
   }
+
+  it('（対照）隠さなければ、本当の文字の体系で書体を選ぶ', () => {
+    const setlist = withSecret(createSampleSetlist(), SECRETS[3])
+    const shown = {
+      ...setlist,
+      tracks: setlist.tracks.map((t) => ({ ...t, hidden: undefined })),
+    }
+    for (const layout of ['minimal', 'center'] as const) {
+      const calls = record(
+        inputFor(shown, layout, DEFAULT_REDACT, 'ellipsis', false),
+      ).join('\n')
+      expect(calls).toMatch(SECRET_SCRIPT_FONT)
+    }
+  })
 })
 
 describe('やめた見せ方（id）は黒塗りと同じ絵になる', () => {
