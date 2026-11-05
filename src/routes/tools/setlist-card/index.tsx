@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
-import { DesignSection } from './-components/DesignSection'
-import { MetaSection } from './-components/MetaSection'
+import { AdvancedSettings } from './-components/AdvancedSettings'
+import { MetaLine, SourceLine } from './-components/DataLines'
+import { EmptyStage } from './-components/EmptyStage'
+import { PalettePicker } from './-components/PalettePicker'
 import { PhotoSection } from './-components/PhotoSection'
-import { PreviewPanel } from './-components/PreviewPanel'
-import { SourceSection } from './-components/SourceSection'
+import { PreviewStage } from './-components/PreviewStage'
+import { SaveBar } from './-components/SaveBar'
+import { LockChip, ShuffleControls } from './-components/ShuffleControls'
+import { TemplatePicker } from './-components/TemplatePicker'
 import { TrackSection } from './-components/TrackSection'
+import { Segmented } from './-components/ui'
+import { useSetlistRender } from './-components/useSetlistRender'
 import { fileBaseName } from './-lib/export'
-import { DEFAULT_LAYOUT, DEFAULT_PHOTO_SETTINGS, getSize } from './-lib/layouts'
+import { ensureFontStylesheet } from './-lib/fonts'
+import {
+  CANVAS_SIZES,
+  DEFAULT_LAYOUT,
+  DEFAULT_PHOTO_SETTINGS,
+  getSize,
+} from './-lib/layouts'
 import {
   loadMyPalettes,
   newMyPaletteId,
@@ -25,6 +37,7 @@ import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
 import { mulberry32 } from './-lib/random'
 import { DEFAULT_REDACT } from './-lib/redact'
+import { loadRemembered, saveRemembered } from './-lib/remember'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
 import {
   EMPTY_HISTORY,
@@ -38,8 +51,10 @@ import {
   randomLayouts,
   shuffleDesign,
 } from './-lib/shuffle'
+import { DEFAULT_SPLIT_CHOICE } from './-lib/split'
 import { templateStyle } from './-lib/tpl-common'
 import { createTrackId } from './-lib/types'
+import './-components/setlist.css'
 import type {
   CanvasSize,
   ColumnsSetting,
@@ -50,12 +65,11 @@ import type { ShuffleActions } from './-components/ShuffleControls'
 import type { Palette } from './-lib/palettes'
 import type { RedactOptions } from './-lib/redact'
 import type { Design, DesignHistory, ShuffleLocks } from './-lib/shuffle'
+import type { SplitChoice } from './-lib/split'
 import type { LoadedPhoto } from './-lib/photo'
 import type {
   DisplayOptions,
-  RenderInfo,
   RenderInput,
-  SplitOptions,
   StyleOptions,
   TextOptions,
 } from './-lib/render'
@@ -101,21 +115,53 @@ const DEFAULT_TEXT: TextOptions = {
   stripFeat: false,
 }
 
-const DEFAULT_SPLIT: SplitOptions = { enabled: false, mode: 'auto', count: 2 }
-
 const EMPTY_SETLIST: Setlist = { tracks: [] }
 
+const SIZE_NAMES: Record<CanvasSize['id'], string> = {
+  portrait: '投稿',
+  story: 'ストーリーズ',
+  square: '正方形',
+  wide: '横長',
+}
+
+/** 開発中か ?debug=1 のときだけ、長いセットのサンプル（50 曲・80 曲）を出す */
+function debugEnabled(): boolean {
+  if (import.meta.env.DEV) return true
+  try {
+    return new URLSearchParams(window.location.search).get('debug') === '1'
+  } catch {
+    return false
+  }
+}
+
+const isImage = (file: File) =>
+  file.type.startsWith('image/') ||
+  /\.(jpe?g|png|webp|gif|heic|avif)$/i.test(file.name)
+
 function SetlistCardPage() {
+  const [remembered] = useState(loadRemembered)
+  const [debug] = useState(debugEnabled)
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [playlistIndex, setPlaylistIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [setlist, setSetlist] = useState<Setlist>(EMPTY_SETLIST)
+  /** 読み込むか、サンプルか、手で入れ始めたか（それまでは空の枠だけを出す） */
+  const [started, setStarted] = useState(false)
+  const [tracksOpen, setTracksOpen] = useState(false)
 
-  const [layout, setLayoutState] = useState<LayoutId>(DEFAULT_LAYOUT)
+  const setlistInput = useRef<HTMLInputElement>(null)
+  const photoInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    ensureFontStylesheet()
+  }, [])
+
+  const initialLayout = remembered.layout ?? DEFAULT_LAYOUT
+  const [layout, setLayoutState] = useState<LayoutId>(initialLayout)
   const [style, setStyle] = useState<StyleOptions>(() =>
-    templateStyle(DEFAULT_LAYOUT),
+    templateStyle(initialLayout),
   )
   // 自分でテンプレートを選んだか（まだなら、写真を入れたときにフォトへ切り替える）
   const layoutTouched = useRef(false)
@@ -124,8 +170,12 @@ function SetlistCardPage() {
     setLayoutState(next)
     setStyle((prev) => templateStyle(next, prev))
   }, [])
-  const [sizeId, setSizeId] = useState<CanvasSize['id']>('portrait')
-  const [palette, setPaletteState] = useState<Palette>(DEFAULT_PALETTE)
+  const [sizeId, setSizeId] = useState<CanvasSize['id']>(
+    remembered.sizeId ?? 'portrait',
+  )
+  const [palette, setPaletteState] = useState<Palette>(
+    remembered.palette ?? DEFAULT_PALETTE,
+  )
   // 自分でパレットを選んだか（まだなら、写真を入れたときに「写真から自動」にする）
   const paletteTouched = useRef(false)
   const setPalette = useCallback((next: Palette) => {
@@ -138,8 +188,14 @@ function SetlistCardPage() {
   const [display, setDisplay] = useState<DisplayOptions>(DEFAULT_DISPLAY)
   const [textOptions, setTextOptions] = useState<TextOptions>(DEFAULT_TEXT)
   const [columns, setColumns] = useState<ColumnsSetting>('auto')
-  const [split, setSplit] = useState<SplitOptions>(DEFAULT_SPLIT)
+  const [splitChoice, setSplitChoice] =
+    useState<SplitChoice>(DEFAULT_SPLIT_CHOICE)
   const [redact, setRedact] = useState<RedactOptions>(DEFAULT_REDACT)
+
+  // 最後に使ったテンプレート・配色・サイズを覚える（写真の配色は覚えない）
+  useEffect(() => {
+    saveRemembered({ layout, palette, sizeId })
+  }, [layout, palette, sizeId])
 
   const [photo, setPhoto] = useState<LoadedPhoto | null>(null)
   const [photoLoading, setPhotoLoading] = useState(false)
@@ -147,9 +203,6 @@ function SetlistCardPage() {
   const [photoSettings, setPhotoSettings] = useState<PhotoSettings>(
     DEFAULT_PHOTO_SETTINGS,
   )
-  const [photoFallback, setPhotoFallback] = useState(false)
-  const [photoContrast, setPhotoContrast] =
-    useState<RenderInfo['photoContrast']>(null)
 
   const candidates = useMemo(
     () => (photo ? buildCandidates(photo.swatches) : []),
@@ -209,6 +262,7 @@ function SetlistCardPage() {
       setFileName(file.name)
       setPlaylistIndex(result.defaultIndex)
       applySetlist(result.playlists[result.defaultIndex].setlist)
+      setStarted(true)
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'ファイルを読み込めませんでした',
@@ -223,6 +277,7 @@ function SetlistCardPage() {
     setFileName(null)
     setError(null)
     setSetlist(count ? createStressSetlist(count) : createSampleSetlist())
+    setStarted(true)
   }
 
   const handleSelectPlaylist = (index: number) => {
@@ -252,12 +307,38 @@ function SetlistCardPage() {
         mode: prev.mode,
       }))
     } catch {
-      setPhotoError(
-        '画像を読み込めませんでした。JPEG / PNG / WebP などで試してみてください。',
-      )
+      setPhotoError('画像を読み込めません。JPEG・PNG・WebP で')
     } finally {
       setPhotoLoading(false)
     }
+  }
+
+  const addTrack = () => {
+    setSetlist((prev) => ({
+      ...prev,
+      tracks: [...prev.tracks, { id: createTrackId(), artist: '', title: '' }],
+    }))
+    setTracksOpen(true)
+    setStarted(true)
+  }
+
+  // ドロップはページのどこでも受ける（画像なら写真、それ以外は履歴）。
+  // 外したファイルがブラウザで開かれてしまうのも防ぐ
+  useEffect(() => {
+    const prevent = (event: DragEvent) => event.preventDefault()
+    window.addEventListener('dragover', prevent)
+    window.addEventListener('drop', prevent)
+    return () => {
+      window.removeEventListener('dragover', prevent)
+      window.removeEventListener('drop', prevent)
+    }
+  }, [])
+  const handleDrop = (file: File) => {
+    if (isImage(file)) {
+      if (started) void handlePhoto(file)
+      return
+    }
+    void handleFile(file)
   }
 
   // ランダム: テンプレート × パレット × 文字組みだけを選び直す（曲・サイズ・写真の位置などは触らない）
@@ -329,7 +410,8 @@ function SetlistCardPage() {
       display,
       text: textOptions,
       columns,
-      split,
+      // 実際の枚数は useSetlistRender が splitChoice から決める
+      split: { enabled: false, mode: 'auto', count: splitChoice.count },
       redact,
       photo: photo ? { image: photo, settings: photoSettings } : null,
     }),
@@ -342,138 +424,244 @@ function SetlistCardPage() {
       display,
       textOptions,
       columns,
-      split,
+      splitChoice.count,
       redact,
       photo,
       photoSettings,
     ],
   )
 
-  const handleRendered = useCallback((info: RenderInfo) => {
-    setPhotoFallback(info.photoFallback)
-    setPhotoContrast(info.photoContrast)
-  }, [])
-
+  const view = useSetlistRender(
+    input,
+    splitChoice,
+    fileBaseName({ title: setlist.title, date: setlist.date }),
+  )
+  const first = view.infos.at(0)
   const hasStartTimes = setlist.tracks.some((t) => t.startAt !== undefined)
 
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-gray-950 text-gray-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10">
-        <header className="space-y-3">
-          <h1 className="text-3xl font-bold">{tool.name}</h1>
-          <p className="max-w-3xl text-sm leading-relaxed text-gray-400">
-            DJ ソフトの再生履歴を読み込んで、SNS
-            にそのまま載せられるセトリ画像を作ります。曲名の直し・並べ替え・
-            テンプレートやパレットの切り替えをして、PNG / JPEG
-            で保存できます（高解像度 2x にも対応）。
+    <main
+      className="slc"
+      onDrop={(event) => {
+        const file = event.dataTransfer.files.item(0)
+        if (!file) return
+        event.preventDefault()
+        handleDrop(file)
+      }}
+    >
+      <input
+        ref={setlistInput}
+        type="file"
+        accept=".xml,.txt,.nml,.csv,text/plain,text/csv,application/xml,text/xml"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void handleFile(file)
+          // 同じファイルを選び直しても change が飛ぶように
+          event.target.value = ''
+        }}
+      />
+      <input
+        ref={photoInput}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void handlePhoto(file)
+          event.target.value = ''
+        }}
+      />
+
+      <div className="mx-auto w-full max-w-[1240px] px-4 lg:px-8">
+        <header
+          className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 py-5 lg:py-6 ${started ? '' : 'lg:justify-center'}`}
+        >
+          <h1 className="slc-title">{tool.name}</h1>
+          <p className="text-(--muted)">
+            昨夜のセトリ、そのまま載せる。画像はブラウザの中だけで作る。
           </p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-          <div className="flex min-w-0 flex-col gap-6">
-            <SourceSection
-              result={parseResult}
-              fileName={fileName}
-              selectedIndex={playlistIndex}
+        {!started ? (
+          <div className="pb-10">
+            <EmptyStage
+              input={input}
               loading={loading}
               error={error}
+              onPick={() => setlistInput.current?.click()}
               onFile={(file) => void handleFile(file)}
-              onSample={handleSample}
-              onSelectPlaylist={handleSelectPlaylist}
+              onSample={() => handleSample()}
             />
-            <MetaSection
-              setlist={setlist}
-              onChange={(key, value) =>
-                setSetlist((prev) => ({ ...prev, [key]: value }))
-              }
-            />
-            <TrackSection
-              tracks={setlist.tracks}
-              onChange={(tracks) => setSetlist((prev) => ({ ...prev, tracks }))}
-              redact={redact}
-              onRedactChange={setRedact}
-              showMeta={display.bpm || display.key}
-              onAdd={() =>
-                setSetlist((prev) => ({
-                  ...prev,
-                  tracks: [
-                    ...prev.tracks,
-                    { id: createTrackId(), artist: '', title: '' },
-                  ],
-                }))
-              }
-            />
-            <DesignSection
-              shuffle={shuffleProps}
-              layout={layout}
-              onLayoutChange={setLayout}
-              sizeId={sizeId}
-              onSizeChange={setSizeId}
-              palette={palette}
-              onPaletteChange={setPalette}
-              myPalettes={myPalettes}
-              onSaveMine={(p, name) => {
-                const saved: Palette = { ...p, id: newMyPaletteId(), name }
-                const ok = updateMyPalettes([...myPalettes, saved])
-                setPalette(saved)
-                return ok
-              }}
-              onRenameMine={(id, name) => {
-                updateMyPalettes(
-                  myPalettes.map((p) => (p.id === id ? { ...p, name } : p)),
-                )
-                if (palette.id === id) setPalette({ ...palette, name })
-              }}
-              onDeleteMine={(id) => {
-                updateMyPalettes(myPalettes.filter((p) => p.id !== id))
-              }}
-              photoAuto={photoAuto}
-              style={style}
-              onStyleChange={setStyle}
-              previewInput={input}
-              display={display}
-              onDisplayChange={setDisplay}
-              textOptions={textOptions}
-              onTextOptionsChange={setTextOptions}
-              columns={columns}
-              onColumnsChange={setColumns}
-              split={split}
-              onSplitChange={setSplit}
-              hasStartTimes={hasStartTimes}
-            />
-            <PhotoSection
-              photo={photo}
-              loading={photoLoading}
-              error={photoError}
-              settings={photoSettings}
-              onSettingsChange={setPhotoSettings}
-              onFile={(file) => void handlePhoto(file)}
-              onRemove={() => setPhoto(null)}
-              fallback={photo !== null && photoFallback}
-              layout={layout}
-              palette={palette}
-              onPaletteChange={setPalette}
-              candidates={candidates}
-              contrast={photo ? photoContrast : null}
-            />
+            <div className="mx-auto mt-2 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="slc-btn"
+                data-variant="ghost"
+                onClick={addTrack}
+              >
+                曲を手で入れる
+              </button>
+              {debug
+                ? [50, 80].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      className="slc-btn mono"
+                      data-variant="ghost"
+                      onClick={() => handleSample(count)}
+                      title="長い曲名を含む長いセットのサンプル（開発用）"
+                    >
+                      {count} 曲
+                    </button>
+                  ))
+                : null}
+            </div>
           </div>
+        ) : (
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+            <div className="slc-stage lg:sticky lg:top-[calc(4rem+8px)] lg:self-start">
+              <PreviewStage
+                canvasRefs={view.canvasRefs}
+                plan={view.plan}
+                infos={view.infos}
+                input={view.renderInput}
+                splitChoice={splitChoice}
+                onSplitChoiceChange={setSplitChoice}
+                onPhotoSettingsChange={setPhotoSettings}
+              />
+            </div>
 
-          <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-            <PreviewPanel
-              shuffle={shuffleProps}
-              input={input}
-              fileBaseName={fileBaseName({
-                title: setlist.title,
-                date: setlist.date,
-              })}
-              onRendered={handleRendered}
-              onPhotoSettingsChange={setPhotoSettings}
-              onEnableSplit={() =>
-                setSplit((prev) => ({ ...prev, enabled: true, mode: 'auto' }))
-              }
-            />
+            <div className="flex min-w-0 flex-col lg:block">
+              <div className="slc-row-soft order-2 lg:border-t-0">
+                <SourceLine
+                  result={parseResult}
+                  fileName={fileName}
+                  selectedIndex={playlistIndex}
+                  loading={loading}
+                  error={error}
+                  onPick={() => setlistInput.current?.click()}
+                  onSelectPlaylist={handleSelectPlaylist}
+                />
+              </div>
+              <div className="slc-row-soft order-2">
+                <MetaLine
+                  setlist={setlist}
+                  onChange={(key, value) =>
+                    setSetlist((prev) => ({ ...prev, [key]: value }))
+                  }
+                />
+              </div>
+              <div className="slc-row-soft order-2">
+                <TrackSection
+                  tracks={setlist.tracks}
+                  onChange={(tracks) =>
+                    setSetlist((prev) => ({ ...prev, tracks }))
+                  }
+                  onAdd={addTrack}
+                  open={tracksOpen}
+                  onOpenChange={setTracksOpen}
+                />
+              </div>
+
+              {/* phone ではプレビューのすぐ下に、選ぶもの（ランダム・テンプレート・配色・サイズ・写真）を先に置く */}
+              <div className="slc-row order-1 space-y-3 pt-3 pb-5 max-lg:border-t-0">
+                <ShuffleControls {...shuffleProps} />
+                <TemplatePicker
+                  layout={layout}
+                  onChange={setLayout}
+                  input={input}
+                  aside={
+                    <LockChip
+                      target="layout"
+                      locks={locks}
+                      onLocksChange={setLocks}
+                    />
+                  }
+                />
+                <PalettePicker
+                  palette={palette}
+                  onChange={setPalette}
+                  photoPalettes={candidates}
+                  aside={
+                    <LockChip
+                      target="palette"
+                      locks={locks}
+                      onLocksChange={setLocks}
+                    />
+                  }
+                />
+                <Segmented
+                  label="サイズ"
+                  value={sizeId}
+                  options={CANVAS_SIZES.map((s) => ({
+                    value: s.id,
+                    label: SIZE_NAMES[s.id],
+                    title: s.label,
+                  }))}
+                  onChange={setSizeId}
+                />
+                <PhotoSection
+                  photo={photo}
+                  loading={photoLoading}
+                  error={photoError}
+                  settings={photoSettings}
+                  onSettingsChange={setPhotoSettings}
+                  onPick={() => photoInput.current?.click()}
+                  onRemove={() => setPhoto(null)}
+                  fallback={photo !== null && (first?.photoFallback ?? false)}
+                  layout={layout}
+                  contrast={photo ? (first?.photoContrast ?? null) : null}
+                />
+                <SaveBar state={view.exportState} />
+              </div>
+
+              <AdvancedSettings
+                className="order-3"
+                layout={layout}
+                sizeId={sizeId}
+                style={style}
+                onStyleChange={setStyle}
+                display={display}
+                onDisplayChange={setDisplay}
+                hasStartTimes={hasStartTimes}
+                textOptions={textOptions}
+                onTextOptionsChange={setTextOptions}
+                columns={columns}
+                onColumnsChange={setColumns}
+                splitChoice={splitChoice}
+                onSplitChoiceChange={setSplitChoice}
+                redact={redact}
+                onRedactChange={setRedact}
+                paletteEditor={{
+                  palette,
+                  onChange: setPalette,
+                  myPalettes,
+                  onSaveMine: (p, name) => {
+                    const saved: Palette = { ...p, id: newMyPaletteId(), name }
+                    const ok = updateMyPalettes([...myPalettes, saved])
+                    setPalette(saved)
+                    return ok
+                  },
+                  onRenameMine: (id, name) => {
+                    updateMyPalettes(
+                      myPalettes.map((p) => (p.id === id ? { ...p, name } : p)),
+                    )
+                    if (palette.id === id) setPalette({ ...palette, name })
+                  },
+                  onDeleteMine: (id) => {
+                    updateMyPalettes(myPalettes.filter((p) => p.id !== id))
+                  },
+                  photoSwatches: photo?.swatches ?? [],
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   )

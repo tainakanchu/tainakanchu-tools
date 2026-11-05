@@ -1,0 +1,937 @@
+/*
+ * セトリ画像メーカーのページだけの見た目（.slc の中だけに効く）。
+ *
+ * 一色刷りのフライヤー / 裏ジャケの感覚: 墨（ほぼ黒）と紙（生成りの白）の 2 色に、
+ * 朱を 1 色だけ差す。朱は「押すもの」（保存）・選んでいる印・フォーカスにだけ使う。
+ * 角は 2px か、丸（ピル・円）の 2 種類。文字は 12 / 14 / 16px の 3 段。
+ * 面で囲まず、罫線で区切る。
+ */
+
+.slc {
+  --bg: #0b0b0b;
+  --bg-raise: #151515;
+  --fg: #f2efe9;
+  --muted: rgb(242 239 233 / 0.6);
+  --faint: rgb(242 239 233 / 0.38);
+  --line: rgb(242 239 233 / 0.15);
+  --line-soft: rgb(242 239 233 / 0.08);
+  --accent: #ee5a36;
+  --on-accent: #0b0b0b;
+  --r: 2px;
+  --pill: 9999px;
+  --font-ui:
+    'Geist', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Yu Gothic', YuGothic, Meiryo, system-ui, sans-serif;
+  --font-mono:
+    'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Hiragino Sans',
+    'Noto Sans JP', monospace;
+  /* プレビューの高さ（phone は画面の半分弱、desktop は画面いっぱい） */
+  --pv-h: 42dvh;
+  --empty-h: 60dvh;
+  --bar-h: 0px;
+
+  /* サイトのヘッダー（4rem + 罫 1px）を除いた高さ */
+  min-height: calc(100dvh - 4rem - 1px);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 1023.98px) {
+  .slc {
+    /* 画面下の保存バーのぶん */
+    --bar-h: calc(68px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--bar-h) + 24px);
+  }
+}
+
+/*
+ * phone ではプレビュー（上）と保存バー（下）が画面に貼り付くので、
+ * フォーカスで動かしたときに操作がその下に隠れないようにする（このページにいるときだけ）
+ */
+@media (max-width: 1023.98px) {
+  html:has(.slc-stage) {
+    scroll-padding-top: calc(4rem + 42dvh + 96px);
+    scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1024px) {
+  html:has(.slc) {
+    scroll-padding-top: calc(4rem + 16px);
+  }
+
+  .slc {
+    --pv-h: calc(100dvh - 4rem - 140px);
+    --empty-h: calc(100dvh - 4rem - 150px);
+  }
+}
+
+.slc ::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.slc :focus {
+  outline: none;
+}
+
+.slc :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.slc .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * 文字
+ * ------------------------------------------------------------------------- */
+
+.slc-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.slc-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.slc-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.slc-note[data-tone='alert'] {
+  color: var(--fg);
+}
+
+.slc-note[data-tone='alert']::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  vertical-align: 2px;
+  background: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * 罫線で区切る段
+ * ------------------------------------------------------------------------- */
+
+.slc-row {
+  border-top: 1px solid var(--line);
+}
+
+.slc-row-soft {
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ---------------------------------------------------------------------------
+ * ボタン
+ * ------------------------------------------------------------------------- */
+
+.slc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 120ms,
+    background-color 120ms,
+    color 120ms;
+}
+
+.slc-btn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.slc-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.slc-btn[data-variant='primary'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.slc-btn[data-variant='primary']:hover:not(:disabled) {
+  border-color: var(--fg);
+  background: var(--fg);
+}
+
+.slc-btn[data-variant='ghost'] {
+  border-color: transparent;
+  color: var(--muted);
+  padding: 0 10px;
+}
+
+.slc-btn[data-variant='ghost']:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--fg);
+}
+
+.slc-btn[data-variant='link'] {
+  border-color: transparent;
+  padding: 0 4px;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 4px;
+}
+
+.slc-btn[data-variant='link']:hover:not(:disabled) {
+  border-color: transparent;
+  text-decoration-color: var(--accent);
+}
+
+.slc-btn[data-size='icon'] {
+  width: 44px;
+  padding: 0;
+}
+
+/* 押している / 開いている */
+.slc-btn[aria-pressed='true'],
+.slc-btn[aria-expanded='true'] {
+  border-color: var(--fg);
+}
+
+/* 小さな切り替え（「固定」など）: 当たりは 44px、見た目は小さく */
+.slc-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.slc-chip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+}
+
+.slc-chip > span::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--pill);
+  border: 1px solid currentColor;
+}
+
+.slc-chip:hover > span {
+  border-color: var(--muted);
+  color: var(--fg);
+}
+
+.slc-chip[aria-pressed='true'] {
+  color: var(--fg);
+}
+
+.slc-chip[aria-pressed='true'] > span {
+  border-color: var(--accent);
+}
+
+.slc-chip[aria-pressed='true'] > span::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * セグメント（ラジオ）: 選んでいるものは紙の白で抜く（版の白抜きのように）
+ * ------------------------------------------------------------------------- */
+
+.slc-seg {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.slc-seg > [role='radio'] {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  box-shadow: -1px 0 0 var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color 120ms,
+    color 120ms;
+}
+
+.slc-seg > [role='radio'][aria-checked='false']:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.slc-seg > [role='radio'][aria-checked='true'] {
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.slc-seg > [role='radio']:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.slc-seg > [role='radio']:focus-visible {
+  outline-offset: -4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * スイッチの行（ラベル左・スイッチ右）
+ * ------------------------------------------------------------------------- */
+
+.slc-switch {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slc-switch:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.slc-switch > .track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+
+.slc-switch > .track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--pill);
+  background: var(--muted);
+  transition: transform 120ms;
+}
+
+.slc-switch[aria-checked='true'] > .track {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.slc-switch[aria-checked='true'] > .track::after {
+  background: var(--on-accent);
+  transform: translateX(16px);
+}
+
+/* ---------------------------------------------------------------------------
+ * 入力
+ * ------------------------------------------------------------------------- */
+
+.slc-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 16px;
+}
+
+.slc-input::placeholder {
+  color: var(--faint);
+}
+
+.slc-input:hover {
+  border-color: var(--muted);
+}
+
+.slc-input:focus-visible {
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.slc select.slc-input {
+  appearance: none;
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.slc select.slc-input option {
+  background: var(--bg-raise);
+  color: var(--fg);
+}
+
+@media (min-width: 1024px) {
+  .slc-input {
+    font-size: 14px;
+  }
+}
+
+.slc-range {
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  cursor: pointer;
+  appearance: none;
+}
+
+.slc-range::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--line);
+}
+
+.slc-range::-moz-range-track {
+  height: 1px;
+  background: var(--line);
+}
+
+.slc-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: var(--pill);
+  background: var(--fg);
+}
+
+.slc-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: var(--pill);
+  background: var(--fg);
+}
+
+.slc-range:focus-visible {
+  outline-offset: -8px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 横に流す列（テンプレートのサムネ・配色の丸）
+ * ------------------------------------------------------------------------- */
+
+.slc-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* 列の端で切れているのを見せて、横に続くことを伝える */
+  margin-inline: -16px;
+  padding: 4px 16px 6px;
+  scroll-padding-inline: 16px;
+}
+
+.slc-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.slc-strip > * {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+@media (min-width: 1024px) {
+  .slc-strip {
+    margin-inline: 0;
+    padding-inline: 2px;
+    scroll-padding-inline: 2px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 28px),
+      transparent
+    );
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+}
+
+.slc-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 96px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slc-thumb canvas {
+  display: block;
+  width: 96px;
+  height: 120px;
+  border-radius: var(--r);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: box-shadow 120ms;
+}
+
+.slc-thumb:hover canvas {
+  box-shadow: 0 0 0 1px var(--muted);
+}
+
+.slc-thumb[aria-checked='true'] {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.slc-thumb[aria-checked='true'] canvas {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+
+.slc-thumb:focus-visible {
+  outline: none;
+}
+
+.slc-thumb:focus-visible canvas {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--fg);
+}
+
+.slc-thumb > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slc-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.slc-swatch > span {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--pill);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow 120ms;
+}
+
+.slc-swatch[aria-checked='true'] > span {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+
+.slc-swatch:focus-visible {
+  outline: none;
+}
+
+.slc-swatch:focus-visible > span {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--fg);
+}
+
+/* 写真から作った配色の前の小さな区切り */
+.slc-strip-sep {
+  align-self: center;
+  width: 1px;
+  height: 20px;
+  margin-inline: 4px;
+  background: var(--line);
+}
+
+/* ---------------------------------------------------------------------------
+ * プレビュー
+ * ------------------------------------------------------------------------- */
+
+.slc-stage {
+  background: var(--bg);
+}
+
+@media (max-width: 1023.98px) {
+  .slc-stage {
+    /* 上に固定して、操作している間も画像が見えるようにする */
+    position: sticky;
+    top: 4rem;
+    z-index: 20;
+    margin-inline: -16px;
+    padding: 8px 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+.slc-canvas-frame {
+  position: relative;
+  margin-inline: auto;
+  background: #000;
+}
+
+/*
+ * トンボ（印刷の裁ち落としの目印）。画像を「刷る前の版」として見せる。
+ * 角の外側に短い罫を 2 本ずつ。
+ */
+.slc-crop {
+  position: relative;
+}
+
+.slc-crop::after {
+  --o: 12px;
+  --l: 8px;
+  --c: var(--faint);
+  content: '';
+  position: absolute;
+  inset: calc(var(--o) * -1);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--c), var(--c)) left 0 top var(--o) / var(--l) 1px,
+    linear-gradient(var(--c), var(--c)) left var(--o) top 0 / 1px var(--l),
+    linear-gradient(var(--c), var(--c)) right 0 top var(--o) / var(--l) 1px,
+    linear-gradient(var(--c), var(--c)) right var(--o) top 0 / 1px var(--l),
+    linear-gradient(var(--c), var(--c)) left 0 bottom var(--o) / var(--l) 1px,
+    linear-gradient(var(--c), var(--c)) left var(--o) bottom 0 / 1px var(--l),
+    linear-gradient(var(--c), var(--c)) right 0 bottom var(--o) / var(--l) 1px,
+    linear-gradient(var(--c), var(--c)) right var(--o) bottom 0 / 1px var(--l);
+  background-repeat: no-repeat;
+}
+
+.slc-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 6px 12px;
+  border-radius: var(--pill);
+  background: rgb(11 11 11 / 0.82);
+  color: var(--fg);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 300ms;
+}
+
+.slc-pages {
+  display: flex;
+  gap: 0;
+}
+
+.slc-pages > button {
+  min-width: 32px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.slc-pages > button[aria-current='true'] {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 読み込む前（プレビューの枠がそのままドロップ先）
+ * ------------------------------------------------------------------------- */
+
+.slc-drop {
+  position: relative;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--line-soft);
+  transition: box-shadow 120ms;
+}
+
+.slc-drop[data-over='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.slc-drop > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+/* 下の方は墨で沈めて、置いた文字を読めるようにする */
+.slc-drop > .slc-drop-shade {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgb(11 11 11 / 0) 30%,
+    rgb(11 11 11 / 0.92) 68%,
+    rgb(11 11 11 / 0.96)
+  );
+  pointer-events: none;
+}
+
+.slc-drop[data-over='true']::after {
+  --c: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * 保存（phone は画面の下に固定）
+ * ------------------------------------------------------------------------- */
+
+@media (max-width: 1023.98px) {
+  .slc-savebar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 30;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgb(11 11 11 / 0.94);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
+.slc-popover {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  min-width: 260px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg-raise);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+@media (max-width: 1023.98px) {
+  .slc-popover {
+    bottom: calc(100% + 8px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .slc-popover {
+    top: calc(100% + 8px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 詳細設定
+ * ------------------------------------------------------------------------- */
+
+.slc-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.slc-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.slc-details > summary::after,
+.slc-disclosure::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 150ms;
+}
+
+.slc-details[open] > summary::after,
+.slc-disclosure[aria-expanded='true']::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.slc-disclosure {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slc-disclosure > :first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 曲の行 */
+.slc-track {
+  display: grid;
+  grid-template-columns: 32px 28px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg);
+}
+
+.slc-track[data-hidden='true'] .slc-track-field {
+  color: var(--muted);
+  background: repeating-linear-gradient(
+    135deg,
+    rgb(242 239 233 / 0.07) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.slc-track-field {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+}
+
+.slc-track-field::placeholder {
+  color: var(--faint);
+}
+
+.slc-track-field:hover {
+  border-color: var(--line);
+}
+
+.slc-track-field:focus-visible {
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.slc-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  cursor: grab;
+  touch-action: manipulation;
+}
+
+.slc-grip::before {
+  content: '';
+  width: 10px;
+  height: 14px;
+  background-image: radial-gradient(currentColor 1.2px, transparent 1.4px);
+  background-size: 5px 5px;
+}
+
+.slc-grip:hover {
+  color: var(--fg);
+}
+
+/* ---------------------------------------------------------------------------
+ * 動き: 画像を切り替えたときに短くフェードするだけ。減らす設定なら止める
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .slc *,
+  .slc *::before,
+  .slc *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -97,6 +97,14 @@ function ensureStylesheet(): Promise<boolean> {
   return stylesheet
 }
 
+/**
+ * 画面の文字（ラベルなど）にも画像と同じ Geist / Geist Mono を使うので、
+ * 開いたときに Google Fonts の CSS を差し込んでおく（読めなければ OS の書体のまま）。
+ */
+export function ensureFontStylesheet(): void {
+  void ensureStylesheet()
+}
+
 /** 描画・計測に使った書体と文字（まだ読み込みを頼んでいない分） */
 const pending = new Map<string, Set<string>>()
 /** 読み込みを頼み終えた文字 */
