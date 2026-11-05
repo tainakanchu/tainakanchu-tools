@@ -33,6 +33,7 @@ import {
 import { SCRIM_MIN, ditherStops, duotoneStops } from './palettes'
 import { photoSampler, processedPhoto } from './photo'
 import { resolvePhotoColors } from './photo-contrast'
+import { knownSetLength } from './set-length'
 import { mostlyTruncated, resolveSplit } from './split'
 import { META_LABELS, sideNumber, toItems } from './items'
 import { renderCenter } from './tpl-center'
@@ -164,41 +165,18 @@ function qmarkGlyph(input: RenderInput): '?' | '？' {
     : '?'
 }
 
-/** レコードの品番風の ID（DJ 名の頭 3 文字 + 日付の数字） */
-export function catalogId(setlist: Setlist, total: number): string {
-  const source = setlist.djName || setlist.title || ''
-  const letters =
-    source
-      .normalize('NFKD')
-      .replace(/[^A-Za-z]/g, '')
-      .toUpperCase()
-      .slice(0, 3) || 'SET'
-  const digits = (setlist.date ?? '').replace(/\D/g, '')
-  return `${letters}-${digits.length >= 6 ? digits : String(total).padStart(3, '0')}`
-}
-
-function metaOf(setlist: Setlist): Meta {
-  const starts = setlist.tracks
-    .map((t) => t.startAt)
-    .filter((v): v is number => v !== undefined)
-    .toSorted((a, b) => a - b)
-  let setLength: number | undefined
-  if (starts.length >= 2) {
-    const last = setlist.tracks.findLast((t) => t.startAt !== undefined)
-    const gaps = starts.slice(1).map((v, i) => v - starts[i])
-    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length
-    setLength =
-      starts[starts.length - 1] - starts[0] + (last?.durationSec ?? avg)
-  }
-  const total = setlist.tracks.length
+/**
+ * 見出しの情報。セットの長さは再生記録に実際の終わりがあるときだけ（set-length.ts）。
+ * 品番風の ID のような、入力に無い値は作らない。
+ */
+export function metaOf(setlist: Setlist): Meta {
   return {
     event: setlist.title?.trim() ?? '',
     dj: setlist.djName?.trim() ?? '',
     date: setlist.date?.trim() ?? '',
     venue: setlist.venue?.trim() ?? '',
-    total,
-    setLength,
-    catalog: catalogId(setlist, total),
+    total: setlist.tracks.length,
+    setLength: knownSetLength(setlist.tracks),
   }
 }
 

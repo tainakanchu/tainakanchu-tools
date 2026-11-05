@@ -5,6 +5,10 @@
  * 1 行目のデータはたいていセッションのまとめ行（name にセッション名や日付、
  * artist は空、start/end time にセッション全体の時刻）なので、
  * タイトル・日付に使って曲からは外す。
+ *
+ * 再生記録の列（start time / end time / playtime）とファイルの長さ（length）は分けて持つ:
+ * end time は実際に終わった時刻（endAt）、playtime は実際にかけていた長さ（playedSec）、
+ * length は曲そのものの長さ（durationSec）で、セットの長さには使わない。
  */
 import { findColumn, headerKey, parseDelimited } from './csv'
 import { normalizeKey } from './keys'
@@ -30,7 +34,10 @@ export const CSV_COLUMNS = {
   artist: ['artist'],
   start: ['start time', 'start', 'played at'],
   end: ['end time', 'end'],
-  playtime: ['playtime', 'play time', 'duration', 'length'],
+  /** 実際にかけていた長さ（再生記録） */
+  playtime: ['playtime', 'play time'],
+  /** ファイル（曲）の長さ。かけた長さではない */
+  length: ['length', 'duration'],
   deck: ['deck'],
   bpm: ['bpm'],
   key: ['key'],
@@ -62,7 +69,9 @@ export function parseSeratoCsv(text: string, fileName?: string): ParseResult {
   if (titleCol === -1) throw new Error('name 列が見つかりませんでした')
   const artistCol = col(CSV_COLUMNS.artist)
   const startCol = col(CSV_COLUMNS.start)
+  const endCol = col(CSV_COLUMNS.end)
   const playtimeCol = col(CSV_COLUMNS.playtime)
+  const lengthCol = col(CSV_COLUMNS.length)
   const deckCol = col(CSV_COLUMNS.deck)
   const bpmCol = col(CSV_COLUMNS.bpm)
   const keyCol = col(CSV_COLUMNS.key)
@@ -77,7 +86,10 @@ export function parseSeratoCsv(text: string, fileName?: string): ParseResult {
     const name = cleanText(at(first, titleCol))
     const artistEmpty = cleanText(at(first, artistCol)) === ''
     const deckEmpty = cleanText(at(first, deckCol)) === ''
-    const playtime = parseDuration(at(first, playtimeCol)) ?? 0
+    const playtime =
+      parseDuration(at(first, playtimeCol)) ??
+      parseDuration(at(first, lengthCol)) ??
+      0
     const date = findDate(name)
     const isSession =
       artistEmpty &&
@@ -91,11 +103,25 @@ export function parseSeratoCsv(text: string, fileName?: string): ParseResult {
     }
   }
 
-  const starts = unwrapMidnight(
-    body.map((row) =>
-      startCol === -1 ? undefined : parseClockTime(at(row, startCol)),
-    ),
+  const rawStarts = body.map((row) =>
+    startCol === -1 ? undefined : parseClockTime(at(row, startCol)),
   )
+  const starts = unwrapMidnight(rawStarts)
+  /**
+   * 実際に終わった時刻（end time）。開始時刻と同じ日またぎの補正をして、開始より前に
+   * 見えたら（23:58 → 0:03）翌日にする。開始時刻が無ければ基準が無いので読まない
+   */
+  const endOf = (row: ReadonlyArray<string>, index: number) => {
+    const start = starts[index]
+    const rawStart = rawStarts[index]
+    if (endCol === -1 || start === undefined || rawStart === undefined)
+      return undefined
+    const raw = parseClockTime(at(row, endCol))
+    if (raw === undefined) return undefined
+    let end = raw + (start - rawStart)
+    if (end < start) end += 86400
+    return end > start ? end : undefined
+  }
   const tracks: Array<Track> = []
   body.forEach((row, index) => {
     const title = cleanText(at(row, titleCol))
@@ -108,7 +134,9 @@ export function parseSeratoCsv(text: string, fileName?: string): ParseResult {
       bpm: parseBpm(at(row, bpmCol)),
       key: normalizeKey(at(row, keyCol)),
       startAt: starts[index],
-      durationSec: parseDuration(at(row, playtimeCol)),
+      endAt: endOf(row, index),
+      playedSec: parseDuration(at(row, playtimeCol)),
+      durationSec: parseDuration(at(row, lengthCol)),
       genre: cleanText(at(row, genreCol)) || undefined,
       label: cleanText(at(row, labelCol)) || undefined,
     })

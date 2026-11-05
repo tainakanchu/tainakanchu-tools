@@ -5,18 +5,18 @@
  * 折り返し・行の形や段数の選択・ページ割りはすべて置き換えた後の文字で行うので、
  * 本当の曲名の長さ（空かどうかも含めて）は画像に一切影響しない。
  *
- * 表示のしかた（全曲共通）:
- *   id       … 「ID — ID」（片方だけなら「Artist — ID」）
+ * 表示のしかた（全曲共通。既定は黒塗り）:
+ *   bar      … 黒塗りの帯
  *   qmark    … 「？？？？」。個数は本当の文字数ではなく、曲順から決めた擬似乱数（3〜8）
  *   scribble … ペンでぐちゃぐちゃに塗りつぶした跡（下に本当の文字は描かない）
- *   bar      … 黒塗りの帯
  *   custom   … 入力した文字（「Unreleased」など）。両方隠すときは 1 つだけ出す
+ * 以前あった「ID — ID」はやめた（意味が通らないため）。残っていた値は黒塗りに読み替える。
  * ぐちゃぐちゃ・黒塗りの幅も曲順から決めた擬似乱数で、本当の文字の長さにはよらない。
  */
 import { mulberry32 } from './random'
 import type { Track } from './types'
 
-export type RedactStyle = 'id' | 'qmark' | 'scribble' | 'bar' | 'custom'
+export type RedactStyle = 'bar' | 'qmark' | 'scribble' | 'custom'
 
 export type RedactOptions = {
   style: RedactStyle
@@ -26,20 +26,42 @@ export type RedactOptions = {
   hideMeta: boolean
 }
 
+/** カスタムの文字の既定（空にしたときもこれに戻す） */
+export const CUSTOM_DEFAULT = 'Unreleased'
+
 export const DEFAULT_REDACT: RedactOptions = {
-  style: 'id',
-  custom: 'Unreleased',
+  style: 'bar',
+  custom: CUSTOM_DEFAULT,
   hideMeta: false,
 }
 
 export const REDACT_STYLES: ReadonlyArray<{ id: RedactStyle; label: string }> =
   [
-    { id: 'id', label: 'ID — ID' },
+    { id: 'bar', label: '黒塗り' },
     { id: 'qmark', label: '？？？' },
     { id: 'scribble', label: 'ぐちゃぐちゃ' },
-    { id: 'bar', label: '黒塗り' },
     { id: 'custom', label: 'カスタム' },
   ]
+
+/**
+ * 見せ方の値を読む。やめた「ID — ID」（'id'）や知らない値は既定の黒塗りにする
+ * （保存した設定や古い状態から来ても、消した見せ方では描かない）。
+ */
+export function parseRedactStyle(value: unknown): RedactStyle {
+  return REDACT_STYLES.find((s) => s.id === value)?.id ?? DEFAULT_REDACT.style
+}
+
+/** 隠し方の設定を読む（壊れた値は既定に戻す。'id' は黒塗りへ） */
+export function parseRedact(value: unknown): RedactOptions {
+  if (typeof value !== 'object' || value === null) return DEFAULT_REDACT
+  const get = (key: string): unknown => Reflect.get(value, key)
+  const custom = get('custom')
+  return {
+    style: parseRedactStyle(get('style')),
+    custom: typeof custom === 'string' ? custom : DEFAULT_REDACT.custom,
+    hideMeta: get('hideMeta') === true,
+  }
+}
 
 /** 隠す欄の選び方（曲ごと） */
 export type HideTarget = 'both' | 'artist' | 'title'
@@ -84,7 +106,7 @@ export function customText(value: string): string {
   const text = value.replace(/[\s　]+/g, ' ').trim()
   const chars = Array.from(text)
   const cut = chars.length > CUSTOM_MAX ? chars.slice(0, CUSTOM_MAX) : chars
-  return cut.join('').trim() || 'ID'
+  return cut.join('').trim() || CUSTOM_DEFAULT
 }
 
 /** 帯・ぐちゃぐちゃの幅を測る字（幅のそろった数字で測る） */
@@ -185,10 +207,19 @@ export function displayNames(
     artist: h.artist ? replace('artist') : visibleArtist,
     title: h.title ? replace('title') : visibleTitle,
   })
-  switch (opts.style) {
-    case 'bar':
-    case 'scribble': {
-      const kind = opts.style
+  // やめた見せ方（'id'）や知らない値が来ても黒塗りで描く
+  const style = parseRedactStyle(opts.style)
+  switch (style) {
+    case 'qmark':
+      return { ...pick((field) => qmarkText(index, field, glyph)), mark: null }
+    case 'custom': {
+      const text = customText(opts.custom)
+      // 両方隠すなら「Unreleased — Unreleased」にせず 1 つだけ（曲名の欄に）
+      if (h.artist && h.title) return { artist: '', title: text, mark: null }
+      return { ...pick(() => text), mark: null }
+    }
+    default: {
+      const kind: MarkKind = style === 'scribble' ? 'scribble' : 'bar'
       return {
         ...pick((field) => markPlaceholder(index, field)),
         mark: {
@@ -198,15 +229,5 @@ export function displayNames(
         },
       }
     }
-    case 'qmark':
-      return { ...pick((field) => qmarkText(index, field, glyph)), mark: null }
-    case 'custom': {
-      const text = customText(opts.custom)
-      // 両方隠すなら「Unreleased — Unreleased」にせず 1 つだけ（曲名の欄に）
-      if (h.artist && h.title) return { artist: '', title: text, mark: null }
-      return { ...pick(() => text), mark: null }
-    }
-    default:
-      return { ...pick(() => 'ID'), mark: null }
   }
 }

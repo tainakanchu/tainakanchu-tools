@@ -14,10 +14,11 @@ export type Meta = {
   date: string
   venue: string
   total: number
-  /** セットの長さ（秒）。開始時刻が無ければ undefined */
+  /**
+   * セットの長さ（秒）。再生記録に実際の終わり（Serato の end time / playtime、
+   * Traktor の DURATION）があるときだけ。わからなければ undefined で、画像には出さない
+   */
   setLength?: number
-  /** レコードの品番風の ID（例: KAN-20261103） */
-  catalog: string
 }
 
 /** 何枚目か（start / end は全曲の中の範囲） */

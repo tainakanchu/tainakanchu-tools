@@ -1,6 +1,6 @@
 /**
  * 「ランダム」（おまかせ）: テンプレート × パレット と、テンプレートごとの文字組み
- * （書体・区切り・粒子・面番号）を選び直す。純粋関数で、乱数は外から渡す。
+ * （書体・区切り・粒子）を選び直す。面番号は自分で選ぶ設定なので触らない。純粋関数で、乱数は外から渡す。
  *
  * 変えるのはデザインだけ。曲・見出し・隠した曲とその見せ方・サイズ・出力解像度と
  * 形式・長い名前の扱い・枚数・写真の位置は、呼び出し側が渡さないので変わらない。
@@ -127,7 +127,7 @@ const SEPARATOR_WEIGHTS: Record<
 
 /**
  * テンプレートの文字組みを選び直す（見栄えのよい値の範囲だけ）。
- * 等幅の設定はテンプレートに関係ないので、今の値のまま。
+ * 等幅・面番号の設定はテンプレートに関係ないので、今の値のまま。
  */
 export function randomStyle(
   layout: LayoutId,
@@ -147,9 +147,15 @@ export function randomStyle(
     ) ?? 'dash'
   // 粒子はテンプレートの既定に寄せる（Y2K はクロームが濁るので付けない）
   const grain = layout === 'y2k' ? false : chance(rng, t.grain ? 0.75 : 0.25)
-  const sideNumbers =
-    layout === 'tracklist' ? chance(rng, 0.4) : prev.sideNumbers
-  return { family, monoMeta: prev.monoMeta, separator, grain, sideNumbers }
+  // 面番号（A1 / B1）は盤の面を作ってしまう飾りなので、詳細設定で自分で選んだときだけ。
+  // ランダムでは触らない
+  return {
+    family,
+    monoMeta: prev.monoMeta,
+    separator,
+    grain,
+    sideNumbers: prev.sideNumbers,
+  }
 }
 
 /**

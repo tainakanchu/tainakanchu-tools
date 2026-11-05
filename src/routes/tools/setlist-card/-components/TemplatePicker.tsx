@@ -54,14 +54,16 @@ function Thumb({
       if (canvas.height !== h) canvas.height = h
       const setlist =
         input.setlist.tracks.length > 0 ? input.setlist : fallbackSetlist
-      const tracks = setlist.tracks.slice(0, 12)
+      // 描くのは先頭 12 曲だけ（軽くするため）。曲数・セットの長さは全曲から出すので、
+      // 見本でも本当と違う数は書かない
+      const end = Math.min(12, setlist.tracks.length)
       const thumbInput: RenderInput = {
         ...input,
         layout: id,
         size: THUMB_SIZE,
         style:
           id === input.layout ? input.style : templateStyle(id, input.style),
-        setlist: { ...setlist, tracks },
+        setlist,
         split: { ...input.split, enabled: false },
         display: { ...input.display, credit: false },
       }
@@ -69,7 +71,7 @@ function Thumb({
         renderPage(
           c,
           thumbInput,
-          { index: 0, count: 1, start: 0, end: tracks.length },
+          { index: 0, count: 1, start: 0, end },
           undefined,
           false,
           scale,

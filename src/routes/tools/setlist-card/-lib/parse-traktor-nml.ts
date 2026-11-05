@@ -5,6 +5,9 @@
  *   プレイリスト側 PRIMARYKEY KEY と一致する。
  * - PLAYLIST/ENTRY/EXTENDEDDATA に再生記録。STARTDATE は (年<<16 | 月<<8 | 日)、
  *   STARTTIME はその日の 0 時からの秒。
+ * - EXTENDEDDATA の DURATION はその回に実際にかけていた秒数（History の「Duration」列。
+ *   マニュアルでは Start-Time・Deck と並ぶ「いつ・どうかけたか」の列）。コレクション側の
+ *   INFO PLAYTIME はファイルの長さなので、別に持つ（playedSec / durationSec）。
  * - PLAYEDPUBLIC="0" はヘッドホンでの試聴なのでセトリから外す。
  * - プレイリストが無ければコレクション順をそのまま使う。
  */
@@ -70,7 +73,14 @@ function entryFromElement(el: Element): Entry {
   }
 }
 
-type Played = { entry: Entry; startAt?: number; date?: string; public: boolean }
+type Played = {
+  entry: Entry
+  startAt?: number
+  /** 実際にかけていた秒数（EXTENDEDDATA DURATION） */
+  playedSec?: number
+  date?: string
+  public: boolean
+}
 
 function readPlaylist(
   playlist: Element,
@@ -91,9 +101,12 @@ function readPlaylist(
       date && Number.isFinite(time)
         ? Date.UTC(date.year, date.month - 1, date.day) / 1000 + time
         : undefined
+    const duration = Number.parseFloat(ext?.getAttribute('DURATION') ?? '')
     played.push({
       entry,
       startAt,
+      playedSec:
+        Number.isFinite(duration) && duration > 0 ? duration : undefined,
       date: date ? formatDate(date.year, date.month, date.day) : undefined,
       public: ext?.getAttribute('PLAYEDPUBLIC') !== '0',
     })
@@ -152,6 +165,7 @@ export function parseTraktorNml(text: string, fileName?: string): ParseResult {
             ...p.entry,
             id: createTrackId(),
             startAt: p.startAt,
+            playedSec: p.playedSec,
           })),
         },
       })

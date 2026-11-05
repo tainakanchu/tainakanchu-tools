@@ -2,8 +2,10 @@
  * Y2K（Y2K がテーマのイベント向け。シンプルなテンプレートの後ろに置く）。
  * - 見出しは Unbounded のクローム: 縦のグラデーションに 0.48〜0.52 の暗い地平線、
  *   上端に 1px の白いハイライト、暗いずらし影を 1 つだけ
- * - 光（glow）はセットの長さのバー 1 か所だけ。重ねない
- * - 曲は昔の OS のウィンドウ風の枠に入れる
+ * - 光（glow）は飾りのバー 1 か所だけ。重ねない。バーは満タンの飾りで、何の量も表さない
+ *   （「LOADING SET...」のような作った状態の文字も書かない）
+ * - 曲は昔の OS のウィンドウ風の枠に入れる。タイトルバーは汎用のラベルだけ
+ *   （「night_drive_vol_12.m3u」のような、読み込んでいないファイル名は作らない）
  * 色はすべてパレットの役割から（クロームの段はパレットに指定があればそれを使う）。
  */
 import { hexToRgb, mix, rgbToHex } from './color'
@@ -110,28 +112,24 @@ function y2kFonts(ctx: Ctx): FontFor {
   }
 }
 
-/** セットの長さのバー（ここだけ光らせる）。高さを返す */
-function drawLoadingBar(
-  ctx: Ctx,
-  meta: Meta,
-  rect: Rect,
-  page: PageSpec,
-): number {
+/**
+ * 飾りのバー（ここだけ光らせる）。上に曲数（とわかるときだけセットの長さ・ページ）。
+ * バーは常に満タンで、数値は持たない。高さを返す
+ */
+function drawDecoBar(ctx: Ctx, meta: Meta, rect: Rect, page: PageSpec): number {
   const { c, s, pal, palette } = ctx
   const lf = font(400, Math.max(ctx.minFont * 0.9, 20 * s), 'pixel')
-  const left = 'LOADING SET...'
-  const right = [trackCountText(meta), setLengthText(meta), pageLabel(page)]
+  const label = [trackCountText(meta), setLengthText(meta), pageLabel(page)]
     .filter(Boolean)
     .join(' / ')
     .toUpperCase()
-  drawText(ctx, left, rect.x, rect.y + 18 * s, lf, pal.muted)
-  drawText(ctx, right, rect.x + rect.w, rect.y + 18 * s, lf, pal.muted, 'right')
+  drawText(ctx, label, rect.x, rect.y + 18 * s, lf, pal.muted)
   const by = rect.y + 34 * s
   const bh = 22 * s
   c.strokeStyle = pal.muted
   c.lineWidth = Math.max(1, s * 1.5)
   c.strokeRect(rect.x, by, rect.w, bh)
-  // ブロック状の進捗（満タン）。光はここだけ
+  // ブロックを並べた飾り（常に満タン。進み具合や長さは表さない）。光はここだけ
   const glow = palette.glow ?? { color: pal.accent, alpha: 0.4 }
   c.save()
   c.shadowColor = `rgba(${hexToRgb(glow.color).map(Math.round).join(',')},${glow.alpha})`
@@ -282,7 +280,7 @@ export function renderY2k(a: TemplateArgs): LayoutResult {
       y += 40 * s
     }
     y += 30 * s
-    y += drawLoadingBar(ctx, meta, { x: inner.x, y, w: headW, h: 0 }, page)
+    y += drawDecoBar(ctx, meta, { x: inner.x, y, w: headW, h: 0 }, page)
     if (wide) {
       const x = inner.x + headW + 48 * s
       windowRect = { x, y: inner.y, w: inner.x + inner.w - x, h: inner.h }
@@ -296,7 +294,8 @@ export function renderY2k(a: TemplateArgs): LayoutResult {
       }
     }
   }
-  const title = `${(meta.event || 'setlist').toLowerCase().replace(/\s+/g, '_').slice(0, 28)}.m3u`
+  // 汎用のラベル（ファイル名のふりはしない）
+  const title = 'SETLIST'
   // ウィンドウの中は不透明な面なので、写真の上の判定から外す（zone -1）
   // 写真の上で文字色を補正していても、窓の中はパレットそのままの色で描く
   ctx.zone = -1

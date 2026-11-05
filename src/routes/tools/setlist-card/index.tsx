@@ -36,7 +36,7 @@ import {
 import { parseSetlistBuffer } from './-lib/parse'
 import { disposePhoto, loadPhoto } from './-lib/photo'
 import { mulberry32 } from './-lib/random'
-import { DEFAULT_REDACT } from './-lib/redact'
+import { DEFAULT_REDACT, parseRedact } from './-lib/redact'
 import { loadRemembered, saveRemembered } from './-lib/remember'
 import { createSampleSetlist, createStressSetlist } from './-lib/sample'
 import {
@@ -105,13 +105,12 @@ const DEFAULT_PALETTE: Palette =
   getPreset(DEFAULT_PALETTE_ID) ?? PRESET_PALETTES[0]
 
 /**
- * ミックス表記を省くのは既定でオン: 「(Original Mix)」「[Extended Mix]」のような
- * 汎用の表記は長いセットで曲名の幅を大きく食う割に情報が無く、人名入りの
- * リミックス表記は残すので失うものが少ない。feat. はクレジットなので既定では残す。
+ * 曲名は既定では読み込んだまま出す（ミックス表記も feat. も省かない）。
+ * 「(Original Mix)」などを省くのは詳細設定で自分で選ぶ。
  */
 const DEFAULT_TEXT: TextOptions = {
   longText: 'ellipsis',
-  stripMix: true,
+  stripMix: false,
   stripFeat: false,
 }
 
@@ -636,7 +635,7 @@ function SetlistCardPage() {
                 splitChoice={splitChoice}
                 onSplitChoiceChange={setSplitChoice}
                 redact={redact}
-                onRedactChange={setRedact}
+                onRedactChange={(next) => setRedact(parseRedact(next))}
                 paletteEditor={{
                   palette,
                   onChange: setPalette,

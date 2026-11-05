@@ -16,6 +16,18 @@ export type Track = {
    * 表示は「セットの最初の曲からの相対時刻」にするので基準は問わない。
    */
   startAt?: number
+  /**
+   * 再生を終えた壁時計秒（startAt と同じ基準）。再生記録に実際の終了時刻があるときだけ
+   * （Serato の end time）。ファイルの長さから推して埋めない。
+   */
+  endAt?: number
+  /**
+   * 実際にかけていた秒数。再生記録にあるときだけ（Serato の playtime、
+   * Traktor History の EXTENDEDDATA DURATION）。ファイルの長さ（durationSec）とは別物で、
+   * 混ぜない。
+   */
+  playedSec?: number
+  /** ファイル（曲そのもの）の長さ。かけた長さではないので、セットの長さには使わない */
   durationSec?: number
   genre?: string
   label?: string

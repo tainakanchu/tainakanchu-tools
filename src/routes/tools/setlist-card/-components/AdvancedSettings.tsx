@@ -111,7 +111,7 @@ export function AdvancedSettings({
                 label="A1・B1 の面番号"
                 checked={style.sideNumbers}
                 onChange={(sideNumbers) => setStyle({ sideNumbers })}
-                title="12 曲までは A/B 面、それより多ければ 6 曲ずつ"
+                title="レコード風の飾りの番号（実際の面ではない）。12 曲までは A/B、それより多ければ 6 曲ずつ"
               />
             ) : null}
           </div>

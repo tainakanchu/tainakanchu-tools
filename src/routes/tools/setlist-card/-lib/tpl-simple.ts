@@ -284,7 +284,8 @@ function drawSleeveHeader(
   const lf = labelFont(ctx, { caps: true })
   const ls = labelSize(ctx)
   let y = rect.y
-  drawText(ctx, meta.catalog, rect.x, y + ls * 0.8, lf, pal.muted)
+  // 品番風の ID は作らない（入力に無い値は書かない）。左上は汎用のラベルだけ
+  drawText(ctx, 'TRACKLIST', rect.x, y + ls * 0.8, lf, pal.muted)
   if (meta.date && !stacked) {
     drawText(
       ctx,
@@ -454,15 +455,9 @@ export function renderTracklist(a: TemplateArgs): LayoutResult {
   // 表の下端
   const bottom = layout.rows.reduce((m, r) => Math.max(m, r.y + r.h), area.y)
   hairline(ctx, x, bottom + 6 * s, w, pal.fg)
-  const sides = items.length > 0 && /^[A-Z]\d/.test(items[0].num)
-  const left = [
-    sides ? sideRange(a) : '',
-    trackCountText(meta),
-    setLengthText(meta),
-    pageLabel(page),
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // 面番号（A1 / B1）は詳細設定で自分で選んだときだけの飾り。「Sides A–C」のような
+  // 盤の事実らしく見える要約は書かない
+  const left = footerText(meta, page)
   drawFooter(
     ctx,
     meta,
@@ -470,13 +465,6 @@ export function renderTracklist(a: TemplateArgs): LayoutResult {
     { caps: true, left, stack: footerRect !== inner },
   )
   return fromRows(layout)
-}
-
-function sideRange(a: TemplateArgs): string {
-  const first = a.items[0]?.num[0]
-  const last = a.items.at(-1)?.num[0]
-  if (!first || !last) return ''
-  return first === last ? `Side ${first}` : `Sides ${first}–${last}`
 }
 
 // ---------------------------------------------------------------------------

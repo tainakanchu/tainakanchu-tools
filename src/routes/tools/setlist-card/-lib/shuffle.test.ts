@@ -260,6 +260,10 @@ describe('randomStyle', () => {
       expect(randomStyle('minimal', start.style, rng).sideNumbers).toBe(
         start.style.sideNumbers,
       )
+      // 面番号は自分で選ぶ飾りなので、トラックリストでもランダムでは変えない
+      expect(randomStyle('tracklist', start.style, rng).sideNumbers).toBe(
+        start.style.sideNumbers,
+      )
     }
   })
 })

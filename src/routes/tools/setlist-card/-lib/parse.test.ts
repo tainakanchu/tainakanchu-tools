@@ -279,9 +279,13 @@ describe('Traktor NML', () => {
       key: 'Am',
       genre: 'Techno',
       label: 'L1',
+      // INFO PLAYTIME はファイルの長さ、EXTENDEDDATA DURATION は実際にかけた秒数
       durationSec: 300,
+      playedSec: 200,
     })
     expect(setlist.tracks[1].key).toBe('Db')
+    // DURATION が無ければ、かけた長さはわからない
+    expect(setlist.tracks[1].playedSec).toBeUndefined()
     const [a, b] = setlist.tracks
     expect((b.startAt ?? 0) - (a.startAt ?? 0)).toBe(5 * 60)
   })
@@ -320,9 +324,16 @@ describe('Serato CSV', () => {
       artist: 'Artist 1',
       bpm: 124,
       key: 'Am',
-      durationSec: 264,
+      // playtime は実際にかけていた長さ（ファイルの長さではない）
+      playedSec: 264,
+      durationSec: undefined,
     })
     expect(setlist.tracks[1].key).toBe('8A')
+    // end time は実際に終わった時刻。日をまたいでも開始より後になる
+    const ends = setlist.tracks.map(
+      (t) => (t.endAt ?? 0) - (setlist.tracks[0].startAt ?? 0),
+    )
+    expect(ends).toEqual([264, 7574, 7874])
     const offsets = setlist.tracks.map(
       (t) => (t.startAt ?? 0) - (setlist.tracks[0].startAt ?? 0),
     )

@@ -17,6 +17,8 @@ import {
   displayNames,
   hiddenFor,
   markPlaceholder,
+  parseRedact,
+  parseRedactStyle,
   qmarkText,
 } from './redact'
 import { planPages, renderPage, resetMeasureCache } from './render'
@@ -92,24 +94,51 @@ describe('displayNames', () => {
   const clean = { artist: (s: string) => s, title: (s: string) => s }
   const track = { artist: 'Real Artist', title: 'Real Title' }
 
-  it('ID — ID（片方だけなら Artist — ID）', () => {
+  it('既定は黒塗りで、選択肢の先頭（黒塗り / ？？？ / ぐちゃぐちゃ / カスタム）', () => {
+    expect(DEFAULT_REDACT.style).toBe('bar')
+    expect(REDACT_STYLES.map((o) => o.label)).toEqual([
+      '黒塗り',
+      '？？？',
+      'ぐちゃぐちゃ',
+      'カスタム',
+    ])
+    expect(REDACT_STYLES.map((o) => o.label).join()).not.toContain('ID')
     const both = displayNames(
       { ...track, hidden: hiddenFor('both') },
-      0,
-      redactOf('id'),
+      3,
+      DEFAULT_REDACT,
       clean,
     )
-    expect([both.artist, both.title]).toEqual(['ID', 'ID'])
+    expect(both.mark).toEqual({ artist: 'bar', title: 'bar', seed: 3 })
+    // 置き換えた文字は幅を測るだけの数字（本当の文字でも「ID」でもない）
+    expect(both.artist).toMatch(/^0+$/)
+    expect(both.title).toMatch(/^0+$/)
     const title = displayNames(
       { ...track, hidden: hiddenFor('title') },
       0,
-      redactOf('id'),
+      DEFAULT_REDACT,
       clean,
     )
-    expect([title.artist, title.title]).toEqual(['Real Artist', 'ID'])
+    expect(title.artist).toBe('Real Artist')
+    expect(title.mark).toEqual({ title: 'bar', seed: 0 })
   })
 
-  it('カスタムは両方隠すと 1 つだけ、空なら ID', () => {
+  it('やめた「ID — ID」（id）や知らない値は黒塗りに読み替える', () => {
+    expect(parseRedactStyle('id')).toBe('bar')
+    expect(parseRedactStyle('nope')).toBe('bar')
+    expect(parseRedactStyle(undefined)).toBe('bar')
+    expect(parseRedactStyle('scribble')).toBe('scribble')
+    expect(
+      parseRedact({ style: 'id', custom: 'Forthcoming', hideMeta: true }),
+    ).toEqual({ style: 'bar', custom: 'Forthcoming', hideMeta: true })
+    expect(parseRedact(JSON.parse('{"style":"id"}'))).toEqual(DEFAULT_REDACT)
+    expect(parseRedact(null)).toEqual(DEFAULT_REDACT)
+    expect(parseRedact({ ...DEFAULT_REDACT, style: 'qmark' }).style).toBe(
+      'qmark',
+    )
+  })
+
+  it('カスタムは両方隠すと 1 つだけ、空なら Unreleased', () => {
     const custom = { ...DEFAULT_REDACT, style: 'custom' as const }
     const both = displayNames(
       { ...track, hidden: hiddenFor('both') },
@@ -124,7 +153,7 @@ describe('displayNames', () => {
       { ...custom, custom: '' },
       clean,
     )
-    expect([artist.artist, artist.title]).toEqual(['ID', 'Real Title'])
+    expect([artist.artist, artist.title]).toEqual(['Unreleased', 'Real Title'])
   })
 
   it('？？？・黒塗り・ぐちゃぐちゃの長さは曲順で決まり、範囲に収まる', () => {
@@ -168,7 +197,7 @@ describe('displayNames', () => {
         hidden: hiddenFor('artist'),
       },
       0,
-      redactOf('id'),
+      redactOf('qmark'),
       spy,
     )
     expect(calls).toEqual(['Shown (Original Mix)'])
@@ -212,7 +241,10 @@ describe('toItems', () => {
     expect(items).toHaveLength(14)
     expect(items[2].num).toBe('03')
     expect(items[2].meta[0]).toBe('00:11')
-    expect([items[2].artist, items[2].title]).toEqual(['ID', 'ID'])
+    // 既定（黒塗り）は両方の欄に帯の印。名前の欄は幅を測る数字だけ
+    expect(items[2].mark).toEqual({ artist: 'bar', title: 'bar', seed: 2 })
+    expect(items[2].artist).toMatch(/^0+$/)
+    expect(items[2].title).toMatch(/^0+$/)
   })
 })
 
@@ -444,6 +476,41 @@ describe('canvas に届くものは本当の文字によらない', () => {
       })
     }
   }
+})
+
+describe('やめた見せ方（id）は黒塗りと同じ絵になる', () => {
+  beforeAll(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() =>
+      fakeContext(),
+    )
+  })
+  afterAll(() => {
+    vi.restoreAllMocks()
+  })
+
+  const draw = (redact: RedactOptions) => {
+    resetMeasureCache()
+    log = []
+    const setlist = withSecret(createSampleSetlist(), SECRETS[1])
+    const input = inputFor(setlist, 'minimal', redact, 'ellipsis', false)
+    renderPage(fakeContext(), input, {
+      index: 0,
+      count: 1,
+      start: 0,
+      end: setlist.tracks.length,
+    })
+    // 粒子のタイルは最初の 1 回だけ作るので外す
+    return log.filter((line) => !line.startsWith('putImageData('))
+  }
+
+  it('minimal', () => {
+    const legacy = parseRedact({ style: 'id', custom: 'x', hideMeta: true })
+    const bar = draw({ style: 'bar', custom: 'x', hideMeta: true })
+    expect(draw(legacy)).toEqual(bar)
+    const all = bar.join('\n')
+    expect(all).not.toContain('"ID"')
+    for (const word of SECRET_WORDS) expect(all).not.toContain(word)
+  })
 })
 
 describe('fileBaseName', () => {
