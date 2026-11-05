@@ -6,15 +6,14 @@
  */
 import { cleanArtistName, cleanTitle } from './clean'
 import { displayNames, isHidden } from './redact'
-import { formatBpm, formatOffset } from './text'
+import { formatBpm } from './text'
 import type { CleanOptions } from './clean'
 import type { QmarkGlyph, RedactOptions } from './redact'
 import type { RowItem } from './rows'
 import type { Track } from './types'
 
-export type MetaKey = 'time' | 'bpm' | 'key' | 'label'
+export type MetaKey = 'bpm' | 'key' | 'label'
 export const META_LABELS: Record<MetaKey, string> = {
-  time: '開始時刻',
   bpm: 'BPM',
   key: 'Key',
   label: 'レーベル',
@@ -30,7 +29,7 @@ export function sideNumber(index: number, count: number): string {
 }
 
 export type ItemsOptions = {
-  display: { time: boolean; bpm: boolean; key: boolean; label: boolean }
+  display: { bpm: boolean; key: boolean; label: boolean }
   text: CleanOptions
   redact: RedactOptions
   /** A1 / A2 … の面番号にする */
@@ -54,20 +53,12 @@ export function toItems(
   opts: ItemsOptions,
 ): { items: Array<RowItem>; metaKeys: Array<MetaKey> } {
   const { display } = opts
-  const starts = tracks
-    .map((t) => t.startAt)
-    .filter((v): v is number => v !== undefined)
-  const origin = starts.length > 0 ? Math.min(...starts) : undefined
-  const keys: Array<MetaKey> = ['time', 'bpm', 'key', 'label']
+  const keys: Array<MetaKey> = ['bpm', 'key', 'label']
   const raw = tracks.map((track) => {
     const hidden = isHidden(track)
     // 隠した曲のレーベルは出さない（曲を特定できてしまうため）。BPM・Key は設定次第
     const hideMeta = hidden && opts.redact.hideMeta
     return {
-      time:
-        display.time && track.startAt !== undefined && origin !== undefined
-          ? formatOffset(track.startAt - origin)
-          : '',
       bpm:
         display.bpm && !hideMeta && track.bpm !== undefined
           ? formatBpm(track.bpm)

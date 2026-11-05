@@ -19,7 +19,6 @@ export type DisplayOptions = {
   number: boolean
   bpm: boolean
   key: boolean
-  time: boolean
   label: boolean
   credit: boolean
 }

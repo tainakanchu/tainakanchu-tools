@@ -65,7 +65,7 @@ export type TemplateArgs = {
   /** 全面背景の写真があるか */
   photoBg: boolean
   /** 表示する補足列（左から） */
-  metaKeys: ReadonlyArray<'time' | 'bpm' | 'key' | 'label'>
+  metaKeys: ReadonlyArray<'bpm' | 'key' | 'label'>
 }
 
 export function pageLabel(page: PageSpec): string {

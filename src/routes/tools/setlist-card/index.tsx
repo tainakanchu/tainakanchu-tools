@@ -96,7 +96,6 @@ const DEFAULT_DISPLAY: DisplayOptions = {
   number: true,
   bpm: false,
   key: false,
-  time: false,
   label: false,
   credit: false,
 }
@@ -436,7 +435,6 @@ function SetlistCardPage() {
     fileBaseName({ title: setlist.title, date: setlist.date }),
   )
   const first = view.infos.at(0)
-  const hasStartTimes = setlist.tracks.some((t) => t.startAt !== undefined)
 
   return (
     <main
@@ -627,7 +625,6 @@ function SetlistCardPage() {
                 onStyleChange={setStyle}
                 display={display}
                 onDisplayChange={setDisplay}
-                hasStartTimes={hasStartTimes}
                 textOptions={textOptions}
                 onTextOptionsChange={setTextOptions}
                 columns={columns}

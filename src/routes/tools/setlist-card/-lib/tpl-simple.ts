@@ -351,7 +351,6 @@ function drawSleeveHeader(
 }
 
 export const META_HEADINGS: Record<string, string> = {
-  time: 'TIME',
   bpm: 'BPM',
   key: 'KEY',
   label: 'LABEL',

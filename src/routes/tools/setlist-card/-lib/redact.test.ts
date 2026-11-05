@@ -75,7 +75,7 @@ function withSecret(base: Setlist, secret: (typeof SECRETS)[number]): Setlist {
 }
 
 const ITEMS_OPTS: ItemsOptions = {
-  display: { time: true, bpm: true, key: true, label: true },
+  display: { bpm: true, key: true, label: true },
   text: { stripMix: true, stripFeat: true },
   redact: DEFAULT_REDACT,
   sideNumbers: false,
@@ -223,7 +223,7 @@ describe('toItems', () => {
                 ...r,
                 items: r.items.map((item, i) =>
                   HIDES.some(([at]) => at === i)
-                    ? { ...item, meta: [item.meta[0], ...item.meta.slice(3)] }
+                    ? { ...item, meta: item.meta.slice(2) }
                     : item,
                 ),
               }
@@ -235,12 +235,11 @@ describe('toItems', () => {
     }
   })
 
-  it('隠した曲も曲数・番号・時刻は残る', () => {
+  it('隠した曲も曲数・番号は残る', () => {
     const setlist = withSecret(createSampleSetlist(), SECRETS[1])
     const { items } = toItems(setlist.tracks, ITEMS_OPTS)
     expect(items).toHaveLength(14)
     expect(items[2].num).toBe('03')
-    expect(items[2].meta[0]).toBe('00:11')
     // 既定（黒塗り）は両方の欄に帯の印。名前の欄は幅を測る数字だけ
     expect(items[2].mark).toEqual({ artist: 'bar', title: 'bar', seed: 2 })
     expect(items[2].artist).toMatch(/^0+$/)
@@ -387,7 +386,6 @@ const inputFor = (
     number: true,
     bpm: true,
     key: true,
-    time: true,
     label: true,
     credit: true,
   },

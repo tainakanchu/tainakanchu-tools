@@ -71,7 +71,6 @@ const inputFor = (setlist: Setlist, layout: LayoutId): RenderInput => ({
     number: true,
     bpm: true,
     key: true,
-    time: true,
     label: true,
     credit: false,
   },
@@ -142,7 +141,7 @@ describe('どのテンプレートも作った値を描かない', () => {
     }
   })
 
-  it('BPM・Key・時刻はある曲にだけ描き、無い曲に仮の値を置かない', () => {
+  it('BPM・Key はある曲にだけ描き、無い曲に仮の値を置かない', () => {
     const sample = createSampleSetlist()
     const partial: Setlist = {
       ...sample,
@@ -158,7 +157,7 @@ describe('どのテンプレートも作った値を描かない', () => {
       expect(text).not.toContain(placeholder)
     }
     expect(text.filter((t) => t === '120')).toHaveLength(1)
-    // 時刻は 00:00 の最初の曲だけ（2 曲目に 00:00 を置かない）
-    expect(text.filter((t) => t === '00:00')).toHaveLength(1)
+    // 再生時刻（00:00 のような経過時間）は描かない
+    expect(text.some((t) => /^\d{2}:\d{2}$/.test(t))).toBe(false)
   })
 })

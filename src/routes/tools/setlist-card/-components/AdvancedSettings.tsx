@@ -17,8 +17,6 @@ type Props = {
   onStyleChange: (style: StyleOptions) => void
   display: DisplayOptions
   onDisplayChange: (display: DisplayOptions) => void
-  /** 開始時刻を持つ曲があるか */
-  hasStartTimes: boolean
   textOptions: TextOptions
   onTextOptionsChange: (options: TextOptions) => void
   columns: ColumnsSetting
@@ -33,7 +31,6 @@ type Props = {
 
 const TOGGLES: ReadonlyArray<{ key: keyof DisplayOptions; label: string }> = [
   { key: 'number', label: '曲番号' },
-  { key: 'time', label: '開始時刻' },
   { key: 'bpm', label: 'BPM' },
   { key: 'key', label: 'Key' },
   { key: 'label', label: 'レーベル' },
@@ -48,7 +45,6 @@ export function AdvancedSettings({
   onStyleChange,
   display,
   onDisplayChange,
-  hasStartTimes,
   textOptions,
   onTextOptionsChange,
   columns,
@@ -122,23 +118,9 @@ export function AdvancedSettings({
             {TOGGLES.map((t) => (
               <SwitchRow
                 key={t.key}
-                label={
-                  t.key === 'time' && !hasStartTimes ? (
-                    <>
-                      {t.label}
-                      <span className="text-(--muted)">（履歴に無し）</span>
-                    </>
-                  ) : (
-                    t.label
-                  )
-                }
+                label={t.label}
                 checked={display[t.key]}
                 onChange={(on) => onDisplayChange({ ...display, [t.key]: on })}
-                title={
-                  t.key === 'time' && !hasStartTimes
-                    ? 'この履歴には再生開始時刻が入っていない（Traktor / Serato には入っている）'
-                    : undefined
-                }
               />
             ))}
           </div>
