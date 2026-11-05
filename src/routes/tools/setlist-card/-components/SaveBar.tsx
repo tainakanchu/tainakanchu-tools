@@ -63,7 +63,7 @@ export function SaveBar({ state }: { state: ExportState }) {
         <p className="slc-note mb-2" data-tone="alert">
           {multi ? '1 枚が' : ''}5MB 超（{formatBytes(state.largest)}）。X
           では再圧縮されます
-          {tips.length > 0 ? `。${tips.join('か')}で小さく` : ''}
+          {tips.length > 0 ? `。${tips.join(' か ')}で小さくなる` : ''}
         </p>
       ) : null}
       <div ref={wrapRef} className="relative flex items-stretch gap-2">

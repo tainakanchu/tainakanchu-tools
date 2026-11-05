@@ -99,6 +99,16 @@
   letter-spacing: 0.02em;
 }
 
+/* 朱の小さな角（版の見当のような印）。警告の印と同じ形 */
+.slc-title::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  background: var(--accent);
+}
+
 .slc-label {
   font-size: 12px;
   color: var(--muted);
@@ -552,13 +562,7 @@
 }
 
 .slc-thumb:focus-visible {
-  outline: none;
-}
-
-.slc-thumb:focus-visible canvas {
-  box-shadow:
-    0 0 0 2px var(--bg),
-    0 0 0 4px var(--fg);
+  outline-offset: 6px;
 }
 
 .slc-thumb > span {
@@ -594,14 +598,12 @@
     0 0 0 4px var(--accent);
 }
 
-.slc-swatch:focus-visible {
-  outline: none;
+.slc-swatch {
+  border-radius: var(--pill);
 }
 
-.slc-swatch:focus-visible > span {
-  box-shadow:
-    0 0 0 2px var(--bg),
-    0 0 0 4px var(--fg);
+.slc-swatch:focus-visible {
+  outline-offset: -2px;
 }
 
 /* 写真から作った配色の前の小さな区切り */
