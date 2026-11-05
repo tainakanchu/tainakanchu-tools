@@ -35,7 +35,6 @@ import {
   fitTitle,
   labelSize,
   rowsInputFor,
-  setLengthText,
   trackCountText,
   trackFonts,
   trackSizeRange,
@@ -331,11 +330,9 @@ export function renderPhoto(a: TemplateArgs): LayoutResult {
   const dy = bottomOffset(fit.layout, fit.area)
   const listTop = fit.area.y + dy
   ctx.zone = wide ? 0 : 1
-  // 曲の上の小さなキャプション（曲数・長さ）と細い罫線
+  // 曲の上の小さなキャプション（曲数）と細い罫線
   const lf = font(400, labelSize(ctx), 'mono')
-  const caption = [trackCountText(meta), setLengthText(meta)]
-    .filter(Boolean)
-    .join(' · ')
+  const caption = trackCountText(meta)
   drawText(ctx, caption, inner.x, listTop - 30 * s, lf, pal.muted)
   hairline(ctx, inner.x, listTop - 14 * s, colW, pal.rule)
   drawRows(ctx, fit.layout, rowColors(ctx, { title: pal.muted }), {

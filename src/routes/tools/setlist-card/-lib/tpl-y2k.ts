@@ -30,7 +30,6 @@ import {
   drawPageHeader,
   fitTitle,
   rowsInputFor,
-  setLengthText,
   trackCountText,
   trackSizeRange,
 } from './tpl-common'
@@ -113,13 +112,13 @@ function y2kFonts(ctx: Ctx): FontFor {
 }
 
 /**
- * 飾りのバー（ここだけ光らせる）。上に曲数（とわかるときだけセットの長さ・ページ）。
+ * 飾りのバー（ここだけ光らせる）。上に曲数（と複数枚のときのページ）。
  * バーは常に満タンで、数値は持たない。高さを返す
  */
 function drawDecoBar(ctx: Ctx, meta: Meta, rect: Rect, page: PageSpec): number {
   const { c, s, pal, palette } = ctx
   const lf = font(400, Math.max(ctx.minFont * 0.9, 20 * s), 'pixel')
-  const label = [trackCountText(meta), setLengthText(meta), pageLabel(page)]
+  const label = [trackCountText(meta), pageLabel(page)]
     .filter(Boolean)
     .join(' / ')
     .toUpperCase()

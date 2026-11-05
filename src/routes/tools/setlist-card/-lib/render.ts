@@ -33,7 +33,6 @@ import {
 import { SCRIM_MIN, ditherStops, duotoneStops } from './palettes'
 import { photoSampler, processedPhoto } from './photo'
 import { resolvePhotoColors } from './photo-contrast'
-import { knownSetLength } from './set-length'
 import { mostlyTruncated, resolveSplit } from './split'
 import { META_LABELS, sideNumber, toItems } from './items'
 import { renderCenter } from './tpl-center'
@@ -166,8 +165,7 @@ function qmarkGlyph(input: RenderInput): '?' | '？' {
 }
 
 /**
- * 見出しの情報。セットの長さは再生記録に実際の終わりがあるときだけ（set-length.ts）。
- * 品番風の ID のような、入力に無い値は作らない。
+ * 見出しの情報。セットの長さや品番風の ID のような、確かでない・入力に無い値は出さない。
  */
 export function metaOf(setlist: Setlist): Meta {
   return {
@@ -176,7 +174,6 @@ export function metaOf(setlist: Setlist): Meta {
     date: setlist.date?.trim() ?? '',
     venue: setlist.venue?.trim() ?? '',
     total: setlist.tracks.length,
-    setLength: knownSetLength(setlist.tracks),
   }
 }
 

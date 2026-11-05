@@ -27,7 +27,7 @@ export type Track = {
    * 混ぜない。
    */
   playedSec?: number
-  /** ファイル（曲そのもの）の長さ。かけた長さではないので、セットの長さには使わない */
+  /** ファイル（曲そのもの）の長さ。かけた長さではないので（画像には出さない） */
   durationSec?: number
   genre?: string
   label?: string

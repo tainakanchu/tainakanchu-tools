@@ -54,7 +54,7 @@ function Thumb({
       if (canvas.height !== h) canvas.height = h
       const setlist =
         input.setlist.tracks.length > 0 ? input.setlist : fallbackSetlist
-      // 描くのは先頭 12 曲だけ（軽くするため）。曲数・セットの長さは全曲から出すので、
+      // 描くのは先頭 12 曲だけ（軽くするため）。曲数は全曲から出すので、
       // 見本でも本当と違う数は書かない
       const end = Math.min(12, setlist.tracks.length)
       const thumbInput: RenderInput = {

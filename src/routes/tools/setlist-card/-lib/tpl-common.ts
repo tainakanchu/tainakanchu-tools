@@ -213,14 +213,6 @@ export function trackCountText(meta: Meta): string {
   return `${meta.total} ${meta.total === 1 ? 'track' : 'tracks'}`
 }
 
-export function setLengthText(meta: Meta): string {
-  if (meta.setLength === undefined || meta.setLength <= 0) return ''
-  const total = Math.round(meta.setLength / 60)
-  const h = Math.floor(total / 60)
-  const m = total % 60
-  return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`
-}
-
 const squash = (t: string) => t.replace(/\s+/g, '')
 
 /**

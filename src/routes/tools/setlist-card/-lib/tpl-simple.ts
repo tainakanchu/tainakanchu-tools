@@ -30,7 +30,6 @@ import {
   fitTitle,
   labelSize,
   rowsInputFor,
-  setLengthText,
   trackCountText,
   trackFonts,
   trackSizeRange,
@@ -80,7 +79,7 @@ export function tallSpread(ctx: Ctx): number {
 const labelFont = (ctx: Ctx, opts: { caps?: boolean } = {}) =>
   font(400, labelSize(ctx), 'mono', opts.caps ? { tracking: 0.06 } : {})
 
-/** フッター（曲数・セットの長さ と クレジット）。高さを返す */
+/** フッター（曲数 と クレジット）。高さを返す */
 function drawFooter(
   ctx: Ctx,
   meta: Meta,
@@ -96,9 +95,7 @@ function drawFooter(
   const { s, pal } = ctx
   const f = labelFont(ctx, { caps: opts.caps })
   const y = inner.y + inner.h
-  const left =
-    opts.left ??
-    [trackCountText(meta), setLengthText(meta)].filter(Boolean).join(' · ')
+  const left = opts.left ?? trackCountText(meta)
   const leftText = opts.caps ? left.toUpperCase() : left
   if (opts.rule) hairline(ctx, inner.x, y - 34 * s, inner.w, opts.rule)
   if (opts.stack) {
@@ -114,11 +111,9 @@ function drawFooter(
   return opts.rule ? 34 * s + 26 * s : 50 * s
 }
 
-/** フッターの左（曲数・セットの長さ・ページ） */
+/** フッターの左（曲数・ページ） */
 function footerText(meta: Meta, page: PageSpec): string {
-  return [trackCountText(meta), setLengthText(meta), pageLabel(page)]
-    .filter(Boolean)
-    .join(' · ')
+  return [trackCountText(meta), pageLabel(page)].filter(Boolean).join(' · ')
 }
 
 // ---------------------------------------------------------------------------
@@ -547,7 +542,6 @@ function drawCredits(ctx: Ctx, meta: Meta, rect: Rect, page = ''): number {
     ['DATE', meta.date],
     ['VENUE', meta.venue],
     ['TRACKS', String(meta.total)],
-    ['LENGTH', setLengthText(meta)],
     ['PAGE', page],
   ]
   let y = rect.y
