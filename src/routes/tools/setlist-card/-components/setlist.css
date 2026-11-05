@@ -66,7 +66,7 @@
 
   .slc {
     --pv-h: calc(100dvh - 4rem - 140px);
-    --empty-h: calc(100dvh - 4rem - 150px);
+    --empty-h: calc(100dvh - 4rem - 172px);
   }
 }
 
