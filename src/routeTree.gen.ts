@@ -15,6 +15,7 @@ import { Route as ToolsDrumRollIndexRouteImport } from './routes/tools/drum-roll
 import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/license-layout/index'
 import { Route as ToolsMeetingRecorderIndexRouteImport } from './routes/tools/meeting-recorder/index'
 import { Route as ToolsRisographIndexRouteImport } from './routes/tools/risograph/index'
+import { Route as ToolsSetlistCardIndexRouteImport } from './routes/tools/setlist-card/index'
 import { Route as ToolsTaiwanArrivalCardIndexRouteImport } from './routes/tools/taiwan-arrival-card/index'
 import { Route as ToolsTripNotesIndexRouteImport } from './routes/tools/trip-notes/index'
 import { Route as ToolsTripSchedulerIndexRouteImport } from './routes/tools/trip-scheduler/index'
@@ -51,6 +52,11 @@ const ToolsRisographIndexRoute = ToolsRisographIndexRouteImport.update({
   path: '/tools/risograph/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsSetlistCardIndexRoute = ToolsSetlistCardIndexRouteImport.update({
+  id: '/tools/setlist-card/',
+  path: '/tools/setlist-card/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsTaiwanArrivalCardIndexRoute =
   ToolsTaiwanArrivalCardIndexRouteImport.update({
     id: '/tools/taiwan-arrival-card/',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
   '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
   '/tools/meeting-recorder': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/trip-notes': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
   '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/tools/license-layout/'
     | '/tools/meeting-recorder/'
     | '/tools/risograph/'
+    | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/tools/license-layout'
     | '/tools/meeting-recorder'
     | '/tools/risograph'
+    | '/tools/setlist-card'
     | '/tools/taiwan-arrival-card'
     | '/tools/trip-notes'
     | '/tools/trip-scheduler'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/tools/license-layout/'
     | '/tools/meeting-recorder/'
     | '/tools/risograph/'
+    | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   ToolsLicenseLayoutIndexRoute: typeof ToolsLicenseLayoutIndexRoute
   ToolsMeetingRecorderIndexRoute: typeof ToolsMeetingRecorderIndexRoute
   ToolsRisographIndexRoute: typeof ToolsRisographIndexRoute
+  ToolsSetlistCardIndexRoute: typeof ToolsSetlistCardIndexRoute
   ToolsTaiwanArrivalCardIndexRoute: typeof ToolsTaiwanArrivalCardIndexRoute
   ToolsTripNotesIndexRoute: typeof ToolsTripNotesIndexRoute
   ToolsTripSchedulerIndexRoute: typeof ToolsTripSchedulerIndexRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsRisographIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools/setlist-card/': {
+      id: '/tools/setlist-card/'
+      path: '/tools/setlist-card'
+      fullPath: '/tools/setlist-card/'
+      preLoaderRoute: typeof ToolsSetlistCardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools/taiwan-arrival-card/': {
       id: '/tools/taiwan-arrival-card/'
       path: '/tools/taiwan-arrival-card'
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsLicenseLayoutIndexRoute: ToolsLicenseLayoutIndexRoute,
   ToolsMeetingRecorderIndexRoute: ToolsMeetingRecorderIndexRoute,
   ToolsRisographIndexRoute: ToolsRisographIndexRoute,
+  ToolsSetlistCardIndexRoute: ToolsSetlistCardIndexRoute,
   ToolsTaiwanArrivalCardIndexRoute: ToolsTaiwanArrivalCardIndexRoute,
   ToolsTripNotesIndexRoute: ToolsTripNotesIndexRoute,
   ToolsTripSchedulerIndexRoute: ToolsTripSchedulerIndexRoute,
