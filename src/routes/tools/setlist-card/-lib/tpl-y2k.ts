@@ -21,13 +21,13 @@ import {
   rowColors,
 } from './draw'
 import { devicePx } from './export'
-import { ellipsize } from './fit'
 import { isDarkPalette } from './palettes'
 import { fitRowsLayout } from './rows'
 import { fromRows, tallSpread } from './tpl-simple'
 import {
   columnGap,
   drawPageHeader,
+  fitLabel,
   fitTitle,
   rowsInputFor,
   trackCountText,
@@ -164,12 +164,13 @@ function drawWindow(ctx: Ctx, rect: Rect, title: string, tight: boolean): Rect {
   c.lineWidth = lw
   c.strokeRect(rect.x + lw / 2, rect.y + lw / 2, rect.w - lw, rect.h - lw)
   const tf = font(400, Math.max(ctx.minFont * 0.9, 20 * s), 'pixel')
+  const fitted = fitLabel(ctx, title, rect.w - 160 * s, tf)
   drawText(
     ctx,
-    ellipsize(title, rect.w - 160 * s, tf, ctx.measure),
+    fitted.text,
     rect.x + 18 * s,
     rect.y + bar / 2 + 1 * s,
-    tf,
+    fitted.font,
     onBar,
     'left',
     'middle',
@@ -230,12 +231,13 @@ export function renderY2k(a: TemplateArgs): LayoutResult {
     const lf = font(400, Math.max(ctx.minFont * 0.9, 20 * s), 'pixel')
     drawText(ctx, meta.date, inner.x, inner.y + 16 * s, lf, pal.muted)
     if (meta.venue && !wide) {
+      const f = fitLabel(ctx, meta.venue, headW * 0.6, lf)
       drawText(
         ctx,
-        ellipsize(meta.venue, headW * 0.6, lf, ctx.measure),
+        f.text,
         inner.x + headW,
         inner.y + 16 * s,
-        lf,
+        f.font,
         pal.muted,
         'right',
       )
@@ -252,30 +254,17 @@ export function renderY2k(a: TemplateArgs): LayoutResult {
     )
     const lh = t.size * 1.02
     const ty = inner.y + 46 * s + t.size * 0.78
-    drawChrome(ctx, t.lines, inner.x, ty, t.size, titleAt(t.size), lh)
+    drawChrome(ctx, t.lines, inner.x, ty, t.size, t.font, lh)
     let y = ty + lh * (t.lines.length - 1) + t.size * 0.3
     const sub = meta.event ? meta.dj : ''
     if (sub) {
-      const f = font(500, 30 * s, 'sans')
-      drawText(
-        ctx,
-        ellipsize(sub, headW, f, ctx.measure),
-        inner.x,
-        y + 34 * s,
-        f,
-        pal.fg,
-      )
+      const f = fitLabel(ctx, sub, headW, font(500, 30 * s, 'sans'))
+      drawText(ctx, f.text, inner.x, y + 34 * s, f.font, pal.fg)
       y += 46 * s
     }
     if (wide && meta.venue) {
-      drawText(
-        ctx,
-        ellipsize(meta.venue, headW, lf, ctx.measure),
-        inner.x,
-        y + 30 * s,
-        lf,
-        pal.muted,
-      )
+      const f = fitLabel(ctx, meta.venue, headW, lf)
+      drawText(ctx, f.text, inner.x, y + 30 * s, f.font, pal.muted)
       y += 40 * s
     }
     y += 30 * s

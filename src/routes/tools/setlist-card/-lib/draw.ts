@@ -6,9 +6,17 @@
  */
 import { contrastRatio, hexToRgb, rgba } from './color'
 import { mulberry32 } from './random'
-import { FONT_STACKS, noteFontUse } from './fonts'
+import {
+  font,
+  fontSize,
+  forScript,
+  noteFontUse,
+  parseFont,
+  withScript,
+} from './fonts'
+import { detectScript } from './script'
 import type { Measure, Rect } from './fit'
-import type { FontStack } from './fonts'
+import type { FontOpts } from './fonts'
 import type { FontFamily } from './layouts'
 import type { Palette } from './palettes'
 import type { PlacedMark } from './redact'
@@ -114,39 +122,12 @@ export type Ctx = {
 // 書体
 // ---------------------------------------------------------------------------
 
-/** 字間・字幅は font 文字列の後ろに区切って持たせる（計測のメモのキーにもなる） */
-const SEP = '\u0001'
+export { font, fontSize, forText, withScript }
+export type { FontOpts }
 
-export type FontOpts = {
-  /** 字間（em） */
-  tracking?: number
-  /** 字幅（Archivo の幅の軸） */
-  stretch?: 'normal' | 'semi-condensed' | 'condensed'
-  italic?: boolean
-}
-
-export function font(
-  weight: number,
-  size: number,
-  stack: FontStack,
-  opts: FontOpts = {},
-): string {
-  const px = Math.max(1, Math.round(size * 10) / 10)
-  const css = `${opts.italic ? 'italic ' : ''}${weight} ${px}px ${FONT_STACKS[stack]}`
-  if (!opts.tracking && (!opts.stretch || opts.stretch === 'normal')) return css
-  return `${css}${SEP}${opts.tracking ?? 0}${SEP}${opts.stretch ?? 'normal'}`
-}
-
-export function fontSize(f: string): number {
-  return Number(/(\d+(?:\.\d+)?)px/.exec(f)?.[1] ?? 16)
-}
-
-type ParsedFont = { css: string; tracking: number; stretch: string }
-
-function parseFont(f: string): ParsedFont {
-  if (!f.includes(SEP)) return { css: f, tracking: 0, stretch: 'normal' }
-  const [css, tracking, stretch] = f.split(SEP)
-  return { css, tracking: Number(tracking) || 0, stretch: stretch || 'normal' }
+/** 文字体系がまだ決まっていない font を、描く・測る文字列から決める */
+function forText(f: string, text: string): string {
+  return forScript(f, () => detectScript(text))
 }
 
 const supportsLetterSpacing =
@@ -193,16 +174,18 @@ export function scratchContext(): CanvasRenderingContext2D {
 const measureMemo = new Map<string, number>()
 
 /** 文字幅の計測（書体 + 文字列でメモ化。ページ数の試算で何度も測るため） */
-export const sharedMeasure: Measure = (text, f) => {
-  const key = `${f}\u0000${text}`
+export const sharedMeasure: Measure = (text, given) => {
+  const key = `${given}\u0000${text}`
   const hit = measureMemo.get(key)
   if (hit !== undefined) return hit
+  // 描くときと同じく、文字体系の決まっていない font は測る文字列から決める
+  const f = forText(given, text)
   const c = scratchContext()
   applyFont(c, f)
-  noteFontUse(parseFont(f).css, text)
+  const p = parseFont(f)
+  noteFontUse(p.css, text)
   let width = c.measureText(text).width
   // letterSpacing は最後の文字の後ろにも付くので、その分を引く
-  const p = parseFont(f)
   if (p.tracking && supportsLetterSpacing && text.length > 0) {
     width -= p.tracking * fontSize(p.css)
   }
@@ -261,8 +244,9 @@ export function drawText(
   if (!text) return
   recordBox(ctx, text, x, y, f, align, baseline, 1)
   const { c } = ctx
-  applyFont(c, f)
-  noteFontUse(parseFont(f).css, text)
+  const resolved = forText(f, text)
+  applyFont(c, resolved)
+  noteFontUse(parseFont(resolved).css, text)
   c.fillStyle = color
   c.textAlign = align
   c.textBaseline = baseline

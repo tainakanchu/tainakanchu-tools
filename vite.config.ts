@@ -78,7 +78,8 @@ export default defineConfig({
         // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
         // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
         // StaleWhileRevalidate、フォント本体はファイル名が版ごとに変わるので
-        // CacheFirst。和文フォントは unicode-range で 100 個前後に分かれるので
+        // CacheFirst。和文・中国語・韓国語のフォントは unicode-range で 100 個
+        // 前後に分かれ (書体ごと)、中国語・韓国語の CSS は使うときだけ読むので、
         // 件数の上限は多めに取る。
         runtimeCaching: [
           {
@@ -94,7 +95,7 @@ export default defineConfig({
               cacheName: 'google-fonts-files',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
-                maxEntries: 400,
+                maxEntries: 800,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
             },

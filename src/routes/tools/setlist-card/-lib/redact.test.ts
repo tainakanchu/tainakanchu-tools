@@ -45,9 +45,31 @@ const SECRETS = [
       '誰にも言えない未発表のとても長い曲名 (Very Long Secret Remix) [Extended Mix]',
   },
   { artist: '', title: '' },
+  // 本当の文字の体系（ハングル・簡体字・繁体字）で書体の選び方が変わらないこと
+  {
+    artist: '비밀의 아티스트',
+    title: '这是谁也不知道的歌 / 這是誰也不知道的歌',
+  },
 ] as const
 
-const SECRET_WORDS = ['Zq', 'Qz', 'Xylophonic', 'Mystery', '誰にも', 'Secret']
+const SECRET_WORDS = [
+  'Zq',
+  'Qz',
+  'Xylophonic',
+  'Mystery',
+  '誰にも',
+  'Secret',
+  '비밀',
+  '这是',
+  '這是',
+]
+
+/**
+ * 韓国語・簡体字の書体を先頭に選んだ font（見本のセトリには無いので、出てきたら
+ * 隠した欄の本当の文字から選んだことになる）
+ */
+const SECRET_SCRIPT_FONT =
+  /"Noto Sans", "Noto Sans (KR|SC)"|"Noto Serif (KR|SC)", "Noto Serif"/
 
 /** 3 曲目は両方、6 曲目はアーティストだけ、10 曲目は曲名だけを隠す */
 const HIDES: ReadonlyArray<[number, Track['hidden']]> = [
@@ -227,8 +249,9 @@ describe('toItems', () => {
                     : item,
                 ),
               }
-        expect(strip(results[1])).toEqual(strip(results[0]))
-        expect(strip(results[2])).toEqual(strip(results[0]))
+        for (const r of results.slice(1)) {
+          expect(strip(r)).toEqual(strip(results[0]))
+        }
         const text = JSON.stringify(results.map((r) => r.items))
         for (const word of SECRET_WORDS) expect(text).not.toContain(word)
       }
@@ -306,9 +329,8 @@ describe('行組みは本当の文字によらない', () => {
           )
           return { rows, center }
         }
-        const [a, b, c] = SECRETS.map(plan)
-        expect(b).toEqual(a)
-        expect(c).toEqual(a)
+        const [a, ...rest] = SECRETS.map(plan)
+        for (const b of rest) expect(b).toEqual(a)
       })
     }
   }
@@ -466,10 +488,10 @@ describe('canvas に届くものは本当の文字によらない', () => {
                 }
             return record(inputFor(fixed, layout, redact, c.longText, c.split))
           })
-          expect(runs[1]).toEqual(runs[0])
-          expect(runs[2]).toEqual(runs[0])
+          for (const r of runs.slice(1)) expect(r).toEqual(runs[0])
           const all = runs.flat().join('\n')
           for (const word of SECRET_WORDS) expect(all).not.toContain(word)
+          expect(all).not.toMatch(SECRET_SCRIPT_FONT)
         }
       })
     }

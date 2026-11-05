@@ -17,7 +17,9 @@ import {
   wrapText,
 } from './textfit'
 import type { Measure, Rect } from './fit'
+import { withScript } from './fonts'
 import { markFor } from './redact'
+import { pairScripts } from './script'
 import type { Marks, PlacedMark } from './redact'
 import type { LongTextMode } from './textfit'
 
@@ -251,8 +253,11 @@ function buildRow(
 ): Built {
   const { measure, mode, fontFor } = input
   const { lineH, pad } = geometry(style, size)
-  const artistFont = fontFor('artist', size, style)
-  const titleFont = fontFor('title', size, style)
+  // 書体は欄ごとに、描く文字（隠した欄は置き換えた文字）から決める。省略・折り返しで
+  // 切った後の文字も、測るときと描くときで同じスタックになるよう先に決めておく
+  const [artistScript, titleScript] = pairScripts(item.artist, item.title)
+  const artistFont = withScript(fontFor('artist', size, style), artistScript)
+  const titleFont = withScript(fontFor('title', size, style), titleScript)
   const texts: Array<PlacedText> = []
   const firstY = pad / 2 + lineH / 2
   const put = (

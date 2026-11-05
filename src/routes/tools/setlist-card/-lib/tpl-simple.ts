@@ -14,7 +14,6 @@ import {
   rowsUsedHeight,
   scratchContext,
 } from './draw'
-import { ellipsize } from './fit'
 import {
   fitRowsLayout,
   metaColumnEdges,
@@ -27,6 +26,7 @@ import {
   columnGap,
   columnsFor,
   drawPageHeader,
+  fitLabel,
   fitTitle,
   labelSize,
   rowsInputFor,
@@ -133,15 +133,23 @@ function drawMinimalHeader(
   const ls = labelSize(ctx)
   if (!stacked) {
     const date = meta.date
-    const venue = ellipsize(
+    const venue = fitLabel(
+      ctx,
       meta.venue,
       rect.w - ctx.measure(date, lf) - 40 * s,
       lf,
-      ctx.measure,
     )
     drawText(ctx, date, rect.x, y + ls * 0.8, lf, pal.muted)
-    drawText(ctx, venue, rect.x + rect.w, y + ls * 0.8, lf, pal.muted, 'right')
-    if (date || venue) y += ls + 76 * s
+    drawText(
+      ctx,
+      venue.text,
+      rect.x + rect.w,
+      y + ls * 0.8,
+      venue.font,
+      pal.muted,
+      'right',
+    )
+    if (date || venue.text) y += ls + 76 * s
   } else if (meta.date) {
     drawText(ctx, meta.date, rect.x, y + ls * 0.8, lf, pal.muted)
     y += ls + 48 * s
@@ -161,40 +169,25 @@ function drawMinimalHeader(
   )
   const lh = t.size * 1.06
   t.lines.forEach((line, i) => {
-    drawText(
-      ctx,
-      line,
-      rect.x,
-      y + t.size * 0.82 + i * lh,
-      titleAt(t.size),
-      pal.fg,
-    )
+    drawText(ctx, line, rect.x, y + t.size * 0.82 + i * lh, t.font, pal.fg)
   })
   y += t.size * 0.82 + lh * (t.lines.length - 1) + t.size * 0.24
   const sub = meta.event ? meta.dj : ''
   if (sub) {
-    const f = font(400, (stacked ? 28 : 32) * s, body)
-    y += 22 * s
-    drawText(
+    const f = fitLabel(
       ctx,
-      ellipsize(sub, rect.w, f, ctx.measure),
-      rect.x,
-      y + 28 * s,
-      f,
-      pal.fg,
+      sub,
+      rect.w,
+      font(400, (stacked ? 28 : 32) * s, body),
     )
+    y += 22 * s
+    drawText(ctx, f.text, rect.x, y + 28 * s, f.font, pal.fg)
     y += 36 * s
   }
   if (stacked && meta.venue) {
     y += 20 * s
-    drawText(
-      ctx,
-      ellipsize(meta.venue, rect.w, lf, ctx.measure),
-      rect.x,
-      y + ls,
-      lf,
-      pal.muted,
-    )
+    const venue = fitLabel(ctx, meta.venue, rect.w, lf)
+    drawText(ctx, venue.text, rect.x, y + ls, venue.font, pal.muted)
     y += ls + 6 * s
   }
   return y - rect.y
@@ -308,28 +301,15 @@ function drawSleeveHeader(
   )
   const lh = t.size * 1.04
   t.lines.forEach((line, i) =>
-    drawText(
-      ctx,
-      line,
-      rect.x,
-      y + t.size * 0.82 + i * lh,
-      titleAt(t.size),
-      pal.fg,
-    ),
+    drawText(ctx, line, rect.x, y + t.size * 0.82 + i * lh, t.font, pal.fg),
   )
   y += t.size * 0.82 + lh * (t.lines.length - 1) + t.size * 0.22
   const sub = meta.event ? meta.dj : ''
   const subFont = font(400, 30 * s, body)
   if (sub) {
     y += 16 * s
-    drawText(
-      ctx,
-      ellipsize(sub, rect.w, subFont, ctx.measure),
-      rect.x,
-      y + 26 * s,
-      subFont,
-      pal.fg,
-    )
+    const f = fitLabel(ctx, sub, rect.w, subFont)
+    drawText(ctx, f.text, rect.x, y + 26 * s, f.font, pal.fg)
     y += 34 * s
   }
   const place = [stacked ? meta.date : '', meta.venue]
@@ -337,14 +317,8 @@ function drawSleeveHeader(
     .join('  ·  ')
   if (place) {
     y += 14 * s
-    drawText(
-      ctx,
-      ellipsize(place, rect.w, lf, ctx.measure),
-      rect.x,
-      y + ls * 0.8,
-      lf,
-      pal.muted,
-    )
+    const f = fitLabel(ctx, place, rect.w, lf)
+    drawText(ctx, f.text, rect.x, y + ls * 0.8, f.font, pal.muted)
     y += ls
   }
   return y - rect.y
@@ -493,7 +467,7 @@ function drawEditorialHeadline(
         line,
         rect.x,
         y + t.size * 0.8 + i * t.size,
-        roman(t.size),
+        t.font,
         pal.fg,
       ),
     )
@@ -506,7 +480,7 @@ function drawEditorialHeadline(
           line,
           rect.x,
           y + d.size * 0.9 + i * d.size,
-          italic(d.size),
+          d.font,
           pal.fg,
         ),
       )
@@ -520,7 +494,7 @@ function drawEditorialHeadline(
         line,
         rect.x,
         y + t.size * 0.8 + i * t.size,
-        italic(t.size),
+        t.font,
         pal.fg,
       ),
     )
@@ -549,9 +523,10 @@ function drawCredits(ctx: Ctx, meta: Meta, rect: Rect, page = ''): number {
     // 柱の高さに収まらない項目は出さない
     if (rect.h > 0 && y + 58 * s > rect.y + rect.h) break
     drawText(ctx, label, rect.x, y + 14 * s, lf, pal.muted)
-    const lines = fitTitle(ctx, value, rect.w, () => vf, 1, 1, 2).lines
+    const fitted = fitTitle(ctx, value, rect.w, () => vf, 1, 1, 2)
+    const lines = fitted.lines
     lines.forEach((line, i) =>
-      drawText(ctx, line, rect.x, y + 48 * s + i * 30 * s, vf, pal.fg),
+      drawText(ctx, line, rect.x, y + 48 * s + i * 30 * s, fitted.font, pal.fg),
     )
     y += 48 * s + (lines.length - 1) * 30 * s + 40 * s
   }

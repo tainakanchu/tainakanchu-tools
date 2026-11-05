@@ -7,7 +7,7 @@
  * 曲が多いときは読める最小（minLegibleFont）まで自動で小さくする。
  */
 import { columnOptions, getTemplate, maxColumnsFor } from './layouts'
-import { drawText, font, hairline } from './draw'
+import { drawText, font, forText, hairline } from './draw'
 import { ellipsize, fitFontSize } from './fit'
 import { wrapText } from './textfit'
 import { pageLabel } from './template-types'
@@ -155,9 +155,9 @@ export function drawPageHeader(
   const heading = meta.event || meta.dj || 'Setlist'
   const sub = meta.event ? meta.dj : ''
   const headAt = (size: number) =>
-    font(500, size, bodyStack(ctx), { tracking: -0.01 })
+    forText(font(500, size, bodyStack(ctx), { tracking: -0.01 }), heading)
   const room = align === 'center' ? rect.w - labelW * 2 : rect.w - labelW
-  const subFont = font(400, 26 * s, bodyStack(ctx))
+  const subFont = forText(font(400, 26 * s, bodyStack(ctx)), `   ${sub}`)
   const subW = sub ? ctx.measure(`   ${sub}`, subFont) : 0
   const size = fitFontSize(
     heading,
@@ -223,23 +223,30 @@ export function fitTitle(
   ctx: Ctx,
   text: string,
   width: number,
-  fontAt: (size: number) => string,
+  givenFontAt: (size: number) => string,
   min: number,
   max: number,
   maxLines: number,
-): { lines: Array<string>; size: number } {
+): { lines: Array<string>; size: number; font: string } {
+  // 書体（文字体系）は見出しの文字列全体で決める。折り返した行も同じ書体で描く
+  const fontAt = (size: number) => forText(givenFontAt(size), text)
+  const done = (lines: Array<string>, size: number) => ({
+    lines,
+    size,
+    font: fontAt(size),
+  })
   // 1 行で max の 7 割以上に組めるなら 1 行にする（「50」だけが次の行に落ちる、を避ける）
   const oneLine = fitFontSize(text, width, fontAt, ctx.measure, min, max)
   if (
     ctx.measure(text, fontAt(oneLine)) <= width + 0.5 &&
     (maxLines < 2 || oneLine >= max * 0.7)
   ) {
-    return { lines: [text], size: oneLine }
+    return done([text], oneLine)
   }
   const step = Math.max(1, (max - min) / 24)
   for (let size = max; size >= min - 0.01; size -= step) {
     const f = fontAt(size)
-    if (ctx.measure(text, f) <= width) return { lines: [text], size }
+    if (ctx.measure(text, f) <= width) return done([text], size)
     if (maxLines < 2) continue
     const lines = wrapText(text, width, maxLines, f, ctx.measure)
     const last = lines.at(-1) ?? ''
@@ -249,13 +256,26 @@ export function fitTitle(
       ctx.measure(last, f) < width * 0.22 &&
       size > min + step
     if (squash(lines.join('')) === squash(text) && !orphan) {
-      return { lines, size }
+      return done(lines, size)
     }
   }
   const f = fontAt(min)
-  if (maxLines < 2)
-    return { lines: [ellipsize(text, width, f, ctx.measure)], size: min }
-  return { lines: wrapText(text, width, maxLines, f, ctx.measure), size: min }
+  if (maxLines < 2) return done([ellipsize(text, width, f, ctx.measure)], min)
+  return done(wrapText(text, width, maxLines, f, ctx.measure), min)
+}
+
+/**
+ * 1 行に収まらなければ末尾を省略する。書体（文字体系）は省略する前の文字列で決め、
+ * 返した font で描く（省略した後の文字から決め直すと書体が変わることがあるため）。
+ */
+export function fitLabel(
+  ctx: Ctx,
+  text: string,
+  width: number,
+  f: string,
+): { text: string; font: string } {
+  const resolved = forText(f, text)
+  return { text: ellipsize(text, width, resolved, ctx.measure), font: resolved }
 }
 
 /**

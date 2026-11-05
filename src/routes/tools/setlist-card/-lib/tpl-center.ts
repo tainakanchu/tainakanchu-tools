@@ -12,6 +12,7 @@ import {
   drawScaled,
   drawText,
   font,
+  forText,
   innerOf,
   isWide,
 } from './draw'
@@ -59,12 +60,12 @@ function drawCenterHeader(
   const size = fitFontSize(
     heading,
     rect.w,
-    (sz) => headFont(ctx, sz),
+    (sz) => forText(headFont(ctx, sz), heading),
     ctx.measure,
     (compact ? 30 : 40) * s,
     (compact ? 44 : isWide(rect) ? 84 : 130) * s,
   )
-  const f = headFont(ctx, size)
+  const f = forText(headFont(ctx, size), heading)
   drawText(
     ctx,
     ellipsize(heading, rect.w, f, ctx.measure),
@@ -83,10 +84,13 @@ function drawCenterHeader(
     .filter(Boolean)
     .join('　·　')
   if (info) {
-    const lf = font(
-      400,
-      Math.max(ctx.minFont, (compact ? 22 : 26) * s),
-      stacks(ctx).body,
+    const lf = forText(
+      font(
+        400,
+        Math.max(ctx.minFont, (compact ? 22 : 26) * s),
+        stacks(ctx).body,
+      ),
+      info,
     )
     y += (compact ? 18 : 30) * s
     drawText(
@@ -217,7 +221,7 @@ export function renderCenter(a: TemplateArgs): LayoutResult {
           run.text,
           x0 + run.x,
           y,
-          fontFor(run.role, layout.size),
+          run.font,
           colorOf(run.role),
           'left',
           'middle',

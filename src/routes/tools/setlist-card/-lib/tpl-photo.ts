@@ -23,7 +23,6 @@ import {
   mulberry32,
   rowColors,
 } from './draw'
-import { ellipsize } from './fit'
 import { fitRowsLayout } from './rows'
 import { fromRows } from './tpl-simple'
 import {
@@ -32,6 +31,7 @@ import {
   columnGap,
   columnsFor,
   drawPageHeader,
+  fitLabel,
   fitTitle,
   labelSize,
   rowsInputFor,
@@ -109,41 +109,28 @@ function drawPhotoHeader(ctx: Ctx, meta: Meta, rect: Rect, boost = 0): number {
   )
   const lh = t.size * 1.08
   t.lines.forEach((line, i) =>
-    drawText(
-      ctx,
-      line,
-      rect.x,
-      rect.y + t.size * 0.8 + i * lh,
-      titleAt(t.size),
-      pal.fg,
-    ),
+    drawText(ctx, line, rect.x, rect.y + t.size * 0.8 + i * lh, t.font, pal.fg),
   )
   let y = rect.y + t.size * 0.8 + lh * (t.lines.length - 1) + t.size * 0.2
   const sub = meta.event ? meta.dj : ''
   if (sub) {
     const k = lerp(1, 1.25, boost)
-    const f = font(400, 28 * s * k, body)
-    drawText(
-      ctx,
-      ellipsize(sub, leftW, f, ctx.measure),
-      rect.x,
-      y + 36 * s * k,
-      f,
-      pal.fg,
-    )
+    const f = fitLabel(ctx, sub, leftW, font(400, 28 * s * k, body))
+    drawText(ctx, f.text, rect.x, y + 36 * s * k, f.font, pal.fg)
     y += 44 * s * k
   }
-  right.forEach((text, i) =>
+  right.forEach((text, i) => {
+    const f = fitLabel(ctx, text, rightW, lf)
     drawText(
       ctx,
-      ellipsize(text, rightW, lf, ctx.measure),
+      f.text,
       rect.x + rect.w,
       rect.y + ls * 0.9 + i * ls * 1.5,
-      lf,
+      f.font,
       pal.muted,
       'right',
-    ),
-  )
+    )
+  })
   return Math.max(
     y - rect.y,
     ls * 0.9 + (right.length - 1) * ls * 1.5 + ls * 0.3,
@@ -493,17 +480,18 @@ export function renderCopy(a: TemplateArgs): LayoutResult {
     const top = [meta.date, meta.venue].filter(Boolean)
     drawText(ctx, top[0] ?? '', inner.x, inner.y + ls * 0.8, lf, ink)
     if (top[1]) {
+      const f = fitLabel(
+        ctx,
+        top[1],
+        headW - ctx.measure(top[0] ?? '', lf) - 30 * s,
+        lf,
+      )
       drawText(
         ctx,
-        ellipsize(
-          top[1],
-          headW - ctx.measure(top[0] ?? '', lf) - 30 * s,
-          lf,
-          ctx.measure,
-        ),
+        f.text,
         inner.x + headW,
         inner.y + ls * 0.8,
-        lf,
+        f.font,
         ink,
         'right',
       )
@@ -514,19 +502,13 @@ export function renderCopy(a: TemplateArgs): LayoutResult {
       inner.x,
       titleTop + t.size * 0.78,
       t.size,
-      copyHeadFont(t.size),
+      t.font,
       lh,
       ink,
     )
     if (sub) {
-      drawText(
-        ctx,
-        ellipsize(sub, headW, subF, ctx.measure),
-        inner.x,
-        titleBottom + 58 * s,
-        subF,
-        ink,
-      )
+      const f = fitLabel(ctx, sub, headW, subF)
+      drawText(ctx, f.text, inner.x, titleBottom + 58 * s, f.font, ink)
     }
     headerBottom = inner.y + h
   }

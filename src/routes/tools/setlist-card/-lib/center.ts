@@ -13,7 +13,9 @@ import {
   wrapText,
 } from './textfit'
 import type { Measure } from './fit'
+import { withScript } from './fonts'
 import { markFor } from './redact'
+import { pairScripts } from './script'
 import type { Marks, PlacedMark } from './redact'
 import type { LongTextMode } from './textfit'
 
@@ -36,6 +38,8 @@ export type CenterRun = {
   x: number
   width: number
   scaleX: number
+  /** 描く書体（欄ごとに文字体系を決めたもの） */
+  font: string
   /** 文字の代わりに印を描く（隠した欄） */
   mark?: PlacedMark
 }
@@ -94,7 +98,14 @@ function buildItem(
   size: number,
 ): Array<CenterLine> {
   const { measure, mode } = input
-  const fontOf = (role: CenterRole) => input.fontFor(role, size)
+  // 書体は欄ごとに、描く文字（隠した欄は置き換えた文字）から決める
+  const [artistScript, titleScript] = pairScripts(item.artist, item.title)
+  const fontOf = (role: CenterRole) => {
+    const f = input.fontFor(role, size)
+    if (role === 'artist') return withScript(f, artistScript)
+    if (role === 'title') return withScript(f, titleScript)
+    return f
+  }
   const place = (
     parts: Array<{ text: string; role: CenterRole; scaleX?: number }>,
   ): CenterLine => {
@@ -103,7 +114,8 @@ function buildItem(
     for (const p of parts) {
       if (!p.text) continue
       const scaleX = p.scaleX ?? 1
-      const width = measure(p.text, fontOf(p.role)) * scaleX
+      const font = fontOf(p.role)
+      const width = measure(p.text, font) * scaleX
       const mark = markFor(item.mark, p.role)
       runs.push({
         text: p.text,
@@ -111,6 +123,7 @@ function buildItem(
         x,
         width,
         scaleX,
+        font,
         ...(mark ? { mark } : {}),
       })
       x += width
@@ -294,13 +307,19 @@ export function layoutCenterAt(
     if (!room) continue
     const hidden = items.length - count
     const text = `ほか ${hidden} 曲`
-    const width = input.measure(text, input.fontFor('more', size))
+    const moreFont = input.fontFor('more', size)
+    const width = input.measure(text, moreFont)
     trial.blocks.push({
       col: trial.col,
       y: trial.y > 0 ? trial.y + itemGap : 0,
       h: lineH,
       lines: [
-        { runs: [{ text, role: 'more', x: 0, width, scaleX: 1 }], width },
+        {
+          runs: [
+            { text, role: 'more', x: 0, width, scaleX: 1, font: moreFont },
+          ],
+          width,
+        },
       ],
     })
     return {
