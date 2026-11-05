@@ -93,7 +93,7 @@
 - **セトリ画像メーカー**  
   rekordbox・Traktor・Serato の再生履歴を読み込んで、SNS にそのまま載せられるセトリ画像を PNG で作れるブラウザ完結ツール。  
   URL: `/tools/setlist-card`
-  - rekordbox XML（プレイリストを選択、HISTORY の最新を自動選択）/ rekordbox テキスト書き出し（UTF-16）/ Traktor History (.nml) / Serato History (.csv) を中身から自動判定
+  - rekordbox XML（プレイリストを選択、HISTORY の最新を自動選択）/ rekordbox テキスト書き出し（UTF-16）/ Traktor History (.nml) / Serato History (.csv) / M3U・M3U8 プレイリスト（rekordbox などの書き出し）を中身から自動判定
   - イベント名・DJ名・日付・会場の入力、曲名の直接編集・ドラッグ並べ替え・追加・削除
   - テンプレートは「ミニマル」「フォト」「トラックリスト」「センター」「エディトリアル」「コピー」「Y2K」。配色（パレット）はテンプレートと別に選べ、写真から作ることもできる。段数は自動 / 1〜3 段、サイズは 4:5 / 9:16 / 1:1 / 16:9
   - 曲番号・BPM・Key・開始時刻（セット開始からの相対）の表示切り替え

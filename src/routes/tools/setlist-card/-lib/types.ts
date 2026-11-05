@@ -1,6 +1,6 @@
 /**
  * セトリ画像メーカーの共通モデル。
- * 4 形式（rekordbox XML / TXT、Traktor NML、Serato CSV）はどれもここへ正規化する。
+ * 5 形式（rekordbox XML / TXT、Traktor NML、Serato CSV、M3U / M3U8）はどれもここへ正規化する。
  */
 
 export type Track = {
@@ -48,13 +48,14 @@ export type Setlist = {
 }
 
 export type SourceFormat =
-  'rekordbox-xml' | 'rekordbox-txt' | 'traktor-nml' | 'serato-csv'
+  'rekordbox-xml' | 'rekordbox-txt' | 'traktor-nml' | 'serato-csv' | 'm3u'
 
 export const FORMAT_LABELS: Record<SourceFormat, string> = {
   'rekordbox-xml': 'rekordbox XML',
   'rekordbox-txt': 'rekordbox プレイリスト (テキスト)',
   'traktor-nml': 'Traktor History (NML)',
   'serato-csv': 'Serato History (CSV)',
+  m3u: 'プレイリスト (M3U)',
 }
 
 /** 1 ファイルに複数入っているプレイリストの候補 */

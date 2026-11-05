@@ -43,7 +43,7 @@ export function SourceLine({
           className="slc-btn"
           data-variant="link"
           onClick={onPick}
-          title="rekordbox（.xml / .txt）・Traktor（.nml）・Serato（.csv）の履歴"
+          title="rekordbox（.xml / .txt / .m3u8）・Traktor（.nml）・Serato（.csv）の履歴・プレイリスト"
         >
           {fileName ? '差し替え' : '履歴を読み込む'}
         </button>

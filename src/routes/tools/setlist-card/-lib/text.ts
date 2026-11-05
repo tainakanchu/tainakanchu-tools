@@ -38,7 +38,31 @@ export function decodeText(buffer: ArrayBuffer): string {
   if (half > 0 && evenZeros > half * 0.3 && oddZeros < half * 0.05) {
     return new TextDecoder('utf-16be').decode(bytes)
   }
-  return new TextDecoder('utf-8').decode(bytes)
+  return decodeLegacy(bytes)
+}
+
+/**
+ * BOM の無い 8 ビットの文字コード。UTF-8 として正しければ UTF-8、そうでなければ
+ * 古い Windows の書き出し（.m3u など）とみなし、かなが読めれば Shift_JIS、
+ * それ以外は CP1252（西欧）で読む。
+ */
+function decodeLegacy(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    // UTF-8 ではない
+  }
+  try {
+    const sjis = new TextDecoder('shift_jis', { fatal: true }).decode(bytes)
+    if (/[\u3041-\u30ff]/.test(sjis)) return sjis
+  } catch {
+    // Shift_JIS でもない
+  }
+  try {
+    return new TextDecoder('windows-1252').decode(bytes)
+  } catch {
+    return new TextDecoder('utf-8').decode(bytes)
+  }
 }
 
 /** 制御文字の除去・空白の正規化・前後 trim */

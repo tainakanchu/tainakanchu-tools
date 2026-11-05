@@ -449,7 +449,7 @@ function SetlistCardPage() {
       <input
         ref={setlistInput}
         type="file"
-        accept=".xml,.txt,.nml,.csv,text/plain,text/csv,application/xml,text/xml"
+        accept=".xml,.txt,.nml,.csv,.m3u,.m3u8,text/plain,text/csv,application/xml,text/xml,audio/x-mpegurl,audio/mpegurl,application/vnd.apple.mpegurl"
         className="sr-only"
         tabIndex={-1}
         aria-hidden
