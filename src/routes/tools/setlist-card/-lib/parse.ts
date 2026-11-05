@@ -19,7 +19,7 @@ export function parseSetlistText(text: string, fileName?: string): ParseResult {
   if (looksLikeRekordboxTxt(body)) return parseRekordboxTxt(body, fileName)
   if (looksLikeSeratoCsv(body)) return parseSeratoCsv(body, fileName)
   throw new UnsupportedFormatError(
-    '対応していない形式です。rekordbox の XML / テキスト書き出し、Traktor の History (.nml)、Serato の History (.csv) を読み込めます。',
+    '読めない形式です（rekordbox .xml / .txt・Traktor .nml・Serato .csv）',
   )
 }
 
