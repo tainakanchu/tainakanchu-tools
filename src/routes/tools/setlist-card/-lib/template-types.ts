@@ -50,6 +50,10 @@ export type LayoutResult = {
   solidText?: boolean
   /** 段が狭くて名前が切れがち（自動の枚数決めでは、枚数を増やす方を選ぶ） */
   cramped?: boolean
+  /** 載せた曲の数（「ほか N 曲」を除く） */
+  shown?: number
+  /** 名前が「…」で切れた曲の数 */
+  truncated?: number
 }
 
 export type TemplateArgs = {

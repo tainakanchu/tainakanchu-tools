@@ -210,6 +210,22 @@ function buildItem(
   ]
 }
 
+/** 名前が「…」で切れた曲の数（隠した欄の印は数えない） */
+export function truncatedBlockCount(
+  blocks: ReadonlyArray<CenterBlock>,
+): number {
+  return blocks.filter((block) =>
+    block.lines.some((line) =>
+      line.runs.some(
+        (r) =>
+          (r.role === 'artist' || r.role === 'title') &&
+          !r.mark &&
+          r.text.endsWith('…'),
+      ),
+    ),
+  ).length
+}
+
 const usedOf = (blocks: ReadonlyArray<CenterBlock>) =>
   blocks.reduce((m, b) => Math.max(m, b.y + b.h), 0)
 

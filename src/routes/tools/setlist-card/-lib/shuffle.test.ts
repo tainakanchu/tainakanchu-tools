@@ -12,6 +12,7 @@ import {
   comboKey,
   goBack,
   goForward,
+  preferOtherLayout,
   pushRecent,
   randomLayouts,
   randomStyle,
@@ -178,6 +179,44 @@ describe('shuffleDesign', () => {
       seq.filter((d) => d.palette.id.startsWith('photo-')).length / seq.length
     expect(share).toBeGreaterThan(0.38)
     expect(share).toBeLessThan(0.62)
+  })
+})
+
+const c = (layout: Design['layout']) => ({ value: { layout } })
+
+describe('直前と同じテンプレートは出にくい', () => {
+  it('テンプレートを固定していなければ、押すたびにテンプレートが変わる', () => {
+    const seq = [start, ...run(200)]
+    for (let i = 1; i < seq.length; i++) {
+      expect(seq[i].layout).not.toBe(seq[i - 1].layout)
+    }
+  })
+
+  it('テンプレート固定なら同じテンプレートのまま', () => {
+    const seq = run(20, { locks: { layout: true, palette: false } })
+    for (const d of seq) expect(d.layout).toBe(start.layout)
+  })
+
+  it('選べるテンプレートが今のものだけなら、同じテンプレートでも選ぶ', () => {
+    const next = shuffleDesign(start, opts({ layouts: ['minimal'] }))
+    expect(next?.layout).toBe('minimal')
+    expect(next?.palette.id).not.toBe(start.palette.id)
+  })
+
+  it('preferOtherLayout: 今と違うテンプレートが無ければ候補をそのまま返す', () => {
+    const unlocked = { layout: false, palette: false }
+    expect(
+      preferOtherLayout([c('minimal'), c('copy')], start, unlocked),
+    ).toEqual([c('copy')])
+    expect(preferOtherLayout([c('minimal')], start, unlocked)).toEqual([
+      c('minimal'),
+    ])
+    expect(
+      preferOtherLayout([c('minimal'), c('copy')], start, {
+        layout: true,
+        palette: false,
+      }),
+    ).toEqual([c('minimal'), c('copy')])
   })
 })
 

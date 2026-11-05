@@ -6,6 +6,7 @@
  * 形式・長い名前の扱い・枚数・写真の位置は、呼び出し側が渡さないので変わらない。
  *
  * - 今と同じ テンプレート + パレット には戻らない。直近 RECENT_MAX 回の組み合わせも避ける
+ * - テンプレートを固定していなければ、今と同じテンプレートは（ほかに候補がある限り）選ばない
  * - テンプレート固定 / パレット固定で片方だけ選び直せる
  * - 写真があるときは、写真から作った配色（ダーク / ライト / ビビッド / ミュート）を
  *   全体の半分ほどの確率で選ぶ
@@ -152,6 +153,20 @@ export function randomStyle(
 }
 
 /**
+ * テンプレートを固定していなければ、今と同じテンプレートは選ばない
+ * （押しても配色しか変わらない、を減らす）。ほかに候補が無ければ同じでもよい。
+ */
+export function preferOtherLayout<T extends { value: { layout: LayoutId } }>(
+  candidates: ReadonlyArray<T>,
+  current: Pick<Design, 'layout'>,
+  locks: ShuffleLocks,
+): ReadonlyArray<T> {
+  if (locks.layout) return candidates
+  const other = candidates.filter((c) => c.value.layout !== current.layout)
+  return other.length > 0 ? other : candidates
+}
+
+/**
  * 次のデザインを選ぶ。選べる組み合わせが無ければ（両方固定など）null。
  * 直近の組み合わせを避けると候補が無いときは、今と違うことだけを守る。
  */
@@ -191,7 +206,10 @@ export function shuffleDesign(
   const allowed = all.filter((c) => !isCurrent(c) && !excluded.has(c.key))
   const recent = new Set(opts.recent.slice(-RECENT_MAX))
   const fresh = allowed.filter((c) => !recent.has(c.key))
-  const picked = weightedPick(fresh.length > 0 ? fresh : allowed, rng)
+  const picked = weightedPick(
+    preferOtherLayout(fresh.length > 0 ? fresh : allowed, current, locks),
+    rng,
+  )
   if (!picked) return null
   const style =
     locks.layout && picked.layout === current.layout

@@ -398,6 +398,21 @@ function buildRow(
   return { h: pad + lineH, texts }
 }
 
+/**
+ * 名前（アーティスト・曲名）が「…」で切れた行の数。隠した欄の印は文字を描かないので数えない。
+ * 自動で複数枚に分けるかの判断に使う。
+ */
+export function truncatedRowCount(rows: ReadonlyArray<PlacedRow>): number {
+  return rows.filter((row) =>
+    row.texts.some(
+      (t) =>
+        (t.role === 'artist' || t.role === 'title') &&
+        !t.mark &&
+        t.text.endsWith('…'),
+    ),
+  ).length
+}
+
 /** 指定の段数・行の形・文字サイズで組む（入りきらなければ「ほか N 曲」） */
 export function layoutRowsAt(input: RowsInput, params: RowParams): RowsLayout {
   const { items, area, gap } = input

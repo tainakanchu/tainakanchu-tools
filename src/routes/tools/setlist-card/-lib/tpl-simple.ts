@@ -15,7 +15,12 @@ import {
   scratchContext,
 } from './draw'
 import { ellipsize } from './fit'
-import { fitRowsLayout, metaColumnEdges, numberColumnWidth } from './rows'
+import {
+  fitRowsLayout,
+  metaColumnEdges,
+  numberColumnWidth,
+  truncatedRowCount,
+} from './rows'
 import {
   TITLE_TRACKING,
   bodyStack,
@@ -61,6 +66,8 @@ export function fromRows(
     metaShown: layout.metaShown,
     // 2 段以上で 1 段が文字 22 個ぶんに満たないと、名前がほとんど省略される
     cramped: layout.columns > 1 && layout.colWidth < layout.size * 22,
+    shown: layout.placed,
+    truncated: truncatedRowCount(layout.rows),
     ...extra,
   }
 }

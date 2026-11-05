@@ -5,7 +5,7 @@
  *   3. 曲（「Artist ／ Title」か、アーティストと曲名の 2 行）
  * 飾りは付けない。単色のパレット（リソ・アシッド・ティールナイトなど）が合う。
  */
-import { fitCentered } from './center'
+import { fitCentered, truncatedBlockCount } from './center'
 import {
   drawCredit,
   drawMark,
@@ -233,5 +233,7 @@ export function renderCenter(a: TemplateArgs): LayoutResult {
     lock: { center: { columns: layout.columns, size: layout.size } },
     textSize: layout.size,
     metaShown: 0,
+    shown: layout.placed,
+    truncated: truncatedBlockCount(layout.blocks),
   }
 }

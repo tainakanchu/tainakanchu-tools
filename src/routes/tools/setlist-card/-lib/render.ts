@@ -33,6 +33,7 @@ import {
 import { SCRIM_MIN, ditherStops, duotoneStops } from './palettes'
 import { photoSampler, processedPhoto } from './photo'
 import { resolvePhotoColors } from './photo-contrast'
+import { mostlyTruncated, resolveSplit } from './split'
 import { META_LABELS, sideNumber, toItems } from './items'
 import { renderCenter } from './tpl-center'
 import { renderCopy, renderPhoto } from './tpl-photo'
@@ -59,6 +60,7 @@ import type {
 import type { Palette } from './palettes'
 import type { LoadedPhoto } from './photo'
 import type { Sample } from './photo-contrast'
+import type { SingleFit, SplitChoice } from './split'
 import type {
   LayoutResult,
   Meta,
@@ -115,6 +117,10 @@ export type RenderInfo = {
   textSize: number
   /** 段が狭くて名前が切れがちか（ページ数の自動決定に使う） */
   cramped: boolean
+  /** このページに載せた曲の数（「ほか N 曲」を除く） */
+  shown: number
+  /** 名前が「…」で切れた曲の数（自動で複数枚に分けるかの判断に使う） */
+  truncated: number
   /** 写真の上の読みやすさの調整（全面背景のときだけ） */
   photoContrast: {
     /** 幕のいちばん濃いところ */
@@ -534,6 +540,8 @@ export function renderPage(
     lock: r.lock,
     textSize: r.textSize,
     cramped: r.cramped ?? false,
+    shown: r.shown ?? Math.max(0, page.end - page.start - r.hidden),
+    truncated: r.truncated ?? 0,
     photoContrast: r.photoContrast,
   })
   if (!input.photo)
@@ -594,7 +602,12 @@ function toSpecs(
 function planWith(
   input: RenderInput,
   count: number,
-): { plan: PagePlan; textSize: number; cramped: boolean } {
+): {
+  plan: PagePlan
+  textSize: number
+  cramped: boolean
+  truncatedMost: boolean
+} {
   const n = input.setlist.tracks.length
   const c = scratchContext()
   const spec = (index: number, start: number, end: number): PageSpec => ({
@@ -656,6 +669,7 @@ function planWith(
     },
     textSize: chosen.textSize,
     cramped: chosen.cramped,
+    truncatedMost: mostlyTruncated(chosen),
   }
 }
 
@@ -686,14 +700,45 @@ export function planPages(input: RenderInput): PagePlan {
   let firstFit: PagePlan | undefined
   let last: PagePlan | undefined
   for (let count = 1; count <= limit; count++) {
-    const { plan, textSize, cramped } = planWith(input, count)
+    const { plan, textSize, cramped, truncatedMost } = planWith(input, count)
     last = plan
     if (plan.overflow) continue
     firstFit ??= plan
-    if (textSize >= comfortable && !cramped) return { ...plan, auto: true }
+    if (textSize >= comfortable && !cramped && !truncatedMost)
+      return { ...plan, auto: true }
   }
   const chosen = firstFit ?? last
   return chosen
     ? { ...chosen, auto: true }
     : { pages: toSpecs([{ start: 0, end: n }]), auto: true, overflow: true }
+}
+
+/**
+ * 枚数の選び方に合わせてページ割りを決める。
+ * 自動（既定）は、まず 1 枚に組んでみて、入りきらない・名前の省略が多いときだけ
+ * 読みやすい枚数に分ける（警告を出してから押してもらう、の 2 手にしない）。
+ * 返す split は、描画と書き出しに渡す実際の設定。
+ */
+export function planForChoice(
+  input: RenderInput,
+  choice: SplitChoice,
+): PagePlan & { split: SplitOptions; autoSplit: boolean } {
+  const n = input.setlist.tracks.length
+  let fit: SingleFit | null = null
+  if (choice.mode === 'auto' && n > 0) {
+    const single: RenderInput = {
+      ...input,
+      split: { enabled: false, mode: 'auto', count: choice.count },
+    }
+    fit = renderPage(
+      scratchContext(),
+      single,
+      { index: 0, count: 1, start: 0, end: n },
+      undefined,
+      true,
+    )
+  }
+  const { split, auto } = resolveSplit(choice, fit)
+  const plan = planPages({ ...input, split })
+  return { ...plan, split, autoSplit: auto && plan.pages.length > 1 }
 }

@@ -74,13 +74,17 @@ export const Route = createFileRoute('/tools/setlist-card/')({
   component: SetlistCardPage,
 })
 
+/**
+ * 画像に出す項目の既定。時刻・BPM・Key は曲名の幅を食うので既定では出さず
+ * （詳細設定の「表示する項目」で出す）、クレジットも既定では入れない。
+ */
 const DEFAULT_DISPLAY: DisplayOptions = {
   number: true,
   bpm: false,
   key: false,
   time: false,
   label: false,
-  credit: true,
+  credit: false,
 }
 
 const DEFAULT_PALETTE: Palette =
@@ -205,11 +209,6 @@ function SetlistCardPage() {
       setFileName(file.name)
       setPlaylistIndex(result.defaultIndex)
       applySetlist(result.playlists[result.defaultIndex].setlist)
-      // 開始時刻があるなら最初から出しておく
-      const hasTimes = result.playlists[
-        result.defaultIndex
-      ].setlist.tracks.some((t) => t.startAt !== undefined)
-      if (hasTimes) setDisplay((prev) => ({ ...prev, time: true }))
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'ファイルを読み込めませんでした',
@@ -224,7 +223,6 @@ function SetlistCardPage() {
     setFileName(null)
     setError(null)
     setSetlist(count ? createStressSetlist(count) : createSampleSetlist())
-    setDisplay((prev) => ({ ...prev, bpm: true, key: true, time: true }))
   }
 
   const handleSelectPlaylist = (index: number) => {
