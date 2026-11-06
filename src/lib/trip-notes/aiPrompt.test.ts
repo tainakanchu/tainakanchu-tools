@@ -267,3 +267,39 @@ describe('AI_SERVICE_LINKS', () => {
     }
   })
 })
+
+describe('buildImportPrompt: 書類が無いときの案内', () => {
+  const GUIDE = '予約確認書がまだ届いていません'
+
+  it('埋める欄が無いときは、JSON を出さず案内して待つ規則を強く書く', () => {
+    const prompt = buildImportPrompt(state(), { deviceTz: 'Europe/Paris' })
+    expect(prompt).not.toContain('## 登録済みで空いている欄')
+    expect(prompt).toContain('## 書類がまだ無いとき')
+    expect(prompt).toContain('出力できる JSON がありません')
+    expect(prompt).toContain(GUIDE)
+    expect(prompt).toContain('メール本文・PDF・画面のスクショ')
+  })
+
+  it('埋める欄があるときは、穴埋めの JSON を優先し、案内は出力が空のときだけにする', () => {
+    const prompt = buildImportPrompt(
+      state({
+        bookings: [
+          booking({
+            kind: 'flight',
+            title: 'AF276 HND→CDG',
+            from: { name: 'Tokyo Haneda' },
+            to: { name: 'Paris Charles de Gaulle' },
+            place: undefined,
+          }),
+        ],
+      }),
+      { deviceTz: 'Europe/Paris' },
+    )
+    expect(prompt).toContain('## 登録済みで空いている欄')
+    expect(prompt).toContain('## 書類がまだ無いとき')
+    expect(prompt).toContain('案内は不要です')
+    expect(prompt).toContain('埋められる欄が 1 つも無い')
+    expect(prompt).toContain(GUIDE)
+    expect(prompt).not.toContain('出力できる JSON がありません')
+  })
+})
