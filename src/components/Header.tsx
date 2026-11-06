@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
+  CalendarClock,
   Dices,
   Drum,
   ExternalLink,
@@ -26,6 +27,7 @@ const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,
+  timetable: CalendarClock,
   'taiwan-arrival-card': PlaneLanding,
   'magnify-image': ZoomIn,
   'online-roulette': Dices,
