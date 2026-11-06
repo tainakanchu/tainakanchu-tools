@@ -91,6 +91,27 @@ describe('loadResults', () => {
   })
 })
 
+describe('loadResults の categoryCounts', () => {
+  it('都市指定なら、その都市の全件からカテゴリ以外の条件で数える', async () => {
+    const r = await loadResults(
+      fakeRepo(),
+      { city: 'taipei', category: 'food' },
+      undefined,
+    )
+    expect(r.spots.map((s) => s.id)).toEqual(['a'])
+    expect(r.categoryCounts.get('food')).toBe(1)
+    expect(r.categoryCounts.get('drink')).toBe(1)
+  })
+
+  it('都市なしなら、読んでいない都市のぶんもインデックスから数える', async () => {
+    const r = await loadResults(fakeRepo(), { category: 'food' }, undefined)
+    // 読んだのは taipei だけだが、tainan の drink も数に入る
+    expect(r.cities).toEqual(['taipei'])
+    expect(r.categoryCounts.get('drink')).toBe(2)
+    expect(r.categoryCounts.get('food')).toBe(1)
+  })
+})
+
 describe('spotLinkStatus', () => {
   it('shown / filtered / missing を見分ける', async () => {
     const repo = fakeRepo()

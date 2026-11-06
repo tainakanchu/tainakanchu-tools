@@ -13,16 +13,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   citiesWithMatches,
+  countByCategory,
   filterSpots,
   hasAnyFilter,
 } from '../../../../lib/taiwan-map/filter'
 import { filterFromSearch } from '../../../../lib/taiwan-map/query'
 import { CITY_IDS } from '../../../../lib/taiwan-map/types'
 import type { TaiwanMapRepository } from '../../../../lib/taiwan-map/repository'
-import type { SpotFilter } from '../../../../lib/taiwan-map/filter'
+import type {
+  FilterableSpot,
+  SpotFilter,
+} from '../../../../lib/taiwan-map/filter'
 import type { TaiwanMapSearch } from '../../../../lib/taiwan-map/query'
 import type {
   CityId,
+  SpotCategory,
   TaiwanArea,
   TaiwanManifest,
   TaiwanSpot,
@@ -46,6 +51,13 @@ export type ResultsData = {
    * 画面側はこれを使って URL に city を足す（index.tsx 参照）。
    */
   resolvedSpotCity: CityId | undefined
+  /**
+   * カテゴリ以外の条件で数えたカテゴリごとの件数（地図上のジャンルチップ用）。
+   * 都市指定ならその都市の全件から、都市なしなら読んだインデックス（全都市）
+   * から数える。都市なしで条件に合う都市しか JSON を読んでいなくても、
+   * 他のジャンルに切り替えたときの件数が正しく出るようにするため。
+   */
+  categoryCounts: ReadonlyMap<SpotCategory, number>
 }
 
 export type TaiwanMapData =
@@ -71,12 +83,15 @@ export async function loadResults(
   let cities: Array<CityId>
   const knownSpotIds = new Set<string>()
   let resolvedSpotCity: CityId | undefined
+  /** カテゴリ件数を数える母集団。都市なしのときはインデックス */
+  let countSource: ReadonlyArray<FilterableSpot> | undefined
 
   if (filter.city !== undefined) {
     cities = [filter.city]
   } else {
     const index = await repo.getSpotIndex()
     for (const e of index) knownSpotIds.add(e.id)
+    countSource = index
     const hit = new Set(
       hasAnyFilter(filter) ? citiesWithMatches(index, filter) : [],
     )
@@ -99,6 +114,7 @@ export async function loadResults(
     spots: filterSpots(allSpots, filter),
     knownSpotIds,
     resolvedSpotCity,
+    categoryCounts: countByCategory(countSource ?? allSpots, filter),
   }
 }
 

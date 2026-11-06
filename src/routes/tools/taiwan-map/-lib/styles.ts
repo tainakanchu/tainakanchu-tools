@@ -24,6 +24,19 @@ export function chipClass(pressed: boolean): string {
   }`
 }
 
+/**
+ * 地図の上に重ねる小さめのチップ。地図の上で埋もれないよう、地色は
+ * 半透明でなく白にして影を付ける。高さは一覧側のチップより一段低くし、
+ * スマホでも地図を隠しすぎないようにしている。
+ */
+export function mapChipClass(pressed: boolean): string {
+  return `inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs whitespace-nowrap shadow-sm transition ${focusRing} ${
+    pressed
+      ? 'border-cyan-500 bg-cyan-50 font-semibold text-cyan-800'
+      : 'border-gray-300 bg-white text-gray-700 hover:border-cyan-400 hover:bg-cyan-50'
+  }`
+}
+
 export const actionButtonClass = `inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-800 ${focusRing}`
 
 export const linkClass = `text-cyan-700 underline decoration-cyan-300 underline-offset-2 hover:text-cyan-900 ${focusRing}`

@@ -39,6 +39,7 @@ import { useMediaQuery } from './-lib/useMediaQuery'
 import { spotLinkStatus, useTaiwanMapData } from './-lib/useTaiwanMapData'
 import type { FlyRequest } from './-components/MapView'
 import type { TaiwanMapSearch } from '../../../lib/taiwan-map/query'
+import type { SpotCategory } from '../../../lib/taiwan-map/types'
 import type { ResultsData } from './-lib/useTaiwanMapData'
 
 // head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
@@ -198,6 +199,12 @@ function Results({
       onNavigate({ ...patch, spot: undefined })
     },
     [onNavigate],
+  )
+
+  // 地図上のジャンルチップ。FilterBar のカテゴリと同じ URL の category を書き換える
+  const handleCategoryChange = useCallback(
+    (category: SpotCategory | undefined) => handleFilterChange({ category }),
+    [handleFilterChange],
   )
 
   // URL から開いた直後の選択ではカードへフォーカスを移さず、ピン・カード・
@@ -432,6 +439,9 @@ function Results({
                     flyRequest={flyRequest}
                     onFlyDone={clearFlyRequest}
                     onSelect={handleSelect}
+                    activeCategory={search.category}
+                    categoryCounts={data.categoryCounts}
+                    onCategoryChange={handleCategoryChange}
                   />
                 </Suspense>
               </MapErrorBoundary>
@@ -481,17 +491,18 @@ function MapLegend() {
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
-            className="inline-block h-3 w-3 rounded-full border-2 border-white bg-emerald-600 shadow"
+            className="inline-block h-3 w-3 rounded-full border-2 border-white bg-gray-500 shadow"
           />
           行った
         </li>
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full border border-dashed border-slate-500 bg-slate-50"
+            className="inline-block h-2.5 w-2.5 rounded-full border border-dashed border-gray-500 bg-white"
           />
           未訪問・気になる
         </li>
+        <li>色はジャンル（地図上のチップを参照）</li>
       </ul>
       {/* style が読めない（オフライン）と maplibre 側の帰属表示も出ないので、ここにも常に出す */}
       <p>

@@ -8,7 +8,7 @@
  * まずは 1 軸 1 値に絞っている。
  */
 
-import { CITY_IDS } from './types.ts'
+import { CITY_IDS, SPOT_CATEGORY_IDS } from './types.ts'
 import type {
   AreaId,
   CityId,
@@ -84,4 +84,28 @@ export function hasAnyFilter(filter: SpotFilter): boolean {
     filter.status !== undefined ||
     filter.label !== undefined
   )
+}
+
+/**
+ * カテゴリごとの件数。カテゴリ以外の条件（都市・エリア・状態・ラベル）だけを
+ * かけて数えるので、カテゴリを 1 つ選んだあとでも「他のジャンルに切り替えたら
+ * 何件出るか」が分かる（地図上のジャンルチップで 0 件のものを隠すのに使う）。
+ * 1 スポットが複数カテゴリを持つときは、それぞれに 1 件ずつ数える。
+ */
+export function countByCategory(
+  spots: ReadonlyArray<FilterableSpot>,
+  filter: SpotFilter,
+): ReadonlyMap<SpotCategory, number> {
+  const rest: SpotFilter = { ...filter, category: undefined }
+  // 0 件のカテゴリも SPOT_CATEGORIES の順でキーを持たせる
+  const counts = new Map<SpotCategory, number>(
+    SPOT_CATEGORY_IDS.map((id) => [id, 0]),
+  )
+  for (const spot of spots) {
+    if (!matchesFilter(spot, rest)) continue
+    for (const c of new Set(spot.categories)) {
+      counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+  }
+  return counts
 }

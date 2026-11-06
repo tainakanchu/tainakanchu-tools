@@ -67,9 +67,11 @@ export const SPOT_CATEGORIES = [
   { id: 'drink', name: '飲む' },
   { id: 'shopping', name: '買う' },
   { id: 'culture', name: '見る・文化' },
+  // 特定の店ではなく、街並みや建物そのものが良い場所（老街・古い洋館の並ぶ通りなど）
+  { id: 'townscape', name: '街並み・建物' },
   { id: 'music', name: '音楽' },
   { id: 'stay', name: '泊まる' },
-  { id: 'outdoor', name: '街・屋外' },
+  { id: 'outdoor', name: '自然・屋外' },
   { id: 'other', name: 'その他' },
 ] as const
 

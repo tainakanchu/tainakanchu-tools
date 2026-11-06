@@ -25,7 +25,14 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getCity } from '../../../../lib/taiwan-map/types'
-import type { CityId, TaiwanSpot } from '../../../../lib/taiwan-map/types'
+import { categoryColor, pinCategory } from '../-lib/categoryColors'
+import { categoryName } from './Badges'
+import { MapCategoryChips } from './MapCategoryChips'
+import type {
+  CityId,
+  SpotCategory,
+  TaiwanSpot,
+} from '../../../../lib/taiwan-map/types'
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 
@@ -48,22 +55,34 @@ type Props = {
   /** flyRequest を処理し終えたら呼ぶ。親が null に戻し、再マウントで二度飛ばない */
   onFlyDone: () => void
   onSelect: (id: string) => void
+  /** URL の category。ピンの色決めと地図上のジャンルチップに使う */
+  activeCategory: SpotCategory | undefined
+  /** カテゴリ以外の条件で数えたジャンルごとの件数 */
+  categoryCounts: ReadonlyMap<SpotCategory, number>
+  onCategoryChange: (category: SpotCategory | undefined) => void
 }
 
 /**
- * ピンの見た目。visited は塗りつぶしの丸、want_to_go は白地に破線の
- * 小さめの丸。一覧のバッジと同じく「形」でも区別し、未訪問の場所が
- * 行った場所と同じ重みで地図に並ばないようにする。
+ * ピンの見た目。色はジャンル（categoryColors.ts）、形は訪問状況。
+ * visited はジャンル色で塗りつぶした白縁の丸、want_to_go は白地に
+ * ジャンル色の破線の小さめの丸。一覧のバッジと同じく「形」でも区別し、
+ * 未訪問の場所が行った場所と同じ重みで地図に並ばないようにする。
  */
-function styleMarker(el: HTMLElement, spot: TaiwanSpot, selected: boolean) {
+function styleMarker(
+  el: HTMLElement,
+  spot: TaiwanSpot,
+  selected: boolean,
+  activeCategory: SpotCategory | undefined,
+) {
   const visited = spot.status === 'visited'
+  const color = categoryColor(pinCategory(spot.categories, activeCategory))
   const size = (visited ? 18 : 14) + (selected ? 8 : 0)
   Object.assign(el.style, {
     width: `${size}px`,
     height: `${size}px`,
     borderRadius: '9999px',
-    border: visited ? '3px solid #ffffff' : '2px dashed #64748b',
-    background: visited ? '#059669' : '#f8fafc',
+    border: visited ? '3px solid #ffffff' : `2.5px dashed ${color}`,
+    background: visited ? color : '#ffffff',
     boxShadow: selected
       ? '0 0 0 3px #06b6d4, 0 2px 6px rgba(15,23,42,.45)'
       : '0 1px 4px rgba(15,23,42,.4)',
@@ -80,6 +99,9 @@ export default function MapView({
   flyRequest,
   onFlyDone,
   onSelect,
+  activeCategory,
+  categoryCounts,
+  onCategoryChange,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -89,12 +111,14 @@ export default function MapView({
   const onSelectRef = useRef(onSelect)
   const onFlyDoneRef = useRef(onFlyDone)
   const spotsRef = useRef(spots)
+  const activeCategoryRef = useRef(activeCategory)
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     onSelectRef.current = onSelect
     onFlyDoneRef.current = onFlyDone
     spotsRef.current = spots
+    activeCategoryRef.current = activeCategory
   })
 
   /**
@@ -162,13 +186,13 @@ export default function MapView({
       el.type = 'button'
       el.setAttribute(
         'aria-label',
-        `${spot.name}（${spot.status === 'visited' ? '行った' : '未訪問・気になる'}）`,
+        `${spot.name}（${spot.categories.map(categoryName).join('・')}／${spot.status === 'visited' ? '行った' : '未訪問・気になる'}）`,
       )
       el.addEventListener('click', (e) => {
         e.stopPropagation()
         onSelectRef.current(spot.id)
       })
-      styleMarker(el, spot, false)
+      styleMarker(el, spot, false, activeCategoryRef.current)
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([spot.location.lng, spot.location.lat])
         .addTo(map)
@@ -185,12 +209,12 @@ export default function MapView({
     }
   }, [spotsKey])
 
-  // 選択中のピンだけ大きく・枠つきにする
+  // 選択中のピンだけ大きく・枠つきにする。ジャンルを切り替えたら色も塗り直す
   useEffect(() => {
     for (const [id, { marker, spot }] of markersRef.current) {
-      styleMarker(marker.getElement(), spot, id === selectedId)
+      styleMarker(marker.getElement(), spot, id === selectedId, activeCategory)
     }
-  }, [selectedId, spotsKey])
+  }, [selectedId, spotsKey, activeCategory])
 
   // 一覧の「地図で見る」→ そのピンへ飛ぶ
   useEffect(() => {
@@ -211,6 +235,11 @@ export default function MapView({
     <div className="relative h-full w-full">
       {/* ランドマークは親の <aside aria-label="地図"> が担うので、ここには role を付けない */}
       <div ref={containerRef} className="h-full w-full" />
+      <MapCategoryChips
+        active={activeCategory}
+        counts={categoryCounts}
+        onChange={onCategoryChange}
+      />
       {loadError && (
         <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow">
           地図を読み込めませんでした（圏外かもしれません）。一覧と Google Maps

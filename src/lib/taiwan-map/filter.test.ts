@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   citiesWithMatches,
+  countByCategory,
   filterSpots,
   hasAnyFilter,
   matchesFilter,
@@ -75,5 +76,39 @@ describe('hasAnyFilter', () => {
     expect(hasAnyFilter({})).toBe(false)
     expect(hasAnyFilter({ city: undefined })).toBe(false)
     expect(hasAnyFilter({ label: 'favorite' })).toBe(true)
+  })
+})
+
+describe('countByCategory', () => {
+  it('全カテゴリのキーを持ち、該当なしは 0', () => {
+    const counts = countByCategory(spots, {})
+    expect(Object.fromEntries(counts)).toEqual({
+      food: 2,
+      drink: 1,
+      shopping: 0,
+      culture: 0,
+      townscape: 0,
+      music: 1,
+      stay: 1,
+      outdoor: 0,
+      other: 0,
+    })
+    // SPOT_CATEGORIES の順
+    expect([...counts.keys()][0]).toBe('food')
+  })
+
+  it('カテゴリ条件は無視し、それ以外の条件だけで数える', () => {
+    const counts = countByCategory(spots, { city: 'taipei', category: 'food' })
+    expect(counts.get('food')).toBe(1)
+    expect(counts.get('drink')).toBe(1)
+    expect(counts.get('music')).toBe(1)
+    expect(counts.get('stay')).toBe(0)
+  })
+
+  it('同じカテゴリが重複していても 1 件として数える', () => {
+    const dup: Array<FilterableSpot> = [
+      { city: 'taipei', categories: ['food', 'food'], status: 'visited' },
+    ]
+    expect(countByCategory(dup, {}).get('food')).toBe(1)
   })
 })
