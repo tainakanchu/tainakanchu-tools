@@ -112,13 +112,14 @@
     "name": "橙花 Capucine Patisserie",
     "city": "taichung",
     "location": {
-      "lat": 24.14901,
-      "lng": 120.6671
+      "lat": 24.15063,
+      "lng": 120.66477
     },
     "categories": ["food"],
     "tags": ["ケーキ", "カフェ"],
     "status": "visited",
     "summary": "友達がやっているケーキ屋さん。",
+    "visitedAt": "2026-04",
     "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%A9%99%E8%8A%B1%20Capucine%20Patisserie%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E9%9B%99%E9%BE%8D%E9%87%8C%E6%A8%A1%E7%AF%84%E8%A1%9734%E5%B7%B710%E8%99%9F1%E6%A8%93"
   },
   {
