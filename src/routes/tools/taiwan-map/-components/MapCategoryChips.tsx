@@ -1,12 +1,12 @@
 /**
  * 地図の上端に重ねるジャンル（カテゴリ）の絞り込みチップ。
  *
- * 状態は一覧側の FilterBar と同じ URL の `category` だけを使う（自前の
- * state は持たない）ので、どちらで押しても両方のチップが同じ状態になる。
+ * 状態は URL の `category` だけを使う（自前の state は持たない）。
  * 各チップの色ドットはピンの色（categoryColors.ts）と同じで、凡例を兼ねる。
  *
- * MapView の中で描くので、地図チャンクの読み込み前・失敗時には出ない
- * （そのあいだは一覧側の FilterBar で絞り込める）。
+ * デスクトップではジャンルの絞り込みはここだけ（一覧側には出さない）。
+ * スマホは一覧と地図を切り替えるので、一覧側の FilterBar にも出す。
+ * MapView の中で描くので、地図チャンクの読み込み前・失敗時には出ない。
  */
 
 import { SPOT_CATEGORIES } from '../../../../lib/taiwan-map/types'
@@ -27,18 +27,20 @@ export function MapCategoryChips({ active, counts, onChange }: Props) {
   )
   if (visible.length === 0) return null
   return (
-    // 外枠は地図の操作を奪わないよう pointer-events-none。チップの列だけが
-    // 横スクロールとクリックを受ける。右側はズームボタンのぶん空ける
+    // 外枠は地図の操作を奪わないよう pointer-events-none。チップだけが
+    // クリックを受ける。右側はズームボタンのぶん空ける。
+    // 横スクロールにすると端のチップ（「その他」など）が切れて見えなくなる
+    // ので、幅が足りなければ折り返す
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-2 pr-12 pl-2">
       <div
         role="group"
         aria-label="ジャンルで絞り込む"
-        className="pointer-events-auto flex w-fit max-w-full gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex flex-wrap gap-1.5"
       >
         <button
           type="button"
           aria-pressed={active === undefined}
-          className={mapChipClass(active === undefined)}
+          className={`pointer-events-auto ${mapChipClass(active === undefined)}`}
           onClick={() => onChange(undefined)}
         >
           すべて
@@ -50,7 +52,7 @@ export function MapCategoryChips({ active, counts, onChange }: Props) {
               key={cat.id}
               type="button"
               aria-pressed={pressed}
-              className={mapChipClass(pressed)}
+              className={`pointer-events-auto ${mapChipClass(pressed)}`}
               onClick={() => onChange(pressed ? undefined : cat.id)}
             >
               <span

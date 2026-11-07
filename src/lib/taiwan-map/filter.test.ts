@@ -4,6 +4,8 @@ import {
   countByArea,
   countByCategory,
   countByCity,
+  countByLabel,
+  countByStatus,
   filterSpots,
   hasAnyFilter,
   matchesFilter,
@@ -113,6 +115,28 @@ describe('countByCategory', () => {
       { city: 'taipei', categories: ['food', 'food'], status: 'visited' },
     ]
     expect(countByCategory(dup, {}).get('food')).toBe(1)
+  })
+})
+
+describe('countByStatus', () => {
+  it('状況の条件は無視し、それ以外の条件だけで数える', () => {
+    const counts = countByStatus(spots, {
+      city: 'taipei',
+      status: 'visited',
+    })
+    expect(Object.fromEntries(counts)).toEqual({ visited: 1, want_to_go: 1 })
+  })
+})
+
+describe('countByLabel', () => {
+  it('全ラベルのキーを持ち、ラベルの条件は無視して数える', () => {
+    const counts = countByLabel(spots, { label: 'favorite' })
+    expect(counts.get('favorite')).toBe(1)
+    expect([...counts.values()].reduce((a, b) => a + b, 0)).toBe(1)
+  })
+
+  it('他の条件で外れたスポットのラベルは数えない', () => {
+    expect(countByLabel(spots, { city: 'tainan' }).get('favorite')).toBe(0)
   })
 })
 

@@ -16,6 +16,7 @@ import { Check, ExternalLink, Globe, Link2, MapPin } from 'lucide-react'
 import {
   formatVisitedAt,
   googleMapsSearchUrl,
+  publicText,
 } from '../../../../lib/taiwan-map/format'
 import { serializeTaiwanMapSearch } from '../../../../lib/taiwan-map/query'
 import { getCity } from '../../../../lib/taiwan-map/types'
@@ -62,6 +63,12 @@ export const SpotCard = memo(function SpotCard({
   const ref = useRef<HTMLElement>(null)
   const [copied, setCopied] = useState(false)
   const wantToGo = spot.status === 'want_to_go'
+  // 書きかけ（TODO）のコメントは出さない（publicText 参照）
+  const summary = publicText(spot.summary)
+  const note = publicText(spot.note)
+  // 名前に中国語名がもう入っている（「SIDOLI RADIO 小島裡」など）なら重ねて出さない
+  const nameZh =
+    spot.nameZh && !spot.name.includes(spot.nameZh) ? spot.nameZh : undefined
 
   // 地図のピン・共有リンク・地図からの「一覧でくわしく見る」で選ばれたら、
   // 見える位置まで寄せ、フォーカスもカードへ移す（スクリーンリーダーで
@@ -119,12 +126,12 @@ export const SpotCard = memo(function SpotCard({
           >
             {spot.name}
           </button>
-          {spot.nameZh && (
+          {nameZh && (
             <span
               lang="zh-Hant-TW"
               className="ml-2 text-sm font-normal text-gray-500"
             >
-              {spot.nameZh}
+              {nameZh}
             </span>
           )}
         </h3>
@@ -147,17 +154,19 @@ export const SpotCard = memo(function SpotCard({
         </div>
       </header>
 
-      <p
-        className={`mt-3 leading-relaxed whitespace-pre-line ${
-          wantToGo ? 'text-slate-600' : 'text-gray-800'
-        }`}
-      >
-        {spot.summary}
-      </p>
+      {summary && (
+        <p
+          className={`mt-3 leading-relaxed whitespace-pre-line ${
+            wantToGo ? 'text-slate-600' : 'text-gray-800'
+          }`}
+        >
+          {summary}
+        </p>
+      )}
 
-      {spot.note && (
+      {note && (
         <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
-          {spot.note}
+          {note}
         </p>
       )}
 

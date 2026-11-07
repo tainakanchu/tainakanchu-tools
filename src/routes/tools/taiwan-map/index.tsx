@@ -16,6 +16,7 @@ import {
   serializeTaiwanMapSearch,
 } from '../../../lib/taiwan-map/query'
 import { createStaticRepository } from '../../../lib/taiwan-map/staticRepository'
+import { publicText } from '../../../lib/taiwan-map/format'
 import { getCity } from '../../../lib/taiwan-map/types'
 import {
   CategoryChip,
@@ -265,7 +266,9 @@ function Results({
     window.setTimeout(() => setCopied(false), 1500)
   }
 
-  const conditionText = describeConditions(search, selectedArea?.name)
+  const conditions = describeConditions(search, selectedArea?.name)
+  const areaSummary = publicText(selectedArea?.summary)
+  const areaNote = publicText(selectedArea?.note)
 
   const title = (
     <h1
@@ -341,6 +344,12 @@ function Results({
               areas={cityAreas}
               cityCounts={data?.cityCounts ?? null}
               areaCounts={data?.areaCounts ?? EMPTY_COUNTS}
+              categoryCounts={data?.categoryCounts ?? null}
+              statusCounts={data?.statusCounts ?? null}
+              labelCounts={data?.labelCounts ?? null}
+              // ジャンルはデスクトップでは地図の上のチップだけにする（二重に出さない）
+              showCategory={!isDesktop}
+              collapsible={!isDesktop}
               onChange={handleFilterChange}
             />
           </section>
@@ -348,20 +357,26 @@ function Results({
 
         {showList && (
           <div className="space-y-2 border-t border-gray-200 pt-3">
-            <p className="text-sm text-gray-600" aria-live="polite">
-              {conditionText && (
-                <span className="font-medium text-gray-800">
-                  {conditionText}
+            {/* 「台北 大稻埕・迪化街 食べる 12 件」。条件は区切り記号でつながず、
+                1 つずつ別の語として並べる */}
+            <p
+              className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-600"
+              aria-live="polite"
+            >
+              {conditions.map((c) => (
+                <span key={c} className="font-medium text-gray-800">
+                  {c}{' '}
                 </span>
-              )}
-              {conditionText && ' ・ '}
-              {data
-                ? `${spots.length} 件`
-                : error
-                  ? '読み込めませんでした'
-                  : '読み込み中…'}
+              ))}
+              <span>
+                {data
+                  ? `${spots.length} 件`
+                  : error
+                    ? '読み込めませんでした'
+                    : '読み込み中…'}
+              </span>
               {loading && data && (
-                <span className="ml-2 text-gray-400">更新中…</span>
+                <span className="text-gray-400">更新中…</span>
               )}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -421,7 +436,8 @@ function Results({
         )}
 
         {showList && selectedArea && (
-          <section className="rounded-2xl border-l-4 border-cyan-500 bg-cyan-50/60 px-4 py-3">
+          // cyan は押せるものの色なので、読むだけのエリア紹介には使わない
+          <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
             <h2 className="font-semibold text-gray-900">
               {selectedArea.name}
               {selectedArea.nameZh && (
@@ -433,12 +449,14 @@ function Results({
                 </span>
               )}
             </h2>
-            <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-700">
-              {selectedArea.summary}
-            </p>
-            {selectedArea.note && (
+            {areaSummary && (
+              <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-700">
+                {areaSummary}
+              </p>
+            )}
+            {areaNote && (
               <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
-                {selectedArea.note}
+                {areaNote}
               </p>
             )}
           </section>
@@ -540,9 +558,11 @@ function Results({
                   <CategoryChip key={c} category={c} />
                 ))}
               </div>
-              <p className="line-clamp-2 text-sm text-gray-700">
-                {selectedSpot.summary}
-              </p>
+              {publicText(selectedSpot.summary) && (
+                <p className="line-clamp-2 text-sm text-gray-700">
+                  {publicText(selectedSpot.summary)}
+                </p>
+              )}
               <button
                 type="button"
                 className={actionButtonClass}
@@ -626,23 +646,20 @@ function MapLegend() {
   )
 }
 
-/** 「台北 › 大稻埕・迪化街 ・ 食べる」のような、今の条件の読み上げ用テキスト */
+/** 今の条件を「台北」「大稻埕・迪化街」「食べる」のように 1 つずつ返す */
 function describeConditions(
   search: TaiwanMapSearch,
   areaName: string | undefined,
-): string {
+): Array<string> {
   const filter = filterFromSearch(search)
   const parts: Array<string> = []
-  const place = [
-    filter.city ? getCity(filter.city).name : null,
-    areaName ?? null,
-  ].filter(Boolean)
-  if (place.length > 0) parts.push(place.join(' › '))
+  if (filter.city) parts.push(getCity(filter.city).name)
+  if (areaName) parts.push(areaName)
   if (filter.category) parts.push(categoryName(filter.category))
   if (filter.status) parts.push(statusName(filter.status))
   if (filter.label) {
     const l = labelDef(filter.label)
     parts.push(`${l.mark} ${l.name}`)
   }
-  return parts.join(' ・ ')
+  return parts
 }

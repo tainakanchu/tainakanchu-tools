@@ -16,6 +16,8 @@ import {
   countByArea,
   countByCategory,
   countByCity,
+  countByLabel,
+  countByStatus,
   filterSpots,
   hasAnyFilter,
 } from '../../../../lib/taiwan-map/filter'
@@ -31,9 +33,11 @@ import type {
   AreaId,
   CityId,
   SpotCategory,
+  SpotLabel,
   TaiwanArea,
   TaiwanManifest,
   TaiwanSpot,
+  VisitStatus,
 } from '../../../../lib/taiwan-map/types'
 
 export type ResultsData = {
@@ -61,6 +65,10 @@ export type ResultsData = {
    * 他のジャンルに切り替えたときの件数が正しく出るようにするため。
    */
   categoryCounts: ReadonlyMap<SpotCategory, number>
+  /** 状況以外の条件で数えた訪問状況ごとの件数（0 件のチップを隠す用） */
+  statusCounts: ReadonlyMap<VisitStatus, number>
+  /** ラベル以外の条件で数えた気持ちラベルごとの件数（0 件のチップを隠す用） */
+  labelCounts: ReadonlyMap<SpotLabel, number>
   /**
    * 都市ごとの総数（絞り込みバーで 0 件の都市を隠す用）。新しく何かを
    * 読むことはしない: 都市なしならもう読んでいるインデックスから数え、
@@ -140,6 +148,8 @@ export async function loadResults(
     knownSpotIds,
     resolvedSpotCity,
     categoryCounts: countByCategory(countSource ?? allSpots, filter),
+    statusCounts: countByStatus(countSource ?? allSpots, filter),
+    labelCounts: countByLabel(countSource ?? allSpots, filter),
     cityCounts: resolvedCityCounts,
     areaCounts: countByArea(allSpots),
   }

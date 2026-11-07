@@ -51,8 +51,12 @@ import type {
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
-/** 1 件だけ・flyTo のときのズーム。路地の店が見分けられる程度 */
-const SPOT_ZOOM = 16
+/**
+ * 1 件だけ・「地図で見る」で寄るときのズームの上限。通りの名前と周りの
+ * 店が見える程度にとどめる（16 以上だと周りが見えず、どこにいるのか
+ * 分からなくなる）。すでにこれより寄っているときはそのままにする。
+ */
+const SPOT_ZOOM = 15
 
 /** ピンのクリック判定の半径（px）。指でも押せるよう、描いた丸より広く取る */
 const HIT_RADIUS = 14
@@ -257,6 +261,16 @@ export default function MapView({
       addSpotLayers(map)
       setReady(true)
     })
+    // maplibre の compact な帰属表示は、最初は開いた状態（全文）で出る。
+    // 地図の左下に同じ帰属表示（index.tsx の MapLegend）を常に出しているので
+    // 二重になるうえ、スマホでは選んだ場所のカードの下に文字が透けて見える。
+    // 最初から (i) ボタンだけの閉じた状態にしておく
+    map.on('load', () => {
+      map
+        .getContainer()
+        .querySelector('.maplibregl-ctrl-attrib')
+        ?.classList.remove('maplibregl-compact-show')
+    })
     map.on('error', (e) => {
       if (styleLoaded || 'sourceId' in e || 'tile' in e) return
       setLoadError(true)
@@ -319,21 +333,32 @@ export default function MapView({
     } else if (current.length > 1) {
       const bounds = new maplibregl.LngLatBounds()
       for (const s of current) bounds.extend([s.location.lng, s.location.lat])
-      // 上は地図に重ねたジャンルチップの列のぶん広めに空ける
+      // 上は地図に重ねたジャンルチップのぶん広めに空ける。幅の狭い地図
+      // （スマホ）ではチップが 2〜3 段に折り返すので、さらに空ける
+      const narrow = map.getContainer().clientWidth < 640
       map.fitBounds(bounds, {
-        padding: { top: 72, bottom: 48, left: 48, right: 48 },
+        padding: { top: narrow ? 120 : 80, bottom: 48, left: 40, right: 40 },
         maxZoom: SPOT_ZOOM,
         duration: 0,
       })
     }
   }, [spotsKey])
 
-  // 選択中のピンだけ大きく・輪つきで上に描く
+  // 選択中のピンだけ大きく・輪つきで上に描く。一覧で選んだ場所が地図の
+  // 外にあるときは、ズームは変えずにそこまで横にずらす（輪が見えないと
+  // 選んだことが地図に伝わらない）
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
     map.setFilter(LAYER.selectedHalo, idFilter(selectedId))
     map.setFilter(LAYER.selected, idFilter(selectedId))
+    // 「地図で見る」の flyTo の途中なら邪魔をしない
+    if (map.isMoving()) return
+    const spot = spotsRef.current.find((s) => s.id === selectedId)
+    if (!spot) return
+    const lngLat: [number, number] = [spot.location.lng, spot.location.lat]
+    if (!map.getBounds().contains(lngLat))
+      map.easeTo({ center: lngLat, duration: 600 })
   }, [ready, selectedId])
 
   // キーボードでフォーカスしたピンに輪を出し、画面外ならそこへ寄せる
@@ -347,17 +372,28 @@ export default function MapView({
     if (!map.getBounds().contains(lngLat)) map.easeTo({ center: lngLat })
   }, [ready, focusedId])
 
-  // 一覧の「地図で見る」→ そのピンへ飛ぶ
+  // 一覧の「地図で見る」→ そのピンへ寄る。
+  // - ズームは SPOT_ZOOM まで。すでにそれより寄っていれば変えない
+  // - 寄る必要が無ければ（もう十分寄っている）横に動くだけの easeTo にする。
+  //   flyTo は一度引いてから寄る弧を描くので、近場の移動だと大げさに揺れる
   useEffect(() => {
     if (!flyRequest) return
     const spot = spotsRef.current.find((s) => s.id === flyRequest.id)
     const map = mapRef.current
     if (spot && map) {
-      map.flyTo({
-        center: [spot.location.lng, spot.location.lat],
-        zoom: Math.max(map.getZoom(), SPOT_ZOOM),
-        essential: true,
-      })
+      const center: [number, number] = [spot.location.lng, spot.location.lat]
+      const zoom = map.getZoom()
+      if (zoom >= SPOT_ZOOM) {
+        map.easeTo({ center, duration: 600, essential: true })
+      } else {
+        map.flyTo({
+          center,
+          zoom: SPOT_ZOOM,
+          curve: 1.2,
+          maxDuration: 1500,
+          essential: true,
+        })
+      }
     }
     onFlyDoneRef.current()
   }, [flyRequest])

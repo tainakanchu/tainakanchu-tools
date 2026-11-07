@@ -8,7 +8,12 @@
  * まずは 1 軸 1 値に絞っている。
  */
 
-import { CITY_IDS, SPOT_CATEGORY_IDS } from './types.ts'
+import {
+  CITY_IDS,
+  SPOT_CATEGORY_IDS,
+  SPOT_LABEL_IDS,
+  VISIT_STATUS_IDS,
+} from './types.ts'
 import type {
   AreaId,
   CityId,
@@ -105,6 +110,46 @@ export function countByCategory(
     if (!matchesFilter(spot, rest)) continue
     for (const c of new Set(spot.categories)) {
       counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
+/**
+ * 訪問状況ごとの件数。countByCategory と同じく、自分の軸（status）以外の
+ * 条件だけをかけて数える。0 件の状況も VISIT_STATUSES の順でキーを持たせる。
+ * 絞り込みバーで「押しても 0 件になる」チップを隠すのに使う。
+ */
+export function countByStatus(
+  spots: ReadonlyArray<FilterableSpot>,
+  filter: SpotFilter,
+): ReadonlyMap<VisitStatus, number> {
+  const rest: SpotFilter = { ...filter, status: undefined }
+  const counts = new Map<VisitStatus, number>(
+    VISIT_STATUS_IDS.map((id) => [id, 0]),
+  )
+  for (const spot of spots) {
+    if (!matchesFilter(spot, rest)) continue
+    counts.set(spot.status, (counts.get(spot.status) ?? 0) + 1)
+  }
+  return counts
+}
+
+/**
+ * 気持ちラベルごとの件数。自分の軸（label）以外の条件だけをかけて数える。
+ * 0 件のラベルも SPOT_LABELS の順でキーを持たせる。ラベルをまだ誰にも
+ * 付けていないうちは全部 0 になり、絞り込みバーからラベルの行ごと消える。
+ */
+export function countByLabel(
+  spots: ReadonlyArray<FilterableSpot>,
+  filter: SpotFilter,
+): ReadonlyMap<SpotLabel, number> {
+  const rest: SpotFilter = { ...filter, label: undefined }
+  const counts = new Map<SpotLabel, number>(SPOT_LABEL_IDS.map((id) => [id, 0]))
+  for (const spot of spots) {
+    if (!matchesFilter(spot, rest)) continue
+    for (const l of new Set(spot.labels ?? [])) {
+      counts.set(l, (counts.get(l) ?? 0) + 1)
     }
   }
   return counts

@@ -22,3 +22,21 @@ export function formatVisitedAt(value: string): string {
 export function googleMapsSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
+
+/**
+ * 公開してよい本文だけを返す。データには書きかけの印として
+ * 「（TODO: かんちゅのコメント未記入）」のような括弧書きが残っていることがあり、
+ * それをそのまま画面に出すと作りかけに見えるので、表示の直前でここを通す。
+ *
+ * - 全角・半角の括弧で囲んだ TODO 書きは取り除き、残りの文章があればそれを出す
+ *   （エリアの説明のように「TODO 印 + 下書きの説明文」になっているもの）
+ * - それでも TODO が残る、または何も残らないなら undefined（= 出さない）
+ *
+ * データの意味（summary は必須、など）は変えない。あくまで表示側のふるい。
+ */
+export function publicText(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined
+  const rest = text.replace(/[（(]\s*TODO\b[^）)]*[）)]/gi, '').trim()
+  if (rest === '' || /\bTODO\b/i.test(rest)) return undefined
+  return rest
+}

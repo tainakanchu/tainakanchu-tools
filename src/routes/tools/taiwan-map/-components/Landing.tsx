@@ -9,7 +9,6 @@
 
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, RotateCw } from 'lucide-react'
-import { SPOT_LABELS } from '../../../../lib/taiwan-map/types'
 import {
   actionButtonClass,
   bigChoiceClass,
@@ -42,16 +41,6 @@ export function Landing({ manifest, error, onRetry }: Props) {
           }
           {'「未訪問・気になる」の場所は、まだ行っていない、ただのメモです。'}
         </p>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
-          {SPOT_LABELS.map((l) => (
-            <li key={l.id}>
-              <span aria-hidden className="text-rose-600">
-                {l.mark}
-              </span>{' '}
-              {l.name}
-            </li>
-          ))}
-        </ul>
       </section>
 
       {error && (
