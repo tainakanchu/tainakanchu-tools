@@ -7,6 +7,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { ogPagesPlugin } from './scripts/vite-plugin-og-pages'
+import {
+  PWA_BACKGROUND_COLOR,
+  PWA_LANG,
+  PWA_THEME_COLOR,
+} from './src/lib/site-meta.ts'
 import { taiwanMapDataPlugin } from './scripts/vite-plugin-taiwan-map-data.ts'
 
 // https://vitejs.dev/config/
@@ -28,17 +33,24 @@ export default defineConfig({
       // これまで public/manifest.json に静的に置いていた内容をここへ移した。
       // プラグインが manifest.webmanifest を生成して index.html にリンクを
       // 注入するため、二重管理を避けて設定の出どころを 1 箇所にしている。
+      //
+      // これはサイト全体 (scope `/`) のアプリ。これとは別に、site-meta で
+      // pwa を有効にしたツールは「そのツール単体のアプリ」としてもインストール
+      // できる。そちらの manifest (dist/manifests/<slug>.webmanifest) は
+      // ogPagesPlugin が書き出し、<link rel="manifest"> の向き先は静的 HTML と
+      // ランタイム (src/components/PwaHeadSync.tsx) で切り替える。
+      // テーマ色などはツール単体のアプリと揃えるため site-meta から読む。
       manifest: {
         name: 'かんちゅツールズ | tainakanchu tools',
         short_name: 'かんちゅツールズ',
         description:
           'かんちゅが作る日常の小さな便利ツール集。原寸レイアウトメーカーなど、原寸レイアウトにこだわったユーティリティを公開中。',
-        lang: 'ja-JP',
+        lang: PWA_LANG,
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        theme_color: '#0f172a',
-        background_color: '#ffffff',
+        theme_color: PWA_THEME_COLOR,
+        background_color: PWA_BACKGROUND_COLOR,
         // アイコンはリポジトリにコミット済みの PNG をそのまま使う。ビルド時
         // に PNG を生成する仕組み (アイコンジェネレータ) を足すとビルド依存
         // が増えるので入れていない。`purpose: 'maskable'` を付けていないの
@@ -91,6 +103,9 @@ export default defineConfig({
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
+        // その代わり SW が入った後は dist/tools/<slug>.html（ツール単体アプリ
+        // 用に manifest を差し替えた静的 HTML）が返らなくなるので、
+        // manifest の向き先は PwaHeadSync がランタイムでも合わせている。
         navigateFallback: '/index.html',
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
@@ -167,6 +182,8 @@ export default defineConfig({
       // precache に載るが、インストール用アイコンは OS がインストール時 =
       // オンライン時に読むものでオフラインには要らない。precache に入れたい
       // 画像は includeAssets で名指ししている。
+      // ツール単体アプリのアイコン (public/assets/pwa/*.png) も同じ理由で
+      // precache に入れない（png は globPatterns にも入らない）。
       includeManifestIcons: false,
       // devOptions を書いていないのは意図的で、開発時 (pnpm dev) はサービス
       // ワーカーを動かさないため。ホットリロードとキャッシュが噛み合って
@@ -175,6 +192,7 @@ export default defineConfig({
     // VitePWA より後に置く理由: VitePWA の closeBundle で SW の precache
     // manifest が確定したあと tools/*.html を生成し、precache に載せない。
     // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
+    // ツール単体アプリの manifests/<slug>.webmanifest もここで書き出す。
     ogPagesPlugin(),
   ],
   build: {

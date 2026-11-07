@@ -2,12 +2,26 @@
  * ビルド後にツール別の静的 HTML を dist/tools/<slug>.html として生成する。
  * SNS クローラは JS を実行しないため、SPA の head() だけでは各ツールの
  * OG が取れない。ビルド成果物として HTML を複製してメタだけ差し替える。
+ *
+ * ToolMeta.pwa を持つツールは、ツール単体 PWA の manifest を
+ * dist/manifests/<slug>.webmanifest として書き出し、静的 HTML の
+ * <link rel="manifest"> などもそのツールの値に差し替える。
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Plugin } from 'vite'
-import type { ToolMeta } from '../src/lib/site-meta'
-import { SITE_ORIGIN, TOOL_META, toolPageTitle } from '../src/lib/site-meta'
+import type { PwaTool, ToolMeta } from '../src/lib/site-meta'
+import {
+  SITE_ORIGIN,
+  TOOL_META,
+  buildToolManifest,
+  getPwaTools,
+  isPwaTool,
+  toolManifestPath,
+  toolPageTitle,
+  toolPwaHead,
+  toolPwaIconPaths,
+} from '../src/lib/site-meta'
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -157,7 +171,64 @@ export function applyToolOgMeta(html: string, tool: ToolMeta): string {
     tool.name,
   )
   result = replaceByAttr(result, 'link', 'rel', 'canonical', 'href', url)
+  if (isPwaTool(tool)) {
+    result = applyToolPwaMeta(result, tool)
+  }
   return result
+}
+
+/**
+ * ツール単体 PWA 用に manifest / apple-touch-icon / ホーム画面の名前を差し替える。
+ * SW がまだ無い初回訪問（=インストールしようとしている最初の 1 回）はこの静的
+ * HTML が返るので、ここで差し替えておけばブラウザはツールの manifest を読む。
+ * SW が入った後は navigateFallback で /index.html が返るため、同じ差し替えを
+ * src/components/PwaHeadSync.tsx がランタイムでも行う。
+ */
+export function applyToolPwaMeta(html: string, tool: PwaTool): string {
+  const head = toolPwaHead(tool)
+  let result = html
+  result = replaceByAttr(
+    result,
+    'link',
+    'rel',
+    'manifest',
+    'href',
+    head.manifestHref,
+  )
+  result = replaceByAttr(
+    result,
+    'link',
+    'rel',
+    'apple-touch-icon',
+    'href',
+    head.appleTouchIcon,
+  )
+  result = replaceByAttr(
+    result,
+    'meta',
+    'name',
+    'apple-mobile-web-app-title',
+    'content',
+    head.appleTitle,
+  )
+  return result
+}
+
+/**
+ * manifest が指すアイコンが dist に揃っているか確かめる。
+ * pwa を有効にしたのに `pnpm pwa:icons` を忘れると、インストール時に
+ * アイコンが 404 になって「インストールできない」になるので、ビルドで止める。
+ */
+async function assertPwaIconsExist(outDir: string, tool: PwaTool) {
+  for (const iconPath of Object.values(toolPwaIconPaths(tool.slug))) {
+    try {
+      await access(path.join(outDir, iconPath))
+    } catch {
+      throw new Error(
+        `PWA icon ${iconPath} for "${tool.slug}" is missing. Run \`pnpm pwa:icons\` and commit public/assets/pwa/.`,
+      )
+    }
+  }
 }
 
 export function ogPagesPlugin(): Plugin {
@@ -192,6 +263,22 @@ export function ogPagesPlugin(): Plugin {
           await writeFile(
             path.join(toolsDir, `${tool.slug}.html`),
             html,
+            'utf-8',
+          )
+        }
+
+        // ツール単体 PWA の manifest。VitePWA のサイト全体用 manifest と同じく
+        // precache には載せない（インストールはオンライン時にしか起きない）。
+        // ここは VitePWA の closeBundle より後なので、そもそも glob にも拾われない。
+        const pwaTools = getPwaTools()
+        if (pwaTools.length > 0) {
+          await mkdir(path.join(outDir, 'manifests'), { recursive: true })
+        }
+        for (const tool of pwaTools) {
+          await assertPwaIconsExist(outDir, tool)
+          await writeFile(
+            path.join(outDir, toolManifestPath(tool.slug)),
+            JSON.stringify(buildToolManifest(tool)),
             'utf-8',
           )
         }

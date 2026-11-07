@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
@@ -22,6 +22,11 @@ import {
 } from 'lucide-react'
 import { getCatalogByCategory } from '../lib/site-meta'
 import type { CatalogItem } from '../lib/site-meta'
+import {
+  getLaunchedToolAppSlug,
+  isStandaloneDisplay,
+  isToolAppPathname,
+} from '../lib/tool-app'
 
 /** Header 専用: site-meta に lucide を入れないため slug → icon はここで持つ */
 const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
@@ -46,19 +51,25 @@ function toolIcon(slug: string) {
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const categories = useMemo(() => getCatalogByCategory(), [])
+  const isToolApp = useIsToolApp()
 
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:bg-gray-900/60 print:hidden">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 text-white">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsOpen(true)}
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-              aria-label="メニューを開く"
-            >
-              <Menu size={20} />
-            </button>
+            {/* ツール単体アプリではツール一覧を開くボタンを出さない（そのツール専用の
+                アプリなので）。ドロワーはボタンが無ければ開かないので触らない。
+                ロゴのトップへのリンクは残し、他のツールへはそこから行ける。 */}
+            {isToolApp ? null : (
+              <button
+                onClick={() => setIsOpen(true)}
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                aria-label="メニューを開く"
+              >
+                <Menu size={20} />
+              </button>
+            )}
             <Link to="/" className="flex items-center gap-3">
               <BrandBadge />
               <div className="leading-tight">
@@ -157,6 +168,22 @@ export default function Header() {
       </aside>
     </>
   )
+}
+
+/**
+ * ツール単体アプリとして起動され、そのツールの中にいるか。
+ * 起動印 (sessionStorage) と display-mode の両方を見る。印だけだと、
+ * ブラウザのタブで start_url を開いたときにもメニューが消えてしまう。
+ * どちらも起動中に変わらないので初回に 1 度だけ読む。
+ */
+function useIsToolApp(): boolean {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  const [launchedSlug] = useState(() =>
+    isStandaloneDisplay() ? getLaunchedToolAppSlug() : undefined,
+  )
+  return isToolAppPathname(pathname, launchedSlug)
 }
 
 function ToolNavItem({
