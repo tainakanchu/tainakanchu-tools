@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { loadResults, spotLinkStatus } from './useTaiwanMapData'
+import { findSpotCity, loadResults, spotLinkStatus } from './useTaiwanMapData'
 import type { TaiwanMapRepository } from '../../../../lib/taiwan-map/repository'
 import type {
   CityData,
@@ -184,5 +184,25 @@ describe('spotLinkStatus', () => {
     expect(spotLinkStatus('b', taipei)).toBe('filtered')
     // ?city=taipei&spot=nonexistent-id
     expect(spotLinkStatus('nonexistent-id', taipei)).toBe('missing')
+  })
+})
+
+describe('spotLinkStatus の elsewhere', () => {
+  it('読んだ都市に無く、別の都市にあると分かれば elsewhere', async () => {
+    const repo = fakeRepo()
+    const taipei = await loadResults(repo, { city: 'taipei' }, undefined)
+    // ?city=taipei&spot=c（c は台南の店）
+    expect(spotLinkStatus('c', taipei)).toBe('missing')
+    expect(spotLinkStatus('c', taipei, 'tainan')).toBe('elsewhere')
+    // 調べた都市が今の都市と同じなら（起きないはずだが）missing のまま
+    expect(spotLinkStatus('zzz', taipei, 'taipei')).toBe('missing')
+  })
+})
+
+describe('findSpotCity', () => {
+  it('インデックスからスポットの都市を引く', async () => {
+    const repo = fakeRepo()
+    await expect(findSpotCity(repo, 'c')).resolves.toBe('tainan')
+    await expect(findSpotCity(repo, 'nope')).resolves.toBeUndefined()
   })
 })

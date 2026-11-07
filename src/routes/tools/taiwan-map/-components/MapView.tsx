@@ -31,23 +31,101 @@
  *   代わりに失う「ピン 1 つ 1 つがキーボードで押せるボタン」は、地図の
  *   横に視覚的に隠したボタンの一覧（SpotKeyboardList）で補う。フォーカスが
  *   当たったピンは地図上でも枠で示し、見えていなければそこへ寄せる。
+ *
+ * ■ ピンを押したときのポップアップ（デスクトップ）
+ *   maplibregl.Popup ではなく React で描いた要素（SpotPopup）を地図の上に
+ *   重ね、地図が動くたびに map.project で位置だけを style で書き換える。
+ *   中身を一覧のカードと同じ部品・同じ整形（publicText など）で作れるため。
+ *   一覧で選んだときも同じポップアップを開く。× / Esc / 地図の何も無い所を
+ *   押すと、ポップアップごと選択を外す（onClearSelection。スマホの下端の
+ *   カードの × と同じ動きで、選んだときに積んだ履歴があれば 1 つ戻る）。
+ *   スマホは地図の下端に別のカード（index.tsx）を出すので、ポップアップは
+ *   出さない（2 つ同時に出さない）。
+ *
+ * ■ 0 件のとき
+ *   ピンが無くても地図とジャンルチップは出したままにする（デスクトップでは
+ *   ジャンルの絞り込みは地図の上のチップだけなので、消すと戻れなくなる）。
+ *   表示範囲は直前のまま動かさない。
+ *
+ * ■ ピンの名前
+ *   ズーム 14 以上で、ピンの横に店名を出す（symbol レイヤー）。重なる名前は
+ *   maplibre の衝突判定で間引かれる。フォントは positron の glyphs にある
+ *   Noto Sans。漢字・かなは maplibre の localIdeographFontFamily（既定
+ *   'sans-serif'）で端末のフォントから描くので、glyphs に CJK が無くても出る。
+ *
+ * ■ 最初の表示範囲
+ *   全件ではなく「中心から近い 9 割」を囲む（-lib/mapFeatures.ts の
+ *   coreBounds）。台北なら山の上の貓空 1 件のせいで中心部が潰れないように。
+ *
+ * ■ ホイール（デスクトップ）
+ *   デスクトップも cooperativeGestures にして、Ctrl / ⌘ + ホイールでだけ
+ *   拡大・縮小する（トラックパッドのピンチは maplibre が ctrlKey 付きの
+ *   wheel として通すので、そのまま拡大・縮小できる）。一覧はページごと
+ *   スクロールし、地図はその横に貼り付いている作りなので、地図の上で
+ *   ホイールを回してもページ（= 一覧）が進むほうが、一覧を読んでいる
+ *   途中で地図に吸い込まれない。一覧を別のスクロール領域に分ける案は、
+ *   カードへ寄せる scrollIntoView・「戻る」でのスクロール位置の復元・
+ *   スマホとの作りの違いが増えるので採らなかった。
+ *
+ * ■ 現在地
+ *   右下の丸い「現在地」ボタン（44px）。押したときだけ位置情報を取りに行き
+ *   （すでに許可されていれば開いた時点から追う。-lib/useGeolocation.ts）、
+ *   取れたらそこへ寄る。位置は親（index.tsx の useGeolocation）のメモリに
+ *   だけ持ち、ここは受け取って描くだけ。URL や保存先には出さない。
+ *   - 青い点 + 精度の円（実際の半径。ズームしても大きさが合う多角形）
+ *   - 向きの扇: 端末のコンパス（-lib/compass.ts）があればそれ。無ければ
+ *     GPS の進行方向を、速さ 1 m/s 超・精度 50m 以内のときだけ使う
+ *     （止まっているときの GPS の向きはでたらめ）。どちらも無ければ出さない。
+ *     向きは近いほうへ回るようになめらかにする（lib/taiwan-map/geo.ts）
+ *   - 台湾の外にいるときはそこへ飛ばない（台湾の地図が見えなくなるだけ）。
+ *     「台湾の外にいます」と知らせる
+ *   - 状態（取得中・許可されていない・取れない）は地図の下端の小さな帯で
+ *     知らせる（role=status）
+ *
+ * ■ ベース地図のラベル
+ *   positron の地名・道路名は「ローマ字 + 中国語」の 2 段組みで、台湾では
+ *   台湾語のローマ字が混ざって読みにくい。style を読んだ時点で text-field を
+ *   中国語（現地表記）だけに差し替える（-lib/mapFeatures.ts の localizedTextField）。
  */
 
-import { useEffect, useId, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { Crosshair } from 'lucide-react'
+import {
+  circleRing,
+  isInsideTaiwan,
+  smoothHeading,
+} from '../../../../lib/taiwan-map/geo'
 import { getCity } from '../../../../lib/taiwan-map/types'
 import {
   HIDDEN_BASE_LAYERS,
+  coreBounds,
+  localizedTextField,
   spotsToFeatureCollection,
 } from '../-lib/mapFeatures'
+import { requestCompassPermission, watchCompass } from '../-lib/compass'
+import { MAP_LOCALE_JA } from '../-lib/mapLocale'
+import { placePopup } from '../-lib/popupPlacement'
 import { categoryName } from './Badges'
 import { MapCategoryChips } from './MapCategoryChips'
+import { SpotPopup } from './SpotPopup'
+import type { ReactNode } from 'react'
 import type {
+  AreaId,
   CityId,
   SpotCategory,
+  TaiwanArea,
   TaiwanSpot,
 } from '../../../../lib/taiwan-map/types'
+import type { GeoFix, GeolocationStatus } from '../-lib/useGeolocation'
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
@@ -58,11 +136,31 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
  */
 const SPOT_ZOOM = 15
 
-/** ピンのクリック判定の半径（px）。指でも押せるよう、描いた丸より広く取る */
-const HIT_RADIUS = 14
+/**
+ * ピンのクリック判定の半径（px）。描いた丸（半径 5〜6.5px）より広く取り、
+ * 範囲内でいちばん近いピンを選ぶ。指で押す端末はさらに広くする
+ */
+const HIT_RADIUS_MOUSE = 14
+const HIT_RADIUS_TOUCH = 22
+
+/** ピンの中心からポップアップ・ツールチップまでの距離（ピン + 三角のぶん） */
+const POPUP_GAP = 16
+const TOOLTIP_GAP = 12
+/** ポップアップを地図の縁から離す幅 */
+const POPUP_MARGIN = 8
 
 const SOURCE_ID = 'tw-spots'
+const USER_SOURCE_ID = 'tw-user'
+const ACCURACY_SOURCE_ID = 'tw-user-accuracy'
+const HEADING_IMAGE = 'tw-heading-cone'
+/** ピンの横に名前を出し始めるズーム */
+const LABEL_MINZOOM = 14
 const LAYER = {
+  labels: 'tw-spot-labels',
+  accuracy: 'tw-user-accuracy',
+  accuracyLine: 'tw-user-accuracy-line',
+  heading: 'tw-user-heading',
+  user: 'tw-user',
   shadow: 'tw-spot-shadow',
   pins: 'tw-spot-pins',
   selectedHalo: 'tw-spot-selected-halo',
@@ -72,6 +170,62 @@ const LAYER = {
 
 /** 選択の操作色（styles.ts の cyan-500 と同じ）。ジャンル色には使っていない */
 const SELECT_COLOR = '#06b6d4'
+/** 現在地の点の色。ピンのジャンル色・選択の cyan と取り違えない青 */
+const USER_COLOR = '#2563eb'
+
+/** 精度の円はこれより大きければ打ち切る（数 km の円で地図が青く覆われないように） */
+const MAX_ACCURACY_M = 2000
+/** コンパスの値がこれより古ければ「コンパスは無い」とみなして GPS の向きに頼る */
+const COMPASS_STALE_MS = 3000
+/** GPS の進行方向を使う条件。止まっている・精度が悪いときの向きはでたらめ */
+const GPS_HEADING_MIN_SPEED = 1
+const GPS_HEADING_MAX_ACCURACY = 50
+/** 向きの扇の描き直しの間隔（コンパスは 1 秒に数十回届く） */
+const HEADING_FRAME_MS = 66
+
+type Toast = { text: string; tone: 'info' | 'error' }
+
+const TOASTS: Partial<Record<GeolocationStatus, Toast>> = {
+  locating: { text: '現在地を取得中', tone: 'info' },
+  denied: { text: '位置情報が許可されていません', tone: 'error' },
+  timeout: {
+    text: '現在地を取得できませんでした（時間切れ）',
+    tone: 'error',
+  },
+  unavailable: { text: '現在地を取得できませんでした', tone: 'error' },
+}
+const OUTSIDE_TOAST: Toast = { text: '台湾の外にいます', tone: 'info' }
+
+/**
+ * 向きの扇の画像。点を中心に、上（北）へ開いた 60° の扇をぼかして描く。
+ * 地図に合わせて icon-rotate で回す
+ */
+function headingConeImage(): ImageData | null {
+  // pixelRatio 2 で足すので、地図の上では半径 50px の扇になる
+  const size = 200
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const c = size / 2
+  const gradient = ctx.createRadialGradient(c, c, 0, c, c, c)
+  gradient.addColorStop(0, 'rgba(37, 99, 235, 0.6)')
+  gradient.addColorStop(1, 'rgba(37, 99, 235, 0)')
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.moveTo(c, c)
+  ctx.arc(c, c, c, (-120 * Math.PI) / 180, (-60 * Math.PI) / 180)
+  ctx.closePath()
+  ctx.fill()
+  return ctx.getImageData(0, 0, size, size)
+}
+
+/** 地図に重ねたジャンルチップの高さ。入れ物の中の絶対配置の要素を測る */
+function chipsHeight(wrapper: HTMLElement | null): number {
+  const chips = wrapper?.firstElementChild
+  return chips instanceof HTMLElement ? chips.offsetHeight : 0
+}
 
 export type FlyRequest = { id: string; nonce: number }
 
@@ -105,6 +259,29 @@ type Props = {
   /** カテゴリ以外の条件で数えたジャンルごとの件数 */
   categoryCounts: ReadonlyMap<SpotCategory, number>
   onCategoryChange: (category: SpotCategory | undefined) => void
+  /** ポップアップに出すエリア名を引く */
+  areaById: ReadonlyMap<AreaId, TaiwanArea>
+  /** ピンを押したときにポップアップを出すか（デスクトップだけ true） */
+  popupEnabled: boolean
+  /**
+   * 選択を外す。ポップアップの × ・Esc、何も無い所を押したときに呼ぶ
+   * （デスクトップ・スマホとも。スマホは地図の下端のカードが閉じる）
+   */
+  onClearSelection: () => void
+  /** 現在地（親のメモリにだけある）。分からなければ null */
+  userPosition: GeoFix | null
+  locateStatus: GeolocationStatus
+  /** 「現在地」ボタン。位置情報を取りに行くのは親。クリックの中で同期的に呼ぶ */
+  onLocate: () => void
+  /** ポップアップに出す現在地からの距離。台湾の外・分からなければ null */
+  distanceById: ReadonlyMap<string, number> | null
+  /** ポップアップの「地図で見る」。そのピンへ寄る */
+  onShowOnMap: (id: string) => void
+  /**
+   * 地図の下端に重ねるもの（スマホの選んだ場所のカード）。現在地ボタン・
+   * 状態の帯はこの上に積む（カードに隠れないように）
+   */
+  bottomCard?: ReactNode
 }
 
 /**
@@ -185,6 +362,109 @@ function addSpotLayers(map: maplibregl.Map) {
       'circle-stroke-color': SELECT_COLOR,
     },
   })
+  // 寄ったときだけピンの横に名前。重なる名前は maplibre が間引く。
+  // 上にあるレイヤーほど先に場所を取るので、ベース地図の地名より優先される
+  map.addLayer({
+    id: LAYER.labels,
+    type: 'symbol',
+    source: SOURCE_ID,
+    minzoom: LABEL_MINZOOM,
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': [labelFont(map)],
+      'text-size': 12,
+      'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
+      'text-radial-offset': 0.8,
+      'text-justify': 'auto',
+      'text-max-width': 9,
+      'symbol-sort-key': ['-', 1, ['get', 'sortKey']],
+    },
+    paint: {
+      'text-color': '#111827',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.6,
+    },
+  })
+  // 現在地の精度の円。ピンを青く覆わないよう、ピンの影より下に描く
+  map.addSource(ACCURACY_SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  })
+  map.addLayer(
+    {
+      id: LAYER.accuracy,
+      type: 'fill',
+      source: ACCURACY_SOURCE_ID,
+      paint: { 'fill-color': USER_COLOR, 'fill-opacity': 0.1 },
+    },
+    LAYER.shadow,
+  )
+  map.addLayer(
+    {
+      id: LAYER.accuracyLine,
+      type: 'line',
+      source: ACCURACY_SOURCE_ID,
+      paint: {
+        'line-color': USER_COLOR,
+        'line-opacity': 0.35,
+        'line-width': 1,
+      },
+    },
+    LAYER.shadow,
+  )
+  // 現在地（向きの扇 + 青い点）。ピンより上に描く
+  map.addSource(USER_SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  })
+  const cone = headingConeImage()
+  if (cone && !map.hasImage(HEADING_IMAGE))
+    map.addImage(HEADING_IMAGE, cone, { pixelRatio: 2 })
+  map.addLayer({
+    id: LAYER.heading,
+    type: 'symbol',
+    source: USER_SOURCE_ID,
+    // 向きが分かっているときだけ（properties.heading がある）
+    filter: ['has', 'heading'],
+    layout: {
+      'icon-image': HEADING_IMAGE,
+      'icon-rotate': ['get', 'heading'],
+      'icon-rotation-alignment': 'map',
+      'icon-pitch-alignment': 'map',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+  })
+  map.addLayer({
+    id: LAYER.user,
+    type: 'circle',
+    source: USER_SOURCE_ID,
+    paint: {
+      'circle-radius': 6.5,
+      'circle-color': USER_COLOR,
+      'circle-stroke-width': 2.5,
+      'circle-stroke-color': '#ffffff',
+    },
+  })
+}
+
+/**
+ * ピンの名前に使うフォント。style の glyphs にあるものしか使えないので、
+ * ベース地図の symbol レイヤーが使っている Regular を借りる（見つからなければ
+ * positron の既定の Noto Sans Regular）。漢字・かなは端末のフォントで描かれる
+ */
+function labelFont(map: maplibregl.Map): string {
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== 'symbol') continue
+    const font: unknown = map.getLayoutProperty(layer.id, 'text-font')
+    if (Array.isArray(font)) {
+      const regular = font.find(
+        (f): f is string => typeof f === 'string' && /Regular/.test(f),
+      )
+      if (regular) return regular
+    }
+  }
+  return 'Noto Sans Regular'
 }
 
 export default function MapView({
@@ -197,6 +477,15 @@ export default function MapView({
   activeCategory,
   categoryCounts,
   onCategoryChange,
+  areaById,
+  popupEnabled,
+  onClearSelection,
+  userPosition,
+  locateStatus,
+  onLocate,
+  distanceById,
+  onShowOnMap,
+  bottomCard,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -204,16 +493,50 @@ export default function MapView({
   const onFlyDoneRef = useRef(onFlyDone)
   const spotsRef = useRef(spots)
   const activeCategoryRef = useRef(activeCategory)
+  const onClearSelectionRef = useRef(onClearSelection)
+  const userPositionRef = useRef(userPosition)
+  /** 「現在地」を押して、位置が分かったらそこへ寄せる約束 */
+  const flyToUserRef = useRef(false)
+  /** 向きの扇に出している角度（なめらかにしたあと）。分からなければ null */
+  const headingRef = useRef<number | null>(null)
+  /** 最後にコンパスの値が届いた時刻 */
+  const compassAtRef = useRef(0)
   /** style を読み終え、ピンのソースとレイヤーを足し終えたか */
   const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(null)
+  /** ポップアップを出しているスポット。選択（selectedId）とは別に閉じられる */
+  const [popupId, setPopupId] = useState<string | null>(selectedId ?? null)
+  /** マウスが乗っているピン（名前のツールチップ用） */
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const chipsRef = useRef<HTMLDivElement>(null)
+  /** ポップアップ・ツールチップを付けるピンの経緯度。地図の move で読む */
+  const overlayLngLat = useRef<{
+    popup: [number, number] | null
+    hover: [number, number] | null
+  }>({ popup: null, hover: null })
+  /** キーボードの一覧から開いたとき、閉じたらフォーカスを戻す先 */
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  /** 次にポップアップを描いたらフォーカスを移すか（キーボードで開いたとき） */
+  const focusPopupRef = useRef(false)
+
+  // 一覧・URL など外から選択が変わったら、その場所のポップアップを開く
+  // （描画中に前回の値と比べて state を合わせる。effect で setState しない）
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId)
+  if (prevSelectedId !== selectedId) {
+    setPrevSelectedId(selectedId)
+    setPopupId(selectedId ?? null)
+  }
 
   useEffect(() => {
     onSelectRef.current = onSelect
     onFlyDoneRef.current = onFlyDone
     spotsRef.current = spots
     activeCategoryRef.current = activeCategory
+    onClearSelectionRef.current = onClearSelection
+    userPositionRef.current = userPosition
   })
 
   /**
@@ -224,6 +547,52 @@ export default function MapView({
    */
   const spotsKey = spotsKeyOf(spots)
 
+  /**
+   * ポップアップとツールチップを、今のピンの画面位置に合わせて動かす。
+   * 地図は 1 秒に何十回も動くので React の state は通さず、style を直接
+   * 書き換える（refs だけを読むので依存は無い）
+   */
+  const syncOverlays = useCallback(() => {
+    const map = mapRef.current
+    if (!map) return
+    const container = map.getContainer()
+    const size = {
+      width: container.clientWidth,
+      height: container.clientHeight,
+    }
+    const popup = popupRef.current
+    const popupLngLat = overlayLngLat.current.popup
+    if (popup && popupLngLat) {
+      const placement = placePopup({
+        anchor: map.project(popupLngLat),
+        popup: { width: popup.offsetWidth, height: popup.offsetHeight },
+        container: size,
+        gap: POPUP_GAP,
+        margin: POPUP_MARGIN,
+        // 地図に重ねたジャンルチップ（折り返すと 2 段以上）には重ねない
+        topInset: chipsHeight(chipsRef.current),
+      })
+      popup.style.visibility = placement.visible ? 'visible' : 'hidden'
+      popup.style.transform = `translate(${Math.round(placement.left)}px, ${Math.round(placement.top)}px)`
+      const arrow = popup.querySelector<HTMLElement>('[data-popup-arrow]')
+      if (arrow) {
+        arrow.style.left = `${placement.arrowX}px`
+        const above = placement.side === 'above'
+        arrow.style.top = above ? 'calc(100% - 6px)' : '-6px'
+        arrow.style.borderWidth = above ? '0 1px 1px 0' : '1px 0 0 1px'
+      }
+    }
+    const tooltip = tooltipRef.current
+    const hoverLngLat = overlayLngLat.current.hover
+    if (tooltip && hoverLngLat) {
+      const p = map.project(hoverLngLat)
+      const x = Math.round(p.x - tooltip.offsetWidth / 2)
+      const y = Math.round(p.y - TOOLTIP_GAP - tooltip.offsetHeight)
+      tooltip.style.transform = `translate(${x}px, ${y}px)`
+      tooltip.style.visibility = 'visible'
+    }
+  }, [])
+
   // 地図本体はマウント時に 1 度だけ作る
   useEffect(() => {
     const city = getCity(fallbackCity)
@@ -233,9 +602,12 @@ export default function MapView({
       center: [city.center.lng, city.center.lat],
       zoom: city.zoom,
       attributionControl: { compact: true },
-      // 一覧を縦スクロールしている途中で地図に指が乗ると、ページではなく
-      // 地図が動いて操作を奪われる。スマホは 2 本指でだけ動かす
-      cooperativeGestures: window.matchMedia('(pointer: coarse)').matches,
+      // 一覧を縦スクロールしている途中で地図に指・ホイールが乗ると、ページ
+      // ではなく地図が動いて操作を奪われる。スマホは 2 本指、デスクトップは
+      // Ctrl / ⌘ + ホイール（とトラックパッドのピンチ）でだけ拡大・縮小する
+      // （理由は冒頭の「ホイール」）
+      cooperativeGestures: true,
+      locale: MAP_LOCALE_JA,
     })
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
@@ -258,6 +630,15 @@ export default function MapView({
       for (const id of HIDDEN_BASE_LAYERS) {
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none')
       }
+      // 地名・道路名は中国語（現地表記）だけにする。名前を出さない
+      // レイヤー（道路番号など）・text-field の無いレイヤーはそのまま
+      for (const layer of map.getStyle().layers) {
+        if (layer.type !== 'symbol') continue
+        const next = localizedTextField(
+          map.getLayoutProperty(layer.id, 'text-field'),
+        )
+        if (next) map.setLayoutProperty(layer.id, 'text-field', next)
+      }
       addSpotLayers(map)
       setReady(true)
     })
@@ -276,33 +657,52 @@ export default function MapView({
       setLoadError(true)
     })
 
-    // クリック（タップ）はピンの丸より少し広い範囲で拾い、いちばん近いものを選ぶ
-    const pinsAt = (point: maplibregl.Point) =>
-      map.queryRenderedFeatures(
+    // クリック（タップ）はピンの丸より広い範囲で拾い、いちばん近いものを選ぶ
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches
+    const hitRadius = coarsePointer ? HIT_RADIUS_TOUCH : HIT_RADIUS_MOUSE
+    const nearestPinAt = (point: maplibregl.Point): string | null => {
+      if (!map.getLayer(LAYER.pins)) return null
+      const hits = map.queryRenderedFeatures(
         [
-          [point.x - HIT_RADIUS, point.y - HIT_RADIUS],
-          [point.x + HIT_RADIUS, point.y + HIT_RADIUS],
+          [point.x - hitRadius, point.y - hitRadius],
+          [point.x + hitRadius, point.y + hitRadius],
         ],
         { layers: [LAYER.pins] },
       )
-    map.on('click', (e) => {
-      if (!map.getLayer(LAYER.pins)) return
-      const hits = pinsAt(e.point)
       let best: { id: string; d: number } | null = null
       for (const f of hits) {
         const id: unknown = f.properties.id
         const spot = spotsRef.current.find((s) => s.id === id)
         if (!spot) continue
         const p = map.project([spot.location.lng, spot.location.lat])
-        const d = Math.hypot(p.x - e.point.x, p.y - e.point.y)
-        if (best === null || d < best.d) best = { id: spot.id, d }
+        const d = Math.hypot(p.x - point.x, p.y - point.y)
+        if (d <= hitRadius && (best === null || d < best.d))
+          best = { id: spot.id, d }
       }
-      if (best) onSelectRef.current(best.id)
+      return best?.id ?? null
+    }
+    map.on('click', (e) => {
+      const id = nearestPinAt(e.point)
+      // 何も無い所を押したら選択を外す（デスクトップはポップアップごと、
+      // スマホは地図の下端のカードごと閉じる。× と同じ動き）
+      setPopupId(id)
+      if (id) {
+        returnFocusRef.current = null
+        onSelectRef.current(id)
+      } else {
+        onClearSelectionRef.current()
+      }
     })
     map.on('mousemove', (e) => {
-      if (!map.getLayer(LAYER.pins)) return
-      map.getCanvas().style.cursor = pinsAt(e.point).length > 0 ? 'pointer' : ''
+      const id = nearestPinAt(e.point)
+      map.getCanvas().style.cursor = id ? 'pointer' : ''
+      // タップのあとに来る疑似的な mousemove で名前が出しっぱなしにならないよう、
+      // ツールチップはマウスのときだけ
+      if (!coarsePointer) setHoverId(id)
     })
+    map.getCanvas().addEventListener('mouseleave', () => setHoverId(null))
+    map.on('move', syncOverlays)
+    map.on('resize', syncOverlays)
 
     mapRef.current = map
     return () => {
@@ -312,6 +712,54 @@ export default function MapView({
     // fallbackCity はマウント時の初期位置にしか使わない
     // oxlint-disable-next-line react/exhaustive-deps
   }, [])
+
+  // ポップアップ・ツールチップを付けるピンが変わったら、その位置へ置き直す
+  const popupSpot =
+    popupEnabled && popupId !== null
+      ? spots.find((s) => s.id === popupId)
+      : undefined
+  const hoverSpot =
+    hoverId !== null && hoverId !== popupSpot?.id
+      ? spots.find((s) => s.id === hoverId)
+      : undefined
+  useLayoutEffect(() => {
+    overlayLngLat.current = {
+      popup: popupSpot
+        ? [popupSpot.location.lng, popupSpot.location.lat]
+        : null,
+      hover: hoverSpot
+        ? [hoverSpot.location.lng, hoverSpot.location.lat]
+        : null,
+    }
+    syncOverlays()
+    if (popupSpot && focusPopupRef.current) {
+      focusPopupRef.current = false
+      popupRef.current?.focus({ preventScroll: true })
+    }
+  }, [popupSpot, hoverSpot, syncOverlays])
+
+  /** ポップアップの × ・Esc。ポップアップを閉じ、選択も外す */
+  const closePopup = useCallback(() => {
+    const hadFocus = popupRef.current?.contains(document.activeElement)
+    setPopupId(null)
+    onClearSelectionRef.current()
+    if (!hadFocus) return
+    // キーボードの一覧から開いていればそのボタンへ、そうでなければ地図へ戻す
+    const back = returnFocusRef.current ?? mapRef.current?.getCanvas()
+    back?.focus({ preventScroll: true })
+    returnFocusRef.current = null
+  }, [])
+
+  // Esc で閉じる（選択も外す）
+  const popupOpen = popupSpot !== undefined
+  useEffect(() => {
+    if (!popupOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) closePopup()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [popupOpen, closePopup])
 
   // ピンの中身を差し替える（ジャンルを切り替えたら色も塗り直す）
   useEffect(() => {
@@ -331,13 +779,13 @@ export default function MapView({
       const { lat, lng } = current[0].location
       map.jumpTo({ center: [lng, lat], zoom: SPOT_ZOOM })
     } else if (current.length > 1) {
-      const bounds = new maplibregl.LngLatBounds()
-      for (const s of current) bounds.extend([s.location.lng, s.location.lat])
-      // 上は地図に重ねたジャンルチップのぶん広めに空ける。幅の狭い地図
-      // （スマホ）ではチップが 2〜3 段に折り返すので、さらに空ける
-      const narrow = map.getContainer().clientWidth < 640
+      // 中心から外れた 1 割は囲まない（冒頭の「最初の表示範囲」）
+      const bounds = coreBounds(current.map((s) => s.location))
+      if (!bounds) return
+      // 上は地図に重ねたジャンルチップのぶん空ける（チップはデスクトップで
+      // 折り返して 2 段になることがある。スマホは横スクロールの 1 段）
       map.fitBounds(bounds, {
-        padding: { top: narrow ? 120 : 80, bottom: 48, left: 40, right: 40 },
+        padding: { top: 72, bottom: 48, left: 40, right: 56 },
         maxZoom: SPOT_ZOOM,
         duration: 0,
       })
@@ -360,6 +808,172 @@ export default function MapView({
     if (!map.getBounds().contains(lngLat))
       map.easeTo({ center: lngLat, duration: 600 })
   }, [ready, selectedId])
+
+  /** 現在地の点・向きの扇・精度の円を、refs の今の値で描き直す */
+  const drawUser = useCallback(() => {
+    const map = mapRef.current
+    if (!map || !map.getSource(USER_SOURCE_ID)) return
+    const pos = userPositionRef.current
+    const heading = headingRef.current
+    map.getSource<maplibregl.GeoJSONSource>(USER_SOURCE_ID)?.setData({
+      type: 'FeatureCollection',
+      features: pos
+        ? [
+            {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] },
+              properties: heading === null ? {} : { heading },
+            },
+          ]
+        : [],
+    })
+    map.getSource<maplibregl.GeoJSONSource>(ACCURACY_SOURCE_ID)?.setData({
+      type: 'FeatureCollection',
+      features:
+        pos && pos.accuracy > 0
+          ? [
+              {
+                type: 'Feature',
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [
+                    circleRing(pos, Math.min(pos.accuracy, MAX_ACCURACY_M)),
+                  ],
+                },
+                properties: {},
+              },
+            ]
+          : [],
+    })
+  }, [])
+
+  // 位置が変わったら描き直す。コンパスが無い（届いていない）ときは、
+  // 動いていて精度がよいときだけ GPS の進行方向を向きに使う
+  useEffect(() => {
+    if (!ready) return
+    if (Date.now() - compassAtRef.current > COMPASS_STALE_MS) {
+      const p = userPosition
+      headingRef.current =
+        p &&
+        p.heading !== null &&
+        p.speed !== null &&
+        p.speed > GPS_HEADING_MIN_SPEED &&
+        p.accuracy <= GPS_HEADING_MAX_ACCURACY
+          ? smoothHeading(headingRef.current, p.heading, 0.5)
+          : null
+    }
+    drawUser()
+    // 「現在地」を押して初めて位置が分かったときは、そこへ寄せる（ピンが
+    // 遠くても一緒に見える範囲にはしない。「今どこにいるか」を見たくて
+    // 押しているので）。台湾の外なら寄らない（台湾の地図が見えなくなるだけ）
+    const map = mapRef.current
+    if (map && userPosition && flyToUserRef.current) {
+      flyToUserRef.current = false
+      if (isInsideTaiwan(userPosition)) {
+        map.easeTo({
+          center: [userPosition.lng, userPosition.lat],
+          zoom: Math.max(map.getZoom(), SPOT_ZOOM),
+          duration: 600,
+        })
+      }
+    }
+  }, [ready, userPosition, drawUser])
+
+  // 位置を追っているあいだだけコンパスを聞く（裏に回ったら止める）
+  const tracking = locateStatus === 'locating' || locateStatus === 'ready'
+  useEffect(() => {
+    if (!ready || !tracking) return
+    let stopCompass: (() => void) | null = null
+    let last = 0
+    let timer: number | null = null
+    const onHeading = (deg: number) => {
+      compassAtRef.current = Date.now()
+      headingRef.current = smoothHeading(headingRef.current, deg, 0.3)
+      // 毎回描き直すと重いので、間引いて描く
+      if (timer !== null) return
+      const wait = Math.max(0, HEADING_FRAME_MS - (Date.now() - last))
+      timer = window.setTimeout(() => {
+        timer = null
+        last = Date.now()
+        drawUser()
+      }, wait)
+    }
+    const start = () => {
+      if (stopCompass === null) stopCompass = watchCompass(onHeading)
+    }
+    const stop = () => {
+      stopCompass?.()
+      stopCompass = null
+    }
+    const onVisibility = () =>
+      document.visibilityState === 'hidden' ? stop() : start()
+    if (document.visibilityState !== 'hidden') start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      stop()
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [ready, tracking, drawUser])
+
+  useEffect(() => {
+    if (locateStatus === 'denied' || locateStatus === 'unavailable')
+      flyToUserRef.current = false
+    if (locateStatus === 'timeout') flyToUserRef.current = false
+  }, [locateStatus])
+
+  // 位置情報の状態の帯（地図の下端）。取得中のあいだは出し続け、それ以外は
+  // 数秒で消す（地図に居座らせない）。取得中の帯は、地図のボタンを押したとき
+  // だけ出す（許可済みで開いた時点から追うときは黙って取る）
+  const [toast, setToast] = useState<Toast | null>(null)
+  /** 地図のボタンを押して、最初の位置を待っているか */
+  const [awaitingFix, setAwaitingFix] = useState(false)
+  const [prevLocateStatus, setPrevLocateStatus] = useState(locateStatus)
+  if (prevLocateStatus !== locateStatus) {
+    setPrevLocateStatus(locateStatus)
+    const next = TOASTS[locateStatus]
+    if (next?.tone === 'error') {
+      setToast(next)
+      setAwaitingFix(false)
+    } else if (locateStatus !== 'locating') {
+      // 取れた（ready）→ 取得中の帯を下げる。台湾の外かどうかは下で
+      if (toast === TOASTS.locating) setToast(null)
+    }
+  }
+  if (awaitingFix && userPosition) {
+    setAwaitingFix(false)
+    setToast(isInsideTaiwan(userPosition) ? null : OUTSIDE_TOAST)
+  }
+  useEffect(() => {
+    if (toast === null || toast === TOASTS.locating) return
+    const t = window.setTimeout(() => setToast(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [toast])
+
+  /**
+   * 現在地ボタン。iOS ではユーザー操作の外からの要求は捨てられるので、
+   * 位置情報（onLocate）もコンパスの許可も、このクリックの中で同期的に求める
+   */
+  const handleLocate = () => {
+    onLocate()
+    requestCompassPermission()
+    const map = mapRef.current
+    if (userPosition && locateStatus === 'ready') {
+      if (!isInsideTaiwan(userPosition)) {
+        setToast(OUTSIDE_TOAST)
+        return
+      }
+      map?.easeTo({
+        center: [userPosition.lng, userPosition.lat],
+        zoom: Math.max(map.getZoom(), SPOT_ZOOM),
+        duration: 600,
+      })
+      return
+    }
+    flyToUserRef.current = true
+    setAwaitingFix(true)
+    setToast(TOASTS.locating ?? null)
+  }
 
   // キーボードでフォーカスしたピンに輪を出し、画面外ならそこへ寄せる
   useEffect(() => {
@@ -402,17 +1016,88 @@ export default function MapView({
     <div className="relative h-full w-full">
       {/* ランドマークは親の <aside aria-label="地図"> が担うので、ここには role を付けない */}
       <div ref={containerRef} className="h-full w-full" />
-      <MapCategoryChips
-        active={activeCategory}
-        counts={categoryCounts}
-        onChange={onCategoryChange}
-      />
+      {/* ポップアップをチップの下に置くため、チップの高さを測る入れ物 */}
+      <div ref={chipsRef}>
+        <MapCategoryChips
+          active={activeCategory}
+          counts={categoryCounts}
+          onChange={onCategoryChange}
+        />
+      </div>
+      {hoverSpot && (
+        <div
+          ref={tooltipRef}
+          aria-hidden
+          style={{ visibility: 'hidden' }}
+          className="pointer-events-none absolute top-0 left-0 z-10 max-w-60 truncate rounded-md bg-gray-900/85 px-2 py-0.5 text-xs font-medium text-white shadow"
+        >
+          {hoverSpot.name}
+        </div>
+      )}
+      {popupSpot && (
+        <SpotPopup
+          // スポットが変わったら作り直す（前の大きさのまま一瞬置かれないように）
+          key={popupSpot.id}
+          ref={popupRef}
+          spot={popupSpot}
+          areaName={
+            popupSpot.area ? areaById.get(popupSpot.area)?.name : undefined
+          }
+          distance={distanceById?.get(popupSpot.id)}
+          onShowOnMap={onShowOnMap}
+          onClose={closePopup}
+        />
+      )}
       <SpotKeyboardList
         spots={spots}
         selectedId={selectedId}
-        onSelect={onSelect}
+        onActivate={(id, button) => {
+          setPopupId(id)
+          if (popupEnabled) {
+            returnFocusRef.current = button
+            focusPopupRef.current = true
+          }
+          onSelect(id)
+        }}
         onFocusChange={setFocusedId}
       />
+      {/* 地図の下端に積むもの（下から: 選んだ場所のカード・現在地ボタン・
+          状態の帯）。右下の maplibre の帰属ボタン（(i)）の上から積む */}
+      <div className="pointer-events-none absolute inset-x-2 bottom-10 z-20 flex flex-col items-end gap-2">
+        {/* 読み上げのため role=status の入れ物は常に置き、中身だけ替える */}
+        <div role="status" className="flex w-full justify-center">
+          {toast && (
+            <p
+              className={`rounded-full px-3 py-1.5 text-xs font-medium shadow ${
+                toast.tone === 'error'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-gray-900/85 text-white'
+              }`}
+            >
+              {toast.text}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleLocate}
+          aria-label={
+            locateStatus === 'ready' ? '現在地へ移動' : '現在地を表示'
+          }
+          title={locateStatus === 'ready' ? '現在地へ移動' : '現在地を表示'}
+          // 位置を追っている・取りに行っているあいだは塗る（現在地の点と同じ青）
+          className={`pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+            tracking
+              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          } ${locateStatus === 'locating' ? 'animate-pulse' : ''}`}
+        >
+          <Crosshair size={20} aria-hidden />
+        </button>
+        {bottomCard && (
+          <div className="pointer-events-auto w-full">{bottomCard}</div>
+        )}
+      </div>
       {loadError && (
         <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow">
           地図を読み込めませんでした（圏外かもしれません）。一覧と Google Maps
@@ -429,16 +1114,18 @@ export default function MapView({
  * ボタン 1 つ」の一覧を視覚的に隠して置き、Tab で順にたどれるようにする。
  * フォーカスが入ったボタンだけは地図の左上（ジャンルチップの下）に名前つきで見せ、地図上の
  * 該当ピンにも輪を出す（onFocusChange → MapView の focus レイヤー）。
+ * 押すとピンを押したのと同じく選択し、デスクトップではポップアップを開いて
+ * フォーカスをそこへ移す（Esc / × で閉じるとこのボタンに戻る）。
  */
 function SpotKeyboardList({
   spots,
   selectedId,
-  onSelect,
+  onActivate,
   onFocusChange,
 }: {
   spots: ReadonlyArray<TaiwanSpot>
   selectedId: string | undefined
-  onSelect: (id: string) => void
+  onActivate: (id: string, button: HTMLButtonElement) => void
   onFocusChange: (id: string | null) => void
 }) {
   const labelId = useId()
@@ -459,7 +1146,7 @@ function SpotKeyboardList({
               type="button"
               aria-pressed={spot.id === selectedId}
               onFocus={() => onFocusChange(spot.id)}
-              onClick={() => onSelect(spot.id)}
+              onClick={(e) => onActivate(spot.id, e.currentTarget)}
               className="sr-only focus:not-sr-only focus:absolute focus:top-12 focus:left-2 focus:z-20 focus:max-w-[calc(100%-1rem)] focus:rounded-lg focus:border focus:border-cyan-500 focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-gray-900 focus:shadow focus:outline-none"
             >
               {spot.name}（{spot.categories.map(categoryName).join('・')}／

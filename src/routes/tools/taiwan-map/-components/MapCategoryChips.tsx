@@ -7,11 +7,12 @@
  * デスクトップではジャンルの絞り込みはここだけ（一覧側には出さない）。
  * スマホは一覧と地図を切り替えるので、一覧側の FilterBar にも出す。
  * MapView の中で描くので、地図チャンクの読み込み前・失敗時には出ない。
+ * スマホは 1 段の横スクロール（端をぼかす）、デスクトップは折り返す。
  */
 
 import { SPOT_CATEGORIES } from '../../../../lib/taiwan-map/types'
 import { categoryColor } from '../-lib/categoryColors'
-import { mapChipClass } from '../-lib/styles'
+import { chipCountClass, mapChipClass } from '../-lib/styles'
 import type { SpotCategory } from '../../../../lib/taiwan-map/types'
 
 type Props = {
@@ -28,14 +29,15 @@ export function MapCategoryChips({ active, counts, onChange }: Props) {
   if (visible.length === 0) return null
   return (
     // 外枠は地図の操作を奪わないよう pointer-events-none。チップだけが
-    // クリックを受ける。右側はズームボタンのぶん空ける。
-    // 横スクロールにすると端のチップ（「その他」など）が切れて見えなくなる
-    // ので、幅が足りなければ折り返す
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-2 pr-12 pl-2">
+    // クリックを受ける。右側はズーム・現在地ボタンのぶん空ける。
+    // スマホ（lg 未満）は 1 段の横スクロールにする。折り返すと 2〜3 段に
+    // なって地図の上を大きく隠すため。端で切れたチップがあることが分かるよう、
+    // 左右の端を薄くぼかす（mask）。デスクトップは幅があるので折り返す
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-2 pr-12 lg:pl-2">
       <div
         role="group"
         aria-label="ジャンルで絞り込む"
-        className="flex flex-wrap gap-1.5"
+        className="pointer-events-auto flex gap-1.5 overflow-x-auto px-2 pb-1 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-20px),transparent)] [scrollbar-width:none] lg:pointer-events-none lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden"
       >
         <button
           type="button"
@@ -61,9 +63,7 @@ export function MapCategoryChips({ active, counts, onChange }: Props) {
                 style={{ background: categoryColor(cat.id) }}
               />
               {cat.name}
-              <span className="text-[0.7rem] font-normal text-gray-500 tabular-nums">
-                {counts.get(cat.id) ?? 0}
-              </span>
+              <span className={chipCountClass}>{counts.get(cat.id) ?? 0}</span>
             </button>
           )
         })}

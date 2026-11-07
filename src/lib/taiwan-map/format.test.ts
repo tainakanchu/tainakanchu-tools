@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatVisitedAt, googleMapsSearchUrl, publicText } from './format.ts'
+import {
+  extraNameZh,
+  formatVisitedAt,
+  googleMapsSearchUrl,
+  publicText,
+  spotMapsUrl,
+  spotSubtitle,
+} from './format.ts'
 
 describe('formatVisitedAt', () => {
   it('年月・年月日を日本語にする', () => {
@@ -37,5 +44,45 @@ describe('publicText', () => {
   })
   it('TODO を含む単語の一部は TODO 扱いしない', () => {
     expect(publicText('TODOROKI という店')).toBe('TODOROKI という店')
+  })
+})
+
+describe('extraNameZh', () => {
+  it('名前に含まれていない中国語名だけを返す', () => {
+    expect(extraNameZh({ name: 'Waiting Room', nameZh: '等候室' })).toBe(
+      '等候室',
+    )
+    expect(
+      extraNameZh({ name: 'SIDOLI RADIO 小島裡', nameZh: '小島裡' }),
+    ).toBeUndefined()
+    expect(extraNameZh({ name: '江牛樓' })).toBeUndefined()
+  })
+})
+
+describe('spotMapsUrl', () => {
+  it('googleMapsUrl を優先し、無ければ中国語名 → 名前で検索する', () => {
+    expect(
+      spotMapsUrl({ name: 'a', googleMapsUrl: 'https://maps.app.goo.gl/x' }),
+    ).toBe('https://maps.app.goo.gl/x')
+    expect(spotMapsUrl({ name: 'a', nameZh: '江牛樓' })).toBe(
+      googleMapsSearchUrl('江牛樓'),
+    )
+    expect(spotMapsUrl({ name: 'Revolver' })).toBe(
+      googleMapsSearchUrl('Revolver'),
+    )
+  })
+})
+
+describe('spotSubtitle', () => {
+  it('タグを読点でつなぐ', () => {
+    expect(spotSubtitle(['牛肉麵', '深夜'])).toBe('牛肉麵、深夜')
+  })
+  it('空のタグは飛ばし、無ければ undefined', () => {
+    expect(spotSubtitle(['', ' 豆花 '])).toBe('豆花')
+    expect(spotSubtitle([])).toBeUndefined()
+    expect(spotSubtitle(undefined)).toBeUndefined()
+  })
+  it('多すぎるタグは先頭から max 個まで', () => {
+    expect(spotSubtitle(['a', 'b', 'c', 'd', 'e'], 3)).toBe('a、b、c')
   })
 })

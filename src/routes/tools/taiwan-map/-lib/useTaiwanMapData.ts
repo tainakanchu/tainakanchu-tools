@@ -90,6 +90,11 @@ export type TaiwanMapData =
   | {
       mode: 'results'
       data: ResultsData | null
+      /**
+       * ?spot= が読んだ都市の中に無かったとき、インデックスで調べた
+       * そのスポットの都市（spotLinkStatus の 'elsewhere' 用）
+       */
+      spotCity: CityId | undefined
       loading: boolean
       error: string | null
       retry: () => void
@@ -157,15 +162,34 @@ export async function loadResults(
 
 /**
  * ?spot= の行方。一覧に出ていれば 'shown'。存在はするが今の条件で外れて
- * いる（'filtered'）のか、そもそも無い（'missing'）のかで案内を変える。
+ * いる（'filtered'）のか、別の都市にある（'elsewhere'。?city=taipei&spot=<台中の店>
+ * のような URL）のか、そもそも無い（'missing'）のかで案内を変える。
+ * spotCity は読んでいない都市まで含めて調べた、そのスポットの都市
+ * （findSpotCity の結果。まだ分からなければ undefined）。
  */
 export function spotLinkStatus(
   spotId: string | undefined,
   data: ResultsData | null,
-): 'shown' | 'filtered' | 'missing' | null {
+  spotCity?: CityId,
+): 'shown' | 'filtered' | 'elsewhere' | 'missing' | null {
   if (spotId === undefined || data === null) return null
   if (data.spots.some((s) => s.id === spotId)) return 'shown'
-  return data.knownSpotIds.has(spotId) ? 'filtered' : 'missing'
+  if (data.knownSpotIds.has(spotId)) return 'filtered'
+  return spotCity !== undefined && !data.cities.includes(spotCity)
+    ? 'elsewhere'
+    : 'missing'
+}
+
+/**
+ * 読んでいない都市まで含めて、スポットがどの都市にあるかを軽量
+ * インデックスで調べる。見つからなければ undefined。
+ */
+export async function findSpotCity(
+  repo: TaiwanMapRepository,
+  spotId: string,
+): Promise<CityId | undefined> {
+  const index = await repo.getSpotIndex()
+  return index.find((e) => e.id === spotId)?.city
 }
 
 function errorMessage(e: unknown): string {
@@ -233,6 +257,39 @@ export function useTaiwanMapData(
     }
   }, [repo, filter, isLanding, spotForLoading, attempt])
 
+  // ?city=taipei&spot=<他の都市の店> のように、読んだ都市に無い ?spot= だけ
+  // インデックスで都市を調べる（「削除されたか…」ではなく「台中にあります」と
+  // 案内するため）。読んだ都市にあるスポットを選んでいるあいだは何も読まない
+  const unknownSpot =
+    !isLanding &&
+    search.spot !== undefined &&
+    results !== null &&
+    !results.knownSpotIds.has(search.spot)
+      ? search.spot
+      : undefined
+  const [spotCityOf, setSpotCityOf] = useState<{
+    id: string
+    city: CityId | undefined
+  } | null>(null)
+  useEffect(() => {
+    if (unknownSpot === undefined) return
+    let cancelled = false
+    findSpotCity(repo, unknownSpot).then(
+      (city) => {
+        if (!cancelled) setSpotCityOf({ id: unknownSpot, city })
+      },
+      // 調べられなくても「見つかりませんでした」の案内に戻るだけ
+      () => {},
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [repo, unknownSpot])
+  const spotCity =
+    spotCityOf !== null && spotCityOf.id === search.spot
+      ? spotCityOf.city
+      : undefined
+
   if (isLanding) return { mode: 'landing', manifest, error, retry }
 
   // 都市を切り替えた直後は、読み込みが終わるまで前の都市の一覧を出さない
@@ -245,6 +302,7 @@ export function useTaiwanMapData(
   return {
     mode: 'results',
     data: stale ? null : results,
+    spotCity,
     loading,
     error,
     retry,

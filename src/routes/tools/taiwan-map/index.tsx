@@ -3,18 +3,46 @@ import {
   lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Check, Link2, List, Map as MapIcon, RotateCw, X } from 'lucide-react'
+import {
+  Check,
+  Link2,
+  List,
+  LocateFixed,
+  Map as MapIcon,
+  Navigation,
+  RotateCw,
+  Search,
+  X,
+} from 'lucide-react'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import {
+  SEARCH_QUERY_MAX,
+  deselectAction,
   filterFromSearch,
+  historyMode,
   orderTaiwanMapSearch,
   parseTaiwanMapSearch,
   serializeTaiwanMapSearch,
+  shareableSearch,
+  unselectedKey,
 } from '../../../lib/taiwan-map/query'
+import {
+  distanceMeters,
+  formatDistance,
+  sortSpots,
+} from '../../../lib/taiwan-map/nearby'
+import { isInsideTaiwan } from '../../../lib/taiwan-map/geo'
+import {
+  matchesSearch,
+  searchTerms,
+  spotSearchFields,
+} from '../../../lib/taiwan-map/search'
 import { createStaticRepository } from '../../../lib/taiwan-map/staticRepository'
 import { publicText } from '../../../lib/taiwan-map/format'
 import { getCity } from '../../../lib/taiwan-map/types'
@@ -29,6 +57,11 @@ import { FilterBar } from './-components/FilterBar'
 import { MapErrorBoundary } from './-components/MapErrorBoundary'
 import { Landing } from './-components/Landing'
 import { SpotCard } from './-components/SpotCard'
+import {
+  SpotActions,
+  SpotComment,
+  SpotLinkIcons,
+} from './-components/SpotActions'
 import { copyText, shareUrl } from './-lib/copy'
 import { loadMapView, prefetchMapViewOnIdle } from './-lib/loadMapView'
 import {
@@ -37,11 +70,15 @@ import {
   linkClass,
   segmentedClass,
 } from './-lib/styles'
+import { useGeolocation } from './-lib/useGeolocation'
 import { useMediaQuery } from './-lib/useMediaQuery'
 import { spotLinkStatus, useTaiwanMapData } from './-lib/useTaiwanMapData'
+import type { HistoryState } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import type { FlyRequest } from './-components/MapView'
 import type { TaiwanMapSearch } from '../../../lib/taiwan-map/query'
-import type { SpotCategory } from '../../../lib/taiwan-map/types'
+import type { SpotOrder } from '../../../lib/taiwan-map/nearby'
+import type { CityId, SpotCategory } from '../../../lib/taiwan-map/types'
 import type { ResultsData } from './-lib/useTaiwanMapData'
 
 // head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
@@ -71,6 +108,7 @@ export const Route = createFileRoute('/tools/taiwan-map/')({
     label: undefined,
     spot: undefined,
     view: undefined,
+    q: undefined,
     ...parseTaiwanMapSearch(raw),
   }),
   head: () => ({
@@ -102,15 +140,68 @@ function TaiwanMapPage() {
   const data = useTaiwanMapData(repository, search)
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
 
+  // onNavigate を作り直さずに今の条件を読むため（カードの memo を保つ）
+  const searchRef = useRef(search)
+  useEffect(() => {
+    searchRef.current = search
+  })
+
+  /**
+   * URL の条件を書き換える。履歴に積むか置き換えるかは、既定（'auto'）では
+   * 何が変わったかで決める（query.ts の historyMode）:
+   * 絞り込み・一覧 / 地図の切り替え・何も選んでいない状態からの選択は積み、
+   * 選択の付け替え・検索語の入力は置き換える。
+   * 何も変わらなければ何もしない（同じ URL を積んで「戻る」が空振りしない）。
+   * ユーザーの操作ではない書き換え（?spot= から都市を補うなど）は
+   * 'replace' を明示する（積むと「戻る」で補う前に戻り、また補われて進めなくなる）
+   *
+   * スポットを選んだ履歴には「1 つ前の履歴は、ここから選択を外しただけの
+   * 状態」という印（UNSELECTED_MARK）を history.state に残す。選択を閉じる
+   * ときに印があれば history.back() で 1 つ戻り、無ければ置き換える
+   * （閉じるたびに「選んでいない状態」の履歴が積み増されないように）
+   */
   const onNavigate = useCallback(
-    (patch: Partial<TaiwanMapSearch>, replace = true) =>
+    (patch: Partial<TaiwanMapSearch>, mode: NavigateMode = 'auto') => {
+      const prev = searchRef.current
+      const next = orderTaiwanMapSearch({ ...prev, ...patch })
+      const auto = historyMode(prev, next)
+      if (auto === 'skip') return
+      const replace = mode === 'auto' ? auto === 'replace' : mode === 'replace'
+      const target = unselectedKey(next)
+      // 積むなら「今の画面」が 1 つ前になる。置き換えるなら 1 つ前は変わらない
+      // ので、今の履歴の印がまだ当てはまるときだけ引き継ぐ
+      const marked =
+        next.spot !== undefined &&
+        (replace
+          ? readUnselectedMark() === target
+          : serializeTaiwanMapSearch(prev) === target)
       void navigate({
         // キー順を共有用 URL（serializeTaiwanMapSearch）と揃える
-        search: (prev) => orderTaiwanMapSearch({ ...prev, ...patch }),
+        search: next,
         replace,
-      }),
+        state: marked ? unselectedState(target) : {},
+        // 同じページの中で URL の条件を書き換えるだけなので、ページの
+        // スクロールを先頭に戻さない。戻すと、一覧の下のほうのカードや地図の
+        // ピンを選ぶたびにページが先頭へ跳び、選んだカードへ寄せる
+        // scrollIntoView（SpotCard）も途中で打ち消される
+        resetScroll: false,
+      })
+    },
     [navigate],
   )
+
+  /**
+   * 選択を閉じる（デスクトップのポップアップの × ・Esc、スマホの地図の
+   * 下端のカードの × 、地図の何も無い所）。どこから閉じても同じ動きにする。
+   * 選んだときに積んだ履歴なら 1 つ戻る（「戻る」と同じ。地図の位置はそのまま）。
+   * 共有リンクで開いた直後のように積んでいなければ、置き換えて外す
+   * （query.ts の deselectAction）
+   */
+  const onClearSelection = useCallback(() => {
+    const action = deselectAction(searchRef.current, readUnselectedMark())
+    if (action === 'back') window.history.back()
+    else if (action === 'replace') onNavigate({ spot: undefined }, 'replace')
+  }, [onNavigate])
 
   // ?spot=<id> だけの共有リンクは、スポットの都市が分かった時点で
   // ?city=<都市>&spot=<id> に置き換える。こうすると都市・エリアのチップが
@@ -120,7 +211,7 @@ function TaiwanMapPage() {
     data.mode === 'results' ? data.data?.resolvedSpotCity : undefined
   useEffect(() => {
     if (search.city === undefined && resolvedSpotCity !== undefined) {
-      onNavigate({ city: resolvedSpotCity })
+      onNavigate({ city: resolvedSpotCity }, 'replace')
     }
   }, [search.city, resolvedSpotCity, onNavigate])
 
@@ -151,44 +242,85 @@ function TaiwanMapPage() {
       <Results
         search={search}
         data={data.data}
+        spotCity={data.spotCity}
         loading={data.loading}
         error={data.error}
         isDesktop={isDesktop}
         onRetry={data.retry}
         onNavigate={onNavigate}
+        onClearSelection={onClearSelection}
       />
     </main>
   )
 }
 
+/** onNavigate の履歴の扱い。既定は変わったものから決める（historyMode） */
+type NavigateMode = 'auto' | 'push' | 'replace'
+
+/** history.state に残す「1 つ前は選択を外しただけの状態」の印（値はその URL） */
+const UNSELECTED_MARK = 'twUnselected'
+
+function readUnselectedMark(): string | undefined {
+  // history.state は TanStack Router が持つオブジェクト（中身の型は分からない）
+  const state: unknown = window.history.state
+  if (typeof state !== 'object' || state === null) return undefined
+  const value: unknown = Reflect.get(state, UNSELECTED_MARK)
+  return typeof value === 'string' ? value : undefined
+}
+
+function unselectedState(target: string): HistoryState {
+  // HistoryState は中身の決まっていない型（空の interface）なので、そのまま渡せる
+  const state: Record<string, string> = { [UNSELECTED_MARK]: target }
+  return state
+}
+
 type ResultsProps = {
   search: TaiwanMapSearch
   data: ResultsData | null
+  /** ?spot= が読んだ都市に無かったとき、そのスポットのある都市 */
+  spotCity: CityId | undefined
   loading: boolean
   error: string | null
   isDesktop: boolean
   onRetry: () => void
-  onNavigate: (patch: Partial<TaiwanMapSearch>, replace?: boolean) => void
+  onNavigate: (patch: Partial<TaiwanMapSearch>, mode?: NavigateMode) => void
+  onClearSelection: () => void
 }
 
 function Results({
   search,
   data,
+  spotCity,
   loading,
   error,
   isDesktop,
   onRetry,
   onNavigate,
+  onClearSelection,
 }: ResultsProps) {
   const [flyRequest, setFlyRequest] = useState<FlyRequest | null>(null)
   const [copied, setCopied] = useState(false)
   const clearFlyRequest = useCallback(() => setFlyRequest(null), [])
 
-  const spots = useMemo(() => data?.spots ?? [], [data])
   const areaById = useMemo(
     () => new Map((data?.areas ?? []).map((a) => [a.id, a])),
     [data],
   )
+  // 文字検索（?q=）は読み込んだ一覧の中だけで絞る（データを読み直さない）
+  const terms = useMemo(() => searchTerms(search.q), [search.q])
+  const spots = useMemo(() => {
+    const all = data?.spots ?? []
+    if (terms.length === 0) return all
+    return all.filter((s) =>
+      matchesSearch(
+        spotSearchFields(
+          { ...s, summary: publicText(s.summary) },
+          s.area ? areaById.get(s.area)?.name : undefined,
+        ),
+        terms,
+      ),
+    )
+  }, [data, terms, areaById])
   const cityAreas = useMemo(
     () => (data?.areas ?? []).filter((a) => a.city === search.city),
     [data, search.city],
@@ -196,7 +328,69 @@ function Results({
   const selectedArea = search.area ? areaById.get(search.area) : undefined
   const multiCity = (data?.cities.length ?? 0) > 1
   const selectedSpot = spots.find((s) => s.id === search.spot)
-  const spotStatus = spotLinkStatus(search.spot, data)
+  const spotStatus = spotLinkStatus(search.spot, data, spotCity)
+
+  // 「近くの場所」。現在地はこのコンポーネントのメモリにだけ持つ
+  // （URL・保存先には出さない。useGeolocation 参照）
+  const geo = useGeolocation()
+  // 台湾の外にいるときの距離（数千 km）は意味が無いので、距離も「近い順」も
+  // 台湾の中にいるときだけ使う（地図の点は出す）
+  const outsideTaiwan = geo.position !== null && !isInsideTaiwan(geo.position)
+  const localPosition = outsideTaiwan ? null : geo.position
+  const [order, setOrder] = useState<SpotOrder>('default')
+  const nearMe = order === 'distance' && localPosition !== null
+  // 台湾の外にいるときは並びが変わらないので、「近い順」を押された見た目にしない
+  // （押したこと自体は覚えておき、台湾に入ったら近い順になる）
+  const distancePressed = order === 'distance' && !outsideTaiwan
+  const handleNearMe = useCallback(() => {
+    setOrder('distance')
+    geo.request()
+  }, [geo])
+  // 位置情報が使えなかったら「近い順」は外す（並びが変わらないまま押された
+  // 見た目にしない）
+  useEffect(() => {
+    if (
+      geo.status === 'denied' ||
+      geo.status === 'unavailable' ||
+      geo.status === 'timeout'
+    )
+      setOrder('default')
+  }, [geo.status])
+  const sortedSpots = useMemo(
+    () => sortSpots(spots, order, localPosition),
+    [spots, order, localPosition],
+  )
+  const distanceById = useMemo(() => {
+    const pos = localPosition
+    if (!pos) return null
+    return new Map(spots.map((s) => [s.id, distanceMeters(pos, s.location)]))
+  }, [spots, localPosition])
+
+  // エリア紹介（スマホは 2 行まで出して「続きを読む」）。エリアが変わったら閉じる
+  const [areaExpanded, setAreaExpanded] = useState(false)
+  const [prevArea, setPrevArea] = useState(search.area)
+  if (prevArea !== search.area) {
+    setPrevArea(search.area)
+    setAreaExpanded(false)
+  }
+  const areaSummary = publicText(selectedArea?.summary)
+  const areaNote = publicText(selectedArea?.note)
+  // 「続きを読む」は、2 行に収まらないとき（か、閉じているあいだ隠している
+  // note があるとき）だけ出す。2 行で読み切れるのにボタンがあると、押しても
+  // 何も増えない。幅が変わると折り返しも変わるので ResizeObserver で測り直す
+  const areaSummaryRef = useRef<HTMLQuoteElement>(null)
+  const [areaOverflows, setAreaOverflows] = useState(false)
+  const areaClamped = !isDesktop && !areaExpanded
+  useLayoutEffect(() => {
+    const el = areaSummaryRef.current
+    // 開いているあいだは測らない（測ると収まって見え、「閉じる」が消える）
+    if (!el || !areaClamped) return
+    const check = () => setAreaOverflows(el.scrollHeight > el.clientHeight + 1)
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [areaClamped, areaSummary])
 
   const showMap = isDesktop || search.view === 'map'
   const showList = isDesktop || search.view !== 'map'
@@ -243,6 +437,24 @@ function Results({
     [onNavigate],
   )
 
+  // 地図のピン（とキーボード用のピン一覧）から選んだとき。デスクトップでは
+  // 地図の上にポップアップが開くので、一覧のカードは枠を付けて見える位置まで
+  // 寄せるだけにし、フォーカスはカードへ移さない（地図・ポップアップに残す）。
+  // スマホの地図表示では一覧が無いので、どちらでも変わらない
+  const handleMapSelect = useCallback(
+    (id: string) => {
+      setFocusOnSelect(false)
+      onNavigate({ spot: id })
+    },
+    [onNavigate],
+  )
+
+  // ポップアップ・地図の下端のカードの「地図で見る」。もう地図を見ているので
+  // 選択もフォーカスも変えず、そのピンへ寄るだけ
+  const handleFlyTo = useCallback((id: string) => {
+    setFlyRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
+  }, [])
+
   const handleShowOnMap = useCallback(
     (id: string) => {
       setFocusOnSelect(true)
@@ -251,15 +463,53 @@ function Results({
         onNavigate({ spot: id })
       } else {
         // スマホは地図へ切り替える。戻るボタンで一覧に戻れるよう履歴に積む
-        onNavigate({ spot: id, view: 'map' }, false)
+        onNavigate({ spot: id, view: 'map' })
       }
     },
     [isDesktop, onNavigate],
   )
 
+  /**
+   * 「条件をクリア」（一覧の上と 0 件のとき。どちらも同じ動き）。都市は
+   * 残して、それ以外の条件（エリア・ジャンル・状態・気持ち・検索語）を外す。
+   * 都市だけのときは外すものが無いので、ボタン自体を出さない
+   */
+  const hasSecondaryFilter =
+    search.area !== undefined ||
+    search.category !== undefined ||
+    search.status !== undefined ||
+    search.label !== undefined ||
+    search.q !== undefined
+  const clearSecondary = () =>
+    onNavigate({
+      area: undefined,
+      category: undefined,
+      status: undefined,
+      label: undefined,
+      q: undefined,
+    })
+  const clearButton = hasSecondaryFilter && (
+    <button
+      type="button"
+      className={actionButtonClass}
+      onClick={clearSecondary}
+    >
+      <X size={14} aria-hidden />
+      条件をクリア
+    </button>
+  )
+
+  // 検索語。入力中は URL を置き換えるだけ（historyMode）。条件を変えたときと
+  // 同じく、選んでいるスポットは外す
+  const handleQueryChange = useCallback(
+    (q: string | undefined) => onNavigate({ q, spot: undefined }),
+    [onNavigate],
+  )
+
   const handleCopyView = async () => {
+    // 今選んでいるスポットは共有リンクに含めない（query.ts の shareableSearch）
     const ok = await copyText(
-      shareUrl(serializeTaiwanMapSearch({ ...search, view: undefined })),
+      shareUrl(serializeTaiwanMapSearch(shareableSearch(search))),
     )
     if (!ok) return
     setCopied(true)
@@ -267,8 +517,13 @@ function Results({
   }
 
   const conditions = describeConditions(search, selectedArea?.name)
-  const areaSummary = publicText(selectedArea?.summary)
-  const areaNote = publicText(selectedArea?.note)
+
+  const emptyResult = (
+    <div className="space-y-3 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-600">
+      <p>この条件に合う場所はありません。</p>
+      {clearButton}
+    </div>
+  )
 
   const title = (
     <h1
@@ -357,6 +612,7 @@ function Results({
 
         {showList && (
           <div className="space-y-2 border-t border-gray-200 pt-3">
+            <SearchBox value={search.q} onChange={handleQueryChange} />
             {/* 「台北 大稻埕・迪化街 食べる 12 件」。条件は区切り記号でつながず、
                 1 つずつ別の語として並べる */}
             <p
@@ -392,11 +648,54 @@ function Results({
                 )}
                 {copied ? 'コピーしました' : 'この条件のリンクをコピー'}
               </button>
-              <Link to="/tools/taiwan-map" className={actionButtonClass}>
-                <X size={14} aria-hidden />
-                条件をクリア
-              </Link>
+              {clearButton}
             </div>
+            {spots.length > 1 && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <div
+                  role="group"
+                  aria-label="並び順"
+                  className="flex shrink-0 rounded-xl bg-gray-100 p-1"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={!distancePressed}
+                    className={`${segmentedClass(!distancePressed)} whitespace-nowrap`}
+                    onClick={() => setOrder('default')}
+                  >
+                    標準
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={distancePressed}
+                    className={`${segmentedClass(distancePressed)} whitespace-nowrap`}
+                    onClick={handleNearMe}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <LocateFixed size={14} aria-hidden />
+                      近い順
+                    </span>
+                  </button>
+                </div>
+                {/* 位置情報の案内。「近い順」を押すまでは何も出さない */}
+                <p className="text-xs text-gray-500" aria-live="polite">
+                  {order !== 'distance'
+                    ? null
+                    : geo.status === 'locating'
+                      ? '現在地を取得中…'
+                      : outsideTaiwan
+                        ? '台湾の外にいるため、近い順にできません'
+                        : nearMe
+                          ? '現在地はこの画面の中だけで使い、保存しません'
+                          : null}
+                  {geo.status === 'denied'
+                    ? '位置情報が許可されていません'
+                    : geo.status === 'timeout' || geo.status === 'unavailable'
+                      ? '現在地を取得できませんでした'
+                      : null}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -426,13 +725,46 @@ function Results({
             が変わった可能性があります。
           </p>
         )}
-        {spotStatus === 'filtered' && (
-          <p
+        {spotStatus === 'elsewhere' && spotCity && search.spot && (
+          <div
             role="status"
-            className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
           >
-            リンクのスポットは、今の絞り込み条件には含まれていません。
-          </p>
+            <p>リンクの場所は{getCity(spotCity).name}にあります。</p>
+            <button
+              type="button"
+              className={actionButtonClass}
+              onClick={() =>
+                onNavigate({
+                  city: spotCity,
+                  area: undefined,
+                  category: undefined,
+                  status: undefined,
+                  label: undefined,
+                  spot: search.spot,
+                })
+              }
+            >
+              {getCity(spotCity).name}で開く
+            </button>
+          </div>
+        )}
+        {spotStatus === 'filtered' && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            <p>リンクのスポットは、今の絞り込み条件には含まれていません。</p>
+            {hasSecondaryFilter && (
+              <button
+                type="button"
+                className={actionButtonClass}
+                onClick={clearSecondary}
+              >
+                条件を外して表示
+              </button>
+            )}
+          </div>
         )}
 
         {showList && selectedArea && (
@@ -449,15 +781,36 @@ function Results({
                 </span>
               )}
             </h2>
+            {/* スマホは 2 行まで（読み終える前に一覧が画面の外へ押し出されない
+                ように）。続きは「続きを読む」で開く。デスクトップは全文 */}
             {areaSummary && (
-              <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-700">
+              // エリアの紹介もかんちゅの言葉なので、カードのコメントと同じ引用の形
+              <blockquote
+                ref={areaSummaryRef}
+                id="tw-area-summary"
+                className={`mt-1.5 border-l-[3px] border-gray-300 pl-2.5 text-sm leading-relaxed whitespace-pre-line text-gray-800 ${
+                  areaClamped ? 'line-clamp-2' : ''
+                }`}
+              >
+                <span className="sr-only">かんちゅのコメント: </span>
                 {areaSummary}
-              </p>
+              </blockquote>
             )}
-            {areaNote && (
+            {areaNote && (isDesktop || areaExpanded) && (
               <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
                 {areaNote}
               </p>
+            )}
+            {!isDesktop && (areaOverflows || areaNote) && (
+              <button
+                type="button"
+                aria-expanded={areaExpanded}
+                aria-controls="tw-area-summary"
+                className="mt-1 text-sm font-medium text-cyan-700 hover:text-cyan-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                onClick={() => setAreaExpanded((v) => !v)}
+              >
+                {areaExpanded ? '閉じる' : '続きを読む'}
+              </button>
             )}
           </section>
         )}
@@ -472,12 +825,10 @@ function Results({
               スポット一覧
             </h2>
             {data && spots.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
-                この条件の場所はまだ記録していません。
-              </p>
+              emptyResult
             ) : (
-              <ul className="space-y-3">
-                {spots.map((spot) => (
+              <ul className="space-y-2.5">
+                {sortedSpots.map((spot) => (
                   <li key={spot.id}>
                     <SpotCard
                       spot={spot}
@@ -487,6 +838,7 @@ function Results({
                       focusOnSelect={focusOnSelect}
                       onSelect={handleSelect}
                       onShowOnMap={handleShowOnMap}
+                      distance={distanceById?.get(spot.id)}
                     />
                   </li>
                 ))}
@@ -494,29 +846,21 @@ function Results({
             )}
           </section>
         )}
-
-        {showMap && data && spots.length === 0 && !isDesktop && (
-          <p className="rounded-2xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
-            この条件の場所はまだ記録していません。
-          </p>
-        )}
       </div>
 
-      {/* 地図は「表示するスポットがあるとき」だけ描く。0 件なのに
-          何も無い地図を出しても仕方が無いので */}
-      {showMap && isDesktop && (!data || spots.length === 0) && (
+      {/* 読み込むまでは地図の代わりに状態だけ出す（デスクトップ） */}
+      {showMap && isDesktop && !data && (
         <aside
           className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50 px-4 text-center text-sm text-gray-500"
           aria-label="地図"
         >
-          {data
-            ? '地図に出す場所がありません。'
-            : error
-              ? '地図を出せませんでした。'
-              : '地図を読み込み中…'}
+          {error ? '地図を出せませんでした。' : '地図を読み込み中…'}
         </aside>
       )}
-      {showMap && data && spots.length > 0 && (
+      {/* 0 件でも地図は消さない。地図の上のジャンルチップ（デスクトップでは
+          ジャンルの絞り込みはここだけ）で条件を外せるように。ピンが無いことは
+          地図の上の帯で知らせる */}
+      {showMap && data && (
         <aside
           aria-label="地図"
           // スマホ: サイトのヘッダー（4rem）と切り替え（3.25rem）を除いた高さ
@@ -536,50 +880,41 @@ function Results({
                 selectedId={search.spot}
                 flyRequest={flyRequest}
                 onFlyDone={clearFlyRequest}
-                onSelect={handleSelect}
+                onSelect={handleMapSelect}
                 activeCategory={search.category}
                 categoryCounts={data.categoryCounts}
                 onCategoryChange={handleCategoryChange}
+                areaById={areaById}
+                popupEnabled={isDesktop}
+                onClearSelection={onClearSelection}
+                userPosition={geo.position}
+                locateStatus={geo.status}
+                onLocate={geo.request}
+                distanceById={distanceById}
+                onShowOnMap={handleFlyTo}
+                bottomCard={
+                  !isDesktop && selectedSpot ? (
+                    <SelectedSpotCard
+                      spot={selectedSpot}
+                      distance={distanceById?.get(selectedSpot.id)}
+                      onClose={onClearSelection}
+                      onShowOnMap={handleFlyTo}
+                      onShowInList={() => {
+                        setFocusOnSelect(true)
+                        onNavigate({ view: undefined })
+                      }}
+                    />
+                  ) : undefined
+                }
               />
             </Suspense>
           </MapErrorBoundary>
-          {/* スマホの地図表示では一覧が見えないので、選んだ場所の要点を地図の下端に重ねる。
-              右下の maplibre の帰属ボタンを隠さないよう、下は少し空ける */}
-          {!isDesktop && selectedSpot ? (
-            <div
-              className={`${cardClass} absolute inset-x-2 bottom-10 z-20 space-y-2 shadow-lg`}
-            >
-              <div className="flex flex-wrap items-center gap-1.5">
-                <p className="font-semibold text-gray-900">
-                  {selectedSpot.name}
-                </p>
-                <StatusBadge status={selectedSpot.status} />
-                {selectedSpot.categories.map((c) => (
-                  <CategoryChip key={c} category={c} />
-                ))}
-              </div>
-              {publicText(selectedSpot.summary) && (
-                <p className="line-clamp-2 text-sm text-gray-700">
-                  {publicText(selectedSpot.summary)}
-                </p>
-              )}
-              <button
-                type="button"
-                className={actionButtonClass}
-                // 一覧に戻ると選択中のカードがマウントされ、SpotCard 側の
-                // effect がそのカードへスクロールしてフォーカスを移す
-                onClick={() => {
-                  setFocusOnSelect(true)
-                  onNavigate({ view: undefined })
-                }}
-              >
-                <List size={14} aria-hidden />
-                一覧でくわしく見る
-              </button>
-            </div>
-          ) : (
-            <MapLegend />
+          {spots.length === 0 && (
+            <MapEmptyNotice clearButton={isDesktop ? null : clearButton} />
           )}
+          {/* 選んだ場所のカード（スマホ）は MapView の bottomCard として
+              地図の下端に重ねる。出していないときだけ凡例を出す */}
+          {(isDesktop || !selectedSpot) && <MapLegend />}
         </aside>
       )}
     </div>
@@ -587,6 +922,176 @@ function Results({
 }
 
 const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
+
+/** 入力が止まってから URL に書くまでの待ち（ms） */
+const SEARCH_DEBOUNCE_MS = 300
+
+/**
+ * 一覧の上の文字検索。打った文字は手元の state に持ち、止まってから
+ * URL（?q=）へ書く（1 文字ごとに一覧と地図を描き直さない）。
+ * 「戻る」などで URL の q が外から変わったら、入力欄もそれに合わせる
+ */
+function SearchBox({
+  value,
+  onChange,
+}: {
+  value: string | undefined
+  onChange: (q: string | undefined) => void
+}) {
+  const [text, setText] = useState(value ?? '')
+  /** 最後に自分で URL に書いた値。外からの変化と見分ける */
+  const [sent, setSent] = useState(value)
+  const [prevValue, setPrevValue] = useState(value)
+  if (prevValue !== value) {
+    setPrevValue(value)
+    if (value !== sent) {
+      setSent(value)
+      setText(value ?? '')
+    }
+  }
+
+  const commit = useCallback(
+    (raw: string) => {
+      const q = raw.trim() === '' ? undefined : raw.trim()
+      setSent(q)
+      onChange(q)
+    },
+    [onChange],
+  )
+
+  useEffect(() => {
+    const q = text.trim() === '' ? undefined : text.trim()
+    if (q === value) return
+    const t = window.setTimeout(() => commit(text), SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(t)
+  }, [text, value, commit])
+
+  return (
+    <form
+      role="search"
+      className="relative"
+      onSubmit={(e) => {
+        // Enter ですぐ反映し、スマホではキーボードを閉じて結果を見せる
+        e.preventDefault()
+        commit(text)
+        const input = e.currentTarget.querySelector('input')
+        input?.blur()
+      }}
+    >
+      <Search
+        size={16}
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+      />
+      <input
+        type="search"
+        value={text}
+        maxLength={SEARCH_QUERY_MAX}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="店名・タグ・エリアで探す"
+        aria-label="店名・タグ・エリア・コメントで探す"
+        enterKeyHint="search"
+        // スマホで 16px 未満だと iOS が入力時に拡大するので text-base
+        className="w-full rounded-xl border border-gray-300 bg-white py-2 pr-10 pl-9 text-base text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 focus:outline-none lg:text-sm [&::-webkit-search-cancel-button]:hidden"
+      />
+      {text !== '' && (
+        <button
+          type="button"
+          aria-label="検索語を消す"
+          onClick={() => {
+            setText('')
+            commit('')
+          }}
+          className="absolute top-1/2 right-1 -translate-y-1/2 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+        >
+          <X size={16} aria-hidden />
+        </button>
+      )}
+    </form>
+  )
+}
+
+/**
+ * スマホの地図表示で、選んだ場所の要点を地図の下端に重ねるカード。
+ * 一覧が見えないので、名前・状態・距離・コメントと、カードと同じ操作を出す
+ */
+function SelectedSpotCard({
+  spot,
+  distance,
+  onClose,
+  onShowOnMap,
+  onShowInList,
+}: {
+  spot: ResultsData['spots'][number]
+  distance: number | undefined
+  onClose: () => void
+  onShowOnMap: (id: string) => void
+  onShowInList: () => void
+}) {
+  const summary = publicText(spot.summary)
+  return (
+    <div className={`${cardClass} space-y-2 !p-3 shadow-lg`}>
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <p className="font-semibold text-gray-900">{spot.name}</p>
+          <StatusBadge status={spot.status} />
+          {spot.categories.map((c) => (
+            <CategoryChip key={c} category={c} />
+          ))}
+          {distance !== undefined && (
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700">
+              <Navigation size={11} aria-hidden />
+              現在地から{formatDistance(distance)}
+            </span>
+          )}
+        </div>
+        <SpotLinkIcons spot={spot} />
+        <button
+          type="button"
+          aria-label="閉じる"
+          onClick={onClose}
+          // 指で押すので 44px 四方（見た目の位置は余白に食い込ませて保つ）
+          className="-mt-2 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+        >
+          <X size={18} aria-hidden />
+        </button>
+      </div>
+      {summary && (
+        <SpotComment
+          text={summary}
+          wantToGo={spot.status === 'want_to_go'}
+          clamp={2}
+          className="text-sm"
+        />
+      )}
+      {/* 「一覧で見る」で一覧に戻ると選択中のカードがマウントされ、
+          SpotCard 側の effect がそのカードへスクロールしてフォーカスを移す */}
+      <SpotActions
+        spot={spot}
+        onShowOnMap={onShowOnMap}
+        onShowInList={onShowInList}
+        compact
+      />
+    </div>
+  )
+}
+
+/**
+ * 0 件のときに地図の真ん中に重ねる知らせ。地図とジャンルチップはそのまま
+ * 使える（外枠は地図の操作を奪わないよう pointer-events-none）。
+ * スマホの地図表示は一覧が見えないので、「条件をクリア」もここに出す
+ * （デスクトップは一覧側の 0 件の表示にある）
+ */
+function MapEmptyNotice({ clearButton }: { clearButton: ReactNode }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-4 top-1/2 z-10 flex -translate-y-1/2 justify-center">
+      <div className="pointer-events-auto space-y-2 rounded-xl bg-white/95 px-4 py-3 text-center text-sm text-gray-600 shadow-md">
+        <p>この条件に合う場所はありません。</p>
+        {clearButton}
+      </div>
+    </div>
+  )
+}
 
 /**
  * 凡例と帰属表示。地図の左下に重ねる（右下は maplibre の帰属ボタン）。
@@ -661,5 +1166,6 @@ function describeConditions(
     const l = labelDef(filter.label)
     parts.push(`${l.mark} ${l.name}`)
   }
+  if (search.q) parts.push(`「${search.q}」`)
   return parts
 }

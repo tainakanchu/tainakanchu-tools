@@ -24,7 +24,12 @@ export type TaiwanMapSearch = SpotFilter & {
   spot?: SpotId
   /** スマホでの表示切替。既定は一覧（地図を最初の全画面にしない） */
   view?: MobileView
+  /** 一覧の文字検索（名前・タグ・エリア名・コメント）。打ったままの文字列 */
+  q?: string
 }
+
+/** 検索語の長さの上限。URL に長すぎる文字列を載せない */
+export const SEARCH_QUERY_MAX = 100
 
 /** 出力順。共有 URL の見た目を毎回同じにするため固定する */
 const KEY_ORDER = [
@@ -33,6 +38,7 @@ const KEY_ORDER = [
   'category',
   'status',
   'label',
+  'q',
   'spot',
   'view',
 ] as const satisfies ReadonlyArray<keyof TaiwanMapSearch>
@@ -53,6 +59,19 @@ function pickId(value: unknown): string | undefined {
   // ?spot=101 のような数字だけの id は number で届く
   const str = typeof value === 'number' ? String(value) : value
   return typeof str === 'string' && ID_PATTERN.test(str) ? str : undefined
+}
+
+/**
+ * 検索語。TanStack Router は ?q=101 を number、?q=true を boolean で渡すので
+ * 文字列に戻す。空白だけなら無し（URL に ?q= を残さない）、長すぎれば切る
+ */
+function pickQuery(value: unknown): string | undefined {
+  const str =
+    typeof value === 'number' || typeof value === 'boolean'
+      ? String(value)
+      : value
+  if (typeof str !== 'string' || str.trim() === '') return undefined
+  return str.slice(0, SEARCH_QUERY_MAX)
 }
 
 /**
@@ -79,6 +98,8 @@ export function parseTaiwanMapSearch(
   const view = pick(['list', 'map'] as const, raw.view)
   // list は既定値なので URL に残さない（同じ画面の URL を 1 通りにする）
   if (view === 'map') result.view = view
+  const q = pickQuery(raw.q)
+  if (q) result.q = q
   return result
 }
 
@@ -110,4 +131,64 @@ export function orderTaiwanMapSearch(search: TaiwanMapSearch): TaiwanMapSearch {
 export function filterFromSearch(search: TaiwanMapSearch): SpotFilter {
   const { city, area, category, status, label } = search
   return { city, area, category, status, label }
+}
+
+/**
+ * 「この条件のリンクをコピー」で渡す条件。絞り込み（都市・エリア・ジャンル・
+ * 状態・気持ち）と検索語だけを残し、今たまたま選んでいるスポットと、スマホの
+ * 一覧 / 地図の切り替えは落とす（受け取った人が最初からその 1 件に
+ * 寄せられたり、地図だけの画面で開いたりしないように）。
+ */
+export function shareableSearch(search: TaiwanMapSearch): TaiwanMapSearch {
+  const shared: TaiwanMapSearch = filterFromSearch(search)
+  if (search.q !== undefined) shared.q = search.q
+  return orderTaiwanMapSearch(shared)
+}
+
+/** そのスポットを選んでいない状態（選択を閉じたときに戻る先）の URL */
+export function unselectedKey(search: TaiwanMapSearch): string {
+  return serializeTaiwanMapSearch({ ...search, spot: undefined })
+}
+
+/**
+ * スポットの選択を外す（× ・Esc・地図の何も無い所）ときの履歴の扱い。
+ * - 何も選んでいない → 'none'
+ * - 今の履歴に「1 つ前は選択を外しただけの状態」の印（unselectedMark）があり、
+ *   それが今の画面から選択を外した URL と一致する → 'back'
+ *   （選んだときに積んだ 1 件を history.back() で戻す。「戻る」と同じ）
+ * - それ以外（共有リンクで開いた直後・印が古い）→ 'replace'
+ *   （spot を落とした URL に置き換える。選んでいない状態の履歴を積み増さない）
+ */
+export function deselectAction(
+  search: TaiwanMapSearch,
+  unselectedMark: string | undefined,
+): 'none' | 'back' | 'replace' {
+  if (search.spot === undefined) return 'none'
+  return unselectedMark === unselectedKey(search) ? 'back' : 'replace'
+}
+
+/**
+ * 画面の URL を書き換えるとき、ブラウザの履歴に積むか置き換えるか。
+ * - 絞り込み（都市・エリア・ジャンル・状態・気持ち）か、一覧 / 地図の
+ *   切り替えが変わる → 'push'（「戻る」で 1 つ前の条件・一覧に戻れる）
+ * - 検索語が変わる → 'replace'（1 文字打つたびに履歴が増えないように。
+ *   打っているあいだに一緒にスポットの選択が外れても同じ）
+ * - 何も選んでいない状態からスポットを選ぶ → 'push'（「戻る」で選ぶ前に
+ *   戻れる。地図の位置はそのまま）
+ * - 選んでいるスポットを別のスポットに替える・選択を外す → 'replace'
+ *   （何件見比べても「戻る」1 回で選ぶ前に戻る。外すほうは、可能なら
+ *   画面側が history.back() で積んだ 1 件を戻す。index.tsx 参照）
+ * - 何も変わらない → 'skip'（同じ URL を積んで「戻る」が空振りしないように）
+ */
+export function historyMode(
+  prev: TaiwanMapSearch,
+  next: TaiwanMapSearch,
+): 'push' | 'replace' | 'skip' {
+  const a = orderTaiwanMapSearch(prev)
+  const b = orderTaiwanMapSearch(next)
+  const changed = KEY_ORDER.filter((key) => a[key] !== b[key])
+  if (changed.length === 0) return 'skip'
+  if (changed.some((key) => key !== 'spot' && key !== 'q')) return 'push'
+  if (changed.includes('q')) return 'replace'
+  return a.spot === undefined && b.spot !== undefined ? 'push' : 'replace'
 }

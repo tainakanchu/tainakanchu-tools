@@ -40,3 +40,43 @@ export function publicText(text: string | undefined): string | undefined {
   if (rest === '' || /\bTODO\b/i.test(rest)) return undefined
   return rest
 }
+
+/**
+ * 名前の横に添える中国語名。名前にもう入っている（「SIDOLI RADIO 小島裡」と
+ * nameZh「小島裡」など）なら重ねて出さないので undefined。
+ * 一覧のカードと地図のポップアップで同じ判定を使う。
+ */
+export function extraNameZh(spot: {
+  name: string
+  nameZh?: string
+}): string | undefined {
+  return spot.nameZh && !spot.name.includes(spot.nameZh)
+    ? spot.nameZh
+    : undefined
+}
+
+/**
+ * Google Maps で開く URL。データに googleMapsUrl があればそれ、無ければ
+ * 中国語名（無ければ名前）で検索させる。
+ */
+export function spotMapsUrl(spot: {
+  name: string
+  nameZh?: string
+  googleMapsUrl?: string
+}): string {
+  return spot.googleMapsUrl ?? googleMapsSearchUrl(spot.nameZh ?? spot.name)
+}
+
+/**
+ * 名前のすぐ下に出す「どんな場所か」の一言。タグを読点でつなぐ
+ * （「牛肉麵、深夜」）。中黒（・）は「見る・文化」のようにタグの中で
+ * 使われていることがあるので区切りに使わない。空のタグは飛ばし、
+ * 長くなりすぎないよう先頭から max 個まで。タグが無ければ undefined。
+ */
+export function spotSubtitle(
+  tags: ReadonlyArray<string> | undefined,
+  max = 4,
+): string | undefined {
+  const parts = (tags ?? []).map((t) => t.trim()).filter((t) => t !== '')
+  return parts.length > 0 ? parts.slice(0, max).join('、') : undefined
+}

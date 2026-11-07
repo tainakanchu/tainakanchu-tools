@@ -19,11 +19,15 @@
  *
  * スマホ（collapsible）では、都市だけを常に出し、エリア・ジャンル・状態は
  * 「絞り込み」ボタンで開く。全部を並べると、スポットが 1 件も見えないまま
- * 画面が埋まってしまうため。ボタンには今かかっている条件の数を出す。
+ * 画面が埋まってしまうため。
+ * - 開いた中でチップを押したら（= 一覧が変わったら）自動で閉じる。開いた
+ *   ままだと、押した結果が画面の下に押し出されて見えない
+ * - 閉じているあいだは、今かかっている条件を「大稻埕・迪化街 ×」のような
+ *   外せるチップでボタンの横に並べる（数だけでは何で絞っているか分からない）
  */
 
 import { useId, useState } from 'react'
-import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, SlidersHorizontal, X } from 'lucide-react'
 import { visibleByCount } from '../../../../lib/taiwan-map/filter'
 import {
   CITIES,
@@ -31,7 +35,13 @@ import {
   SPOT_LABELS,
   VISIT_STATUSES,
 } from '../../../../lib/taiwan-map/types'
-import { actionButtonClass, chipClass, sectionTitleClass } from '../-lib/styles'
+import {
+  actionButtonClass,
+  chipClass,
+  chipCountClass,
+  sectionTitleClass,
+} from '../-lib/styles'
+import { categoryName, labelDef, statusName } from './Badges'
 import type { ReactNode } from 'react'
 import type { TaiwanMapSearch } from '../../../../lib/taiwan-map/query'
 import type {
@@ -77,7 +87,7 @@ function Row({ title, children }: { title: string; children: ReactNode }) {
 function Count({ n }: { n: number | undefined }) {
   if (n === undefined) return null
   return (
-    <span className="text-[0.7rem] font-normal text-gray-500 tabular-nums">
+    <span className={chipCountClass}>
       {n}
       <span className="sr-only"> 件</span>
     </span>
@@ -98,6 +108,12 @@ export function FilterBar({
 }: Props) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
+
+  /** 開閉パネルの中のチップを押したとき。結果が見えるようパネルを閉じる */
+  const select = (patch: Partial<TaiwanMapSearch>) => {
+    onChange(patch)
+    if (collapsible) setOpen(false)
+  }
 
   const cities = visibleByCount(CITIES, cityCounts, search.city)
   const visibleAreas =
@@ -138,6 +154,42 @@ export function FilterBar({
     search.label,
   ].filter((v) => v !== undefined).length
 
+  /** 閉じているときに並べる、今かかっている条件（都市以外） */
+  const activeChips: Array<{
+    key: string
+    label: string
+    clear: Partial<TaiwanMapSearch>
+  }> = []
+  if (search.area !== undefined) {
+    activeChips.push({
+      key: 'area',
+      label: areas.find((a) => a.id === search.area)?.name ?? search.area,
+      clear: { area: undefined },
+    })
+  }
+  if (showCategory && search.category !== undefined) {
+    activeChips.push({
+      key: 'category',
+      label: categoryName(search.category),
+      clear: { category: undefined },
+    })
+  }
+  if (search.status !== undefined) {
+    activeChips.push({
+      key: 'status',
+      label: statusName(search.status),
+      clear: { status: undefined },
+    })
+  }
+  if (search.label !== undefined) {
+    const l = labelDef(search.label)
+    activeChips.push({
+      key: 'label',
+      label: `${l.mark} ${l.name}`,
+      clear: { label: undefined },
+    })
+  }
+
   const secondary = (
     <>
       {visibleAreas.length > 0 && (
@@ -150,9 +202,7 @@ export function FilterBar({
                 type="button"
                 aria-pressed={pressed}
                 className={chipClass(pressed)}
-                onClick={() =>
-                  onChange({ area: pressed ? undefined : area.id })
-                }
+                onClick={() => select({ area: pressed ? undefined : area.id })}
               >
                 {area.name}
                 <Count n={areaCounts.get(area.id) ?? 0} />
@@ -173,7 +223,7 @@ export function FilterBar({
                 aria-pressed={pressed}
                 className={chipClass(pressed)}
                 onClick={() =>
-                  onChange({ category: pressed ? undefined : cat.id })
+                  select({ category: pressed ? undefined : cat.id })
                 }
               >
                 {cat.name}
@@ -193,8 +243,9 @@ export function FilterBar({
                 key={s.id}
                 type="button"
                 aria-pressed={pressed}
-                className={chipClass(pressed)}
-                onClick={() => onChange({ status: pressed ? undefined : s.id })}
+                // 未訪問・気になるは破線（バッジ・地図のピンと同じ形）
+                className={chipClass(pressed, s.id === 'want_to_go')}
+                onClick={() => select({ status: pressed ? undefined : s.id })}
               >
                 {s.name}
                 <Count n={statusCounts?.get(s.id)} />
@@ -209,7 +260,7 @@ export function FilterBar({
                 type="button"
                 aria-pressed={pressed}
                 className={chipClass(pressed)}
-                onClick={() => onChange({ label: pressed ? undefined : l.id })}
+                onClick={() => select({ label: pressed ? undefined : l.id })}
               >
                 <span aria-hidden>{l.mark}</span>
                 {l.name}
@@ -251,27 +302,43 @@ export function FilterBar({
       {hasSecondary &&
         (collapsible ? (
           <>
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-controls={panelId}
-              className={actionButtonClass}
-              onClick={() => setOpen((v) => !v)}
-            >
-              <SlidersHorizontal size={14} aria-hidden />
-              絞り込み
-              {activeCount > 0 && (
-                <span className="rounded-full bg-cyan-600 px-1.5 text-xs leading-5 font-semibold text-white tabular-nums">
-                  {activeCount}
-                  <span className="sr-only"> 件の条件</span>
-                </span>
-              )}
-              <ChevronDown
-                size={14}
-                aria-hidden
-                className={`transition ${open ? 'rotate-180' : ''}`}
-              />
-            </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={panelId}
+                className={actionButtonClass}
+                onClick={() => setOpen((v) => !v)}
+              >
+                <SlidersHorizontal size={14} aria-hidden />
+                絞り込み
+                {activeCount > 0 && (
+                  <span className="rounded-full bg-cyan-600 px-1.5 text-xs leading-5 font-semibold text-white tabular-nums">
+                    {activeCount}
+                    <span className="sr-only"> 件の条件</span>
+                  </span>
+                )}
+                <ChevronDown
+                  size={14}
+                  aria-hidden
+                  className={`transition ${open ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {!open &&
+                activeChips.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    // かかっている条件 = 選んでいる絞り込みなので塗り（styles.ts のチップの約束）
+                    className="inline-flex min-h-8 items-center gap-1 rounded-full border border-cyan-600 bg-cyan-600 py-1 pr-2 pl-3 text-sm font-semibold text-white transition hover:border-cyan-700 hover:bg-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                    aria-label={`「${c.label}」の条件を外す`}
+                    onClick={() => onChange(c.clear)}
+                  >
+                    {c.label}
+                    <X size={14} aria-hidden />
+                  </button>
+                ))}
+            </div>
             <div id={panelId} hidden={!open} className="space-y-3">
               {secondary}
             </div>
