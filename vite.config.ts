@@ -83,6 +83,11 @@ export default defineConfig({
           'assets/MapView-*',
           'data/taiwan/**',
         ],
+        // Web会議レコーダーの書き出しワーカー (export.worker-*.js) も js なのでここで
+        // precache される。MP3 エンコーダー (LAME の WASM を base64 で埋め込んだ JS) を
+        // 同梱していて約 510KB (gzip 約 180KB) あるが、既定の上限
+        // (maximumFileSizeToCacheInBytes = 2MiB) には収まるので、オフラインでも
+        // MP3 で書き出せる。
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
@@ -90,16 +95,25 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // 実行時キャッシュは台湾マップの配信用 JSON だけ。旅行中（圏外や
-        // 不安定な回線）でも「一度見た都市」はもう一度開けるようにする。
-        // NetworkFirst にしているのは、データを更新したのに古いコメントが
-        // 出続けるのを避けたいから。回線が遅いときは 3 秒で見切ってキャッシュを
-        // 返す。正規表現は URL の途中にマッチするので、別オリジンの URL には
-        // workbox の仕様上マッチしない（同一オリジンの /data/taiwan/ だけ）。
+        // 実行時キャッシュは 2 種類。
         //
-        // 地図タイル（tiles.openfreemap.org）はあえてキャッシュしない。量が
-        // 読めない上に、利用規約上もブラウザの通常の HTTP キャッシュに任せる
-        // のが無難なため。それ以外の外部リソースは読み込んでいない。
+        // 1) 台湾マップの配信用 JSON。旅行中（圏外や不安定な回線）でも
+        // 「一度見た都市」はもう一度開けるようにする。NetworkFirst にしているのは、
+        // データを更新したのに古いコメントが出続けるのを避けたいから。回線が遅い
+        // ときは 3 秒で見切ってキャッシュを返す。正規表現は URL の途中にマッチする
+        // ので、別オリジンの URL には workbox の仕様上マッチしない（同一オリジンの
+        // /data/taiwan/ だけ）。地図タイル（tiles.openfreemap.org）はあえて
+        // キャッシュしない。量が読めない上に、利用規約上もブラウザの通常の HTTP
+        // キャッシュに任せるのが無難なため。
+        //
+        // 2) セトリ画像メーカーの Web フォント (Google Fonts)。
+        // canvas の出力を端末の標準フォントに左右されないようにするために読む。
+        // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
+        // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
+        // StaleWhileRevalidate、フォント本体はファイル名が版ごとに変わるので
+        // CacheFirst。和文・中国語・韓国語のフォントは unicode-range で 100 個
+        // 前後に分かれ (書体ごと)、中国語・韓国語の CSS は使うときだけ読むので、
+        // 件数の上限は多めに取る。
         runtimeCaching: [
           {
             urlPattern: /\/data\/taiwan\/[a-z0-9-]+\.json$/,
@@ -108,6 +122,24 @@ export default defineConfig({
               cacheName: 'taiwan-map-data',
               networkTimeoutSeconds: 3,
               expiration: { maxEntries: 16 },
+            },
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts-css' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-files',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 800,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
             },
           },
         ],
@@ -162,6 +194,16 @@ export default defineConfig({
         },
       },
     },
+  },
+  optimizeDeps: {
+    // mediabunny は Web会議レコーダーの書き出しワーカーからしか import されないので、
+    // 開発サーバーの依存スキャンが初回の書き出し時まで気づかない。そのとき
+    // 「optimized dependencies changed. reloading」でページごとリロードされ、
+    // 書き出しが中断されてしまうので、最初から事前バンドルの対象にしておく。
+    // @mediabunny/mp3-encoder も同じ理由（MP3 書き出し時にワーカーが動的 import する）。
+    // 両者を一緒に事前バンドルすることで、エンコーダーの登録先の mediabunny が
+    // 書き出し側と同じインスタンスになる。
+    include: ['mediabunny', '@mediabunny/mp3-encoder'],
   },
   resolve: {
     alias: {

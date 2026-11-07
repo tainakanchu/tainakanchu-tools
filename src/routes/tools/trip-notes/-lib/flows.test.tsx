@@ -246,6 +246,26 @@ afterEach(() => {
   cleanup()
 })
 
+describe('保存待ちの編集', () => {
+  it('編集中はデバウンスし、アンマウント時に最新の編集を保存する', async () => {
+    seed(makeState())
+    const view = await renderPage()
+    vi.useFakeTimers()
+    try {
+      const title = screen.getByLabelText('旅行の名前(任意)')
+      fireEvent.change(title, { target: { value: '途中の名前' } })
+      await act(() => vi.advanceTimersByTime(300))
+      fireEvent.change(title, { target: { value: '保存する名前' } })
+      await act(() => vi.advanceTimersByTime(300))
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('テスト旅行')
+      view.unmount()
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('保存する名前')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('夜カバレッジの更新', () => {
   it('旅行期間を決めて宿を1件足すと、その期間の夜がカバー済みに変わる', async () => {
     const user = userEvent.setup()

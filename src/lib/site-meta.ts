@@ -104,7 +104,25 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     ogImagePath: '/assets/og/risograph.png',
     category: 'desk',
   },
+  {
+    slug: 'meeting-recorder',
+    name: 'Web会議レコーダー',
+    description:
+      'イヤホン使用中でも、Web会議の相手の音声（タブ / システム音声）と自分のマイクを左右別チャンネルで録音。文字起こし向けに MP3 / Opus などで軽量に書き出せるブラウザ完結ツール。',
+    path: '/tools/meeting-recorder',
+    ogImagePath: '/assets/og/meeting-recorder.png',
+    category: 'desk',
+  },
   // イベント
+  {
+    slug: 'timetable',
+    name: 'マイタイムテーブル',
+    description:
+      'フェスやイベントの公式タイムテーブルを AI で取り込み、見たい出演だけの自分用タイムテーブルを作れるツール。',
+    path: '/tools/timetable',
+    ogImagePath: '/assets/og/timetable.png',
+    category: 'event',
+  },
   {
     slug: 'drum-roll',
     name: 'ドラムロール',
@@ -112,6 +130,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
       'スペースキーを押している間ドラムロールが鳴り、放すとシンバル＋キックで「ジャーン！」と締まる演出ツール。',
     path: '/tools/drum-roll',
     ogImagePath: '/assets/og/drum-roll.png',
+    category: 'event',
+  },
+  {
+    slug: 'setlist-card',
+    name: 'セトリ画像メーカー',
+    description:
+      'rekordbox・Traktor・Serato の再生履歴を読み込んで、SNS にそのまま載せられるセトリ画像を PNG で作れるブラウザ完結ツール。',
+    path: '/tools/setlist-card',
+    ogImagePath: '/assets/og/setlist-card.png',
     category: 'event',
   },
 ]
@@ -146,8 +173,13 @@ export type CatalogItem =
 /** カテゴリ内の表示順（slug） */
 const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
   travel: ['trip-scheduler', 'trip-notes', 'taiwan-arrival-card', 'taiwan-map'],
-  desk: ['actual-size-layout', 'risograph', 'magnify-image'],
-  event: ['drum-roll', 'online-roulette'],
+  desk: [
+    'actual-size-layout',
+    'risograph',
+    'meeting-recorder',
+    'magnify-image',
+  ],
+  event: ['timetable', 'drum-roll', 'setlist-card', 'online-roulette'],
 }
 
 function sortByCategoryOrder(

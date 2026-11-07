@@ -13,9 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsActualSizeLayoutIndexRouteImport } from './routes/tools/actual-size-layout/index'
 import { Route as ToolsDrumRollIndexRouteImport } from './routes/tools/drum-roll/index'
 import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/license-layout/index'
+import { Route as ToolsMeetingRecorderIndexRouteImport } from './routes/tools/meeting-recorder/index'
 import { Route as ToolsRisographIndexRouteImport } from './routes/tools/risograph/index'
+import { Route as ToolsSetlistCardIndexRouteImport } from './routes/tools/setlist-card/index'
 import { Route as ToolsTaiwanArrivalCardIndexRouteImport } from './routes/tools/taiwan-arrival-card/index'
 import { Route as ToolsTaiwanMapIndexRouteImport } from './routes/tools/taiwan-map/index'
+import { Route as ToolsTimetableIndexRouteImport } from './routes/tools/timetable/index'
 import { Route as ToolsTripNotesIndexRouteImport } from './routes/tools/trip-notes/index'
 import { Route as ToolsTripSchedulerIndexRouteImport } from './routes/tools/trip-scheduler/index'
 
@@ -40,9 +43,20 @@ const ToolsLicenseLayoutIndexRoute = ToolsLicenseLayoutIndexRouteImport.update({
   path: '/tools/license-layout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsMeetingRecorderIndexRoute =
+  ToolsMeetingRecorderIndexRouteImport.update({
+    id: '/tools/meeting-recorder/',
+    path: '/tools/meeting-recorder/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ToolsRisographIndexRoute = ToolsRisographIndexRouteImport.update({
   id: '/tools/risograph/',
   path: '/tools/risograph/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsSetlistCardIndexRoute = ToolsSetlistCardIndexRouteImport.update({
+  id: '/tools/setlist-card/',
+  path: '/tools/setlist-card/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ToolsTaiwanArrivalCardIndexRoute =
@@ -54,6 +68,11 @@ const ToolsTaiwanArrivalCardIndexRoute =
 const ToolsTaiwanMapIndexRoute = ToolsTaiwanMapIndexRouteImport.update({
   id: '/tools/taiwan-map/',
   path: '/tools/taiwan-map/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsTimetableIndexRoute = ToolsTimetableIndexRouteImport.update({
+  id: '/tools/timetable/',
+  path: '/tools/timetable/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ToolsTripNotesIndexRoute = ToolsTripNotesIndexRouteImport.update({
@@ -72,9 +91,12 @@ export interface FileRoutesByFullPath {
   '/tools/actual-size-layout/': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll/': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map/': typeof ToolsTaiwanMapIndexRoute
+  '/tools/timetable/': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
@@ -83,9 +105,12 @@ export interface FileRoutesByTo {
   '/tools/actual-size-layout': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/meeting-recorder': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map': typeof ToolsTaiwanMapIndexRoute
+  '/tools/timetable': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
@@ -95,9 +120,12 @@ export interface FileRoutesById {
   '/tools/actual-size-layout/': typeof ToolsActualSizeLayoutIndexRoute
   '/tools/drum-roll/': typeof ToolsDrumRollIndexRoute
   '/tools/license-layout/': typeof ToolsLicenseLayoutIndexRoute
+  '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
+  '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map/': typeof ToolsTaiwanMapIndexRoute
+  '/tools/timetable/': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
@@ -108,9 +136,12 @@ export interface FileRouteTypes {
     | '/tools/actual-size-layout/'
     | '/tools/drum-roll/'
     | '/tools/license-layout/'
+    | '/tools/meeting-recorder/'
     | '/tools/risograph/'
+    | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/taiwan-map/'
+    | '/tools/timetable/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
   fileRoutesByTo: FileRoutesByTo
@@ -119,9 +150,12 @@ export interface FileRouteTypes {
     | '/tools/actual-size-layout'
     | '/tools/drum-roll'
     | '/tools/license-layout'
+    | '/tools/meeting-recorder'
     | '/tools/risograph'
+    | '/tools/setlist-card'
     | '/tools/taiwan-arrival-card'
     | '/tools/taiwan-map'
+    | '/tools/timetable'
     | '/tools/trip-notes'
     | '/tools/trip-scheduler'
   id:
@@ -130,9 +164,12 @@ export interface FileRouteTypes {
     | '/tools/actual-size-layout/'
     | '/tools/drum-roll/'
     | '/tools/license-layout/'
+    | '/tools/meeting-recorder/'
     | '/tools/risograph/'
+    | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/taiwan-map/'
+    | '/tools/timetable/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
   fileRoutesById: FileRoutesById
@@ -142,9 +179,12 @@ export interface RootRouteChildren {
   ToolsActualSizeLayoutIndexRoute: typeof ToolsActualSizeLayoutIndexRoute
   ToolsDrumRollIndexRoute: typeof ToolsDrumRollIndexRoute
   ToolsLicenseLayoutIndexRoute: typeof ToolsLicenseLayoutIndexRoute
+  ToolsMeetingRecorderIndexRoute: typeof ToolsMeetingRecorderIndexRoute
   ToolsRisographIndexRoute: typeof ToolsRisographIndexRoute
+  ToolsSetlistCardIndexRoute: typeof ToolsSetlistCardIndexRoute
   ToolsTaiwanArrivalCardIndexRoute: typeof ToolsTaiwanArrivalCardIndexRoute
   ToolsTaiwanMapIndexRoute: typeof ToolsTaiwanMapIndexRoute
+  ToolsTimetableIndexRoute: typeof ToolsTimetableIndexRoute
   ToolsTripNotesIndexRoute: typeof ToolsTripNotesIndexRoute
   ToolsTripSchedulerIndexRoute: typeof ToolsTripSchedulerIndexRoute
 }
@@ -179,11 +219,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsLicenseLayoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools/meeting-recorder/': {
+      id: '/tools/meeting-recorder/'
+      path: '/tools/meeting-recorder'
+      fullPath: '/tools/meeting-recorder/'
+      preLoaderRoute: typeof ToolsMeetingRecorderIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools/risograph/': {
       id: '/tools/risograph/'
       path: '/tools/risograph'
       fullPath: '/tools/risograph/'
       preLoaderRoute: typeof ToolsRisographIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/setlist-card/': {
+      id: '/tools/setlist-card/'
+      path: '/tools/setlist-card'
+      fullPath: '/tools/setlist-card/'
+      preLoaderRoute: typeof ToolsSetlistCardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools/taiwan-arrival-card/': {
@@ -198,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/tools/taiwan-map'
       fullPath: '/tools/taiwan-map/'
       preLoaderRoute: typeof ToolsTaiwanMapIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/timetable/': {
+      id: '/tools/timetable/'
+      path: '/tools/timetable'
+      fullPath: '/tools/timetable/'
+      preLoaderRoute: typeof ToolsTimetableIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools/trip-notes/': {
@@ -222,9 +283,12 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsActualSizeLayoutIndexRoute: ToolsActualSizeLayoutIndexRoute,
   ToolsDrumRollIndexRoute: ToolsDrumRollIndexRoute,
   ToolsLicenseLayoutIndexRoute: ToolsLicenseLayoutIndexRoute,
+  ToolsMeetingRecorderIndexRoute: ToolsMeetingRecorderIndexRoute,
   ToolsRisographIndexRoute: ToolsRisographIndexRoute,
+  ToolsSetlistCardIndexRoute: ToolsSetlistCardIndexRoute,
   ToolsTaiwanArrivalCardIndexRoute: ToolsTaiwanArrivalCardIndexRoute,
   ToolsTaiwanMapIndexRoute: ToolsTaiwanMapIndexRoute,
+  ToolsTimetableIndexRoute: ToolsTimetableIndexRoute,
   ToolsTripNotesIndexRoute: ToolsTripNotesIndexRoute,
   ToolsTripSchedulerIndexRoute: ToolsTripSchedulerIndexRoute,
 }

@@ -2,7 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
+  CalendarClock,
   Dices,
+  Disc3,
   Drum,
   ExternalLink,
   Home,
@@ -11,6 +13,7 @@ import {
   Map,
   MapPinned,
   Menu,
+  Mic,
   PlaneLanding,
   Printer,
   Sparkles,
@@ -24,9 +27,12 @@ import type { CatalogItem } from '../lib/site-meta'
 const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'actual-size-layout': Printer,
   risograph: Layers,
+  'meeting-recorder': Mic,
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,
+  'setlist-card': Disc3,
+  timetable: CalendarClock,
   'taiwan-arrival-card': PlaneLanding,
   'taiwan-map': MapPinned,
   'magnify-image': ZoomIn,

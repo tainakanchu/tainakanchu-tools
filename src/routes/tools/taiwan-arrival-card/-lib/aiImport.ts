@@ -512,7 +512,7 @@ export function parseArrivalJson(text: string): ArrivalParseResult {
     issues.push({
       index: null,
       message:
-        'JSON として読み取れませんでした。AI の出力を ```json フェンスごとすべて貼り付けてください',
+        'JSON として読み取れませんでした。AI の出力を ```json フェンスごとすべて貼り付けてください。AI が「書類を送ってください」といった案内を返している場合は、まだ資料を受け取っていません。予約確認書を AI に送ってから、返ってきた JSON を貼ってください',
       raw: truncate(cleaned),
     })
     return { extracted: emptyExtracted(), issues }
