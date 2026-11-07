@@ -45,7 +45,6 @@ export function twacOpenDayGoogleCalendarUrl(opensOn: string): string | null {
 
 /**
  * 申請開始日の終日イベント 1 件だけの .ics。
- * VALARM で当日朝 9:00(相対 −15h は使わず、DATE 終日 + TRIGGER で朝通知)。
  */
 export function buildTwacOpenDayIcs(
   opensOn: string,
@@ -92,8 +91,7 @@ export function buildTwacOpenDayIcs(
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
     'DESCRIPTION:TWAC 申請開始',
-    // 終日イベントの「当日 09:00」相当。多くのクライアントで当日朝に鳴る
-    'TRIGGER:-PT15H',
+    'TRIGGER:PT9H',
     'END:VALARM',
     'END:VEVENT',
     'END:VCALENDAR',

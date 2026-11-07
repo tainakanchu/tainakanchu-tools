@@ -171,14 +171,26 @@ function TripNotesPage() {
     void requestPersistentStorage()
   }, [])
 
+  const pendingRef = useRef<TripLibrary | null>(null)
+
   // 保存は入れ物ごと。開いていない旅程も一緒に書き出す
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => saveLibrary(liveLibrary),
-      SAVE_DEBOUNCE_MS,
-    )
+    pendingRef.current = liveLibrary
+    const timer = window.setTimeout(() => {
+      saveLibrary(liveLibrary)
+      pendingRef.current = null
+    }, SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
   }, [liveLibrary])
+
+  useEffect(() => {
+    return () => {
+      if (pendingRef.current !== null) {
+        saveLibrary(pendingRef.current)
+        pendingRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), CLOCK_TICK_MS)

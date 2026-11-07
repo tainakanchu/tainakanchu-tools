@@ -151,6 +151,7 @@ describe('parseArrivalJson', () => {
       parseArrivalJson('すみません、読み取れませんでした')
     expect(extracted.dateOfEntry).toBeNull()
     expect(issues[0].message).toContain('JSON として読み取れませんでした')
+    expect(issues[0].message).toContain('まだ資料を受け取っていません')
   })
 
   it('入力が空なら「入力が空です」', () => {

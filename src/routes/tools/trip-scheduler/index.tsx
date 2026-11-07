@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react'
+import { useEffect, useMemo, useReducer, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Redo2, Undo2 } from 'lucide-react'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
@@ -63,13 +63,25 @@ function TripSchedulerPage() {
     [state.stays],
   )
 
+  const pendingRef = useRef<typeof state | null>(null)
+
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => saveToStorage(state),
-      SAVE_DEBOUNCE_MS,
-    )
+    pendingRef.current = state
+    const timer = window.setTimeout(() => {
+      saveToStorage(state)
+      pendingRef.current = null
+    }, SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
   }, [state])
+
+  useEffect(() => {
+    return () => {
+      if (pendingRef.current !== null) {
+        saveToStorage(pendingRef.current)
+        pendingRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -35,6 +35,9 @@ describe('buildTwacOpenDayIcs', () => {
     expect(lines).toContain('DTSTART;VALUE=DATE:20261001')
     expect(lines).toContain('DTEND;VALUE=DATE:20261002')
     expect(lines).toContain('BEGIN:VALARM')
+    expect(lines.filter((line) => line.startsWith('TRIGGER'))).toEqual([
+      'TRIGGER:PT9H',
+    ])
     expect(lines).toContain(`URL:${TWAC_OFFICIAL_URL}`)
     expect(ics!.endsWith('\r\n')).toBe(true)
   })

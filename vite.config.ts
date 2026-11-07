@@ -61,6 +61,11 @@ export default defineConfig({
         // 旅のしおりのデータは最初から localStorage にあってネットワークに
         // 出ないので、本体さえキャッシュできれば機内モードや圏外でも開ける。
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        // Web会議レコーダーの書き出しワーカー (export.worker-*.js) も js なのでここで
+        // precache される。MP3 エンコーダー (LAME の WASM を base64 で埋め込んだ JS) を
+        // 同梱していて約 510KB (gzip 約 180KB) あるが、既定の上限
+        // (maximumFileSizeToCacheInBytes = 2MiB) には収まるので、オフラインでも
+        // MP3 で書き出せる。
         // SPA なので、/tools/trip-notes のような TanStack Router のルートを
         // 直接開いても index.html を返す。これが無いとオフライン時にトップ
         // 以外の URL を開けない。
@@ -68,8 +73,34 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // runtimeCaching を書いていないのは、このアプリが外部リソースを
-        // 一切読み込まないから。外部を読むようになったらその時に足す。
+        // 外部から読むのはセトリ画像メーカーの Web フォント (Google Fonts) だけ。
+        // canvas の出力を端末の標準フォントに左右されないようにするために読む。
+        // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
+        // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
+        // StaleWhileRevalidate、フォント本体はファイル名が版ごとに変わるので
+        // CacheFirst。和文・中国語・韓国語のフォントは unicode-range で 100 個
+        // 前後に分かれ (書体ごと)、中国語・韓国語の CSS は使うときだけ読むので、
+        // 件数の上限は多めに取る。
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts-css' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-files',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 800,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+            },
+          },
+        ],
       },
       // glob (js/css/html/svg/フォント) に入らない画像のうち、オフラインで
       // も要るものだけを名指しで足す。avatar.png は全ページのヘッダーに出る
@@ -104,6 +135,16 @@ export default defineConfig({
     // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
     ogPagesPlugin(),
   ],
+  optimizeDeps: {
+    // mediabunny は Web会議レコーダーの書き出しワーカーからしか import されないので、
+    // 開発サーバーの依存スキャンが初回の書き出し時まで気づかない。そのとき
+    // 「optimized dependencies changed. reloading」でページごとリロードされ、
+    // 書き出しが中断されてしまうので、最初から事前バンドルの対象にしておく。
+    // @mediabunny/mp3-encoder も同じ理由（MP3 書き出し時にワーカーが動的 import する）。
+    // 両者を一緒に事前バンドルすることで、エンコーダーの登録先の mediabunny が
+    // 書き出し側と同じインスタンスになる。
+    include: ['mediabunny', '@mediabunny/mp3-encoder'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
