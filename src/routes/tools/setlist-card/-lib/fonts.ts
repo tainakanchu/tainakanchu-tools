@@ -21,8 +21,8 @@
  * 出てくるまで読まない。
  * オフライン（PWA）などで読めないときは、各スタックの後ろの OS 標準フォントに落ちる。
  */
-import { isCjkChar } from './script'
-import type { CjkScript, Script } from './script'
+import { isCjkChar } from '@/lib/cjk/script'
+import type { CjkScript, Script } from '@/lib/cjk/script'
 
 // ---------------------------------------------------------------------------
 // スタック

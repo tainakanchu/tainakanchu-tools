@@ -1,4 +1,5 @@
 import { venueColor } from '../../../../lib/timetable/colors'
+import { Txt } from '@/components/Txt'
 import {
   actTimeText,
   actsOfDay,
@@ -59,14 +60,16 @@ export function VenueListView({
             className="sticky top-0 z-10 px-2 py-1 text-sm font-bold"
             style={{ background: color.fill, color: color.text }}
           >
-            {venue.name}
+            <Txt text={venue.name} />
             {venue.group && (
-              <span className="ml-2 font-normal">{venue.group}</span>
+              <span className="ml-2 font-normal">
+                <Txt text={venue.group} />
+              </span>
             )}
           </h3>
           {(venue.note || venue.mapUrl) && (
             <p className="px-2 pt-1 text-xs text-gray-600">
-              {venue.note}
+              <Txt text={venue.note} />
               {venue.mapUrl && (
                 <a
                   href={venue.mapUrl}
@@ -102,13 +105,17 @@ export function VenueListView({
                           [{KIND_LABEL[act.kind]}]
                         </span>
                       )}
-                      {act.title}
+                      <Txt text={act.title} />
                     </p>
                     {act.subtitle && (
-                      <p className="text-xs text-gray-700">{act.subtitle}</p>
+                      <p className="text-xs text-gray-700">
+                        <Txt text={act.subtitle} />
+                      </p>
                     )}
                     {act.note && (
-                      <p className="text-xs text-amber-800">{act.note}</p>
+                      <p className="text-xs text-amber-800">
+                        <Txt text={act.note} />
+                      </p>
                     )}
                     <FriendTags names={names} />
                   </div>

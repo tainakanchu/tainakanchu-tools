@@ -10,6 +10,8 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react'
+import { Txt } from '@/components/Txt'
+import { langOf } from '@/lib/cjk/lang'
 import { venueColor } from '../../../../lib/timetable/colors'
 import {
   actSpan,
@@ -138,7 +140,7 @@ export function GridView({
               className="sticky inline-block max-w-full truncate align-top"
               style={{ left: AXIS_WIDTH + 4 }}
             >
-              {venue.name}
+              <Txt text={venue.name} />
             </span>
           </div>
         ))}
@@ -222,7 +224,7 @@ export function GridView({
                     {act.kind === 'dj' && !/dj/i.test(act.title) && (
                       <span>[DJ] </span>
                     )}
-                    {act.title}
+                    <Txt text={act.title} />
                   </span>
                   {!compact && h >= 52 && (
                     <span className="block text-[10px] tabular-nums opacity-80">
@@ -239,7 +241,7 @@ export function GridView({
                           key={p.id}
                           className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-gray-900 bg-white px-0.5 text-[9px] font-bold text-gray-900"
                         >
-                          {initialOf(p.name)}
+                          <span lang={langOf(p.name)}>{initialOf(p.name)}</span>
                         </span>
                       ))}
                     </span>

@@ -7,9 +7,9 @@ import {
   guessScript,
   isCjkChar,
   pairScripts,
-} from './script'
+} from '@/lib/cjk/script'
 import { font, fontStack, parseFont, webFamilies, withScript } from './fonts'
-import type { Script } from './script'
+import type { Script } from '@/lib/cjk/script'
 
 describe('字の表', () => {
   it('簡体字・繁体字・新字体の表は重ならない', () => {

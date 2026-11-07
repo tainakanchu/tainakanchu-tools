@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useRef, useState } from 'react'
+import { Txt, TxtList } from '@/components/Txt'
 import { parseTimetableText } from '../../../../lib/timetable/normalize'
 import {
   AI_SERVICE_LINKS,
@@ -54,9 +55,14 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
     <section className="space-y-5" aria-labelledby="tt-import-title">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="tt-import-title" className="text-lg font-bold text-gray-900">
-          {isUpdate
-            ? `「${current.title}」を AI で追記・修正`
-            : 'タイムテーブルを取り込む'}
+          {isUpdate ? (
+            <>
+              「<Txt text={current.title} />
+              」を AI で追記・修正
+            </>
+          ) : (
+            'タイムテーブルを取り込む'
+          )}
         </h2>
         {onCancel && (
           <button type="button" className={btn} onClick={onCancel}>
@@ -195,14 +201,21 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
 function Preview({ doc }: { doc: TimetableDoc }) {
   return (
     <div className="mt-2 text-sm">
-      <p className="font-semibold text-gray-900">{doc.title}</p>
+      <p className="font-semibold text-gray-900">
+        <Txt text={doc.title} />
+      </p>
       <table className="mt-1 w-full max-w-md text-left text-sm">
         <tbody>
           {doc.days.map((day) => (
             <tr key={day.id} className="border-t border-gray-200">
               <th scope="row" className="py-1 pr-3 font-normal text-gray-700">
                 {formatDateLabel(day.date)}
-                {day.label ? ` ${day.label}` : ''}
+                {day.label && (
+                  <>
+                    {' '}
+                    <Txt text={day.label} />
+                  </>
+                )}
               </th>
               <td className="py-1 tabular-nums">
                 {doc.acts.filter((act) => act.dayId === day.id).length} 組
@@ -214,7 +227,7 @@ function Preview({ doc }: { doc: TimetableDoc }) {
               会場・ステージ
             </th>
             <td className="py-1">
-              {doc.venues.map((venue) => venue.name).join('、')}
+              <TxtList items={doc.venues.map((venue) => venue.name)} />
             </td>
           </tr>
           {doc.travel && doc.travel.length > 0 && (

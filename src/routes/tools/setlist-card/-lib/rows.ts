@@ -19,7 +19,7 @@ import {
 import type { Measure, Rect } from './fit'
 import { withScript } from './fonts'
 import { markFor } from './redact'
-import { pairScripts } from './script'
+import { pairScripts } from '@/lib/cjk/script'
 import type { Marks, PlacedMark } from './redact'
 import type { LongTextMode } from './textfit'
 

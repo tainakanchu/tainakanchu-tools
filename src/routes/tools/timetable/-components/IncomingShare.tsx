@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react'
+import { Txt, TxtList } from '@/components/Txt'
 import { formatDateLabel } from '../../../../lib/timetable/time'
 import { normalizeKey } from '../../../../lib/timetable/id'
 import { btn, btnPrimary, field } from '../-lib/ui'
@@ -45,7 +46,9 @@ export function IncomingShare({
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16 pt-4 text-gray-900">
-      <h1 className="text-xl font-bold">{doc.title}</h1>
+      <h1 className="text-xl font-bold">
+        <Txt text={doc.title} />
+      </h1>
       <p className="mt-1 text-sm text-gray-700">
         このタイムテーブルが共有されました。保存すると自分の一覧に入り、お気に入りを付けられます。
       </p>
@@ -58,7 +61,12 @@ export function IncomingShare({
                 className="py-1 pr-4 text-left font-normal text-gray-700"
               >
                 {formatDateLabel(day.date)}
-                {day.label ? ` ${day.label}` : ''}
+                {day.label && (
+                  <>
+                    {' '}
+                    <Txt text={day.label} />
+                  </>
+                )}
               </th>
               <td className="py-1 tabular-nums">
                 {doc.acts.filter((a) => a.dayId === day.id).length} 組
@@ -72,7 +80,9 @@ export function IncomingShare({
             >
               会場
             </th>
-            <td className="py-1">{doc.venues.map((v) => v.name).join('、')}</td>
+            <td className="py-1">
+              <TxtList items={doc.venues.map((v) => v.name)} />
+            </td>
           </tr>
         </tbody>
       </table>
@@ -80,8 +90,14 @@ export function IncomingShare({
       {favorites && (
         <fieldset className="mt-4 border-t border-gray-300 pt-3">
           <legend className="text-base font-bold">
-            {favorites.name ? `${favorites.name} さん` : '送った人'}のお気に入り{' '}
-            {favorites.actIds.length} 組付き
+            {favorites.name ? (
+              <>
+                <Txt text={favorites.name} /> さん
+              </>
+            ) : (
+              '送った人'
+            )}
+            のお気に入り {favorites.actIds.length} 組付き
           </legend>
           <label className="mt-2 flex items-start gap-2 text-sm">
             <input
@@ -130,9 +146,9 @@ export function IncomingShare({
             className={`${btnPrimary} w-full sm:w-auto`}
             onClick={() => onMergeInto(entry.id, opts)}
           >
-            {favorites
-              ? `保存済みの「${entry.doc.title}」に重ねる`
-              : `保存済みの「${entry.doc.title}」を共有された内容で更新`}
+            保存済みの「
+            <Txt text={entry.doc.title} />」
+            {favorites ? 'に重ねる' : 'を共有された内容で更新'}
           </button>
         ))}
         <div className="flex flex-wrap gap-2">
