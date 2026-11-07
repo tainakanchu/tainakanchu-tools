@@ -1,0 +1,116 @@
+[
+  {
+    "id": "jiufen",
+    "name": "九份",
+    "city": "other",
+    "location": {
+      "lat": 25.1099,
+      "lng": 121.8451
+    },
+    "categories": ["townscape"],
+    "tags": ["老街"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E4%B9%9D%E4%BB%BD%E8%80%81%E8%A1%97"
+  },
+  {
+    "id": "tiehua-village",
+    "name": "鐵花村",
+    "nameZh": "鐵花村",
+    "city": "other",
+    "area": "taitung",
+    "location": {
+      "lat": 22.7535,
+      "lng": 121.14634
+    },
+    "categories": ["music"],
+    "tags": ["ライブ", "野外"],
+    "status": "visited",
+    "summary": "夜遅くまでライブをやっているのがいい。",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%90%B5%E8%8A%B1%E6%9D%91%20%E5%8F%B0%E6%9D%B1%E7%B8%A3%E5%8F%B0%E6%9D%B1%E5%B8%82%E6%96%B0%E7%94%9F%E8%B7%AF135%E5%B7%B726%E8%99%9F"
+  },
+  {
+    "id": "mese-coffee",
+    "name": "Mese Coffee 草月咖啡館",
+    "nameZh": "草月咖啡館",
+    "city": "other",
+    "area": "taitung",
+    "location": {
+      "lat": 22.75773,
+      "lng": 121.15474
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ", "自家焙煎"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Mese%20Coffee%20%E8%8D%89%E6%9C%88%E5%92%96%E5%95%A1%E9%A4%A8%20%E5%8F%B0%E6%9D%B1%E7%B8%A3%E5%8F%B0%E6%9D%B1%E5%B8%82%E4%BB%81%E5%BE%B7%E8%A1%9760%E8%99%9F"
+  },
+  {
+    "id": "donghe-baozi-station",
+    "name": "東河包子 站前店",
+    "nameZh": "東河包子",
+    "city": "other",
+    "area": "taitung",
+    "location": {
+      "lat": 22.79355,
+      "lng": 121.12331
+    },
+    "categories": ["food"],
+    "tags": ["包子"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9D%B1%E6%B2%B3%E5%8C%85%E5%AD%90%20%E7%AB%99%E5%89%8D%E5%BA%97%20%E5%8F%B0%E6%9D%B1%E7%B8%A3%E5%8F%B0%E6%9D%B1%E5%B8%82%20%E5%8F%B0%E6%9D%B1%E9%A7%85%E5%89%8D"
+  },
+  {
+    "id": "magaixian-yuli-noodles",
+    "name": "馬蓋先美食玉里麵",
+    "city": "other",
+    "location": {
+      "lat": 23.33142,
+      "lng": 121.31465
+    },
+    "categories": ["food"],
+    "tags": ["玉里麵", "玉里"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%A6%AC%E8%93%8B%E5%85%88%E7%BE%8E%E9%A3%9F%E7%8E%89%E9%87%8C%E9%BA%B5%20%E8%8A%B1%E8%93%AE%E7%B8%A3%E7%8E%89%E9%87%8C%E9%8E%AE%E5%85%89%E5%BE%A9%E8%B7%AF"
+  },
+  {
+    "id": "a-more-coffee",
+    "name": "阿莫咖啡 A-more coffee",
+    "nameZh": "阿莫咖啡",
+    "city": "other",
+    "area": "hualien-city",
+    "location": {
+      "lat": 23.98761,
+      "lng": 121.60185
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%98%BF%E8%8E%AB%E5%92%96%E5%95%A1%20A-more%20coffee%20%E8%8A%B1%E8%93%AE%E7%B8%A3%E8%8A%B1%E8%93%AE%E5%B8%82%E5%9C%8B%E6%B0%91%E4%B8%80%E8%A1%9746%E8%99%9F"
+  },
+  {
+    "id": "daduyu-noodles",
+    "name": "大肚魚麵店",
+    "city": "other",
+    "area": "hualien-city",
+    "location": {
+      "lat": 23.9734,
+      "lng": 121.60754
+    },
+    "categories": ["food"],
+    "tags": ["麺", "餛飩"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%A4%A7%E8%82%9A%E9%AD%9A%E9%BA%B5%E5%BA%97%20%E8%8A%B1%E8%93%AE%E7%B8%A3%E8%8A%B1%E8%93%AE%E5%B8%82%E7%A6%8F%E5%BB%BA%E8%A1%97503%E8%99%9F"
+  }
+]

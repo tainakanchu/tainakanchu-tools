@@ -11,6 +11,7 @@ import {
   Layers,
   Luggage,
   Map,
+  MapPinned,
   Menu,
   Mic,
   PlaneLanding,
@@ -33,6 +34,7 @@ const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'setlist-card': Disc3,
   timetable: CalendarClock,
   'taiwan-arrival-card': PlaneLanding,
+  'taiwan-map': MapPinned,
   'magnify-image': ZoomIn,
   'online-roulette': Dices,
 }

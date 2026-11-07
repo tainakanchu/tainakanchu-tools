@@ -1,0 +1,753 @@
+[
+  {
+    "id": "sidoli-radio",
+    "name": "SIDOLI RADIO 小島裡",
+    "nameZh": "小島裡",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.05217,
+      "lng": 121.51128
+    },
+    "categories": ["drink", "music"],
+    "tags": ["カフェ", "レコード", "カセット"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=SIDOLI%20RADIO%20%E5%B0%8F%E5%B3%B6%E8%A3%A1%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%95%B7%E5%AE%89%E8%A5%BF%E8%B7%AF245%E8%99%9F",
+    "officialUrl": "https://sidoli.tw/"
+  },
+  {
+    "id": "south-st-delight",
+    "name": "南街得意",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05593,
+      "lng": 121.51012
+    },
+    "categories": ["drink"],
+    "tags": ["茶館"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%8D%97%E8%A1%97%E5%BE%97%E6%84%8F%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%BF%AA%E5%8C%96%E8%A1%97%E4%B8%80%E6%AE%B567%E8%99%9F"
+  },
+  {
+    "id": "director-douhua",
+    "name": "導演的豆花店",
+    "nameZh": "夢想基地 導演的豆花店",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05942,
+      "lng": 121.5087
+    },
+    "categories": ["food"],
+    "tags": ["豆花", "甘味"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%B0%8E%E6%BC%94%E7%9A%84%E8%B1%86%E8%8A%B1%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%BF%AA%E5%8C%96%E8%A1%97%E4%B8%80%E6%AE%B5224%E5%B7%B724%E8%99%9F"
+  },
+  {
+    "id": "jiang-niu-lou",
+    "name": "江牛樓",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.05574,
+      "lng": 121.51081
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%B1%9F%E7%89%9B%E6%A8%93%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E6%B0%91%E6%A8%82%E8%A1%976%E8%99%9F"
+  },
+  {
+    "id": "lin-mao-sen-tea",
+    "name": "林茂森茶行",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.06043,
+      "lng": 121.5138
+    },
+    "categories": ["shopping"],
+    "tags": ["茶葉"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9E%97%E8%8C%82%E6%A3%AE%E8%8C%B6%E8%A1%8C%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%87%8D%E6%85%B6%E5%8C%97%E8%B7%AF%E4%BA%8C%E6%AE%B5195-3%E8%99%9F"
+  },
+  {
+    "id": "lin-hua-tai-tea",
+    "name": "林華泰茶行",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.06012,
+      "lng": 121.51377
+    },
+    "categories": ["shopping"],
+    "tags": ["茶葉"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9E%97%E8%8F%AF%E6%B3%B0%E8%8C%B6%E8%A1%8C%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E9%87%8D%E6%85%B6%E5%8C%97%E8%B7%AF%E4%BA%8C%E6%AE%B5193%E8%99%9F"
+  },
+  {
+    "id": "stop-by-tea-house",
+    "name": "串門子茶館",
+    "city": "taipei",
+    "area": "yongkang-dongmen",
+    "location": {
+      "lat": 25.03023,
+      "lng": 121.52935
+    },
+    "categories": ["drink"],
+    "tags": ["茶館"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E4%B8%B2%E9%96%80%E5%AD%90%E8%8C%B6%E9%A4%A8%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E9%BA%97%E6%B0%B4%E8%A1%9713%E5%B7%B79%E4%B9%8B1%E8%99%9F",
+    "officialUrl": "https://www.facebook.com/stopbyteahouse"
+  },
+  {
+    "id": "white-wabbit-records",
+    "name": "小白兔唱片 White Wabbit Records",
+    "nameZh": "小白兔唱片",
+    "city": "taipei",
+    "area": "shida-gongguan",
+    "location": {
+      "lat": 25.02429,
+      "lng": 121.52716
+    },
+    "categories": ["music", "shopping"],
+    "tags": ["レコード", "インディー"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%B0%8F%E7%99%BD%E5%85%94%E5%94%B1%E7%89%87%20%E5%8F%B0%E5%8C%97",
+    "officialUrl": "http://www.wwr.com.tw/"
+  },
+  {
+    "id": "chia-chyun-records-hankou",
+    "name": "佳佳唱片 漢口店",
+    "nameZh": "佳佳唱片",
+    "city": "taipei",
+    "area": "taipei-station",
+    "location": {
+      "lat": 25.04525,
+      "lng": 121.51466
+    },
+    "categories": ["music", "shopping"],
+    "tags": ["レコード", "CD"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E4%BD%B3%E4%BD%B3%E5%94%B1%E7%89%87%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E6%BC%A2%E5%8F%A3%E8%A1%97%E4%B8%80%E6%AE%B53%E8%99%9F",
+    "officialUrl": "https://www.ccr.com.tw/"
+  },
+  {
+    "id": "chia-chia-records-ximen",
+    "name": "佳佳唱片 西門店",
+    "nameZh": "佳佳唱片",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.04388,
+      "lng": 121.50838
+    },
+    "categories": ["music", "shopping"],
+    "tags": ["レコード", "CD"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E4%BD%B3%E4%BD%B3%E5%94%B1%E7%89%87%20%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80%E4%B8%AD%E8%8F%AF%E8%B7%AF%E4%B8%80%E6%AE%B5110%E8%99%9F",
+    "officialUrl": "https://www.ccr.com.tw/"
+  },
+  {
+    "id": "legacy-taipei",
+    "name": "Legacy Taipei 傳音樂展演空間",
+    "nameZh": "傳音樂展演空間",
+    "city": "taipei",
+    "area": "huashan-guanghua",
+    "location": {
+      "lat": 25.04501,
+      "lng": 121.52941
+    },
+    "categories": ["music"],
+    "tags": ["ライブハウス"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-06",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Legacy%20Taipei%20%E8%8F%AF%E5%B1%B11914"
+  },
+  {
+    "id": "revolver",
+    "name": "Revolver",
+    "city": "taipei",
+    "area": "yongkang-dongmen",
+    "location": {
+      "lat": 25.03427,
+      "lng": 121.51744
+    },
+    "categories": ["drink", "music"],
+    "tags": ["バー", "ライブ"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Revolver%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E7%BE%85%E6%96%AF%E7%A6%8F%E8%B7%AF%E4%B8%80%E6%AE%B51%E4%B9%8B1%E8%99%9F",
+    "officialUrl": "https://www.revolver.tw"
+  },
+  {
+    "id": "guanghua-digital-plaza",
+    "name": "光華數位新天地",
+    "city": "taipei",
+    "area": "huashan-guanghua",
+    "location": {
+      "lat": 25.04513,
+      "lng": 121.5321
+    },
+    "categories": ["shopping"],
+    "tags": ["電脳街", "ガジェット"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%85%89%E8%8F%AF%E6%95%B8%E4%BD%8D%E6%96%B0%E5%A4%A9%E5%9C%B0%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E5%B8%82%E6%B0%91%E5%A4%A7%E9%81%93%E4%B8%89%E6%AE%B58%E8%99%9F",
+    "officialUrl": "https://www.gh3c.com.tw/"
+  },
+  {
+    "id": "syntrend",
+    "name": "三創生活園區",
+    "city": "taipei",
+    "area": "huashan-guanghua",
+    "location": {
+      "lat": 25.0455,
+      "lng": 121.5313
+    },
+    "categories": ["shopping"],
+    "tags": ["家電", "ガジェット"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E4%B8%89%E5%89%B5%E7%94%9F%E6%B4%BB%E5%9C%92%E5%8D%80%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E5%B8%82%E6%B0%91%E5%A4%A7%E9%81%93%E4%B8%89%E6%AE%B52%E8%99%9F"
+  },
+  {
+    "id": "huashan-1914",
+    "name": "華山1914文化創意產業園區",
+    "city": "taipei",
+    "area": "huashan-guanghua",
+    "location": {
+      "lat": 25.0441,
+      "lng": 121.52934
+    },
+    "categories": ["culture"],
+    "tags": ["文創", "展示"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E8%8F%AF%E5%B1%B11914%E6%96%87%E5%8C%96%E5%89%B5%E6%84%8F%E7%94%A2%E6%A5%AD%E5%9C%92%E5%8D%80"
+  },
+  {
+    "id": "songshan-cultural-park",
+    "name": "松山文創園區",
+    "city": "taipei",
+    "area": "songshan-xinyi",
+    "location": {
+      "lat": 25.0441,
+      "lng": 121.561
+    },
+    "categories": ["culture"],
+    "tags": ["文創", "展示"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9D%BE%E5%B1%B1%E6%96%87%E5%89%B5%E5%9C%92%E5%8D%80"
+  },
+  {
+    "id": "eslite-nanxi",
+    "name": "誠品生活南西",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.05212,
+      "lng": 121.52065
+    },
+    "categories": ["shopping"],
+    "tags": ["書店"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E8%AA%A0%E5%93%81%E7%94%9F%E6%B4%BB%E5%8D%97%E8%A5%BF%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E5%B1%B1%E5%8D%80%E5%8D%97%E4%BA%AC%E8%A5%BF%E8%B7%AF14%E8%99%9F"
+  },
+  {
+    "id": "ningxia-night-market",
+    "name": "寧夏夜市",
+    "city": "taipei",
+    "area": "dadaocheng",
+    "location": {
+      "lat": 25.0565,
+      "lng": 121.5154
+    },
+    "categories": ["food", "townscape"],
+    "tags": ["夜市", "屋台"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%AF%A7%E5%A4%8F%E5%A4%9C%E5%B8%82"
+  },
+  {
+    "id": "nanjichang-night-market",
+    "name": "南機場夜市",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.0291,
+      "lng": 121.5059
+    },
+    "categories": ["food", "townscape"],
+    "tags": ["夜市", "屋台"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-02",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%8D%97%E6%A9%9F%E5%A0%B4%E5%A4%9C%E5%B8%82"
+  },
+  {
+    "id": "beef-noodle-king",
+    "name": "城中市場 老牌牛肉拉麵大王",
+    "nameZh": "老牌牛肉拉麵大王",
+    "city": "taipei",
+    "area": "taipei-station",
+    "location": {
+      "lat": 25.04451,
+      "lng": 121.51261
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E8%80%81%E7%89%8C%E7%89%9B%E8%82%89%E6%8B%89%E9%BA%B5%E5%A4%A7%E7%8E%8B%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E9%87%8D%E6%85%B6%E5%8D%97%E8%B7%AF%E4%B8%80%E6%AE%B546%E5%B7%B77%E8%99%9F"
+  },
+  {
+    "id": "fuhong-beef-noodles",
+    "name": "富宏牛肉麵",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.04759,
+      "lng": 121.50771
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵", "24時間"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%AF%8C%E5%AE%8F%E7%89%9B%E8%82%89%E9%BA%B5%20%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80"
+  },
+  {
+    "id": "lin-dong-fang-beef-noodles",
+    "name": "林東芳牛肉麵",
+    "city": "taipei",
+    "location": {
+      "lat": 25.04722,
+      "lng": 121.54305
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9E%97%E6%9D%B1%E8%8A%B3%E7%89%9B%E8%82%89%E9%BA%B5%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E5%B1%B1%E5%8D%80%E5%85%AB%E5%BE%B7%E8%B7%AF%E4%BA%8C%E6%AE%B5322%E8%99%9F"
+  },
+  {
+    "id": "jinfeng-braised-pork-rice",
+    "name": "金峰魯肉飯",
+    "city": "taipei",
+    "area": "yongkang-dongmen",
+    "location": {
+      "lat": 25.03203,
+      "lng": 121.51851
+    },
+    "categories": ["food"],
+    "tags": ["魯肉飯"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-12",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%87%91%E5%B3%B0%E9%AD%AF%E8%82%89%E9%A3%AF%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E7%BE%85%E6%96%AF%E7%A6%8F%E8%B7%AF%E4%B8%80%E6%AE%B510%E4%B9%8B2%E8%99%9F"
+  },
+  {
+    "id": "rufous-coffee",
+    "name": "RUFOUS COFFEE ROASTERS",
+    "city": "taipei",
+    "area": "daan-dongqu",
+    "location": {
+      "lat": 25.0235,
+      "lng": 121.54359
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ", "自家焙煎"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=RUFOUS%20COFFEE%20ROASTERS%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E5%BE%A9%E8%88%88%E5%8D%97%E8%B7%AF%E4%BA%8C%E6%AE%B5333%E8%99%9F"
+  },
+  {
+    "id": "beast-kingdom-ximen",
+    "name": "野獸國 西門店",
+    "nameZh": "野獸國",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.04526,
+      "lng": 121.50577
+    },
+    "categories": ["shopping"],
+    "tags": ["フィギュア", "おもちゃ"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%87%8E%E7%8D%B8%E5%9C%8B%20%E8%A5%BF%E9%96%80%E7%94%BA"
+  },
+  {
+    "id": "corner-max",
+    "name": "CORNER MAX 大角落多功能展演館",
+    "city": "taipei",
+    "area": "songshan-xinyi",
+    "location": {
+      "lat": 25.04338,
+      "lng": 121.55752
+    },
+    "categories": ["music"],
+    "tags": ["ライブハウス"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=CORNER%20MAX%20%E5%A4%A7%E8%A7%92%E8%90%BD%E5%A4%9A%E5%8A%9F%E8%83%BD%E5%B1%95%E6%BC%94%E9%A4%A8%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E5%85%89%E5%BE%A9%E5%8D%97%E8%B7%AF102%E8%99%9F"
+  },
+  {
+    "id": "maokong",
+    "name": "貓空",
+    "city": "taipei",
+    "location": {
+      "lat": 24.9689,
+      "lng": 121.5883
+    },
+    "categories": ["outdoor"],
+    "tags": ["ロープウェイ", "茶畑"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E8%B2%93%E7%A9%BA%E7%BA%9C%E8%BB%8A%20%E8%B2%93%E7%A9%BA%E7%AB%99"
+  },
+  {
+    "id": "waiting-room",
+    "name": "Waiting Room",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.04934,
+      "lng": 121.52
+    },
+    "categories": ["music", "shopping"],
+    "tags": ["レコード", "パンク", "インディー"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Waiting%20Room%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E5%B1%B1%E5%8D%80%E9%95%B7%E5%AE%89%E8%A5%BF%E8%B7%AF40%E5%B7%B710%E5%BC%841%E8%99%9F"
+  },
+  {
+    "id": "29studio-chifeng",
+    "name": "29 studio 赤峰店",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.05703,
+      "lng": 121.52011
+    },
+    "categories": ["shopping"],
+    "tags": ["服", "日系"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=29%20studio%20%E8%B5%A4%E5%B3%B0%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%B5%A4%E5%B3%B0%E8%A1%9777%E5%B7%B72%E8%99%9F"
+  },
+  {
+    "id": "29studio-yongji",
+    "name": "29 studio 五分埔",
+    "city": "taipei",
+    "area": "songshan-xinyi",
+    "location": {
+      "lat": 25.04615,
+      "lng": 121.57966
+    },
+    "categories": ["shopping"],
+    "tags": ["服", "日系"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=29%20studio%20%E4%BA%94%E5%88%86%E5%9F%94%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%BF%A1%E7%BE%A9%E5%8D%80%E6%B0%B8%E5%90%89%E8%B7%AF491%E5%B7%B75%E5%BC%8416%E8%99%9F"
+  },
+  {
+    "id": "par-store",
+    "name": "PAR STORE",
+    "city": "taipei",
+    "area": "zhongshan-chifeng",
+    "location": {
+      "lat": 25.05332,
+      "lng": 121.5197
+    },
+    "categories": ["music", "shopping"],
+    "tags": ["レコード", "カセット", "インディー音楽"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=PAR%20STORE%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%90%8C%E5%8D%80%E8%B5%A4%E5%B3%B0%E8%A1%973%E5%B7%B71%E8%99%9F"
+  },
+  {
+    "id": "kamaroan-house",
+    "name": "Kamaro'an House",
+    "city": "taipei",
+    "area": "shida-gongguan",
+    "location": {
+      "lat": 25.02532,
+      "lng": 121.53586
+    },
+    "categories": ["shopping", "culture"],
+    "tags": ["台湾原住民", "工芸"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Kamaro%27an%20House%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E6%96%B0%E7%94%9F%E5%8D%97%E8%B7%AF%E4%B8%89%E6%AE%B511%E5%B7%B72%E8%99%9F1%E6%A8%93"
+  },
+  {
+    "id": "bei-bei-che-lurou-fan",
+    "name": "北北車魯肉飯",
+    "city": "taipei",
+    "area": "taipei-station",
+    "location": {
+      "lat": 25.04516,
+      "lng": 121.51664
+    },
+    "categories": ["food"],
+    "tags": ["魯肉飯", "台北駅近く"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2019-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%8C%97%E5%8C%97%E8%BB%8A%E9%AD%AF%E8%82%89%E9%A3%AF%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E5%85%AC%E5%9C%92%E8%B7%AF20%E5%B7%B721%E8%99%9F"
+  },
+  {
+    "id": "finders-hotel-fuqian",
+    "name": "路境行旅 府前館",
+    "nameZh": "Finders Hotel Fuqian",
+    "city": "taipei",
+    "area": "taipei-station",
+    "location": {
+      "lat": 25.04315,
+      "lng": 121.51304
+    },
+    "categories": ["stay"],
+    "tags": ["ホテル"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2019-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E8%B7%AF%E5%A2%83%E8%A1%8C%E6%97%85%20%E5%BA%9C%E5%89%8D%E9%A4%A8%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E9%87%8D%E6%85%B6%E5%8D%97%E8%B7%AF%E4%B8%80%E6%AE%B586%E8%99%9F"
+  },
+  {
+    "id": "the-blue-just-inn",
+    "name": "正旅館 藍",
+    "nameZh": "The Blue by Just Inn",
+    "city": "taipei",
+    "area": "taipei-station",
+    "location": {
+      "lat": 25.04508,
+      "lng": 121.51485
+    },
+    "categories": ["stay"],
+    "tags": ["ホテル"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-08",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%AD%A3%E6%97%85%E9%A4%A8%20%E8%97%8D%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E6%AD%A3%E5%8D%80%E9%87%8D%E6%85%B6%E5%8D%97%E8%B7%AF%E4%B8%80%E6%AE%B5"
+  },
+  {
+    "id": "yaxiang-hotpot-ximen",
+    "name": "雅香石頭火鍋 西門總店",
+    "nameZh": "雅香自助火鍋城",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.04374,
+      "lng": 121.50282
+    },
+    "categories": ["food"],
+    "tags": ["火鍋", "石頭火鍋", "食べ放題"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-09",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%9B%85%E9%A6%99%E7%9F%B3%E9%A0%AD%E7%81%AB%E9%8D%8B%20%E8%A5%BF%E9%96%80%E7%B8%BD%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80%E5%BA%B7%E5%AE%9A%E8%B7%AF"
+  },
+  {
+    "id": "yongfu-ice-cream",
+    "name": "永富冰淇淋",
+    "nameZh": "永富冰淇淋",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.03966,
+      "lng": 121.50404
+    },
+    "categories": ["food"],
+    "tags": ["アイス", "老舗"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-09",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%B0%B8%E5%AF%8C%E5%86%B0%E6%B7%87%E6%B7%8B%20%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80%E8%B2%B4%E9%99%BD%E8%A1%97%E4%BA%8C%E6%AE%B568%E8%99%9F"
+  },
+  {
+    "id": "mata-tofu-pudding",
+    "name": "山海豆花",
+    "nameZh": "MATA Tofu Pudding",
+    "city": "taipei",
+    "area": "yongkang-dongmen",
+    "location": {
+      "lat": 25.03039,
+      "lng": 121.52952
+    },
+    "categories": ["food"],
+    "tags": ["豆花", "甘味"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%B1%B1%E6%B5%B7%E8%B1%86%E8%8A%B1%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E6%B0%B8%E5%BA%B7%E8%A1%9763%E8%99%9F"
+  },
+  {
+    "id": "weiyang-coffee",
+    "name": "未央咖啡店",
+    "nameZh": "Weiyang Coffee",
+    "city": "taipei",
+    "area": "daan-dongqu",
+    "location": {
+      "lat": 25.02627,
+      "lng": 121.5474
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ", "深夜"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2026-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%9C%AA%E5%A4%AE%E5%92%96%E5%95%A1%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E5%9B%9B%E7%B6%AD%E8%B7%AF208%E5%B7%B7"
+  },
+  {
+    "id": "zhenghao-xiaolongbao",
+    "name": "正好鮮肉小籠湯包",
+    "city": "taipei",
+    "area": "daan-dongqu",
+    "location": {
+      "lat": 25.03041,
+      "lng": 121.5548
+    },
+    "categories": ["food"],
+    "tags": ["小籠包"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2023-12",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%AD%A3%E5%A5%BD%E9%AE%AE%E8%82%89%E5%B0%8F%E7%B1%A0%E6%B9%AF%E5%8C%85%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E9%80%9A%E5%8C%96%E8%A1%9757%E5%B7%B76%E8%99%9F"
+  },
+  {
+    "id": "night-beef-noodles-king-daan",
+    "name": "宵夜牛肉麵大王 大安店",
+    "nameZh": "NIGHT BEEF NOODLES KING DAAN",
+    "city": "taipei",
+    "area": "daan-dongqu",
+    "location": {
+      "lat": 25.03022,
+      "lng": 121.55154
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵", "深夜"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%AE%B5%E5%A4%9C%E7%89%9B%E8%82%89%E9%BA%B5%E5%A4%A7%E7%8E%8B%20%E5%A4%A7%E5%AE%89%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E5%AE%89%E5%92%8C%E8%B7%AF%E4%BA%8C%E6%AE%B574%E5%B7%B74%E8%99%9F"
+  },
+  {
+    "id": "uni-prosperity-siwei",
+    "name": "樂家康超市 台北四維店",
+    "nameZh": "Uni-PROSPERiTY",
+    "city": "taipei",
+    "area": "daan-dongqu",
+    "location": {
+      "lat": 25.02722,
+      "lng": 121.54584
+    },
+    "categories": ["shopping", "townscape"],
+    "tags": ["スーパー", "団地", "街並み"],
+    "status": "visited",
+    "summary": "団地の中にあるスーパー。団地ごとの雰囲気がなんだかいい。",
+    "visitedAt": "2023-12",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%A8%82%E5%AE%B6%E5%BA%B7%E8%B6%85%E5%B8%82%20%E5%8F%B0%E5%8C%97%E5%9B%9B%E7%B6%AD%E5%BA%97%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E5%9B%9B%E7%B6%AD%E8%B7%AF"
+  },
+  {
+    "id": "boston-barber-street",
+    "name": "波士頓理髮廳のあたり",
+    "nameZh": "波士頓理髮廳",
+    "city": "taipei",
+    "area": "yongkang-dongmen",
+    "location": {
+      "lat": 25.02937,
+      "lng": 121.52957
+    },
+    "categories": ["townscape"],
+    "tags": ["街並み", "理髮店"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-03",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%B3%A2%E5%A3%AB%E9%A0%93%E7%90%86%E9%AB%AE%E5%BB%B3%E3%81%AE%E3%81%82%E3%81%9F%E3%82%8A%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E6%B0%B8%E5%BA%B7%E8%A1%97%20%E6%B3%A2%E5%A3%AB%E9%A0%93%E7%90%86%E9%AB%AE%E5%BB%B3"
+  },
+  {
+    "id": "indigo-factory",
+    "name": "引體向上 Indigo Factory",
+    "city": "taipei",
+    "location": {
+      "lat": 25.08475,
+      "lng": 121.56205
+    },
+    "categories": ["other"],
+    "tags": [],
+    "status": "want_to_go",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%BC%95%E9%AB%94%E5%90%91%E4%B8%8A%20Indigo%20Factory%20%E5%8F%B0%E5%8C%97%E5%B8%82%E5%85%A7%E6%B9%96%E5%8D%80%E5%85%A7%E6%B9%96%E8%B7%AF%E4%B8%80%E6%AE%B591%E5%B7%B712%E5%BC%8411%E8%99%9F"
+  },
+  {
+    "id": "wangs-broth",
+    "name": "Wang's Broth 小王煮瓜",
+    "nameZh": "小王煮瓜",
+    "city": "taipei",
+    "area": "ximending-wanhua",
+    "location": {
+      "lat": 25.03928,
+      "lng": 121.49859
+    },
+    "categories": ["food"],
+    "tags": ["煮瓜"],
+    "status": "want_to_go",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Wang%27s%20Broth%20%E5%B0%8F%E7%8E%8B%E7%85%AE%E7%93%9C%20%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80%E8%8F%AF%E8%A5%BF%E8%A1%9717-4%E8%99%9F"
+  },
+  {
+    "id": "fika-fika-cafe",
+    "name": "Fika Fika Cafe 啡卡咖啡",
+    "city": "taipei",
+    "location": {
+      "lat": 25.05044,
+      "lng": 121.53525
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ", "自家焙煎"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Fika%20Fika%20Cafe%20%E5%95%A1%E5%8D%A1%E5%92%96%E5%95%A1%20%E5%8F%B0%E5%8C%97%E5%B8%82%E4%B8%AD%E5%B1%B1%E5%8D%80%E4%BC%8A%E9%80%9A%E8%A1%9733%E8%99%9F"
+  }
+]
