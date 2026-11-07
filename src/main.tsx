@@ -5,8 +5,12 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 
 import { ensureTemporal } from './lib/trip-notes/temporal-setup'
+import { captureToolAppLaunch } from './lib/tool-app'
 
 import './styles.css'
+
+// ツール単体 PWA の起動印 (?pwa=<slug>) は、ルーターが URL を読む前に消して覚えておく
+captureToolAppLaunch()
 
 const router = createRouter({
   routeTree,

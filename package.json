@@ -33,6 +33,7 @@
     "check": "prettier --write . && oxlint --fix",
     "typecheck": "tsc --noEmit",
     "og:images": "node scripts/generate-og-images.ts",
+    "pwa:icons": "node scripts/generate-pwa-icons.ts",
     "taiwan:validate": "node scripts/build-taiwan-map-data.ts --validate",
     "taiwan:build-data": "node scripts/build-taiwan-map-data.ts",
     "deploy": "pnpm run build && wrangler deploy",

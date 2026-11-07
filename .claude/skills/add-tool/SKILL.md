@@ -18,6 +18,7 @@ description: かんちゅツールズ (tainakanchu-tools) リポジトリに新�
 | ヘッダーのドロワーナビ        | `src/components/Header.tsx` の `tools` 配列                     | ⚠️ 手動同期                 |
 | OG カード画像                 | `scripts/generate-og-images.ts` + `public/assets/og/<slug>.png` | 手動定義 + `pnpm og:images` |
 | README                        | `README.md` の「✨ 現在のアプリ」                               | ⚠️ 手動同期                 |
+| ツール単体 PWA（任意）        | `TOOL_META` の `pwa` + `scripts/generate-pwa-icons.ts`          | 手動定義 + `pnpm pwa:icons` |
 
 `index.html` はサイト共通メタのテンプレートなので**編集しない**。ツール別の OG は `scripts/vite-plugin-og-pages.ts` がビルド後に `dist/index.html` を複製・メタ差し替えして `dist/tools/<slug>.html` を自動生成する。`TOOL_META` に載っていれば新ツールも自動で対象になる。
 
@@ -83,7 +84,7 @@ export const Route = createFileRoute('/tools/<slug>/')({
 
 ### 5. OG カード画像を作る — `scripts/generate-og-images.ts`
 
-1. 使いたい lucide アイコンの path データが `ICONS` に無ければ、lucide-react のソースから抽出して追加する（viewBox 0 0 24 24 の stroke ベース。既存エントリのコメント参照）。
+1. 使いたい lucide アイコンの path データが `scripts/lucide-icons.ts` の `ICONS` に無ければ、lucide-react のソースから抽出して追加する（viewBox 0 0 24 24 の stroke ベース。既存エントリのコメント参照）。PWA アイコンの生成スクリプトとも共有している。
 2. `CARDS` に CardDef を追加する。既存の定番構図:
    - main アイコン: 中央 (cx 940, cy 295〜305) に 190〜200px、rotate 0
    - sub アイコン: 右下 (cx 1030 前後, cy 420 前後) に 100〜110px、rotate -8〜-10
@@ -123,6 +124,12 @@ build 後に `dist/tools/<slug>.html` の og:title / og:image がツール別の
   })
   ```
 
+- **ツール単体の PWA にする場合（任意・オプトイン）**: サイト全体のアプリとは別に、そのツールだけをホーム画面へ追加できるようにする。旅行中・イベント当日など「そのツールだけをすぐ開きたい」ものが対象（現在は timetable / trip-notes / taiwan-map）。
+  1. `TOOL_META` のエントリに `pwa: { shortName: '<ホーム画面の名前>' }` を足す。shortName はアイコン下に出るので 6〜7 文字程度に収める。
+  2. `scripts/generate-pwa-icons.ts` の `ICON_DEFS` に `{ icon, from, to }` を足す（icon は OG カードの主役アイコンに揃え、背景色は既存ツール・アバターと被らない系統にする）。`pnpm pwa:icons` で `public/assets/pwa/<slug>-*.png`（any 192/512、maskable 192/512、apple 180）を生成してコミットする。ICON_DEFS と `pwa` は双方向にチェックされ、アイコンが dist に無いと `pnpm build` が失敗する。
+  3. これ以外は自動: ビルドで `dist/manifests/<slug>.webmanifest` が出力され、`dist/tools/<slug>.html` の manifest / apple-touch-icon / apple-mobile-web-app-title が差し替わる。SW 経由の表示や SPA 遷移では `src/components/PwaHeadSync.tsx` が同じ値に合わせ、ツール単体アプリとして起動したときは Header のツール一覧メニューが隠れる（`src/lib/tool-app.ts`）。
+  4. manifest の `id`（= `/tools/<slug>`）は一度公開したら変えない（変えるとインストール済みのアプリと別物になる）。slug のリネームも同様に注意。
+  5. 確認: `pnpm build` 後に `dist/manifests/<slug>.webmanifest` と `dist/tools/<slug>.html` の `<link rel="manifest">` を見る。
 - **ロジックのテスト**: Vitest を使う。Temporal polyfill は `src/test-setup.ts` で注入済みなので、日時ロジックには Temporal を使ってよい。
 
 ## 最終チェックリスト
@@ -132,6 +139,7 @@ build 後に `dist/tools/<slug>.html` の og:title / og:image がツール別の
 - [ ] `Header.tsx` の `tools` 配列に追加した
 - [ ] `CARDS` に CardDef を追加し `pnpm og:images` を実行、`public/assets/og/<slug>.png` が生成された
 - [ ] `README.md` にエントリを追加した
+- [ ] （ツール単体 PWA にする場合）`pwa` と `ICON_DEFS` を足し、`pnpm pwa:icons` の PNG をコミットした
 - [ ] `pnpm check && pnpm typecheck && pnpm test && pnpm build` が通る
 - [ ] `dist/tools/<slug>.html` が生成され、OG メタがツール別になっている
 - [ ] 新規ファイル（ルート・OG PNG・`routeTree.gen.ts` の差分）をコミット対象に含めた

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyToolOgMeta } from './vite-plugin-og-pages'
-import type { ToolMeta } from '../src/lib/site-meta'
+import type { PwaTool, ToolMeta } from '../src/lib/site-meta'
 
 const sampleTool: ToolMeta = {
   slug: 'trip-notes',
@@ -38,11 +38,27 @@ const template = `<!doctype html>
     />
     <meta name="twitter:image" content="https://tools.tainakanchu.com/assets/og/site.png" />
     <link rel="canonical" href="https://tools.tainakanchu.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/assets/tainakanchu-avatar-192.png"
+    />
+    <meta name="apple-mobile-web-app-title" content="かんちゅツールズ" />
     <title>かんちゅツールズ | tainakanchu tools</title>
-  </head>
+  <link rel="manifest" href="/manifest.webmanifest"></head>
   <body></body>
 </html>
 `
+
+const samplePwaTool: PwaTool = {
+  slug: 'timetable',
+  name: 'マイタイムテーブル',
+  description: 'フェスやイベントの自分用タイムテーブル。',
+  path: '/tools/timetable',
+  ogImagePath: '/assets/og/timetable.png',
+  category: 'event',
+  pwa: { shortName: 'タイムテーブル' },
+}
 
 describe('applyToolOgMeta', () => {
   it('ツール別の title / description / og / twitter / canonical を差し替える', () => {
@@ -74,6 +90,43 @@ describe('applyToolOgMeta', () => {
     expect(result).toContain('property="og:image:alt" content="旅のしおり"')
     expect(result).toContain('property="og:image:width" content="1200"')
     expect(result).toContain('property="og:image:height" content="630"')
+  })
+
+  it('PWA 非対応ツールは manifest / apple-touch-icon / ホーム画面名をサイト全体のまま残す', () => {
+    const result = applyToolOgMeta(template, sampleTool)
+
+    expect(result).toContain(
+      '<link rel="manifest" href="/manifest.webmanifest">',
+    )
+    expect(result).toContain('href="/assets/tainakanchu-avatar-192.png"')
+    expect(result).toContain(
+      'name="apple-mobile-web-app-title" content="かんちゅツールズ"',
+    )
+  })
+
+  it('PWA 対応ツールは manifest / apple-touch-icon / ホーム画面名をツールの値に差し替える', () => {
+    const result = applyToolOgMeta(template, samplePwaTool)
+
+    // VitePWA が </head> 直前に注入する形のリンクも差し替えられる
+    expect(result).toContain(
+      '<link rel="manifest" href="/manifests/timetable.webmanifest">',
+    )
+    expect(result).toContain('href="/assets/pwa/timetable-apple-180.png"')
+    expect(result).not.toContain('tainakanchu-avatar-192.png')
+    expect(result).toContain(
+      'name="apple-mobile-web-app-title" content="タイムテーブル"',
+    )
+    expect(result).not.toContain('/manifest.webmanifest"')
+  })
+
+  it('PWA 対応ツールで manifest のリンクが無い場合は throw する', () => {
+    const noManifest = template.replace(
+      '<link rel="manifest" href="/manifest.webmanifest">',
+      '',
+    )
+    expect(() => applyToolOgMeta(noManifest, samplePwaTool)).toThrow(
+      /Could not find <link rel="manifest">/,
+    )
   })
 
   it('置換対象タグが無い場合は throw する', () => {
