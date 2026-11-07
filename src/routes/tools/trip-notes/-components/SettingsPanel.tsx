@@ -7,28 +7,14 @@
  * 頻度は低いが欠けると旅先で致命傷になりうる機能を1画面にまとめている。
  */
 
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
-  AlertTriangle,
-  CalendarPlus,
-  Copy,
-  Download,
-  FileJson,
-  Globe,
-  Heart,
-  IdCard,
-  MapPin,
-  MapPinCheck,
-  Pencil,
-  Phone,
-  Plane,
-  Plug,
-  Plus,
-  Printer,
-  Share2,
-  Trash2,
-  Upload,
-} from 'lucide-react'
+  Button,
+  Checkbox,
+  Note,
+  SegmentedControl,
+} from '../../../../components/ui'
 import { newId } from '../../../../lib/trip-notes/id'
 import {
   TRAVEL_DOC_KINDS,
@@ -45,18 +31,15 @@ import { planImport } from '../../../../lib/trip-notes/importMerge'
 import { groupWishesByArea } from '../../../../lib/trip-notes/wishes'
 import { copyText, todayISO } from '../-lib/format'
 import {
-  cardClass,
-  dangerButtonClass,
   fieldClass,
   iconButtonClass,
   labelClass,
-  primaryButtonClass,
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
 import { AiImportPanel } from './AiImportPanel'
 import { ImportChoiceDialog } from './ImportChoiceDialog'
-import { TRAVEL_DOC_KIND_LABELS, TravelDocIcon } from './KindIcon'
+import { TRAVEL_DOC_KIND_LABELS } from './KindIcon'
 import { ShareDialog } from './ShareDialog'
 import { TRAVEL_DOC_STATUS_LABELS, TravelDocStatusBadge } from './StatusBadge'
 import type { ChangeEvent, FormEvent } from 'react'
@@ -83,6 +66,12 @@ interface SettingsPanelProps {
    */
   onAddTrip: (state: TripNotesState) => void
 }
+
+/**
+ * 設定タブの節。同じ panel の箱を縦に積まず、青インクの罫で区切るだけにする
+ * (面で強く見せるのは AI インポートの 1 つだけ)
+ */
+const sectionClass = 'ink-line-t pt-4'
 
 interface Message {
   tone: 'ok' | 'error'
@@ -145,37 +134,37 @@ function ContactRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <label className="text-xs text-gray-500">
-            名称
+      <li className="py-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="field">
+            <span className="field-label">名称</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
-            連絡先
+          <label className="field">
+            <span className="field-label">連絡先</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
-            メモ(任意)
+          <label className="field">
+            <span className="field-label">メモ(任意)</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
           </label>
         </div>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             onClick={handleSave}
           >
             保存
@@ -193,15 +182,12 @@ function ContactRow({
   }
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex items-start justify-between gap-3 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-800">{contact.label}</p>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm font-bold text-ink">{contact.label}</p>
+        <p className="text-sm text-ink">
           {looksLikePhoneNumber(contact.value) ? (
-            <a
-              href={telHref(contact.value)}
-              className="text-cyan-700 underline"
-            >
+            <a href={telHref(contact.value)} className="ink-link">
               {contact.value}
             </a>
           ) : (
@@ -209,7 +195,7 @@ function ContactRow({
           )}
         </p>
         {contact.note !== undefined && contact.note.length > 0 ? (
-          <p className="text-xs text-gray-500">{contact.note}</p>
+          <p className="text-xs text-ink-muted">{contact.note}</p>
         ) : null}
       </div>
       <div className="flex shrink-0 gap-1">
@@ -219,7 +205,7 @@ function ContactRow({
           className={iconButtonClass}
           onClick={() => setEditing(true)}
         >
-          <Pencil size={14} />
+          <Pencil size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -227,7 +213,7 @@ function ContactRow({
           className={iconButtonClass}
           onClick={handleRemove}
         >
-          <Trash2 size={14} />
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
     </li>
@@ -373,11 +359,11 @@ function TravelDocFields({
   ) => void
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="text-xs text-gray-500">
-        種別
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label className="field">
+        <span className="field-label">種別</span>
         <select
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.kind}
           onChange={(e) => {
             const next = e.target.value
@@ -391,28 +377,28 @@ function TravelDocFields({
           ))}
         </select>
       </label>
-      <label className="text-xs text-gray-500">
-        名称
+      <label className="field">
+        <span className="field-label">名称</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.title}
           onChange={(e) => onChange('title', e.target.value)}
           placeholder="例: シェンゲンビザ"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        対象の国・地域(任意)
+      <label className="field">
+        <span className="field-label">対象の国・地域(任意)</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.region}
           onChange={(e) => onChange('region', e.target.value)}
           placeholder="例: マルタ"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        状況
+      <label className="field">
+        <span className="field-label">状況</span>
         <select
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.status}
           onChange={(e) => {
             const next = e.target.value
@@ -426,70 +412,70 @@ function TravelDocFields({
           ))}
         </select>
       </label>
-      <label className="text-xs text-gray-500">
-        申請期限(任意)
+      <label className="field">
+        <span className="field-label">申請期限(任意)</span>
         <input
           type="date"
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.dueDate}
           onChange={(e) => onChange('dueDate', e.target.value)}
         />
       </label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
-          有効期間・開始(任意)
+      <div className="grid grid-cols-2 gap-3">
+        <label className="field">
+          <span className="field-label">有効期間の開始(任意)</span>
           <input
             type="date"
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.validFrom}
             onChange={(e) => onChange('validFrom', e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
-          有効期間・終了(任意)
+        <label className="field">
+          <span className="field-label">有効期間の終了(任意)</span>
           <input
             type="date"
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.validUntil}
             onChange={(e) => onChange('validUntil', e.target.value)}
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500">
-        参照番号(任意)
+      <label className="field">
+        <span className="field-label">参照番号(任意)</span>
         <input
-          className={`${fieldClass} mt-1 font-mono`}
+          className={fieldClass}
           value={form.referenceNumber}
           onChange={(e) => onChange('referenceNumber', e.target.value)}
-          placeholder="ビザ番号・eSIMのICCIDなど"
+          placeholder="ビザ番号やeSIMのICCIDなど"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        申請サイト・マイページURL(任意)
+      <label className="field">
+        <span className="field-label">申請サイトやマイページのURL(任意)</span>
         <input
           type="url"
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.url}
           onChange={(e) => onChange('url', e.target.value)}
           placeholder="https://..."
         />
       </label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
-          金額(任意)
+      <div className="grid grid-cols-2 gap-3">
+        <label className="field">
+          <span className="field-label">金額(任意)</span>
           <input
             type="number"
             inputMode="decimal"
             step="any"
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.priceAmount}
             onChange={(e) => onChange('priceAmount', e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
-          通貨コード
+        <label className="field">
+          <span className="field-label">通貨コード</span>
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.priceCurrency}
             onChange={(e) =>
               onChange('priceCurrency', e.target.value.toUpperCase())
@@ -497,11 +483,11 @@ function TravelDocFields({
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500 sm:col-span-2">
-        メモ(任意)
+      <label className="field sm:col-span-2">
+        <span className="field-label">メモ(任意)</span>
         <textarea
           rows={2}
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.note}
           onChange={(e) => onChange('note', e.target.value)}
         />
@@ -553,12 +539,12 @@ function TravelDocRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="py-3">
         <TravelDocFields form={form} onChange={set} />
-        <div className="mt-2 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             disabled={form.title.trim().length === 0}
             onClick={handleSave}
           >
@@ -580,28 +566,26 @@ function TravelDocRow({
     doc.validFrom !== undefined || doc.validUntil !== undefined
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex items-start justify-between gap-3 py-3">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <TravelDocIcon
-            kind={doc.kind}
-            size={16}
-            className="shrink-0 text-gray-500"
-          />
-          <p className="text-sm font-semibold text-gray-800">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="min-w-0 text-sm font-bold break-words text-ink">
+            <span className="mr-1.5 font-normal text-ink-muted">
+              {TRAVEL_DOC_KIND_LABELS[doc.kind]}
+            </span>
             {doc.title}
             {doc.region !== undefined && doc.region.length > 0 ? (
-              <span className="ml-1 font-normal text-gray-500">
+              <span className="ml-1 font-normal text-ink-muted">
                 ({doc.region})
               </span>
             ) : null}
           </p>
           <TravelDocStatusBadge status={doc.status} size="sm" />
         </div>
-        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+        <div className="mt-1 space-y-0.5 text-xs text-ink-muted">
           {doc.referenceNumber !== undefined ? (
             <p>
-              参照番号: <span className="font-mono">{doc.referenceNumber}</span>
+              参照番号: <span className="break-all">{doc.referenceNumber}</span>
             </p>
           ) : null}
           {doc.dueDate !== undefined ? <p>申請期限: {doc.dueDate}</p> : null}
@@ -616,9 +600,9 @@ function TravelDocRow({
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-cyan-700 underline"
+                className="ink-link"
               >
-                申請サイト・マイページを開く
+                申請サイトを開く(別サイト)
               </a>
             </p>
           ) : null}
@@ -631,7 +615,7 @@ function TravelDocRow({
           className={iconButtonClass}
           onClick={() => setEditing(true)}
         >
-          <Pencil size={14} />
+          <Pencil size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -639,7 +623,7 @@ function TravelDocRow({
           className={iconButtonClass}
           onClick={handleRemove}
         >
-          <Trash2 size={14} />
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
     </li>
@@ -687,25 +671,20 @@ function AddTravelDocSection({ dispatch }: { dispatch: TripNotesDispatch }) {
         className={subtleButtonClass}
         onClick={() => setOpen(true)}
       >
-        <Plus size={16} />
         手続きを追加
       </button>
     )
   }
 
   return (
-    <form
-      onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
-    >
+    <form onSubmit={handleAdd} className="panel panel-dashed p-3 sm:p-4">
       <TravelDocFields form={form} onChange={set} />
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="submit"
-          className={primaryButtonClass}
+          className={subtleButtonClass}
           disabled={form.title.trim().length === 0}
         >
-          <Plus size={16} />
           追加
         </button>
         <button
@@ -837,82 +816,82 @@ function CountryInfoFields({
   ) => void
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="text-xs text-gray-500">
-        国・地域名
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label className="field">
+        <span className="field-label">国・地域名</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.name}
           onChange={(e) => onChange('name', e.target.value)}
           placeholder="例: マルタ"
         />
       </label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
-          警察(任意)
+      <div className="grid grid-cols-2 gap-3">
+        <label className="field">
+          <span className="field-label">警察(任意)</span>
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.emergencyPolice}
             onChange={(e) => onChange('emergencyPolice', e.target.value)}
             placeholder="例: 112"
           />
         </label>
-        <label className="text-xs text-gray-500">
-          救急・消防(任意)
+        <label className="field">
+          <span className="field-label">救急・消防(任意)</span>
           {/*
             placeholder を警察と別の番号にしてあるのは、両者が同じとは限らないことを
             例そのもので伝えるため。どちらも「例: 112」だと、共通番号の国だけを
             想定した欄に見えてしまう
           */}
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={form.emergencyAmbulance}
             onChange={(e) => onChange('emergencyAmbulance', e.target.value)}
             placeholder="例: 118"
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500">
-        ラテン文字表記(任意)
+      <label className="field">
+        <span className="field-label">ラテン文字表記(任意)</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.latinName}
           onChange={(e) => onChange('latinName', e.target.value)}
           placeholder="例: Malta"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        プラグ形状(任意)
+      <label className="field">
+        <span className="field-label">プラグ形状(任意)</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.plugTypes}
           onChange={(e) => onChange('plugTypes', e.target.value)}
           placeholder="例: G"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        電圧・周波数(任意)
+      <label className="field">
+        <span className="field-label">電圧と周波数(任意)</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.voltage}
           onChange={(e) => onChange('voltage', e.target.value)}
           placeholder="例: 230V 50Hz"
         />
       </label>
-      <label className="text-xs text-gray-500">
-        チップの文化(任意)
+      <label className="field">
+        <span className="field-label">チップの文化(任意)</span>
         <input
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.tipping}
           onChange={(e) => onChange('tipping', e.target.value)}
           placeholder="例: 基本は不要。高級店では5〜10%"
         />
       </label>
-      <label className="text-xs text-gray-500 sm:col-span-2">
-        メモ(任意)
+      <label className="field sm:col-span-2">
+        <span className="field-label">メモ(任意)</span>
         <textarea
           rows={2}
-          className={`${fieldClass} mt-1`}
+          className={fieldClass}
           value={form.note}
           onChange={(e) => onChange('note', e.target.value)}
         />
@@ -963,12 +942,12 @@ function CountryInfoRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="py-3">
         <CountryInfoFields form={form} onChange={set} />
-        <div className="mt-2 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             disabled={form.name.trim().length === 0}
             onClick={handleSave}
           >
@@ -1000,17 +979,17 @@ function CountryInfoRow({
     info.tipping === undefined
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex items-start justify-between gap-3 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-800">
+        <p className="text-sm font-bold text-ink">
           {info.name}
           {info.latinName !== undefined && info.latinName.length > 0 ? (
-            <span className="ml-1 font-normal text-gray-500">
+            <span className="ml-1 font-normal text-ink-muted">
               ({info.latinName})
             </span>
           ) : null}
         </p>
-        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+        <div className="mt-1 space-y-0.5 text-xs text-ink-muted">
           {/*
             緊急通報番号を先頭に出す。入力欄の並びと同じ理由で、いざというときに
             探す順がそのまま上から下になる。
@@ -1021,7 +1000,7 @@ function CountryInfoRow({
           */}
           {hasEmergency ? (
             <p>
-              緊急通報: 警察 {info.emergencyPolice ?? '未登録'} / 救急・消防{' '}
+              緊急通報: 警察 {info.emergencyPolice ?? '未登録'}、救急・消防{' '}
               {info.emergencyAmbulance ?? '未登録'}
             </p>
           ) : null}
@@ -1032,8 +1011,8 @@ function CountryInfoRow({
           {info.tipping !== undefined ? <p>チップ: {info.tipping}</p> : null}
           {info.note !== undefined ? <p>{info.note}</p> : null}
           {nameOnly ? (
-            <p className="text-gray-500">
-              プラグ形状・電圧・チップ・緊急通報番号がまだ空です。上の「AI
+            <p>
+              プラグ形状、電圧、チップ、緊急通報番号がまだ空です。上の「AI
               インポート」のプロンプトでまとめて埋められます。
             </p>
           ) : null}
@@ -1046,7 +1025,7 @@ function CountryInfoRow({
           className={iconButtonClass}
           onClick={() => setEditing(true)}
         >
-          <Pencil size={14} />
+          <Pencil size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -1054,7 +1033,7 @@ function CountryInfoRow({
           className={iconButtonClass}
           onClick={handleRemove}
         >
-          <Trash2 size={14} />
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
     </li>
@@ -1098,17 +1077,13 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
         className={subtleButtonClass}
         onClick={() => setOpen(true)}
       >
-        <Plus size={16} />
         国・地域を追加
       </button>
     )
   }
 
   return (
-    <form
-      onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
-    >
+    <form onSubmit={handleAdd} className="panel panel-dashed p-3 sm:p-4">
       <CountryInfoFields form={form} onChange={set} />
       {/*
         この機能でいちばん伝えたいことなので、フォームの中にも書く。
@@ -1116,17 +1091,16 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
         国名の1行で足りる。空状態の案内を読んで開いた人が、ここで気を変えて
         閉じてしまうのを防ぐ
       */}
-      <p className="mt-2 text-xs text-gray-500">
+      <p className="mt-3 text-xs text-ink-muted">
         国・地域名だけ入れて追加してかまいません。残りの欄は、上の「AI
         インポート」のプロンプトでまとめて埋められます。
       </p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="submit"
-          className={primaryButtonClass}
+          className={subtleButtonClass}
           disabled={form.name.trim().length === 0}
         >
-          <Plus size={16} />
           追加
         </button>
         <button
@@ -1161,7 +1135,7 @@ function AreaField({
 }) {
   return (
     <input
-      className={`${fieldClass} mt-1`}
+      className={fieldClass}
       value={value}
       list={listId}
       placeholder="台北 / マルタ など"
@@ -1239,43 +1213,43 @@ function WishRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="py-3">
         <AreaOptions id={listId} options={areaOptions} />
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="text-xs text-gray-500">
-            やりたいこと
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="field">
+            <span className="field-label">やりたいこと</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
-            場所(任意)
+          <label className="field">
+            <span className="field-label">場所(任意)</span>
             <AreaField value={area} listId={listId} onChange={setArea} />
           </label>
-          <label className="text-xs text-gray-500">
-            メモ(任意)
+          <label className="field">
+            <span className="field-label">メモ(任意)</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
-            参考リンク(任意)
+          <label className="field">
+            <span className="field-label">参考リンク(任意)</span>
             <input
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={url}
               inputMode="url"
               onChange={(e) => setUrl(e.target.value)}
             />
           </label>
         </div>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             onClick={handleSave}
           >
             保存
@@ -1293,39 +1267,38 @@ function WishRow({
   }
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
-      <label className="flex min-w-0 cursor-pointer items-start gap-2">
-        <input
-          type="checkbox"
-          checked={wish.done}
-          onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-        />
-        <span className="min-w-0">
-          <span
-            className={
-              wish.done
-                ? 'text-sm text-gray-400 line-through'
-                : 'text-sm font-medium text-gray-800'
-            }
-          >
-            {wish.title}
-          </span>
-          {wish.note !== undefined && wish.note.length > 0 ? (
-            <span className="block text-xs text-gray-500">{wish.note}</span>
-          ) : null}
-          {wish.url !== undefined && wish.url.length > 0 ? (
-            <a
-              href={wish.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block truncate text-xs text-cyan-700 underline"
+    <li className="flex items-start justify-between gap-3 py-3">
+      <Checkbox
+        className="min-w-0"
+        checked={wish.done}
+        onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
+        label={
+          <span className="min-w-0">
+            <span
+              className={
+                wish.done
+                  ? 'text-sm text-ink-muted line-through'
+                  : 'text-sm font-medium text-ink'
+              }
             >
-              {wish.url}
-            </a>
-          ) : null}
-        </span>
-      </label>
+              {wish.title}
+            </span>
+            {wish.note !== undefined && wish.note.length > 0 ? (
+              <span className="block text-xs text-ink-muted">{wish.note}</span>
+            ) : null}
+            {wish.url !== undefined && wish.url.length > 0 ? (
+              <a
+                href={wish.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block truncate text-xs text-ink underline"
+              >
+                {wish.url}
+              </a>
+            ) : null}
+          </span>
+        }
+      />
       <div className="flex shrink-0 gap-1">
         <button
           type="button"
@@ -1333,7 +1306,7 @@ function WishRow({
           className={iconButtonClass}
           onClick={() => setEditing(true)}
         >
-          <Pencil size={14} />
+          <Pencil size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -1341,7 +1314,7 @@ function WishRow({
           className={iconButtonClass}
           onClick={handleRemove}
         >
-          <Trash2 size={14} />
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
     </li>
@@ -1403,60 +1376,55 @@ function AddWishSection({
         className={subtleButtonClass}
         onClick={() => setOpen(true)}
       >
-        <Plus size={16} />
         やりたいことを追加
       </button>
     )
   }
 
   return (
-    <form
-      onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
-    >
+    <form onSubmit={handleAdd} className="panel panel-dashed p-3 sm:p-4">
       <AreaOptions id={listId} options={areaOptions} />
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="text-xs text-gray-500">
-          やりたいこと
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="field">
+          <span className="field-label">やりたいこと</span>
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
-          場所(任意)
+        <label className="field">
+          <span className="field-label">場所(任意)</span>
           <AreaField value={area} listId={listId} onChange={setArea} />
         </label>
-        <label className="text-xs text-gray-500">
-          メモ(任意)
+        <label className="field">
+          <span className="field-label">メモ(任意)</span>
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
-          参考リンク(任意)
+        <label className="field">
+          <span className="field-label">参考リンク(任意)</span>
           <input
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
             value={url}
             inputMode="url"
             onChange={(e) => setUrl(e.target.value)}
           />
         </label>
       </div>
-      <p className="mt-2 text-xs text-gray-500">
+      <p className="mt-3 text-xs text-ink-muted">
         場所を書いておくと、その町にいる間だけ「今」タブの上に出ます。
         書かなくても「場所を決めていないもの」として残ります。
       </p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="submit"
-          className={primaryButtonClass}
+          className={subtleButtonClass}
           disabled={title.trim().length === 0}
         >
-          <Plus size={16} />
           追加
         </button>
         <button
@@ -1504,12 +1472,14 @@ export function SettingsPanel({
   const titleId = useId()
   const startId = useId()
   const endId = useId()
+  const tzHeadingId = useId()
   const tzSelectId = useId()
   const contactLabelId = useId()
   const contactValueId = useId()
   const contactNoteId = useId()
   const pasteId = useId()
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [shareOpen, setShareOpen] = useState(false)
 
   const [newLabel, setNewLabel] = useState('')
@@ -1577,7 +1547,7 @@ export function SettingsPanel({
   }
 
   /**
-   * .ics を書き出す。JSON の書き出しと同じ Blob → a[download] の流儀。
+   * .ics を書き出す。JSON の書き出しと同じく Blob を a[download] で落とす流儀。
    * MIME は text/calendar。これで開いた先のカレンダーが「取り込むもの」だと分かる。
    */
   const handleDownloadIcs = () => {
@@ -1658,23 +1628,21 @@ export function SettingsPanel({
   }
 
   return (
-    // フォームの縦積みなので、main を広げても横いっぱいには伸ばさない
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    // フォームの縦積みなので、main を広げても横いっぱいには伸ばさない。
+    // 中央には寄せず、ページのタイトルと左端を揃える
+    <div className="page-measure space-y-10">
       {/* 1. 旅行の基本情報 */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Plane size={18} className="text-cyan-600" />
-          旅行の基本情報
-        </h2>
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>旅行の基本情報</h2>
         <div className="mt-3 space-y-3">
-          <div>
+          <div className="field">
             <label htmlFor={titleId} className={labelClass}>
               旅行のタイトル
             </label>
             <input
               id={titleId}
               type="text"
-              className={`${fieldClass} mt-1`}
+              className={fieldClass}
               value={state.tripTitle}
               onChange={(e) =>
                 dispatch({ type: 'setTripTitle', title: e.target.value })
@@ -1683,14 +1651,14 @@ export function SettingsPanel({
             />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
+            <div className="field">
               <label htmlFor={startId} className={labelClass}>
                 開始日
               </label>
               <input
                 id={startId}
                 type="date"
-                className={`${fieldClass} mt-1`}
+                className={fieldClass}
                 value={state.startDate}
                 onChange={(e) => {
                   if (e.target.value.length === 0) return
@@ -1698,14 +1666,14 @@ export function SettingsPanel({
                 }}
               />
             </div>
-            <div>
+            <div className="field">
               <label htmlFor={endId} className={labelClass}>
                 終了日
               </label>
               <input
                 id={endId}
                 type="date"
-                className={`${fieldClass} mt-1`}
+                className={fieldClass}
                 value={state.endDate}
                 onChange={(e) => {
                   if (e.target.value.length === 0) return
@@ -1715,14 +1683,11 @@ export function SettingsPanel({
             </div>
           </div>
           {invalidRange ? (
-            <p
-              role="alert"
-              className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-            >
+            <Note tone="error" role="alert">
               終了日は開始日より後の日付にしてください。
-            </p>
+            </Note>
           ) : (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-muted">
               {nights}泊{(nights ?? 0) + 1}日
             </p>
           )}
@@ -1730,43 +1695,33 @@ export function SettingsPanel({
       </section>
 
       {/* 2. 表示タイムゾーン */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Globe size={18} className="text-cyan-600" />
+      <section className={sectionClass}>
+        <h2 id={tzHeadingId} className={sectionTitleClass}>
           表示タイムゾーン
         </h2>
-        <div className="mt-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="radio"
-              name="pinnedTzMode"
-              checked={state.pinnedTz === null}
-              onChange={() => dispatch({ type: 'setPinnedTz', tz: null })}
-            />
-            デバイスの時計に従う
-          </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="radio"
-              name="pinnedTzMode"
-              checked={state.pinnedTz !== null}
-              onChange={() =>
-                dispatch({
-                  type: 'setPinnedTz',
-                  tz: state.pinnedTz ?? displayTz,
-                })
-              }
-            />
-            固定する
-          </label>
+        <div className="mt-3 space-y-3">
+          <SegmentedControl
+            labelledBy={tzHeadingId}
+            value={state.pinnedTz === null ? 'device' : 'pinned'}
+            options={[
+              { value: 'device', label: 'デバイスの時計に従う' },
+              { value: 'pinned', label: '固定する' },
+            ]}
+            onChange={(mode) =>
+              dispatch({
+                type: 'setPinnedTz',
+                tz: mode === 'device' ? null : (state.pinnedTz ?? displayTz),
+              })
+            }
+          />
           {state.pinnedTz !== null ? (
-            <div>
-              <label htmlFor={tzSelectId} className="sr-only">
+            <div className="field">
+              <label htmlFor={tzSelectId} className={labelClass}>
                 固定するタイムゾーン
               </label>
               <select
                 id={tzSelectId}
-                className={`${fieldClass} mt-1`}
+                className={fieldClass}
                 value={state.pinnedTz}
                 onChange={(e) =>
                   dispatch({ type: 'setPinnedTz', tz: e.target.value })
@@ -1780,22 +1735,24 @@ export function SettingsPanel({
               </select>
             </div>
           ) : null}
-          <p className="text-xs text-gray-500">
-            現在の表示タイムゾーン:{' '}
-            <span className="font-mono">{displayTz}</span>
+          <p className="text-xs break-words text-ink-muted">
+            いまの表示タイムゾーンは {displayTz} です。
           </p>
           {/*
             この設定で日付が動くと思われると、日程が 1 日ずれて見えたときに
             ここを触って直そうとしてしまう。効く範囲を先に書いておく
           */}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-muted">
             日程の日付はいつも現地の日付で並びます。この設定が効くのは、時刻の見せ方
             (日本時間を併記するかどうか)と、予約を追加するときの既定のタイムゾーンです。
           </p>
         </div>
       </section>
 
-      {/* 3. AIインポート */}
+      {/*
+        3. AIインポート。設定タブでいちばん使う機能なので、
+        ここだけは panel の面のまま強く見せる(ほかの節は罫で区切るだけ)
+      */}
       <AiImportPanel
         state={state}
         displayTz={displayTz}
@@ -1803,22 +1760,18 @@ export function SettingsPanel({
         onSelectDate={onSelectDate}
       />
 
-      {/* 4. 共有・バックアップ */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Share2 size={18} className="text-cyan-600" />
-          共有・バックアップ
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
+      {/* 4. 共有とバックアップ */}
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>共有とバックアップ</h2>
+        <p className="mt-2 text-sm text-ink-muted">
           同行者に旅程を渡したいときも、自分のスマホが壊れたときの保険にしたいときも、
           共有URLひとつで済みます。サーバーには保存されません。
         </p>
         <button
           type="button"
-          className={`${primaryButtonClass} mt-3`}
+          className={`${subtleButtonClass} mt-3`}
           onClick={() => setShareOpen(true)}
         >
-          <Share2 size={16} />
           共有URLを作る
         </button>
         {shareOpen ? (
@@ -1830,21 +1783,17 @@ export function SettingsPanel({
           この節に置く。API 連携はせず、.ics を作って渡すところまでで手を引く
           (このツールは一切ネットワークに出ない)。
         */}
-        <div className="mt-4 border-t border-gray-200 pt-4">
-          <h3 className="text-sm font-semibold text-gray-800">
-            カレンダーに書き出す
-          </h3>
-          <p className="mt-1 text-sm text-gray-600">
+        <div className="mt-5 border-t border-rule pt-4">
+          <h3 className="text-sm font-bold text-ink">カレンダーに書き出す</h3>
+          <p className="mt-1 text-sm text-ink-muted">
             予約と申請期限を .ics
-            ファイルにまとめます。パソコンのGoogleカレンダーの「設定 →
-            インポート」から取り込めます。
+            ファイルにまとめます。パソコンのGoogleカレンダーの「設定」にある「インポート」から取り込めます。
           </p>
           <button
             type="button"
             className={`${subtleButtonClass} mt-3`}
             onClick={handleDownloadIcs}
           >
-            <CalendarPlus size={16} />
             カレンダーに書き出す(.ics)
           </button>
           {/*
@@ -1854,7 +1803,7 @@ export function SettingsPanel({
             スマホの制約のほうは、書き出したファイルをスマホで開こうとして
             初めて分かるので、その前に 1 件ずつ登録する道を案内しておく。
           */}
-          <ul className="mt-2 space-y-1 text-xs text-gray-500">
+          <ul className="mt-3 space-y-1 text-xs text-ink-muted">
             <li>
               取り込み専用のカレンダーを1つ作って、そこへインポートするのがおすすめです。
               入れ直して予定が重複しても、そのカレンダーごと消せばやり直せます。
@@ -1869,12 +1818,9 @@ export function SettingsPanel({
       </section>
 
       {/* 5. 印刷しおり */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Printer size={18} className="text-cyan-600" />
-          印刷しおり
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>印刷しおり</h2>
+        <p className="mt-2 text-sm text-ink-muted">
           スマホが壊れても電池が切れてもゼロにならない保険です。予定と緊急連絡先を
           1枚(複数ページになる場合もあります)にまとめて印刷し、紙でも持ち歩けるようにします。
         </p>
@@ -1883,25 +1829,21 @@ export function SettingsPanel({
           className={`${subtleButtonClass} mt-3`}
           onClick={() => window.print()}
         >
-          <Printer size={16} />
           印刷する
         </button>
       </section>
 
       {/* 6. 緊急連絡先 */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Phone size={18} className="text-cyan-600" />
-          緊急連絡先
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          大使館・カード紛失窓口・海外旅行保険会社の連絡先を登録しておきましょう。
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>緊急連絡先</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          大使館、カード紛失窓口、海外旅行保険会社の連絡先を登録しておきましょう。
         </p>
         <form
           onSubmit={handleAddContact}
           className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1.2fr_1.2fr_1fr_auto]"
         >
-          <div>
+          <div className="min-w-0">
             <label htmlFor={contactLabelId} className="sr-only">
               名称
             </label>
@@ -1913,7 +1855,7 @@ export function SettingsPanel({
               placeholder="例: 在ポルトガル日本国大使館"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label htmlFor={contactValueId} className="sr-only">
               連絡先
             </label>
@@ -1925,7 +1867,7 @@ export function SettingsPanel({
               placeholder="例: +351-21-000-0000"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label htmlFor={contactNoteId} className="sr-only">
               メモ
             </label>
@@ -1934,21 +1876,20 @@ export function SettingsPanel({
               className={fieldClass}
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
-              placeholder="メモ(任意。例: カード紛失窓口・24時間対応)"
+              placeholder="メモ(任意。例: 24時間対応)"
             />
           </div>
-          <button type="submit" className={primaryButtonClass}>
-            <Plus size={16} />
+          <button type="submit" className={subtleButtonClass}>
             追加
           </button>
         </form>
 
         {state.emergencyContacts.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-ink-muted">
             緊急連絡先が未登録です。まずは大使館やクレジットカードの紛失窓口を1件登録しておくと安心です。
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-rule border-y border-rule">
             {state.emergencyContacts.map((contact) => (
               <ContactRow
                 key={contact.id}
@@ -1961,25 +1902,22 @@ export function SettingsPanel({
       </section>
 
       {/* 7. 旅行前の手続き */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <IdCard size={18} className="text-cyan-600" />
-          旅行前の手続き
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          ビザ・SIM/eSIM・海外旅行保険・入域許可など、出発前に済ませておく手続きを
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>旅行前の手続き</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          ビザ、SIMやeSIM、海外旅行保険、入域許可など、出発前に済ませておく手続きを
           登録しておきましょう。期限や有効期間の抜けは進捗タブが教えてくれます。
         </p>
 
         {travelDocs.length === 0 ? (
           // 上の説明文と同じことを繰り返さない。空のときに足す価値があるのは
           // 「まず何を 1 件入れればいいか」の具体例だけ
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-ink-muted">
             まだ登録がありません。まずは行き先のビザの要否と、現地の通信手段
-            (SIM・eSIM)を1件ずつ入れておくと、出発直前に慌てずに済みます。
+            (SIMかeSIM)を1件ずつ入れておくと、出発直前に慌てずに済みます。
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-rule border-y border-rule">
             {travelDocs.map((doc) => (
               <TravelDocRow key={doc.id} doc={doc} dispatch={dispatch} />
             ))}
@@ -1992,13 +1930,10 @@ export function SettingsPanel({
       </section>
 
       {/* 8. 国・地域の情報 */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Plug size={18} className="text-cyan-600" />
-          国・地域の情報
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          訪問する国・地域のプラグ形状・電圧・チップの文化・緊急通報番号をまとめておけます。
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>国・地域の情報</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          訪問する国・地域のプラグ形状、電圧、チップの文化、緊急通報番号をまとめておけます。
           現地で「変換プラグはどれだったか」「救急は何番か」を調べ直さずに済みます。
         </p>
 
@@ -2017,16 +1952,16 @@ export function SettingsPanel({
             置いている。ただの空状態の説明ではないので、他のセクションの空状態と違って
             「まず何を入れるか」だけでなく「入れたあとに何が起きるか」まで書く。
           */
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-ink-muted">
             まだ登録がありません。
-            <strong className="font-semibold text-gray-700">
-              訪問する国・地域名を登録すると、プラグ形状・電圧・チップの文化・緊急通報番号を
+            <strong className="font-bold text-ink">
+              訪問する国・地域名を登録すると、プラグ形状、電圧、チップの文化、緊急通報番号を
               AI でまとめて埋められます。
             </strong>
             まずは国名だけ入れておけば十分です。
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-rule border-y border-rule">
             {countryInfos.map((info) => (
               <CountryInfoRow key={info.id} info={info} dispatch={dispatch} />
             ))}
@@ -2039,37 +1974,29 @@ export function SettingsPanel({
       </section>
 
       {/* 9. やりたいこと */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <Heart size={18} className="text-cyan-600" />
-          やりたいこと
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>やりたいこと</h2>
+        <p className="mt-2 text-sm text-ink-muted">
           滞在先でやりたいことを町ごとに書いておけます。場所を書いておくと、
           その町にいる間だけ「今」タブの上に出ます。
         </p>
 
         {wishGroups.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-ink-muted">
             まだ登録がありません。行きたい店や見たいものを、思い付いた順に
             1行ずつ足しておけば十分です。「今」タブからも足せます。
           </p>
         ) : (
-          <div className="mt-3 space-y-4">
+          <div className="mt-3 space-y-5">
             {wishGroups.map((group) => (
               <div key={group.area ?? ''}>
-                <h3 className="flex items-center gap-1 text-sm font-semibold text-gray-700">
-                  <MapPin
-                    size={14}
-                    className="shrink-0 text-gray-400"
-                    aria-hidden="true"
-                  />
+                <h3 className="flex flex-wrap items-baseline gap-x-2 text-sm font-bold text-ink">
                   {group.area ?? '場所を決めていないもの'}
-                  <span className="text-xs font-normal text-gray-400">
+                  <span className="text-xs font-normal text-ink-muted">
                     {group.wishes.length}件
                   </span>
                 </h3>
-                <ul className="mt-1 space-y-2">
+                <ul className="mt-1 divide-y divide-rule border-y border-rule">
                   {group.wishes.map((wish) => (
                     <WishRow
                       key={wish.id}
@@ -2097,27 +2024,24 @@ export function SettingsPanel({
         その組の警告が二度と戻らず、本物の食い違いを見落とすため。
       */}
       {aliases.length > 0 ? (
-        <section className={cardClass}>
-          <h2 className={sectionTitleClass}>
-            <MapPinCheck size={18} className="text-cyan-600" />
-            同じ場所として扱う組
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
+        <section className={sectionClass}>
+          <h2 className={sectionTitleClass}>同じ場所として扱う組</h2>
+          <p className="mt-2 text-sm text-ink-muted">
             旅程の不整合で「同じ場所として扱う」を押した組です。この組は場所の食い違いとして
             警告されなくなります。押し間違えたときは削除すると元どおり警告が出ます。
           </p>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-rule border-y border-rule">
             {aliases.map((alias) => (
               <li
                 key={alias.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3"
+                className="flex items-center justify-between gap-3 py-3"
               >
-                <p className="min-w-0 text-sm text-gray-800">
-                  <span className="font-semibold">{alias.names[0]}</span>
-                  <span className="mx-1.5 text-gray-400" aria-hidden="true">
+                <p className="min-w-0 text-sm break-words text-ink">
+                  <span className="font-bold">{alias.names[0]}</span>
+                  <span className="mx-1.5 text-ink-muted" aria-hidden="true">
                     ＝
                   </span>
-                  <span className="font-semibold">{alias.names[1]}</span>
+                  <span className="font-bold">{alias.names[1]}</span>
                 </p>
                 <button
                   type="button"
@@ -2127,7 +2051,7 @@ export function SettingsPanel({
                     dispatch({ type: 'removePlaceAlias', id: alias.id })
                   }
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={14} aria-hidden="true" />
                 </button>
               </li>
             ))}
@@ -2135,13 +2059,10 @@ export function SettingsPanel({
         </section>
       ) : null}
 
-      {/* 11. JSON入出力 */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <FileJson size={18} className="text-cyan-600" />
-          JSON入出力
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
+      {/* 11. JSONの書き出しと読み込み */}
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>JSONの書き出しと読み込み</h2>
+        <p className="mt-2 text-sm text-ink-muted">
           旅程データ全体をファイルやテキストでやり取りできます。共有URLが長すぎて
           QRコードが使えないときの代替手段としても使えます。
         </p>
@@ -2151,7 +2072,6 @@ export function SettingsPanel({
             className={subtleButtonClass}
             onClick={handleDownloadJson}
           >
-            <Download size={16} />
             ファイルに書き出す
           </button>
           <button
@@ -2161,77 +2081,80 @@ export function SettingsPanel({
               void handleCopyJson()
             }}
           >
-            <Copy size={16} />
             JSONをコピー
           </button>
-          <label className={`${subtleButtonClass} cursor-pointer`}>
-            <Upload size={16} />
+          {/*
+            ファイル選択の input は隠し、普通のボタンから開く。
+            label をボタンの見た目にするやり方だと Tab で止まらず、フォーカスも見えない
+          */}
+          <button
+            type="button"
+            className={subtleButtonClass}
+            onClick={() => fileInputRef.current?.click()}
+          >
             ファイルを読み込む
-            <input
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => {
-                void handleFileChange(e)
-              }}
-            />
-          </label>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(e) => {
+              void handleFileChange(e)
+            }}
+          />
         </div>
 
-        <div className="mt-3">
+        <div className="field mt-4">
           <label htmlFor={pasteId} className={labelClass}>
             またはJSONを貼り付けて読み込む
           </label>
           <textarea
             id={pasteId}
-            className={`${fieldClass} mt-1 h-24 font-mono text-xs`}
+            className={`${fieldClass} h-24 font-mono text-xs`}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             placeholder='{"schemaVersion": 1, ...}'
           />
-          <button
-            type="button"
-            className={`${subtleButtonClass} mt-2`}
-            disabled={importText.trim().length === 0}
-            onClick={() => applyImportedJson(importText)}
-          >
-            貼り付けた内容を読み込む
-          </button>
         </div>
+        <button
+          type="button"
+          className={`${subtleButtonClass} mt-2`}
+          disabled={importText.trim().length === 0}
+          onClick={() => applyImportedJson(importText)}
+        >
+          貼り付けた内容を読み込む
+        </button>
 
         {ioMessage !== null ? (
-          <p
+          <Note
+            tone={ioMessage.tone === 'error' ? 'error' : 'info'}
             role={ioMessage.tone === 'error' ? 'alert' : 'status'}
-            className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-              ioMessage.tone === 'ok'
-                ? 'bg-emerald-50 text-emerald-800'
-                : 'bg-rose-50 text-rose-700'
-            }`}
+            className="mt-3"
           >
             {ioMessage.text}
-          </p>
+          </Note>
         ) : null}
       </section>
 
       {/* 12. いまの旅程を空にする */}
-      <section className={cardClass}>
-        <h2 className={sectionTitleClass}>
-          <AlertTriangle size={18} className="text-rose-600" />
-          いまの旅程を空にする
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>いまの旅程を空にする</h2>
+        <p className="mt-2 text-sm text-ink-muted">
           いま開いている旅程の予約と緊急連絡先をすべて削除して、最初からやり直します。
           他の旅程は消えません。旅程そのものを消したいときは、画面上部の旅程セレクタから「削除」を選んでください。
           元に戻せないので、必要なら先にJSONで書き出しておいてください。
         </p>
-        <button
-          type="button"
-          className={`${dangerButtonClass} mt-3`}
+        <Button
+          variant="danger"
+          size="sm"
+          className="mt-3"
           onClick={handleResetAll}
         >
-          <Trash2 size={16} />
           いまの旅程を空にする
-        </button>
+        </Button>
       </section>
 
       {pendingImport !== null ? (

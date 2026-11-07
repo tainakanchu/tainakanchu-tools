@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react'
+import { Radio, Swatch } from '../../../../components/ui'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
 import { renderSinglePlate } from '../../../../lib/risograph/preview'
 import { putRgbaToCanvas } from '../-lib/image'
 import { MAX_DENSITY, MAX_LPI, MIN_DENSITY, MIN_LPI } from '../-lib/plates'
 import {
-  fieldClass,
   labelClass,
+  previewFrameClass,
   sectionClass,
   sectionNoteClass,
   sectionTitleClass,
@@ -28,7 +29,7 @@ const METHODS: Array<{ value: HalftoneMethod; label: string; note: string }> = [
   },
   {
     value: 'blue-noise',
-    label: 'blue-noise',
+    label: 'ブルーノイズ',
     note: '粒が均等に散る不規則な網',
   },
   {
@@ -75,22 +76,18 @@ function PlateCard({
   const screenDisabled = setting.method !== 'am'
 
   return (
-    <li className="rounded-2xl border border-white/10 bg-gray-950/60 p-4">
+    <li className="border border-rule p-4">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-gray-400">
+        <span className="text-xs font-bold text-ink-muted">
           {index + 1}版目
         </span>
-        <span
-          className="h-5 w-5 rounded-full border border-white/20"
-          style={{ backgroundColor: preset?.hex ?? '#000000' }}
-          aria-hidden
-        />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-100">
+        <Swatch color={preset?.hex ?? '#000000'} />
+        <span className="min-w-0 flex-1 truncate text-sm font-bold">
           {preset?.name ?? setting.inkId}
         </span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl bg-white">
+      <div className={`mt-3 overflow-hidden ${previewFrameClass}`}>
         <canvas
           ref={canvasRef}
           className="block h-auto w-full"
@@ -99,28 +96,26 @@ function PlateCard({
       </div>
 
       <div className="mt-3 space-y-3">
-        <label className="block space-y-1">
-          <span className={labelClass}>スクリーン方式</span>
-          <select
-            className={fieldClass}
-            value={setting.method}
-            onChange={(event) => {
-              const found = METHODS.find((m) => m.value === event.target.value)
-              if (found) onChange({ ...setting, method: found.value })
-            }}
-          >
+        <fieldset className="min-w-0">
+          <legend className={`${labelClass} mb-2`}>スクリーン方式</legend>
+          <div className="space-y-1.5">
             {METHODS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
+              <Radio
+                key={m.value}
+                name={`risograph-method-${index}`}
+                value={m.value}
+                checked={setting.method === m.value}
+                onChange={() => onChange({ ...setting, method: m.value })}
+                label={m.label}
+              />
             ))}
-          </select>
-          <span className="block text-[11px] leading-relaxed text-gray-500">
+          </div>
+          <p className="field-hint mt-1.5">
             {METHODS.find((m) => m.value === setting.method)?.note}
-          </span>
-        </label>
+          </p>
+        </fieldset>
 
-        <label className="block space-y-1">
+        <label className="field">
           <span className={labelClass}>印刷濃度 {setting.density}</span>
           <input
             type="range"
@@ -133,13 +128,13 @@ function PlateCard({
               onChange({ ...setting, density: Number(event.target.value) })
             }
           />
-          <span className="block text-[11px] leading-relaxed text-gray-500">
+          <span className="field-hint">
             実機のドラム濃度設定に相当。3
             が標準で、上げるほどインクが厚く乗った見えになります。
           </span>
         </label>
 
-        <label className="block space-y-1">
+        <label className="field">
           <span className={labelClass}>
             線数 {setting.lpi} lpi
             {screenDisabled ? '（AM 網点のみ）' : ''}
@@ -158,7 +153,7 @@ function PlateCard({
           />
         </label>
 
-        <label className="block space-y-1">
+        <label className="field">
           <span className={labelClass}>スクリーン角 {setting.angleDeg}°</span>
           <input
             type="range"
@@ -197,9 +192,7 @@ export function PlatesSection({
 }: Props) {
   return (
     <section className={sectionClass}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-400">4.</span> 版（ハーフトーン）
-      </h2>
+      <h2 className={sectionTitleClass}>4. 版（ハーフトーン）</h2>
       <p className={`${sectionNoteClass} mt-2`}>
         版ごとの網のかけ方です。実機リソの入稿は濃淡（グレースケール）のままが標準で、
         網点化は製版機側で行われるため、既定は「階調のまま」です。網点はドットの粗さや

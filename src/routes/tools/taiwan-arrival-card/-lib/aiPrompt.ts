@@ -39,19 +39,19 @@ export const AI_SERVICE_LINKS: Array<AiServiceLink> = [
     id: 'chatgpt',
     label: 'ChatGPT',
     url: 'https://chatgpt.com/',
-    hint: 'PDF・画像の添付に対応',
+    hint: 'PDF や画像を添付できます',
   },
   {
     id: 'claude',
     label: 'Claude',
     url: 'https://claude.ai/new',
-    hint: 'PDF・画像の添付に対応',
+    hint: 'PDF や画像を添付できます',
   },
   {
     id: 'gemini',
     label: 'Gemini',
     url: 'https://gemini.google.com/app',
-    hint: 'PDF・画像の添付に対応',
+    hint: 'PDF や画像を添付できます',
   },
 ]
 

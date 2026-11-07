@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Square } from 'lucide-react'
 import {
   formatBytes,
   formatDuration,
 } from '../../../../lib/meeting-recorder/session'
+import { Note } from '../../../../components/ui'
 import {
-  cardClass,
-  dangerButtonClass,
-  errorClass,
   noteClass,
+  primaryButtonClass,
+  sectionClass,
   sectionTitleClass,
   subtleButtonClass,
-  warningClass,
 } from '../-lib/styles'
 import { LevelMeter } from './LevelMeter'
 import { MicSettings } from './MicSettings'
@@ -67,23 +65,17 @@ export function RecordingSection({
   const remaining = storage ? Math.max(0, storage.quota - storage.usage) : null
 
   return (
-    <section className={`${cardClass} border-rose-200`}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-600">2.</span> 録音中
-        <span className="ml-1 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500" />
-      </h2>
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>2. 録音中</h2>
 
       <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
-          <p className="text-xs text-gray-500">経過時間</p>
-          <p
-            className="text-4xl font-bold tabular-nums text-gray-900"
-            aria-live="off"
-          >
+          <p className="text-xs text-ink-muted">経過時間</p>
+          <p className="text-4xl font-bold tabular-nums" aria-live="off">
             {formatDuration(elapsed)}
           </p>
         </div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm">
           <p>
             保存済み:{' '}
             <span className="tabular-nums">
@@ -91,7 +83,7 @@ export function RecordingSection({
             </span>
           </p>
           {remaining !== null && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-muted">
               ブラウザの空き容量: 約 {formatBytes(remaining)}
               {storage?.persisted ? '' : '（永続化なし）'}
             </p>
@@ -99,7 +91,7 @@ export function RecordingSection({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4">
+      <div className="mt-5 space-y-3 bg-wash p-4">
         <LevelMeter
           label="マイク（L）"
           analyser={micAnalyser}
@@ -113,20 +105,20 @@ export function RecordingSection({
       </div>
 
       {displayEnded && (
-        <p role="alert" className={`${warningClass} mt-4`}>
+        <Note tone="warn" role="alert" className="mt-4">
           画面共有が終了したため、相手の音声は無音で録音されています（マイクの録音は続いています）。
           「共有し直す」で相手の音声を戻せます。
-        </p>
+        </Note>
       )}
       {micEnded && (
-        <p role="alert" className={`${warningClass} mt-4`}>
+        <Note tone="warn" role="alert" className="mt-4">
           マイクが切断されました。下でマイクを選び直すと録音に戻ります。
-        </p>
+        </Note>
       )}
       {error && (
-        <p role="alert" className={`${errorClass} mt-4`}>
+        <Note tone="error" role="alert" className="mt-4">
           {error}
-        </p>
+        </Note>
       )}
 
       <div className="mt-5">
@@ -141,14 +133,13 @@ export function RecordingSection({
         </p>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-3">
         <button
           type="button"
-          className={dangerButtonClass}
+          className={primaryButtonClass}
           onClick={onStop}
           disabled={stopping}
         >
-          <Square size={16} aria-hidden />
           {stopping ? '保存しています…' : '停止して保存'}
         </button>
         <button
@@ -157,7 +148,6 @@ export function RecordingSection({
           onClick={onReshare}
           disabled={stopping}
         >
-          <RefreshCw size={16} aria-hidden />
           共有し直す
         </button>
       </div>

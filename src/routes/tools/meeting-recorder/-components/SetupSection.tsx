@@ -1,15 +1,12 @@
-import { CircleDot, MonitorUp, RefreshCw, X } from 'lucide-react'
 import { SAMPLE_RATES } from '../../../../lib/meeting-recorder/session'
 import {
-  cardClass,
-  errorClass,
-  fieldClass,
-  labelClass,
   noteClass,
   primaryButtonClass,
+  sectionClass,
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
+import { Field, Note, Select } from '../../../../components/ui'
 import { LevelMeter } from './LevelMeter'
 import { MicSettings } from './MicSettings'
 import type { RecordingSampleRate } from '../../../../lib/meeting-recorder/session'
@@ -35,7 +32,7 @@ type Props = {
 }
 
 const SAMPLE_RATE_NOTES: Record<RecordingSampleRate, string> = {
-  16000: '文字起こし向け（軽い）',
+  16000: '文字起こし向け、軽い',
   24000: '少し聞きやすく',
   48000: '音楽も含めて高音質',
 }
@@ -60,10 +57,8 @@ export function SetupSection({
   const busy = phase === 'preparing' || phase === 'starting'
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-600">1.</span> 準備
-      </h2>
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>1. 準備</h2>
       <p className={`${noteClass} mt-1`}>
         マイクと録音の質を選んでから、会議のタブ（または画面）を共有します。
         共有後に両方のメーターが動くことを確かめてから録音を始めてください。
@@ -76,10 +71,15 @@ export function SetupSection({
           disabled={busy}
           onChange={onMicOptionsChange}
         />
-        <label className="block space-y-1">
-          <span className={labelClass}>サンプリング周波数</span>
-          <select
-            className={fieldClass}
+        <Field
+          label="サンプリング周波数"
+          hint={
+            prepared
+              ? '変更するには「共有をやめる」で準備をやり直してください。'
+              : `ブラウザ内の保存量は 1 時間あたり約 ${Math.round((sampleRate * 4 * 3600) / 1024 / 1024)} MB です。`
+          }
+        >
+          <Select
             value={sampleRate}
             disabled={prepared || busy}
             onChange={(event) =>
@@ -91,19 +91,14 @@ export function SetupSection({
           >
             {SAMPLE_RATES.map((rate) => (
               <option key={rate} value={rate}>
-                {rate / 1000} kHz — {SAMPLE_RATE_NOTES[rate]}
+                {rate / 1000} kHz（{SAMPLE_RATE_NOTES[rate]}）
               </option>
             ))}
-          </select>
-          <span className="block text-xs text-gray-500">
-            {prepared
-              ? '変更するには「共有をやめる」で準備をやり直してください。'
-              : `ブラウザ内の保存量は 1 時間あたり約 ${Math.round((sampleRate * 4 * 3600) / 1024 / 1024)} MB です。`}
-          </span>
-        </label>
+          </Select>
+        </Field>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-3">
         {prepared ? (
           <>
             <button
@@ -112,7 +107,6 @@ export function SetupSection({
               onClick={onStart}
               disabled={busy}
             >
-              <CircleDot size={16} aria-hidden />
               {phase === 'starting' ? '開始しています…' : '録音開始'}
             </button>
             <button
@@ -121,7 +115,6 @@ export function SetupSection({
               onClick={onReshare}
               disabled={busy}
             >
-              <RefreshCw size={16} aria-hidden />
               共有し直す
             </button>
             <button
@@ -130,7 +123,6 @@ export function SetupSection({
               onClick={onCancel}
               disabled={busy}
             >
-              <X size={16} aria-hidden />
               共有をやめる
             </button>
           </>
@@ -141,28 +133,27 @@ export function SetupSection({
             onClick={onShare}
             disabled={busy}
           >
-            <MonitorUp size={16} aria-hidden />
             {phase === 'preparing'
               ? '共有を待っています…'
-              : '会議タブ/画面を共有'}
+              : '会議のタブか画面を共有'}
           </button>
         )}
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-ink-muted">
           録音する場合は参加者の同意を得てください。
         </span>
       </div>
 
       {error && (
-        <p role="alert" className={`${errorClass} mt-4`}>
+        <Note tone="error" role="alert" className="mt-4">
           {error}
-        </p>
+        </Note>
       )}
 
       {prepared && (
-        <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4">
+        <div className="mt-5 space-y-3 bg-wash p-4">
           {sourceLabel && (
-            <p className="truncate text-xs text-gray-500">
-              共有中: {sourceLabel}
+            <p className="truncate text-xs text-ink-muted">
+              共有中のタブや画面: {sourceLabel}
             </p>
           )}
           <LevelMeter
@@ -178,8 +169,8 @@ export function SetupSection({
         </div>
       )}
 
-      <details className="mt-5 text-sm text-gray-600">
-        <summary className="cursor-pointer font-medium text-gray-700">
+      <details className="mt-5 text-sm">
+        <summary className="cursor-pointer font-bold">
           相手の音声を取り込むには
         </summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">

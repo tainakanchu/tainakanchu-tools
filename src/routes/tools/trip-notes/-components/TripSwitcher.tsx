@@ -1,5 +1,5 @@
 /**
- * 旅程セレクタ。ヘッダーの見出しの隣に置く。
+ * 旅程セレクタ。ページタイトルの隣(PageTitle の actions)に置く。
  *
  * 「いまどの旅程を編集しているか」は、複数の旅程を持てるようになった瞬間から
  * 画面のどこかに常時出ていないといけない情報になる。だからタブや設定の中ではなく
@@ -9,13 +9,17 @@
  * 操作だからである。設定タブに散らすと、対象がどの旅程なのかが操作の場所からは
  * 読み取れなくなる。
  *
+ * 開閉の印(ChevronDown)と選んでいる旅程の印(Check)だけはアイコンを残す。
+ * どちらも文字の代わりに状態を担っていて、外すと開くボタンだと分からない・
+ * どれを開いているか一目で読めない。メニュー項目の頭の飾りアイコンは付けない。
+ *
  * <select> ではなくボタン + メニューにしているのは、行に期間とチェックを添えたい、
  * かつ一覧の下に旅程そのものへの操作を並べたいため。
  * 代わりに Esc・外側クリック・aria-expanded / aria-haspopup を自前で用意する。
  */
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, ChevronDown, Copy, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { formatRangeShort } from '../-lib/format'
 import { subtleButtonClass } from '../-lib/styles'
 import type { TripLibrary } from '../../../../lib/trip-notes/trips'
@@ -44,7 +48,7 @@ function rangeLabel(startDate: string, endDate: string): string | null {
 }
 
 const menuItemClass =
-  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500'
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-wash focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink'
 
 export function TripSwitcher({
   library,
@@ -115,7 +119,7 @@ export function TripSwitcher({
           id={menuId}
           role="menu"
           aria-label="旅程の切り替えと操作"
-          className="absolute left-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+          className="ink-line absolute left-0 top-full z-40 mt-1 w-72 max-w-[calc(100vw-2rem)] overflow-hidden bg-paper py-1"
         >
           {/*
             role="menu" の子は menuitem 系でなければならないので、
@@ -133,18 +137,18 @@ export function TripSwitcher({
                     role="menuitemradio"
                     aria-checked={isActive}
                     onClick={() => runAndClose(() => onSelect(trip.id))}
-                    className={`${menuItemClass} ${isActive ? 'font-semibold text-cyan-800' : ''}`}
+                    className={`${menuItemClass} ${isActive ? 'font-bold text-ink' : ''}`}
                   >
                     <Check
                       size={14}
                       aria-hidden="true"
-                      className={`shrink-0 ${isActive ? 'text-cyan-600' : 'invisible'}`}
+                      className={`shrink-0 ${isActive ? 'text-ink' : 'invisible'}`}
                     />
                     <span className="min-w-0 flex-1 truncate">
                       {tripLabel(trip.state.tripTitle)}
                     </span>
                     {range !== null ? (
-                      <span className="shrink-0 text-xs font-normal text-gray-500">
+                      <span className="shrink-0 text-xs font-normal text-ink-muted">
                         {range}
                       </span>
                     ) : null}
@@ -154,7 +158,7 @@ export function TripSwitcher({
             })}
           </ul>
 
-          <hr className="my-1 border-gray-200" />
+          <hr className="my-1 border-rule" />
 
           <button
             type="button"
@@ -162,7 +166,6 @@ export function TripSwitcher({
             onClick={() => runAndClose(onDuplicate)}
             className={menuItemClass}
           >
-            <Copy size={14} aria-hidden="true" className="shrink-0" />
             複製
           </button>
           <button
@@ -171,20 +174,18 @@ export function TripSwitcher({
             onClick={() => runAndClose(onRename)}
             className={menuItemClass}
           >
-            <Pencil size={14} aria-hidden="true" className="shrink-0" />
             名前を変える
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={() => runAndClose(onDelete)}
-            className={`${menuItemClass} text-rose-700 hover:bg-rose-50`}
+            className={`${menuItemClass} text-ink hover:bg-pink-wash`}
           >
-            <Trash2 size={14} aria-hidden="true" className="shrink-0" />
             削除
           </button>
 
-          <hr className="my-1 border-gray-200" />
+          <hr className="my-1 border-rule" />
 
           <button
             type="button"
@@ -192,7 +193,6 @@ export function TripSwitcher({
             onClick={() => runAndClose(onCreate)}
             className={menuItemClass}
           >
-            <Plus size={14} aria-hidden="true" className="shrink-0" />
             新しい旅程を作る
           </button>
         </div>

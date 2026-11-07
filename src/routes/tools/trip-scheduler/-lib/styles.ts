@@ -1,25 +1,34 @@
 /**
  * 旅程パズル UI で共有する Tailwind クラス。
- * サイト全体のトーン(rounded-2xl のカード + cyan アクセント)に合わせる。
+ * ボタン・入力・チップ・パネルは src/components/ui の部品と styles.css のクラスを使い、
+ * ここには「このツールだけで繰り返す」ものだけを置く。
  */
 
-export const cardClass =
-  'rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6'
+/**
+ * セクションのまとまり。箱で囲まず、上に青インクの罫を 1 本引いて区切る
+ * （ノートの見開きに章を書き分ける形）。箱で強く見せるのは、画面上部に貼り付く
+ * 残り泊数（NightsBudget）だけにしている。
+ */
+export const panelClass = 'ink-line-t pt-4'
 
-export const sectionTitleClass =
-  'flex items-center gap-2 text-base font-semibold text-gray-800'
+/** セクションの見出し。ページの h1 だけが Dela Gothic One、小見出しは Zen Kaku の 700 */
+export const sectionTitleClass = 'text-lg font-bold leading-snug'
 
-export const fieldClass =
-  'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40'
+/** セクション見出しの下の説明文 */
+export const sectionLeadClass = 'mt-2 text-sm leading-relaxed text-ink-muted'
 
-export const primaryButtonClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+/** 罫で区切った一覧の外枠と行（同じ種類のものを箱で積まない） */
+export const ruledListClass = 'border-b border-rule'
+export const ruledRowClass = 'border-t border-rule'
 
-export const subtleButtonClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400'
+/** 空の状態の枠（まだ何も無い＝破線） */
+export const emptyClass =
+  'border-[1.5px] border-dashed border-ink-muted px-4 py-8 text-center text-sm text-ink-muted'
 
+/** 40px 角のアイコンボタン（±、並べ替え、削除など）。ラベルは aria-label で付ける */
 export const iconButtonClass =
-  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+  'inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-ui border-[1.5px] border-ink bg-paper text-ink transition-colors hover:bg-wash focus-visible:shadow-[3px_3px_0_0_var(--color-pink)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-paper'
 
-export const stepperButtonClass =
-  'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+/** 枠の無い小さなアイコンボタン（条件の有効／削除など） */
+export const quietIconButtonClass =
+  'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-ui text-ink-muted transition-colors hover:bg-wash hover:text-ink focus-visible:shadow-[3px_3px_0_0_var(--color-pink)]'

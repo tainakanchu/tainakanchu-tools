@@ -1,29 +1,48 @@
 /**
  * 都市ごとの色。タイムラインと滞在リストで同じ色を使い、
  * 「どのブロックがどの都市か」を目で追えるようにする。
+ * 色は Riso インク（RISO_INKS の並び順）。色だけに頼らず、都市名の文字も必ず添える。
  * Tailwind は静的な文字列しか拾えないので、クラス名はここに literal で並べる。
  */
 
+import { RISO_INKS } from '../../../../components/ui'
+import type { RisoInkId } from '../../../../components/ui'
+
 export interface CityColor {
-  /** タイムラインのブロック */
+  /** ブロック・丸・色帯の地（bg-riso-*） */
   bar: string
-  /** リスト行の左端インジケータ・チップ */
-  dot: string
-  /** 淡い背景 */
-  soft: string
+  /** 地の上に載せる文字色（text-paper / text-ink） */
+  text: string
+  /** SVG 用の地の色 */
+  hex: string
+  /** SVG 用の文字の色 */
+  textHex: string
+}
+
+const PAPER_HEX = '#FFFFFF'
+const INK_HEX = '#1D3A8A'
+
+function inkColor(id: RisoInkId, bar: string): CityColor {
+  const ink = RISO_INKS.find((item) => item.id === id)
+  const onPaper = ink?.textOnInk === 'paper'
+  return {
+    bar,
+    text: onPaper ? 'text-paper' : 'text-ink',
+    hex: ink?.hex ?? '#88898A',
+    textHex: onPaper ? PAPER_HEX : INK_HEX,
+  }
 }
 
 const cityColors: Array<CityColor> = [
-  { bar: 'bg-sky-500', dot: 'bg-sky-500', soft: 'bg-sky-50' },
-  { bar: 'bg-emerald-500', dot: 'bg-emerald-500', soft: 'bg-emerald-50' },
-  { bar: 'bg-amber-500', dot: 'bg-amber-500', soft: 'bg-amber-50' },
-  { bar: 'bg-violet-500', dot: 'bg-violet-500', soft: 'bg-violet-50' },
-  { bar: 'bg-rose-500', dot: 'bg-rose-500', soft: 'bg-rose-50' },
-  { bar: 'bg-teal-500', dot: 'bg-teal-500', soft: 'bg-teal-50' },
-  { bar: 'bg-indigo-500', dot: 'bg-indigo-500', soft: 'bg-indigo-50' },
-  { bar: 'bg-orange-500', dot: 'bg-orange-500', soft: 'bg-orange-50' },
-  { bar: 'bg-fuchsia-500', dot: 'bg-fuchsia-500', soft: 'bg-fuchsia-50' },
-  { bar: 'bg-lime-600', dot: 'bg-lime-600', soft: 'bg-lime-50' },
+  inkColor('teal', 'bg-riso-teal'),
+  inkColor('orange', 'bg-riso-orange'),
+  inkColor('purple', 'bg-riso-purple'),
+  inkColor('yellow', 'bg-riso-yellow'),
+  inkColor('brick', 'bg-riso-brick'),
+  inkColor('green', 'bg-riso-green'),
+  inkColor('blue', 'bg-riso-blue'),
+  inkColor('pink', 'bg-riso-pink'),
+  inkColor('grey', 'bg-riso-grey'),
 ]
 
 /** 都市 ID → 色。訪問順に色を割り当てるので、並べ替えても同じ都市は同じ色 */
@@ -40,24 +59,26 @@ export function buildCityColorMap(
   return map
 }
 
+/** カタログに無い都市など、色が決まらないときの色（紙に近い薄い面） */
 export const fallbackCityColor: CityColor = {
-  bar: 'bg-gray-400',
-  dot: 'bg-gray-400',
-  soft: 'bg-gray-50',
+  bar: 'bg-rule',
+  text: 'text-ink',
+  hex: '#CDD4E5',
+  textHex: INK_HEX,
 }
 
 /**
  * 曜日番号 (0 = 日 〜 6 = 土) → 曜日の文字色。
- * 日本のカレンダー慣習に合わせて土=青・日=赤、平日は色を持たず周囲を継承する。
+ * 土はティール、日はブリック。平日は色を持たず周囲を継承する。
  */
 const weekdayToneClasses: Array<string> = [
-  'text-red-600', // 日
+  'text-riso-brick', // 日
   '',
   '',
   '',
   '',
   '',
-  'text-blue-600', // 土
+  'text-riso-teal', // 土
 ]
 
 export function weekdayToneClass(weekdayIndex: number): string {

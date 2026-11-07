@@ -19,45 +19,23 @@
  *   デバイスの時計が出発地のまま止まっている事故を防ぐための安全弁なので、
  *   予約が0件のときやエラー状態でも必ず見える位置に置く。
  *
- * 色の使い分け(この画面で色を増やさないための取り決め):
- *   cyan    = これから来ること(マイルストーン・次の予約・操作)
- *   emerald = いま進行中であること
- *   amber   = メモ
- *   rose    = 時間切れが近いこと(締切間近・終了間近)
- * 締切系(手荷物・搭乗手続き)とそれ以外の区別に新しい色は使わない。
- * 色を増やすほど「どれが危険なのか」が薄まるためで、区別はアイコン
- * (Luggage / TicketCheck)とラベルの太さで付ける。rose は迫った締切に
- * 使い回すが、これは意味の衝突ではなく「時間切れが近い」という同じ意味の共有。
+ * 形の使い分け(この画面で強さを増やさないための取り決め):
+ * - 青インクの枠で囲むのは「次に来る時刻」の先頭 1 件と、今・次の予約カードだけ。
+ *   続きのマイルストーンや終日の予定は罫で区切った行にして、箱を積まない。
+ * - ピンクの薄網＋ピンクの枠は「時間切れが近いこと」(締切間近・終了間近)だけ。
+ *   締切系(手荷物・搭乗手続き)とそれ以外の区別には色を使わず、ラベルの太さで付ける。
+ *   色を増やすほど「どれが危険なのか」が薄まるため。
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import {
-  AlarmClock,
-  ArrowRightCircle,
-  CalendarPlus,
-  CalendarX2,
-  ChevronDown,
-  CircleDot,
-  Clock,
-  Copy,
-  ExternalLink,
-  Flag,
-  Globe,
-  Heart,
-  IdCard,
-  ListChecks,
-  LogIn,
-  LogOut,
-  Luggage,
-  MapPin,
-  Plus,
-  Smartphone,
-  TicketCheck,
-  Timer,
-  X,
-} from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { ChevronDown, ExternalLink, X } from 'lucide-react'
 import type { FormEvent } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import {
+  Badge,
+  Panel,
+  SegmentedControl,
+  buttonClass,
+} from '../../../../components/ui'
 import { findCurrentAndNext } from '../../../../lib/trip-notes/derive'
 import {
   DEADLINE_SOON_MS,
@@ -89,12 +67,9 @@ import {
   sectionTitleClass,
   subtleButtonClass,
 } from '../-lib/styles'
-import { BOOKING_KIND_LABELS, KindIcon, TravelDocIcon } from './KindIcon'
+import { BOOKING_KIND_LABELS } from './KindIcon'
 import { BookingStatusBadge, PaymentStatusBadge } from './StatusBadge'
-import type {
-  Milestone,
-  MilestoneKind,
-} from '../../../../lib/trip-notes/milestones'
+import type { Milestone } from '../../../../lib/trip-notes/milestones'
 import type { CurrentPlaceGuess } from '../../../../lib/trip-notes/whereabouts'
 import type { TripNotesDispatch } from '../-lib/reducer'
 import type {
@@ -147,41 +122,13 @@ const ENDING_SOON_MS = 2 * 60 * 60 * 1000
 const MILESTONE_LIST_MAX = 5
 
 /**
- * マイルストーンのアイコン。
- *
- * 締切系(Luggage / TicketCheck)は他と形がはっきり違うものを選ぶ。
- * この 2 つだけは過ぎると取り返しがつかないので、色が見えない環境でも
- * 一覧の中から拾えるようにするため。
- * 出発と開始、到着と終了は、利用者にとって同じ意味(出ていく / そこで終わる)
- * なので同じ形を使う。宿の出入りだけは LogIn / LogOut で対にして、
- * 「建物に入る・出る」という別の動きであることを示す。
- *
- * オンラインチェックインの開放は締切ではないので、締切系の 2 つとは別の形
- * (Smartphone)にする。同じ飛行機に紐づく時刻でも、こちらは手元のスマホで
- * 済ませる手続きで、カウンターに並べという合図ではない。締切と同じ形にすると
- * 一覧の中で締切が 3 つあるように見えてしまう。出発・到着とも形を変えるのは、
- * 実際に動く時刻とは別物だからである。
- */
-const MILESTONE_ICONS: Record<MilestoneKind, LucideIcon> = {
-  onlineCheckInOpen: Smartphone,
-  bagDrop: Luggage,
-  checkIn: TicketCheck,
-  departure: ArrowRightCircle,
-  arrival: Flag,
-  lodgingCheckIn: LogIn,
-  lodgingCheckOut: LogOut,
-  start: ArrowRightCircle,
-  end: Flag,
-}
-
-/**
  * 締切が迫っているか。境界は強調側に含める(ENDING_SOON_MS と同じ流儀で、
  * ちょうど 45 分を「まだ余裕がある」側に置く理由が無い)。
  *
  * オンラインチェックインの開放時刻はこの強調の対象にならない。
  * isDeadlineMilestone が false を返すので自動的に外れるが、これは
  * 種類を足したときの書き忘れではなく意図した除外である。開放に乗り遅れて
- * 失うのは席の選択肢だけで、その便には乗れる。rose の強調は「いま列に並べ」
+ * 失うのは席の選択肢だけで、その便には乗れる。ピンクの強調は「いま列に並べ」
  * という 1 つの行動を促すためのもので、そこに「そのうちやればよいこと」を
  * 混ぜると、本当に危ない締切と見分けが付かなくなって強調そのものが効かなくなる
  * (milestones.ts の DEADLINE_KINDS も同じ理由で 2 つに絞ってある)。
@@ -280,72 +227,63 @@ export function NowPanel({
   )
 
   return (
-    // 旅行中にスマホで開く一画面一情報の画面なので、main を広げても
-    // ここだけは横に伸ばさず中央寄せの読みやすい幅に留める
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-8">
-      <TzControl state={state} displayTz={displayTz} dispatch={dispatch} />
+    // 旅行中にスマホで開く一画面一情報の画面なので、主役の列（次に来る時刻・次の予定）は
+    // 横に伸ばさず読みやすい幅に留める。広い画面では、予約と関係なく成り立つ控え
+    // （やりたいこと・手続き・国の情報）を右の列に回し、右半分が空かないようにする。
+    // スマホでは 1 列で、控えは主役のあとに続く
+    <div className="grid w-full gap-x-12 gap-y-8 pb-8 lg:grid-cols-[minmax(0,48rem)_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-8">
+        <TzControl state={state} displayTz={displayTz} dispatch={dispatch} />
 
-      {!hasAnyBooking ? (
-        <EmptyState onGoToSchedule={onGoToSchedule} />
-      ) : hasNothingToShow ? (
-        <OutOfRangeState onGoToSchedule={onGoToSchedule} />
-      ) : (
-        <>
-          {current.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <h2 className={sectionTitleClass}>
-                <CircleDot
-                  size={16}
-                  className="text-emerald-600"
-                  aria-hidden="true"
-                />
-                今
-              </h2>
-              {current.map((booking) => (
+        {!hasAnyBooking ? (
+          <EmptyState onGoToSchedule={onGoToSchedule} />
+        ) : hasNothingToShow ? (
+          <OutOfRangeState onGoToSchedule={onGoToSchedule} />
+        ) : (
+          <>
+            {current.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <h2 className={sectionTitleClass}>今</h2>
+                {current.map((booking) => (
+                  <BookingHero
+                    key={booking.id}
+                    booking={booking}
+                    displayTz={displayTz}
+                    variant="current"
+                    nowMs={nowMs}
+                  />
+                ))}
+              </section>
+            )}
+
+            <MilestoneSection
+              milestones={milestones}
+              displayTz={displayTz}
+              nowMs={nowMs}
+              onGoToSchedule={onGoToSchedule}
+            />
+
+            {next && (
+              <section className="flex flex-col gap-3">
+                <h2 className={sectionTitleClass}>次の予定</h2>
                 <BookingHero
-                  key={booking.id}
-                  booking={booking}
+                  booking={next}
                   displayTz={displayTz}
-                  variant="current"
+                  variant="next"
                   nowMs={nowMs}
                 />
-              ))}
-            </section>
-          )}
+              </section>
+            )}
 
-          <MilestoneSection
-            milestones={milestones}
-            displayTz={displayTz}
-            nowMs={nowMs}
-            onGoToSchedule={onGoToSchedule}
-          />
+            {timelessUpcoming.length > 0 && (
+              <UpcomingList bookings={timelessUpcoming} displayTz={displayTz} />
+            )}
+          </>
+        )}
+      </div>
 
-          {next && (
-            <section className="flex flex-col gap-3">
-              <h2 className={sectionTitleClass}>
-                <ArrowRightCircle
-                  size={16}
-                  className="text-cyan-600"
-                  aria-hidden="true"
-                />
-                次の予定
-              </h2>
-              <BookingHero
-                booking={next}
-                displayTz={displayTz}
-                variant="next"
-                nowMs={nowMs}
-              />
-            </section>
-          )}
-
-          {timelessUpcoming.length > 0 && (
-            <UpcomingList bookings={timelessUpcoming} displayTz={displayTz} />
-          )}
-        </>
-      )}
-
-      {/*
+      <div className="flex min-w-0 flex-col gap-8">
+        {/*
         やりたいこと。予約の有無と関係なく成り立つので、上の3分岐の外側に置く
         (下の 2 つの控えと同じ理由)。控えより上にあるのは、こちらだけが
         「その場で押して状態が変わる」ものだからである。プラグ形状や参照番号は
@@ -354,12 +292,12 @@ export function NowPanel({
         マイルストーンのヒーローより下なのは変えない。この画面の主役は
         あくまで「次に来る時刻」で、そこは動かさない
       */}
-      <WishSection
-        wishes={state.wishes ?? []}
-        guess={placeGuess}
-        dispatch={dispatch}
-      />
-      {/*
+        <WishSection
+          wishes={state.wishes ?? []}
+          guess={placeGuess}
+          dispatch={dispatch}
+        />
+        {/*
         手続きの控え(取得済みかつ参照番号があるものだけ)。予約の有無や
         現在地の判定と関係なく成り立つ情報なので、上の3分岐(空/期間外/
         表示あり)の外側、画面のいちばん下に固定で置く。分岐の内側にまで
@@ -368,15 +306,16 @@ export function NowPanel({
         中で0件なら null を返すので、この位置に固定で置いても
         「予約がまだありません」の空状態の下に余計な空白が出ることはない
       */}
-      <TravelDocRecap docs={state.travelDocs ?? []} />
-      {/*
+        <TravelDocRecap docs={state.travelDocs ?? []} />
+        {/*
         国・地域の情報も、手続きの控えとまったく同じ理由でここに置く
         (予約や現在地の判定と関係なく成り立つ参照用の情報)。
         手続きの控えの下にしたのは、印刷しおりの並び(旅行前の手続き →
         国・地域の情報 → 緊急連絡先)と揃えるため。同じ控えが画面と紙で違う順に
         出てくると、紙で見た順に画面を辿れなくなる
       */}
-      <CountryInfoRecap countryInfos={state.countryInfos ?? []} />
+        <CountryInfoRecap countryInfos={state.countryInfos ?? []} />
+      </div>
     </div>
   )
 }
@@ -393,62 +332,47 @@ function TzControl({
   dispatch: TripNotesDispatch
 }) {
   const isPinned = state.pinnedTz !== null
+  const titleId = useId()
+  const label = tzLabel(displayTz)
+  const tzText = label === displayTz ? displayTz : `${label}（${displayTz}）`
 
   return (
-    <div className={`${cardClass} border-cyan-300 bg-cyan-50/50`}>
-      <div className={sectionTitleClass}>
-        <Clock size={16} className="text-cyan-700" aria-hidden="true" />
+    // 箱にはしない。この画面で囲むのは「次に来る時刻」の先頭と予約カードだけにして、
+    // 設定の帯が主役より強く見えないようにする
+    <section className="flex flex-col gap-2">
+      <h2 id={titleId} className={sectionTitleClass}>
         表示タイムゾーン
-      </div>
+      </h2>
 
-      <div
-        className="mt-2 flex overflow-hidden rounded-full border border-gray-300 bg-white text-sm"
-        role="group"
-        aria-label="タイムゾーンの決め方"
-      >
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'setPinnedTz', tz: null })}
-          aria-pressed={!isPinned}
-          className={`min-h-11 flex-1 px-3 py-2 font-medium transition ${
-            !isPinned
-              ? 'bg-cyan-600 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          デバイスの時計に従う
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            dispatch({ type: 'setPinnedTz', tz: state.pinnedTz ?? displayTz })
-          }
-          aria-pressed={isPinned}
-          className={`min-h-11 flex-1 px-3 py-2 font-medium transition ${
-            isPinned
-              ? 'bg-cyan-600 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          タイムゾーンを固定する
-        </button>
-      </div>
+      <SegmentedControl
+        labelledBy={titleId}
+        value={isPinned ? 'pinned' : 'device'}
+        onChange={(mode) =>
+          dispatch({
+            type: 'setPinnedTz',
+            tz: mode === 'device' ? null : (state.pinnedTz ?? displayTz),
+          })
+        }
+        options={[
+          { value: 'device', label: 'デバイスの時計に従う' },
+          { value: 'pinned', label: 'タイムゾーンを固定する' },
+        ]}
+        className="self-start"
+      />
 
       {/*
         機内モードでデバイスの時計が出発地のままでも気付けるように、
         「今どちらのモードで、実際のtz名が何か」を色に頼らず常に文字で出す。
       */}
-      <p className="mt-2 text-xs text-gray-600">
-        {isPinned ? '固定中: ' : 'デバイス依存: '}
-        {tzLabel(displayTz)} ({displayTz})
+      <p className="text-sm text-ink-muted">
+        {isPinned
+          ? `${tzText}に固定して表示しています`
+          : `デバイスの時計どおり、${tzText}で表示しています`}
       </p>
 
       {isPinned && (
-        <div className="mt-2">
-          <label
-            htmlFor="now-panel-tz-select"
-            className="text-xs font-medium text-gray-600"
-          >
+        <div className="field mt-1 max-w-sm">
+          <label htmlFor="now-panel-tz-select" className="field-label">
             固定するタイムゾーン
           </label>
           <select
@@ -457,7 +381,7 @@ function TzControl({
             onChange={(event) =>
               dispatch({ type: 'setPinnedTz', tz: event.target.value })
             }
-            className={`${fieldClass} mt-1`}
+            className={fieldClass}
           >
             {tzOptions(state.pinnedTz ?? displayTz).map((option) => (
               <option key={option.tz} value={option.tz}>
@@ -467,7 +391,7 @@ function TzControl({
           </select>
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -493,35 +417,27 @@ function BookingHero({
   /** 「終了まで」と「受付中」の判定に使う(BookingStateChips 参照) */
   nowMs: number
 }) {
-  const accent =
-    variant === 'current'
-      ? 'border-emerald-300 bg-emerald-50/40'
-      : 'border-cyan-300 bg-cyan-50/40'
-
   return (
-    <article className={`${cardClass} ${accent}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
-          <KindIcon kind={booking.kind} size={18} />
+    <Panel as="article" className="p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="palt text-sm font-medium text-ink-muted">
           {BOOKING_KIND_LABELS[booking.kind]}
-        </div>
+        </p>
         <div className="flex items-center gap-1.5">
-          <BookingStatusBadge status={booking.status} size="sm" />
-          <PaymentStatusBadge payment={booking.payment} size="sm" />
+          <BookingStatusBadge status={booking.status} />
+          <PaymentStatusBadge payment={booking.payment} />
         </div>
       </div>
 
-      <h3 className="mt-2 text-xl font-bold text-gray-900">{booking.title}</h3>
+      <h3 className="mt-2 text-xl font-bold break-words text-ink">
+        {booking.title}
+      </h3>
 
-      <p className="mt-1 text-lg font-semibold text-gray-800">
+      {/* 発着の時刻は時刻表として読む所なので、en dash で詰める */}
+      <p className="mt-1 text-lg font-bold text-ink tabular-nums">
         {safeFormatDualTime(booking.start, displayTz)}
         {booking.end !== null && (
-          <>
-            <span className="mx-1.5 text-gray-400" aria-hidden="true">
-              →
-            </span>
-            {safeFormatDualTime(booking.end, displayTz)}
-          </>
+          <>–{safeFormatDualTime(booking.end, displayTz)}</>
         )}
       </p>
 
@@ -534,11 +450,12 @@ function BookingHero({
       <PlacesBlock booking={booking} />
 
       {booking.note && (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm break-words text-amber-900">
-          {booking.note}
-        </p>
+        <div className="mt-4 border-t border-rule pt-3">
+          <p className="text-xs font-medium text-ink-muted">メモ</p>
+          <p className="mt-0.5 text-sm break-words text-ink">{booking.note}</p>
+        </div>
       )}
-    </article>
+    </Panel>
   )
 }
 
@@ -578,9 +495,9 @@ function BookingStateChips({
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      {checkInOpen && <OpenStateChip icon={LogIn} label="チェックイン受付中" />}
+      {checkInOpen && <OpenStateChip label="チェックイン受付中" />}
       {onlineCheckInOpen && (
-        <OpenStateChip icon={Smartphone} label="オンラインチェックイン受付中" />
+        <OpenStateChip label="オンラインチェックイン受付中" />
       )}
       {ending !== null && <EndingCountdown ending={ending} />}
     </div>
@@ -599,25 +516,18 @@ function BookingStateChips({
  *
  * 2 つを 1 つの器にまとめたのは、利用者から見れば同じ事実(もうできる)だから。
  * 見た目が割れていると「片方には別の意味があるのか」と読ませてしまうので、
- * 違うのはアイコンとラベルだけにする。
+ * 違うのはラベルだけにする。
  *
- * カウントダウンではないので数字を持たない。emerald はこの画面で
- * 「いま効いていること」の色。オンラインチェックインのチップは cyan の枠の
- * カード(まだ先の予定)の中に出るが、これは意味の衝突ではない。予定そのものは
- * まだ先で、この手続きだけがもう始まっている、という 2 つの事実をそのまま映している。
+ * カウントダウンではないので数字を持たない。状態の札なので Badge で出す。
+ * オンラインチェックインの札は「次の予定」のカードの中に出るが、これは意味の
+ * 衝突ではない。予定そのものはまだ先で、この手続きだけがもう始まっている、
+ * という 2 つの事実をそのまま映している。
  */
-function OpenStateChip({
-  icon: Icon,
-  label,
-}: {
-  icon: LucideIcon
-  label: string
-}) {
+function OpenStateChip({ label }: { label: string }) {
   return (
-    <p className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-800">
-      <Icon size={16} className="shrink-0" aria-hidden="true" />
+    <Badge tone="solid" className="font-bold">
       {label}
-    </p>
+    </Badge>
   )
 }
 
@@ -667,7 +577,7 @@ function endingCountdownOf(
  * ただ 1 つに決めてある。ここで同じ強さの数字を出すと、どちらがいま効いている
  * 数字なのか読み解く時間が要る。3 点で描き分ける。
  * - 位置: マイルストーンは独立したセクション。こちらは進行中カードの中で、
- *   「15:00 → 11:00」の時刻の行を読んだ直後に来る位置に置く
+ *   「15:00–11:00」の時刻の行を読んだ直後に来る位置に置く
  * - 形: マイルストーンはカードいっぱいの裸の数字。こちらは枠付きのインラインの
  *   チップにして、カード幅いっぱいに広がらないようにする
  * - 大きさ: マイルストーンの text-4xl に対してこちらは text-base
@@ -686,29 +596,24 @@ function endingCountdownOf(
  * こちらはラベル込みの通常のテキスト(「チェックアウトまで あと2時間」)にして、
  * 読みに行けば正しく読める形にする。
  *
- * 強調に rose を選んだのは、この「今」タブでは cyan がこれから来ることと操作、
- * emerald が進行中のカード、amber が booking.note のブロック(すぐ下に全幅で
- * 出る)に埋まっていて空いておらず、かつチェックアウト超過は実際にお金が
- * 出ていく事故なので、このコードベースで危険を表す rose が意味の上でも合うため。
- * それでも色だけに頼らず、枠の太さ(border → border-2)、アイコン
- * (Timer → AlarmClock)、数字の太さ(font-bold → font-extrabold)も
- * 一緒に変えて、色が見えなくても差が分かるようにする。
+ * 強調はピンクの薄網とピンクの枠。この画面でピンクを使うのは「時間切れが近い」
+ * ことだけに決めてあり(冒頭の取り決め)、チェックアウト超過は実際にお金が
+ * 出ていく事故なので意味の上でも合う。それでも色だけに頼らず、枠の太さ
+ * (border → border-2)も一緒に変えて、色が見えなくても差が分かるようにする。
  */
 function EndingCountdown({ ending }: { ending: EndingCountdownInfo }) {
   const { label, countdown, soon } = ending
-  const Icon = soon ? AlarmClock : Timer
 
   return (
     <p
-      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-base ${
+      className={`inline-flex items-baseline gap-1.5 rounded-ui px-2.5 py-1 text-base text-ink ${
         soon
-          ? 'border-2 border-rose-400 bg-rose-50 text-rose-800'
-          : 'border border-gray-300 bg-white text-gray-700'
+          ? 'border-2 border-pink bg-pink-wash'
+          : 'border border-ink bg-paper'
       }`}
     >
-      <Icon size={16} className="shrink-0" aria-hidden="true" />
       <span className="text-sm font-medium">{label}</span>
-      <span className={soon ? 'font-extrabold' : 'font-bold'}>{countdown}</span>
+      <span className="font-bold">{countdown}</span>
     </p>
   )
 }
@@ -740,23 +645,25 @@ function ConfirmationButton({ value }: { value: string }) {
         type="button"
         onClick={handleClick}
         aria-label={`確認番号 ${value} をタップしてコピー`}
-        className="block w-full rounded-xl border-2 border-cyan-300 bg-white px-3 py-4 text-center font-mono text-4xl font-bold tracking-wider break-all text-gray-900 shadow-sm transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 sm:text-5xl"
+        className="block w-full rounded-ui border-2 border-ink bg-paper px-3 py-4 text-center font-mono text-4xl font-bold break-all text-ink transition hover:bg-wash focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-5xl"
       >
         {value}
       </button>
       <p
-        className="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-gray-500"
+        className="mt-1 text-center text-xs font-medium text-ink-muted"
         role="status"
         aria-live="polite"
       >
-        <Copy size={12} aria-hidden="true" />
         {copied ? 'コピーしました' : 'タップして確認番号をコピー'}
       </p>
     </div>
   )
 }
 
-/** 移動なら from/to、宿泊・アクティビティなら place。両方あるものはすべて出す */
+/**
+ * 移動なら from/to、宿泊・アクティビティなら place。両方あるものはすべて出す。
+ * カードの中にもう一段の箱は作らず、罫で区切った行として並べる。
+ */
 function PlacesBlock({ booking }: { booking: Booking }) {
   const items: Array<{ label: string; place: Place }> = []
   if (booking.from) items.push({ label: '出発', place: booking.from })
@@ -765,7 +672,7 @@ function PlacesBlock({ booking }: { booking: Booking }) {
   if (items.length === 0) return null
 
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    <div className="mt-4">
       {items.map((item) => (
         <PlaceCard key={item.label} label={item.label} place={item.place} />
       ))}
@@ -788,33 +695,29 @@ function PlaceCard({ label, place }: { label: string; place: Place }) {
   })
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
+    <div className="border-t border-rule py-3 last:pb-0">
+      <p className="palt text-xs font-medium text-ink-muted">{label}</p>
       {hasLocalName ? (
         <>
-          <p className="text-2xl font-bold break-words text-gray-900">
+          <p className="text-2xl font-bold break-words text-ink">
             {place.localName}
           </p>
-          <p className="text-sm text-gray-600">{place.name}</p>
+          <p className="text-sm text-ink-muted">{place.name}</p>
         </>
       ) : (
-        <p className="text-xl font-bold break-words text-gray-900">
-          {place.name}
-        </p>
+        <p className="text-xl font-bold break-words text-ink">{place.name}</p>
       )}
       {place.address && (
-        <p className="mt-1 text-base break-words text-gray-700">
-          {place.address}
-        </p>
+        <p className="mt-1 text-base break-words text-ink">{place.address}</p>
       )}
       <a
         href={mapHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-cyan-300 px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        className={`${buttonClass('secondary', 'sm')} mt-2 min-h-11`}
       >
-        <MapPin size={16} aria-hidden="true" />
         地図で開く
+        <span className="text-xs font-normal text-ink-muted">（別サイト）</span>
       </a>
     </div>
   )
@@ -823,7 +726,8 @@ function PlaceCard({ label, place }: { label: string; place: Place }) {
 // --- 次に来る時刻(この画面の主役) ---
 
 /**
- * マイルストーンのセクション。いちばん近い 1 件を大きく、残りを一覧で出す。
+ * マイルストーンのセクション。いちばん近い 1 件だけを枠で大きく、
+ * 続きは罫で区切った行の一覧にする(同じ箱を縦に積むと、どれが主役か読めなくなる)。
  * 1 件も無ければセクションごと出さない(見出しだけが残ると、
  * 「次が無い」のか「壊れている」のか区別が付かない)。
  */
@@ -846,15 +750,12 @@ function MilestoneSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className={sectionTitleClass}>
-        <Timer size={16} className="text-cyan-600" aria-hidden="true" />
-        次に来る時刻
-      </h2>
+      <h2 className={sectionTitleClass}>次に来る時刻</h2>
 
       <MilestoneHero milestone={primary} displayTz={displayTz} nowMs={nowMs} />
 
       {shown.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="ink-line-t ink-line-b">
           {shown.map((milestone) => (
             <MilestoneRow
               key={`${milestone.bookingId}-${milestone.kind}`}
@@ -870,7 +771,7 @@ function MilestoneSection({
         <button
           type="button"
           onClick={onGoToSchedule}
-          className={subtleButtonClass}
+          className={`${buttonClass('quiet', 'sm')} self-start`}
         >
           ほか {hiddenCount} 件を日程で見る
         </button>
@@ -897,52 +798,34 @@ function MilestoneHero({
   nowMs: number
 }) {
   const soon = isDeadlineSoon(milestone, nowMs)
-  const Icon = soon ? AlarmClock : MILESTONE_ICONS[milestone.kind]
 
   return (
     <article
       className={`${cardClass} ${
-        soon
-          ? 'border-2 border-rose-400 bg-rose-50/50'
-          : 'border-cyan-300 bg-cyan-50/40'
+        soon ? 'border-2 border-pink bg-pink-wash' : 'panel-wash'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <div
-          className={`flex items-center gap-1.5 text-sm font-semibold ${
-            soon ? 'text-rose-800' : 'text-gray-700'
-          }`}
-        >
-          <Icon size={18} className="shrink-0" aria-hidden="true" />
+        <p className="palt text-sm font-bold text-ink">
           {MILESTONE_LABELS[milestone.kind]}
-        </div>
-        <BookingStatusBadge status={milestone.booking.status} size="sm" />
+        </p>
+        <BookingStatusBadge status={milestone.booking.status} />
       </div>
 
       {/*
         画面でただ 1 つの live region。毎分の更新で読み上げが二重にならないよう、
         ここ以外にはカウントダウンの live region を置かない(EndingCountdown 参照)
       */}
-      <p
-        className={`mt-1 text-4xl font-extrabold ${
-          soon ? 'text-rose-700' : 'text-cyan-700'
-        }`}
-        aria-live="polite"
-      >
+      <p className="mt-1 text-4xl font-bold text-ink" aria-live="polite">
         {formatCountdown(milestone.atMs - nowMs)}
       </p>
 
-      <p className="mt-1 text-lg font-semibold text-gray-800">
+      <p className="mt-1 text-lg font-bold text-ink tabular-nums">
         {safeFormatDualTime(milestone.at, displayTz)}
       </p>
 
-      <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
-        <KindIcon
-          kind={milestone.booking.kind}
-          size={14}
-          className="shrink-0"
-        />
-        <span className="truncate">{milestone.booking.title}</span>
+      <p className="mt-1 truncate text-sm text-ink-muted">
+        {milestone.booking.title}
       </p>
     </article>
   )
@@ -950,10 +833,10 @@ function MilestoneHero({
 
 /**
  * 2 番目以降のマイルストーン 1 行。時刻と何の時刻かが分かれば足りる。
+ * 箱にはせず、上の罫で区切った行として並べる。
  *
- * 締切系はラベルを太字にし、専用のアイコン(手荷物・搭乗券)を付ける。
- * 迫っているものだけ rose の枠を足すが、色が見えなくても
- * アイコンと太さで締切だと分かるようにしてある。
+ * 締切系はラベルを太字にする。迫っているものだけピンクの薄網と左の太い罫を足し、
+ * 「締切間近」と文字でも添えるので、色が見えなくても締切だと分かる。
  */
 function MilestoneRow({
   milestone,
@@ -966,43 +849,33 @@ function MilestoneRow({
 }) {
   const deadline = isDeadlineMilestone(milestone.kind)
   const soon = isDeadlineSoon(milestone, nowMs)
-  const Icon = soon ? AlarmClock : MILESTONE_ICONS[milestone.kind]
 
   return (
     <li
-      className={`${cardClass} p-3 ${soon ? 'border-2 border-rose-400 bg-rose-50/40' : ''}`}
+      className={`flex items-start gap-3 border-t border-rule py-3 first:border-t-0 ${
+        soon ? 'border-l-4 border-l-pink bg-pink-wash px-3' : ''
+      }`}
     >
-      <div className="flex items-center gap-2">
-        <Icon
-          size={16}
-          className={`shrink-0 ${soon ? 'text-rose-600' : 'text-gray-500'}`}
-          aria-hidden="true"
-        />
-        <span className="text-sm font-medium text-gray-500">
-          {safeFormatStamp(milestone.at, displayTz, {
-            withDate: true,
-            inDisplayTz: true,
-          })}
-        </span>
-        <span
-          className={`${deadline ? 'font-bold' : 'font-semibold'} text-sm ${
-            soon ? 'text-rose-800' : 'text-gray-900'
-          }`}
-        >
-          {MILESTONE_LABELS[milestone.kind]}
-        </span>
-        <span className="ml-auto shrink-0">
-          <BookingStatusBadge status={milestone.booking.status} size="sm" />
-        </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm text-ink">
+          <span className="font-medium text-ink-muted tabular-nums">
+            {safeFormatStamp(milestone.at, displayTz, {
+              withDate: true,
+              inDisplayTz: true,
+            })}
+          </span>
+          <span className={deadline ? 'font-bold' : 'font-medium'}>
+            {MILESTONE_LABELS[milestone.kind]}
+          </span>
+          {soon ? (
+            <span className="text-xs font-bold text-ink">締切間近</span>
+          ) : null}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-ink-muted">
+          {milestone.booking.title}
+        </p>
       </div>
-      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-600">
-        <KindIcon
-          kind={milestone.booking.kind}
-          size={12}
-          className="shrink-0"
-        />
-        <span className="truncate">{milestone.booking.title}</span>
-      </p>
+      <BookingStatusBadge status={milestone.booking.status} />
     </li>
   )
 }
@@ -1026,32 +899,25 @@ function UpcomingList({
 }) {
   return (
     <section>
-      <h2 className={sectionTitleClass}>
-        <ListChecks size={16} className="text-gray-500" aria-hidden="true" />
-        このあとの終日の予定
-      </h2>
-      <ul className="mt-2 flex flex-col gap-2">
+      <h2 className={sectionTitleClass}>このあとの終日の予定</h2>
+      <ul className="ink-line-t ink-line-b mt-3">
         {bookings.map((booking) => (
-          <li key={booking.id} className={`${cardClass} p-3`}>
-            <div className="flex items-center gap-2">
-              <KindIcon
-                kind={booking.kind}
-                size={16}
-                className="shrink-0 text-gray-500"
-              />
-              <span className="text-sm font-medium text-gray-500">
+          <li
+            key={booking.id}
+            className="flex items-start gap-3 border-t border-rule py-3 first:border-t-0"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink-muted tabular-nums">
                 {safeFormatStamp(booking.start, displayTz, {
                   withDate: true,
                   inDisplayTz: true,
                 })}
-              </span>
-              <span className="ml-auto shrink-0">
-                <BookingStatusBadge status={booking.status} size="sm" />
-              </span>
+              </p>
+              <p className="mt-0.5 truncate text-sm font-bold text-ink">
+                {booking.title}
+              </p>
             </div>
-            <p className="mt-1 truncate text-sm font-semibold text-gray-900">
-              {booking.title}
-            </p>
+            <BookingStatusBadge status={booking.status} />
           </li>
         ))}
       </ul>
@@ -1099,11 +965,8 @@ function WishSection({
   const grouped = area !== null
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <Heart size={16} className="text-rose-500" aria-hidden="true" />
-        やりたいこと
-      </h2>
+    <section className="ink-line-t pt-4">
+      <h2 className={sectionTitleClass}>やりたいこと</h2>
 
       {grouped ? (
         /*
@@ -1112,9 +975,8 @@ function WishSection({
           外れているときに利用者が「だから出ていないのか」と自力で辿り着ける。
           黙って並べ替えるだけだと、何を基準に選ばれた一覧なのか分からない
         */
-        <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-          <MapPin size={12} className="shrink-0" aria-hidden="true" />
-          いまは<span className="font-medium text-gray-700">{area}</span>
+        <p className="mt-1 text-xs text-ink-muted">
+          いまは<span className="font-medium text-ink">{area}</span>
           とみて、この町の分を先に出しています
         </p>
       ) : null}
@@ -1176,16 +1038,16 @@ function WishDetails({
   const undone = wishes.filter((wish) => !wish.done).length
 
   return (
-    <details className="group mt-3 border-t border-gray-100 pt-3">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+    <details className="group mt-3 border-t border-rule pt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink">
         <ChevronDown
           size={14}
-          className="shrink-0 transition group-open:rotate-180"
+          className="shrink-0 transition group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
         {label}
         {/* 総数ではなく未完了の数を先に出す。ここで知りたいのは「まだ残っているか」 */}
-        <span className="text-xs font-normal text-gray-400">
+        <span className="text-xs font-normal text-ink-muted">
           未完了{undone}件 / 全{wishes.length}件
         </span>
       </summary>
@@ -1215,7 +1077,7 @@ function WishList({
 }) {
   if (wishes.length === 0) {
     return emptyText === undefined ? null : (
-      <p className="mt-2 text-sm text-gray-500">{emptyText}</p>
+      <p className="mt-2 text-sm text-ink-muted">{emptyText}</p>
     )
   }
 
@@ -1253,32 +1115,29 @@ function WishRow({
   const area = wish.area?.trim() ?? ''
 
   return (
-    <li className="flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-gray-50">
+    <li className="flex items-start gap-2 rounded-ui px-1 py-1.5 hover:bg-wash">
       <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
         <input
           type="checkbox"
           checked={wish.done}
           onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-ink"
         />
         <span className="min-w-0 flex-1">
           <span
             className={
               wish.done
-                ? 'text-sm text-gray-400 line-through'
-                : 'text-sm text-gray-800'
+                ? 'text-sm text-ink-muted line-through'
+                : 'text-sm text-ink'
             }
           >
             {wish.title}
           </span>
           {showArea && area !== '' ? (
-            <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-gray-500">
-              <MapPin size={11} aria-hidden="true" />
-              {area}
-            </span>
+            <span className="ml-1.5 text-xs text-ink-muted">{area}</span>
           ) : null}
           {wish.note !== undefined && wish.note.length > 0 ? (
-            <span className="block text-xs text-gray-500">{wish.note}</span>
+            <span className="block text-xs text-ink-muted">{wish.note}</span>
           ) : null}
         </span>
       </label>
@@ -1288,7 +1147,7 @@ function WishRow({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${wish.title} のリンクを開く`}
-          className="mt-0.5 shrink-0 rounded-lg p-1 text-gray-500 transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className="mt-0.5 shrink-0 rounded-ui p-1 text-ink-muted transition hover:bg-wash hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <ExternalLink size={14} aria-hidden="true" />
         </a>
@@ -1358,10 +1217,9 @@ function QuickAddWish({
         />
         <button
           type="submit"
-          className={primaryButtonClass}
+          className={subtleButtonClass}
           disabled={title.trim().length === 0}
         >
-          <Plus size={16} aria-hidden="true" />
           追加
         </button>
       </div>
@@ -1372,19 +1230,18 @@ function QuickAddWish({
               type="button"
               onClick={() => setUseArea(false)}
               aria-label={`場所の指定「${presetArea}」を外す`}
-              className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="chip"
             >
-              <MapPin size={11} aria-hidden="true" />
               {presetArea}
-              <X size={11} aria-hidden="true" />
+              {/* 押すと外れることを示す印。読み上げは aria-label が担う */}
+              <X size={12} aria-hidden="true" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setUseArea(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+              className="chip"
             >
-              <MapPin size={11} aria-hidden="true" />
               場所を{presetArea}にする
             </button>
           )}
@@ -1417,47 +1274,37 @@ function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
   if (withReference.length === 0) return null
 
   return (
-    <details className={`${cardClass} group`}>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+    <details className="group ink-line-t pt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink">
         <ChevronDown
           size={14}
-          className="shrink-0 transition group-open:rotate-180"
-          aria-hidden="true"
-        />
-        <IdCard
-          size={16}
-          className="shrink-0 text-gray-500"
+          className="shrink-0 transition group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
         手続きの控え
-        <span className="text-xs font-normal text-gray-400">
+        <span className="text-xs font-normal text-ink-muted">
           {withReference.length}件
         </span>
       </summary>
-      <ul className="mt-3 flex flex-col gap-2">
+      <ul className="mt-2">
         {withReference.map((doc) => (
-          <li key={doc.id} className="rounded-lg border border-gray-200 p-2">
-            <div className="flex items-center gap-1.5">
-              <TravelDocIcon
-                kind={doc.kind}
-                size={14}
-                className="shrink-0 text-gray-500"
-              />
-              <span className="text-sm font-medium text-gray-800">
+          <li key={doc.id} className="border-t border-rule py-2">
+            <div>
+              <span className="text-sm font-medium text-ink">
                 {doc.title}
                 {doc.region !== undefined && doc.region.length > 0 ? (
-                  <span className="ml-1 font-normal text-gray-500">
+                  <span className="ml-1 font-normal text-ink-muted">
                     ({doc.region})
                   </span>
                 ) : null}
               </span>
             </div>
             {/* 選択してコピーしやすいよう等幅にし、select-all で1タップの範囲選択を促す */}
-            <p className="mt-0.5 font-mono text-sm text-gray-900 select-all">
+            <p className="mt-0.5 font-mono text-sm text-ink select-all">
               {doc.referenceNumber}
             </p>
             {doc.validFrom !== undefined || doc.validUntil !== undefined ? (
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-ink-muted">
                 有効期間: {doc.validFrom ?? '未定'} 〜{' '}
                 {doc.validUntil ?? '未定'}
               </p>
@@ -1511,24 +1358,19 @@ function CountryInfoRecap({
   if (countryInfos.length === 0) return null
 
   return (
-    <details className={`${cardClass} group`}>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+    <details className="group ink-line-t pt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink">
         <ChevronDown
           size={14}
-          className="shrink-0 transition group-open:rotate-180"
-          aria-hidden="true"
-        />
-        <Globe
-          size={16}
-          className="shrink-0 text-gray-500"
+          className="shrink-0 transition group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
         国・地域の情報
-        <span className="text-xs font-normal text-gray-400">
+        <span className="text-xs font-normal text-ink-muted">
           {countryInfos.length}件
         </span>
       </summary>
-      <ul className="mt-3 flex flex-col gap-2">
+      <ul className="mt-2">
         {countryInfos.map((info) => (
           <CountryInfoRow key={info.id} info={info} />
         ))}
@@ -1562,8 +1404,8 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
   if (hasText(info.tipping)) facts.push(`チップ ${info.tipping}`)
 
   return (
-    <li className="rounded-lg border border-gray-200 p-2">
-      <p className="text-sm font-medium text-gray-800">{info.name}</p>
+    <li className="border-t border-rule py-2">
+      <p className="text-sm font-medium text-ink">{info.name}</p>
       {numbers.length > 0 ? (
         <p className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           {numbers.map((number) => (
@@ -1571,9 +1413,9 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
               key={number.label}
               className="inline-flex items-baseline gap-1"
             >
-              <span className="text-xs text-gray-500">{number.label}</span>
+              <span className="text-xs text-ink-muted">{number.label}</span>
               {/* 参照番号と同じく、等幅 + select-all で1タップの範囲選択を促す */}
-              <span className="font-mono text-sm font-bold text-gray-900 select-all">
+              <span className="font-mono text-sm font-bold text-ink select-all">
                 {number.value}
               </span>
             </span>
@@ -1581,7 +1423,7 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
         </p>
       ) : null}
       {facts.length > 0 ? (
-        <p className="mt-0.5 text-xs text-gray-600">{facts.join(' ・ ')}</p>
+        <p className="mt-0.5 text-xs text-ink-muted">{facts.join('、')}</p>
       ) : null}
     </li>
   )
@@ -1591,14 +1433,9 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
 
 function EmptyState({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   return (
-    <div
-      className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`}
-    >
-      <CalendarPlus size={32} className="text-gray-300" aria-hidden="true" />
-      <p className="text-base font-semibold text-gray-700">
-        予約がまだありません
-      </p>
-      <p className="text-sm text-gray-500">
+    <div className={`${cardClass} flex flex-col items-start gap-3`}>
+      <p className="text-base font-bold text-ink">予約がまだありません</p>
+      <p className="text-sm text-ink-muted">
         日程タブから予約を追加すると、ここに「今」と「次」が表示されます。
       </p>
       <button
@@ -1614,14 +1451,9 @@ function EmptyState({ onGoToSchedule }: { onGoToSchedule: () => void }) {
 
 function OutOfRangeState({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   return (
-    <div
-      className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`}
-    >
-      <CalendarX2 size={32} className="text-gray-300" aria-hidden="true" />
-      <p className="text-base font-semibold text-gray-700">
-        表示できる予定がありません
-      </p>
-      <p className="text-sm text-gray-500">
+    <div className={`${cardClass} flex flex-col items-start gap-3`}>
+      <p className="text-base font-bold text-ink">表示できる予定がありません</p>
+      <p className="text-sm text-ink-muted">
         旅行の期間外か、すべての予定が終了しています。日程タブで確認してください。
       </p>
       <button

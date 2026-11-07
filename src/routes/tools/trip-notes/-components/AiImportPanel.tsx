@@ -1,28 +1,21 @@
 /**
  * AI インポート・ウィザード。
  *
- * 「プロンプトをコピー → 結果を貼り付け → レビューして取り込み」の3ステップに
+ * 「プロンプトをコピー」「結果を貼り付け」「レビューして取り込み」の3ステップに
  * 分けているのは、アプリが外部 API を一切呼ばない設計(aiPrompt.ts 参照)のため、
  * 利用者自身が手でコピー&ペーストを往復する必要があるから。各ステップの
  * 見出しと進捗を明示し、いま何をすればいいかを常に1つだけ提示する。
  *
  * 取り込みそのものはハイブリッド導線にしている。AI の抽出結果はそのまま信じず、
  * 日時とタイムゾーンだけは ReviewDialog で人間の確認を必須にし、
- * それ以外のフィールドは黄色い下線(unverified)を付けたまま取り込んで
+ * それ以外のフィールドは破線の下線(unverified)を付けたまま取り込んで
  * あとで確認できるようにする。全項目を毎回確認させると利用者が確認を
  * 面倒がって素通りするようになり、かえって事故が増えるための妥協。
  */
 
 import { useMemo, useState } from 'react'
-import {
-  CalendarDays,
-  ClipboardList,
-  ListChecks,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { X } from 'lucide-react'
+import { Badge, Button, Note } from '../../../../components/ui'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import { findBackfillGaps } from '../../../../lib/trip-notes/backfillPrompt'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
@@ -31,9 +24,8 @@ import { planImport } from '../../../../lib/trip-notes/importMerge'
 import {
   cardClass,
   fieldClass,
-  primaryButtonClass,
+  iconButtonClass,
   sectionTitleClass,
-  subtleButtonClass,
   unverifiedFieldClass,
 } from '../-lib/styles'
 import {
@@ -71,10 +63,12 @@ type WizardStep = 1 | 2 | 3
 function StepHeading({ step, title }: { step: WizardStep; title: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold tracking-wide text-cyan-700">
-        ステップ {step} / 3
-      </p>
-      <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+      <h3 className="text-base font-bold text-ink">
+        {step}. {title}
+        <span className="ml-2 text-sm font-normal text-ink-muted">
+          (全3ステップ)
+        </span>
+      </h3>
     </div>
   )
 }
@@ -86,17 +80,13 @@ function StepHeading({ step, title }: { step: WizardStep; title: string }) {
  */
 function UpdateBadge() {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700"
-      aria-label="既存の予約を更新します"
-    >
-      <RefreshCw size={11} aria-hidden="true" />
+    <Badge tone="muted" aria-label="既存の予約を更新します">
       更新
-    </span>
+    </Badge>
   )
 }
 
-/** 取り込み候補の1件をカードで見せる。unverified なフィールドには黄色い下線を引く */
+/** 取り込み候補の1件を罫の行で見せる。unverified なフィールドには破線の下線を引く */
 function BookingPreviewCard({
   booking,
   displayTz,
@@ -120,11 +110,11 @@ function BookingPreviewCard({
         )}`
 
   return (
-    <li className={cardClass}>
+    <li className="border-t border-rule py-3 first:border-t-0">
       <div className="flex flex-wrap items-center gap-2">
-        <KindIcon kind={booking.kind} className="shrink-0 text-gray-500" />
+        <KindIcon kind={booking.kind} className="shrink-0 text-ink-muted" />
         <span
-          className={`font-semibold text-gray-800 ${isUnverified('title') ? unverifiedFieldClass : ''}`}
+          className={`font-bold text-ink ${isUnverified('title') ? unverifiedFieldClass : ''}`}
         >
           {booking.title}
         </span>
@@ -132,7 +122,7 @@ function BookingPreviewCard({
         {willUpdate && <UpdateBadge />}
       </div>
       <p
-        className={`mt-1 inline-block text-sm text-gray-600 ${
+        className={`mt-1 inline-block text-sm text-ink-muted ${
           isUnverified('start') || isUnverified('end')
             ? unverifiedFieldClass
             : ''
@@ -142,7 +132,7 @@ function BookingPreviewCard({
       </p>
       {booking.confirmationNumber !== undefined && (
         <p
-          className={`mt-1 inline-block text-xs text-gray-500 ${
+          className={`mt-1 inline-block text-xs text-ink-muted ${
             isUnverified('confirmationNumber') ? unverifiedFieldClass : ''
           }`}
         >
@@ -198,7 +188,7 @@ const COUNTRY_FIELD_LABELS: Record<string, string> = {
   emergencyPolice: '警察',
   emergencyAmbulance: '救急・消防',
   plugTypes: 'プラグ形状',
-  voltage: '電圧・周波数',
+  voltage: '電圧と周波数',
   tipping: 'チップの文化',
   latinName: 'ラテン文字表記',
 }
@@ -233,41 +223,47 @@ function backfillScopeText(gaps: BackfillGaps): string {
  */
 function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-        <ClipboardList size={16} aria-hidden="true" className="text-cyan-600" />
+    <section className="border-t border-rule pt-4">
+      <h3 className="text-sm font-bold text-ink">
         登録済みの内容に空いている欄があります
       </h3>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-ink-muted">
         {backfillScopeText(gaps)}には、空のままの欄があります。上のプロンプト 1
         本で、
-        <strong className="font-semibold text-gray-800">
+        <strong className="font-bold text-ink">
           予約確認書を添付しても、しなくても
         </strong>
-        実行できます。書類が無いときは、一般知識で埋められる項目(締切・ラテン文字表記・国の基本情報など)だけが対象です。荷物枠のように書類にしか無い項目は捏造しません。
+        実行できます。書類が無いときは、一般知識で埋められる項目(締切、ラテン文字表記、国の基本情報など)だけが対象です。荷物枠のように書類にしか無い項目は捏造しません。
       </p>
 
-      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+      <dl className="mt-2 text-sm text-ink">
         {gaps.countsByField.map((count) => (
-          <li key={count.field.id}>
-            ・{count.field.label}: {count.bookingCount}件
-          </li>
+          <div
+            key={count.field.id}
+            className="flex justify-between gap-3 border-t border-rule py-1 first:border-t-0"
+          >
+            <dt>{count.field.label}</dt>
+            <dd className="tabular-nums">{count.bookingCount}件</dd>
+          </div>
         ))}
         {gaps.countries.length > 0 && (
-          <li>・国・地域の基本情報: {gaps.countries.length}件</li>
+          <div className="flex justify-between gap-3 border-t border-rule py-1 first:border-t-0">
+            <dt>国・地域の基本情報</dt>
+            <dd className="tabular-nums">{gaps.countries.length}件</dd>
+          </div>
         )}
-      </ul>
+      </dl>
 
       {gaps.bookingCount > 0 && (
-        <details className="mt-2 text-sm text-gray-600">
+        <details className="mt-2 text-sm text-ink-muted">
           <summary className="cursor-pointer">
             対象の予約({gaps.bookingCount}件)
           </summary>
           <ul className="mt-1 space-y-1">
             {gaps.targets.map((target) => (
               <li key={target.booking.id} className="text-xs">
-                {stampDate(target.booking.start)} {target.booking.title} —{' '}
-                {target.fields.map((field) => field.label).join(' / ')}
+                {stampDate(target.booking.start)} {target.booking.title}:{' '}
+                {target.fields.map((field) => field.label).join('、')}
               </li>
             ))}
           </ul>
@@ -275,15 +271,15 @@ function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
       )}
 
       {gaps.countries.length > 0 && (
-        <details className="mt-2 text-sm text-gray-600">
+        <details className="mt-2 text-sm text-ink-muted">
           <summary className="cursor-pointer">
             対象の国・地域({gaps.countries.length}件)
           </summary>
           <ul className="mt-1 space-y-1">
             {gaps.countries.map((entry) => (
               <li key={entry.country.id} className="text-xs">
-                {entry.country.name} —{' '}
-                {entry.missingKeys.map(countryFieldLabel).join(' / ')}
+                {entry.country.name}:{' '}
+                {entry.missingKeys.map(countryFieldLabel).join('、')}
               </li>
             ))}
           </ul>
@@ -291,30 +287,21 @@ function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
       )}
 
       {gaps.countryCount === 0 && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-ink-muted">
           国・地域はまだ登録されていません。設定タブの「国・地域の情報」に訪問先の国名を入れておくと、
-          プラグ形状・電圧・チップの文化・緊急通報番号も同じプロンプトで埋められます。
+          プラグ形状、電圧、チップの文化、緊急通報番号も同じプロンプトで埋められます。
         </p>
       )}
 
-      <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
-        <ShieldCheck
-          size={14}
-          aria-hidden="true"
-          className="mt-0.5 shrink-0 text-gray-500"
-        />
-        <span>
-          空き欄の埋めだけを頼むとき、AI
-          に送られる登録済みデータの中身はプロンプト内の
-          「登録済みで空いている欄」に書いてある
-          <strong className="font-semibold text-gray-800">
-            種別・タイトル・開始日時・場所の名前
-          </strong>
-          と国名だけです。
-          <strong className="font-semibold text-gray-800">
-            確認番号は含まれません。
-          </strong>
-        </span>
+      <p className="mt-3 text-xs text-ink-muted">
+        空き欄の埋めだけを頼むとき、AI
+        に送られる登録済みデータの中身はプロンプト内の
+        「登録済みで空いている欄」に書いてある
+        <strong className="font-bold text-ink">
+          種別、タイトル、開始日時、場所の名前
+        </strong>
+        と国名だけです。
+        <strong className="font-bold text-ink">確認番号は含まれません。</strong>
       </p>
     </section>
   )
@@ -467,29 +454,23 @@ export function AiImportPanel({
 
   return (
     <section className={cardClass}>
-      <div className={sectionTitleClass}>
-        <Sparkles size={18} aria-hidden="true" className="text-cyan-600" />
-        AI インポート
-      </div>
-      <p className="mt-1 text-sm text-gray-500">
+      <h2 className={sectionTitleClass}>AI インポート</h2>
+      <p className="mt-1 text-sm text-ink-muted">
         予約確認メールや PDF を AI
         に読み取らせて予約を取り込みます。同じプロンプトで、
-        登録済みの空き欄(締切・国の基本情報など)も埋められます。返ってきた JSON
+        登録済みの空き欄(締切や国の基本情報など)も埋められます。返ってきた JSON
         が旅程の新しい版になります。
       </p>
 
       {successMessage !== null && (
-        <div
-          role="status"
-          className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-        >
+        <Note role="status" className="mt-3">
           <div className="flex items-start justify-between gap-2">
             <span>{successMessage}</span>
             <button
               type="button"
               onClick={() => setSuccessMessage(null)}
               aria-label="このメッセージを閉じる"
-              className="shrink-0 rounded p-0.5 text-emerald-700 transition hover:bg-emerald-100"
+              className={`${iconButtonClass} -my-1`}
             >
               <X size={14} aria-hidden="true" />
             </button>
@@ -501,28 +482,21 @@ export function AiImportPanel({
           */}
           {importedFocusDate !== null && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onSelectDate(importedFocusDate)}
-                className={subtleButtonClass}
-              >
-                <CalendarDays size={15} aria-hidden="true" />
+              <Button size="sm" onClick={() => onSelectDate(importedFocusDate)}>
                 日程で確認する
-              </button>
+              </Button>
               {importedUnverifiedIds.length > 0 && (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
                   onClick={() => setBulkVerifyOpen(true)}
-                  className={subtleButtonClass}
                   aria-label={`取り込んだ${importedUnverifiedIds.length}件の未確認をまとめて確認済みにする`}
                 >
-                  <ListChecks size={15} aria-hidden="true" />
                   まとめて確認する
-                </button>
+                </Button>
               )}
             </div>
           )}
-        </div>
+        </Note>
       )}
 
       <div className="mt-4 space-y-4">
@@ -531,25 +505,21 @@ export function AiImportPanel({
             <StepHeading step={1} title="プロンプトをコピー" />
             <PromptCopyBlock prompt={prompt} alwaysShowPrompt rows={10} />
 
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-muted">
               コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
-              <strong className="font-semibold text-gray-800">
+              <strong className="font-bold text-ink">
                 予約確認メールや PDF があれば添付
               </strong>
               してください。添付が無くても、登録済みの空き欄は一般知識で埋められます。
-              返ってきた JSON をステップ 2
-              に貼ると、既存の旅程にマージされて新しい版になります。
+              返ってきた JSON
+              を次の画面で貼ると、既存の旅程にマージされて新しい版になります。
             </p>
             <AiServiceLinks />
 
             <div className="flex justify-end">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={() => setStep(2)}
-              >
+              <Button size="sm" onClick={() => setStep(2)}>
                 次へ: 結果を貼り付ける
-              </button>
+              </Button>
             </div>
 
             {hasGaps && <GapsInfoSection gaps={backfillGaps} />}
@@ -559,7 +529,7 @@ export function AiImportPanel({
         {step === 2 && (
           <div className="space-y-3">
             <StepHeading step={2} title="結果を貼り付ける" />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-muted">
               AI が返した JSON
               をそのまま貼り付けてください。前後に説明文が付いていたり、 ```json
               のようなフェンスが付いたままでも構いません。
@@ -573,20 +543,12 @@ export function AiImportPanel({
               aria-label="AI が返した JSON"
             />
             <div className="flex flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className={subtleButtonClass}
-                onClick={() => setStep(1)}
-              >
+              <Button size="sm" onClick={() => setStep(1)}>
                 戻る
-              </button>
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={handleParse}
-              >
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleParse}>
                 読み込む
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -595,7 +557,7 @@ export function AiImportPanel({
           <div className="space-y-3">
             <StepHeading step={3} title="レビューして取り込み" />
 
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-ink">
               {summarizeResult(importResult)}
             </p>
 
@@ -605,13 +567,13 @@ export function AiImportPanel({
               国の基本情報は件数と国名だけを見せて、1 件ずつ確認させる画面は作らない。
               確認を必須にしているのは「間違うと乗り遅れる」日時とタイムゾーンだけで
               (ReviewDialog のコメント参照)、国の基本情報は予約と違って
-              unverified(黄色い下線)の仕組みも持たないため、レビュー用の編集 UI を
+              unverified(破線の下線)の仕組みも持たないため、レビュー用の編集 UI を
               作っても「見た」という記録がどこにも残らない。取り込んだあとは
               設定タブの「国・地域の情報」でいつでも直せる。
               ここで保証するのは「何が増えるのかが取り込む前に分かること」だけでよい。
             */}
             {importResult.countryInfos.length > 0 && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-ink-muted">
                 国・地域の基本情報を{importResult.countryInfos.length}
                 件取り込みます(
                 {importResult.countryInfos.map((info) => info.name).join('、')}
@@ -622,19 +584,15 @@ export function AiImportPanel({
             {importResult.bookings.length === 0 &&
             importResult.countryInfos.length === 0 ? (
               <div className="flex justify-start">
-                <button
-                  type="button"
-                  className={subtleButtonClass}
-                  onClick={() => setStep(2)}
-                >
-                  ステップ2に戻ってやり直す
-                </button>
+                <Button size="sm" onClick={() => setStep(2)}>
+                  貼り付けに戻ってやり直す
+                </Button>
               </div>
             ) : (
               <>
-                {/* 国だけの取り込みでは予約のカードが 1 枚も無いので、一覧ごと出さない */}
+                {/* 国だけの取り込みでは予約の行が 1 つも無いので、一覧ごと出さない */}
                 {importResult.bookings.length > 0 && (
-                  <ul className="space-y-2">
+                  <ul className="ink-line-t ink-line-b">
                     {importResult.bookings.map((booking, index) => (
                       <BookingPreviewCard
                         key={booking.id}
@@ -649,16 +607,12 @@ export function AiImportPanel({
                   </ul>
                 )}
                 <div className="flex flex-wrap justify-between gap-2">
-                  <button
-                    type="button"
-                    className={subtleButtonClass}
-                    onClick={() => setStep(2)}
-                  >
+                  <Button size="sm" onClick={() => setStep(2)}>
                     戻る
-                  </button>
-                  <button
-                    type="button"
-                    className={primaryButtonClass}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => {
                       // 予約が 1 件も無いなら、ReviewDialog に確認させる日時が無い。
                       // あの画面は日時とタイムゾーンだけを見せるためのものなので、
@@ -672,7 +626,7 @@ export function AiImportPanel({
                     }}
                   >
                     取り込む
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -695,7 +649,7 @@ export function AiImportPanel({
       {bulkVerifyOpen && (
         <ConfirmDialog
           title="未確認をまとめて解除しますか?"
-          description={`取り込んだ${importedUnverifiedIds.length}件の黄色い下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
+          description={`取り込んだ${importedUnverifiedIds.length}件の破線の下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
           confirmLabel="すべて解除する"
           confirmAriaLabel={`取り込んだ${importedUnverifiedIds.length}件の未確認をすべて解除する`}
           onConfirm={handleBulkVerify}

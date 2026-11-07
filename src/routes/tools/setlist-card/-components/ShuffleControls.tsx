@@ -1,4 +1,3 @@
-import { Dices, Redo2, Undo2 } from 'lucide-react'
 import { Chip } from './ui'
 import type { ShuffleLocks } from '../-lib/shuffle'
 
@@ -29,41 +28,36 @@ export function ShuffleControls({
     <div className="flex items-center gap-1">
       <button
         type="button"
-        className="slc-btn"
+        className="btn btn-secondary"
         onClick={onShuffle}
         disabled={bothLocked}
         title={
           bothLocked
             ? 'テンプレートと配色の両方を固定しています'
-            : 'テンプレート・配色・文字組みをおまかせで選び直す'
+            : 'テンプレート、配色、文字組みをおまかせで選び直す'
         }
       >
-        <Dices size={18} aria-hidden />
         ランダム
       </button>
       <button
         type="button"
-        className="slc-btn"
-        data-variant="ghost"
-        data-size="icon"
+        className="btn btn-quiet"
         onClick={onBack}
         disabled={!canBack}
         aria-label="ひとつ前のデザインに戻る"
         title="戻る"
       >
-        <Undo2 size={18} aria-hidden />
+        戻る
       </button>
       <button
         type="button"
-        className="slc-btn"
-        data-variant="ghost"
-        data-size="icon"
+        className="btn btn-quiet"
         onClick={onForward}
         disabled={!canForward}
         aria-label="戻したデザインに進む"
         title="進む"
       >
-        <Redo2 size={18} aria-hidden />
+        進む
       </button>
     </div>
   )

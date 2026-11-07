@@ -2,19 +2,18 @@
  * 「この夜の宿が未確保」を知らせるカード。
  *
  * 予約カードと同じ見た目にすると流し読みで見落とされるので、
- * 破線の縁取り + 警告色で意図的に異質な見た目にしている。
+ * 太い破線の縁取り + 薄塗り + 「要対応」のピンクの印で、意図的に異質な見た目にしている。
  *
  * 連続する未確保の夜は呼び出し側で区間にまとめ、
  * 初日は primary(目立つカード)、2 日目以降は continuation(控えめな 1 行)を出す。
  * 同じカードを毎日フルサイズで並べるとうるさいので、継続日は導線だけ残す。
  */
 
-import { AlertTriangle, Plus } from 'lucide-react'
 import { addDays, formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { lodgingSearchLinks } from '../../../../lib/trip-notes/searchLinks'
 import type { GapAlertVariant } from '../../../../lib/trip-notes/uncovered-gaps'
 import { formatRangeShort } from '../-lib/format'
-import { primaryButtonClass } from '../-lib/styles'
+import { subtleButtonClass } from '../-lib/styles'
 import { SearchLinks } from './SearchLinks'
 
 interface GapAlertCardProps {
@@ -81,26 +80,17 @@ function PrimaryCard({
   return (
     <div
       role="alert"
-      className="flex flex-col gap-3 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 border-2 border-dashed border-ink bg-wash p-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex items-start gap-2.5">
-        <AlertTriangle
-          size={18}
-          className="mt-0.5 shrink-0 text-amber-600"
-          aria-hidden="true"
-        />
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-amber-900">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-ink">
             宿泊先が未定
-            <span className="font-medium text-amber-800">— {stayLabel}</span>
-            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
-              要対応
-            </span>
+            <span className="font-medium text-ink">（{stayLabel}）</span>
+            <span className="mark-pink text-xs font-bold">要対応</span>
           </p>
           {rangeLabel !== null ? (
-            <p className="mt-1 text-sm font-medium text-amber-800">
-              {rangeLabel}
-            </p>
+            <p className="mt-1 text-sm font-medium text-ink">{rangeLabel}</p>
           ) : null}
           {searchLinks.length > 0 ? (
             <div className="mt-2">
@@ -112,10 +102,9 @@ function PrimaryCard({
       <button
         type="button"
         onClick={onAddLodging}
-        className={`${primaryButtonClass} shrink-0 self-start bg-amber-600 hover:bg-amber-700 focus-visible:outline-amber-500 sm:self-center`}
+        className={`${subtleButtonClass} shrink-0 self-start sm:self-center`}
         aria-label={`${ariaDate}の宿泊予約を追加`}
       >
-        <Plus size={15} aria-hidden="true" />
         予約を追加
       </button>
     </div>
@@ -136,21 +125,15 @@ function ContinuationRow({
   return (
     <div
       role="status"
-      className="flex items-center justify-between gap-2 rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-1.5 text-xs text-amber-800"
+      className="flex items-center justify-between gap-2 border border-ink-muted bg-wash px-3 py-1.5 text-xs text-ink"
     >
-      <p className="min-w-0 truncate">
-        <span className="mr-1.5 text-amber-500" aria-hidden="true">
-          ・
-        </span>
-        {label}
-      </p>
+      <p className="min-w-0 truncate">{label}</p>
       <button
         type="button"
         onClick={onAddLodging}
-        className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium text-amber-700 underline-offset-2 hover:bg-amber-100 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500"
+        className="inline-flex shrink-0 items-center rounded-ui px-1.5 py-0.5 font-medium text-ink underline decoration-rule underline-offset-2 hover:bg-paper hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink"
         aria-label={`${label}の宿泊予約を追加`}
       >
-        <Plus size={12} aria-hidden="true" />
         追加
       </button>
     </div>

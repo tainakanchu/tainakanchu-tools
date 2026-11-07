@@ -1,5 +1,5 @@
+import { Select } from '../../../../components/ui'
 import { cityCatalog } from '../../../../lib/trip-scheduler/cities'
-import { fieldClass } from '../-lib/styles'
 import type { City } from '../../../../lib/trip-scheduler/types'
 
 const cityGroups: Array<{ country: string; cities: Array<City> }> = (() => {
@@ -19,6 +19,7 @@ interface CitySelectProps {
   value: string | null
   onChange: (cityId: string | null) => void
   placeholder?: string
+  /** Field の外で使うときの aria-label。Field の中なら不要 */
   label?: string
   className?: string
 }
@@ -32,13 +33,13 @@ export function CitySelect({
   className,
 }: CitySelectProps) {
   return (
-    <select
+    <Select
       aria-label={label}
       value={value ?? ''}
       onChange={(event) =>
         onChange(event.target.value === '' ? null : event.target.value)
       }
-      className={className ?? fieldClass}
+      className={className}
     >
       <option value="">{placeholder}</option>
       {cityGroups.map((group) => (
@@ -50,6 +51,6 @@ export function CitySelect({
           ))}
         </optgroup>
       ))}
-    </select>
+    </Select>
   )
 }

@@ -6,11 +6,11 @@
  * (どの予約とどの予約を突き合わせた結果なのか)と食い違う恐れがあるうえ、
  * 文言が 2 か所に散って片方だけ直される。
  *
- * 種別ごとにアイコンと短い見出しを変えるのは、同じ見た目で並ぶと
- * 「また同じ警告か」と読み飛ばされるためである。一方で色は警告どうしなら揃える。
+ * 種別ごとに短い見出しを変えるのは、同じ見出しで並ぶと
+ * 「また同じ警告か」と読み飛ばされるためである。一方で形は警告どうしなら揃える。
  * 深刻さの違いは種別ではなく「寝る場所がない夜が何泊あるか」で効くので、
- * ここで警告の中に色の段階を作ると上段のアラートと重大度の読みが二重になる。
- * severity が 'info' のもの(乗り継ぎの案内)は色も見出しも分ける。
+ * ここで警告の中に強さの段階を作ると上段のアラートと重大度の読みが二重になる。
+ * severity が 'info' のもの(乗り継ぎの案内)は一覧ごと分け、行も弱い文字にする。
  * これは直すべき不整合ではなく「知らせるだけ」なので、警告と同じ塊に混ぜると
  * 「不整合 N 件」の N が直しようのない数で膨らみ、本当の穴が埋もれる。
  *
@@ -20,64 +20,33 @@
  * 「日程で直す」が旅程を直す道なら、こちらは判定のほうを直す道である。
  */
 
-import {
-  BedDouble,
-  Hourglass,
-  Info,
-  MapPinCheck,
-  MapPinX,
-  PlaneTakeoff,
-  Route,
-  TriangleAlert,
-} from 'lucide-react'
+import { Badge } from '../../../../components/ui'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { isAliasableIssueKind } from '../../../../lib/trip-notes/itinerary'
 import { subtleButtonClass } from '../-lib/styles'
-import type { LucideIcon } from 'lucide-react'
 import type {
   ItineraryIssue,
   ItineraryIssueKind,
   ItineraryIssueSeverity,
 } from '../../../../lib/trip-notes/types'
 
-interface IssueStyle {
-  icon: LucideIcon
-  /** 一覧を目で走らせるための短い見出し。詳細は message が持つ */
-  label: string
+/** 一覧を目で走らせるための短い見出し。詳細は message が持つ */
+const ISSUE_LABELS: Record<ItineraryIssueKind, string> = {
+  'missing-transport': '移動が未登録',
+  'location-mismatch': '到着地の食い違い',
+  'missing-lodging': '宿が未登録',
+  'departure-mismatch': '出発地の食い違い',
+  layover: '乗り継ぎ',
 }
 
-const ISSUE_STYLES: Record<ItineraryIssueKind, IssueStyle> = {
-  'missing-transport': { icon: Route, label: '移動が未登録' },
-  'location-mismatch': { icon: MapPinX, label: '到着地の食い違い' },
-  'missing-lodging': { icon: BedDouble, label: '宿が未登録' },
-  'departure-mismatch': { icon: PlaneTakeoff, label: '出発地の食い違い' },
-  layover: { icon: Hourglass, label: '乗り継ぎ' },
-}
-
-/** severity ごとの配色。警告は琥珀、情報は空色 */
-const SEVERITY_CLASSES: Record<
-  ItineraryIssueSeverity,
-  { box: string; icon: string; title: string; body: string; badge: string }
-> = {
-  warning: {
-    box: 'border-amber-200 bg-amber-50',
-    icon: 'text-amber-600',
-    title: 'text-amber-900',
-    body: 'text-amber-800',
-    badge: 'border-amber-300 text-amber-700',
-  },
-  info: {
-    box: 'border-sky-200 bg-sky-50',
-    icon: 'text-sky-600',
-    title: 'text-sky-900',
-    body: 'text-sky-800',
-    badge: 'border-sky-300 text-sky-700',
-  },
+/** severity ごとの本文の強さ。警告は濃い文字、情報は弱い文字 */
+const SEVERITY_BODY_CLASSES: Record<ItineraryIssueSeverity, string> = {
+  warning: 'text-ink',
+  info: 'text-ink-muted',
 }
 
 interface IssueSectionProps {
   title: string
-  headingIcon: LucideIcon
   issues: Array<ItineraryIssue>
   onSelectDate: (date: string) => void
   onTreatAsSamePlace?: (names: [string, string]) => void
@@ -85,7 +54,6 @@ interface IssueSectionProps {
 
 function IssueSection({
   title,
-  headingIcon: HeadingIcon,
   issues,
   onSelectDate,
   onTreatAsSamePlace,
@@ -94,43 +62,33 @@ function IssueSection({
 
   return (
     <div className="mt-4">
-      <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
-        <HeadingIcon size={13} aria-hidden="true" />
+      <p className="palt mb-1.5 flex items-center gap-1 text-xs font-medium text-ink-muted">
         {title}
         <span className="tabular-nums">{issues.length}件</span>
       </p>
-      <ul className="space-y-2">
+      {/* 同じ種類の指摘が続くので、箱を積まずに罫で区切った行にする */}
+      <ul className="ink-line-t ink-line-b">
         {issues.map((issue) => {
-          const style = ISSUE_STYLES[issue.kind]
-          const tone = SEVERITY_CLASSES[issue.severity]
-          const Icon = style.icon
+          const label = ISSUE_LABELS[issue.kind]
+          const body = SEVERITY_BODY_CLASSES[issue.severity]
           return (
             <li
               // 同じ予約の組でも種別が違えば別の指摘になるので、種別まで鍵に含める
               key={`${issue.kind}:${issue.date}:${issue.fromBookingId ?? ''}:${issue.toBookingId ?? ''}`}
-              className={`flex flex-wrap items-start justify-between gap-2 rounded-xl border px-3 py-2 ${tone.box}`}
+              className="flex flex-wrap items-start justify-between gap-2 border-t border-rule py-3 first:border-t-0"
             >
-              <div className="flex min-w-0 items-start gap-2">
-                <Icon
-                  size={16}
-                  className={`mt-0.5 shrink-0 ${tone.icon}`}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p
-                    className={`flex flex-wrap items-center gap-2 text-sm font-medium ${tone.title}`}
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
+                  {label}
+                  <Badge
+                    tone={issue.severity === 'warning' ? 'outline' : 'muted'}
                   >
-                    {style.label}
-                    <span
-                      className={`rounded-full border bg-white px-1.5 py-0.5 text-[10px] font-semibold ${tone.badge}`}
-                    >
-                      {formatDateJa(issue.date)}
-                    </span>
-                  </p>
-                  <p className={`mt-0.5 text-xs leading-relaxed ${tone.body}`}>
-                    {issue.message}
-                  </p>
-                </div>
+                    {formatDateJa(issue.date)}
+                  </Badge>
+                </p>
+                <p className={`mt-0.5 text-xs leading-relaxed ${body}`}>
+                  {issue.message}
+                </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-1.5">
                 {/*
@@ -145,17 +103,16 @@ function IssueSection({
                     onClick={() =>
                       onTreatAsSamePlace([issue.fromLabel, issue.toLabel])
                     }
-                    className={`${subtleButtonClass} bg-white`}
+                    className={subtleButtonClass}
                     aria-label={`${issue.fromLabel} と ${issue.toLabel} を同じ場所として扱う`}
                   >
-                    <MapPinCheck size={14} aria-hidden="true" />
                     同じ場所として扱う
                   </button>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => onSelectDate(issue.date)}
-                  className={`${subtleButtonClass} bg-white`}
+                  className={subtleButtonClass}
                   aria-label={`${formatDateJa(issue.date)}の日程を開く`}
                 >
                   {/* 情報の指摘は直すものではないので、行き先だけ示す */}
@@ -193,14 +150,12 @@ export function ItineraryIssueList({
     <>
       <IssueSection
         title="旅程の不整合"
-        headingIcon={TriangleAlert}
         issues={warnings}
         onSelectDate={onSelectDate}
         onTreatAsSamePlace={onTreatAsSamePlace}
       />
       <IssueSection
         title="確認しておきたい点"
-        headingIcon={Info}
         issues={notices}
         onSelectDate={onSelectDate}
         onTreatAsSamePlace={onTreatAsSamePlace}

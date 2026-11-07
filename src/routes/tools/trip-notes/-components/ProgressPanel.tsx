@@ -14,26 +14,13 @@
  */
 
 import { useState } from 'react'
-import {
-  AlertTriangle,
-  CalendarClock,
-  CheckCircle2,
-  ChevronRight,
-  CircleDashed,
-  CircleHelp,
-  ClipboardList,
-  Columns3,
-  IdCard,
-  List,
-  PiggyBank,
-  Wallet,
-} from 'lucide-react'
+import { Note, SegmentedControl } from '../../../../components/ui'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { warningIssuesOf } from '../../../../lib/trip-notes/itinerary'
 import { findTentativeNights } from '../../../../lib/trip-notes/nights'
 import { formatDaysLeft, formatMoney } from '../-lib/format'
 import { KANBAN_AXIS_LABELS } from '../-lib/kanban'
-import { cardClass, sectionTitleClass, subtleButtonClass } from '../-lib/styles'
+import { sectionTitleClass, subtleButtonClass } from '../-lib/styles'
 import { ItineraryIssueList } from './ItineraryIssueList'
 import { KanbanBoard } from './KanbanBoard'
 import { NightCoverageStrip } from './NightCoverageStrip'
@@ -72,7 +59,7 @@ function MiniBar({
 }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0)
   return (
-    <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-gray-200">
+    <div className="mt-1.5 flex h-2 w-full overflow-hidden bg-rule">
       {segments.map((s) => (
         <div
           key={s.label}
@@ -85,9 +72,9 @@ function MiniBar({
   )
 }
 
-const kpiTileClass = 'rounded-xl bg-gray-50 p-3'
-const kpiLabelClass = 'flex items-center gap-1 text-xs text-gray-500'
-const kpiValueClass = 'mt-1 text-lg font-semibold tabular-nums text-gray-900'
+const kpiTileClass = 'bg-wash p-3'
+const kpiLabelClass = 'palt text-xs text-ink-muted'
+const kpiValueClass = 'mt-1 text-lg font-bold tabular-nums text-ink'
 
 function BookingStatusTile({
   confirmedCount,
@@ -100,24 +87,21 @@ function BookingStatusTile({
 }) {
   return (
     <div className={kpiTileClass}>
-      <p className={kpiLabelClass}>
-        <ClipboardList size={13} aria-hidden="true" />
-        予約状況
-      </p>
+      <p className={kpiLabelClass}>予約状況</p>
       <p className={kpiValueClass}>
         確定{confirmedCount}
-        <span className="text-sm font-normal text-gray-400">
+        <span className="text-sm font-normal text-ink-muted">
           /仮{tentativeCount}
         </span>
       </p>
       <MiniBar
         segments={[
-          { value: confirmedCount, className: 'bg-emerald-500', label: '確定' },
-          { value: tentativeCount, className: 'bg-amber-400', label: '仮' },
+          { value: confirmedCount, className: 'bg-ink', label: '確定' },
+          { value: tentativeCount, className: 'bg-ink-muted', label: '仮' },
         ]}
       />
       {cancelledCount > 0 ? (
-        <p className="mt-1 text-[11px] text-gray-400">
+        <p className="mt-1 text-xs text-ink-muted">
           キャンセル {cancelledCount}件
         </p>
       ) : null}
@@ -134,20 +118,17 @@ function PaymentStatusTile({
 }) {
   return (
     <div className={kpiTileClass}>
-      <p className={kpiLabelClass}>
-        <Wallet size={13} aria-hidden="true" />
-        支払状況
-      </p>
+      <p className={kpiLabelClass}>支払状況</p>
       <p className={kpiValueClass}>
         完済{paidCount}
-        <span className="text-sm font-normal text-gray-400">
+        <span className="text-sm font-normal text-ink-muted">
           /未{notPaidCount}
         </span>
       </p>
       <MiniBar
         segments={[
-          { value: paidCount, className: 'bg-emerald-500', label: '完済' },
-          { value: notPaidCount, className: 'bg-amber-400', label: '未払い等' },
+          { value: paidCount, className: 'bg-ink', label: '完済' },
+          { value: notPaidCount, className: 'bg-ink-muted', label: '未払い等' },
         ]}
       />
     </div>
@@ -160,11 +141,8 @@ function BudgetTile({ budget }: { budget: Array<BudgetByCurrency> }) {
   if (budget.length === 0) {
     return (
       <div className={kpiTileClass}>
-        <p className={kpiLabelClass}>
-          <PiggyBank size={13} aria-hidden="true" />
-          予算合計
-        </p>
-        <p className="mt-1 text-sm text-gray-400">金額未入力</p>
+        <p className={kpiLabelClass}>予算合計</p>
+        <p className="mt-1 text-sm text-ink-muted">金額未入力</p>
       </div>
     )
   }
@@ -175,12 +153,9 @@ function BudgetTile({ budget }: { budget: Array<BudgetByCurrency> }) {
 
   return (
     <div className={kpiTileClass}>
-      <p className={kpiLabelClass}>
-        <PiggyBank size={13} aria-hidden="true" />
-        予算合計
-      </p>
+      <p className={kpiLabelClass}>予算合計</p>
       <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
-        <p className="text-lg font-semibold tabular-nums text-gray-900">
+        <p className="text-lg font-bold tabular-nums text-ink">
           {formatMoney(primary.total, primary.currency)}
         </p>
         {others.length > 0 ? (
@@ -188,7 +163,7 @@ function BudgetTile({ budget }: { budget: Array<BudgetByCurrency> }) {
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700 transition hover:bg-cyan-200"
+            className="rounded-ui bg-wash px-1.5 py-0.5 text-xs font-medium text-ink transition hover:bg-wash"
           >
             +{others.length}通貨
           </button>
@@ -198,22 +173,22 @@ function BudgetTile({ budget }: { budget: Array<BudgetByCurrency> }) {
         segments={[
           {
             value: primary.paid,
-            className: 'bg-emerald-500',
+            className: 'bg-ink',
             label: '支払済み',
           },
           {
             value: primary.outstanding,
-            className: 'bg-amber-400',
+            className: 'bg-ink-muted',
             label: '残額',
           },
         ]}
       />
-      <p className="mt-1 truncate text-[11px] text-gray-500">
+      <p className="mt-1 truncate text-xs text-ink-muted">
         支払済み {formatMoney(primary.paid, primary.currency)} / 残額{' '}
         {formatMoney(primary.outstanding, primary.currency)}
       </p>
       {expanded && others.length > 0 ? (
-        <ul className="mt-2 space-y-0.5 border-t border-gray-200 pt-2 text-[11px] text-gray-600">
+        <ul className="mt-2 space-y-0.5 border-t border-rule pt-2 text-xs text-ink-muted">
           {others.map((b) => (
             <li key={b.currency} className="flex justify-between gap-2">
               <span>{b.currency}</span>
@@ -240,74 +215,22 @@ function UnverifiedTile({
     <button
       type="button"
       onClick={onJumpToUnverified}
-      className="rounded-xl bg-amber-50 p-3 text-left transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+      className="rounded-ui border border-ink bg-paper p-3 text-left transition hover:bg-wash focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
-      <p className="flex items-center gap-1 text-xs text-amber-700">
-        <CircleHelp size={13} aria-hidden="true" />
-        要確認
-      </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-amber-900">
-        {count}件
-      </p>
-      <p className="mt-1 flex items-center gap-0.5 text-[11px] font-medium text-amber-700">
+      <p className="palt text-xs text-ink">要確認</p>
+      <p className="mt-1 text-lg font-bold tabular-nums text-ink">{count}件</p>
+      <p className="mt-1 text-xs font-medium text-ink underline decoration-rule underline-offset-4">
         確認する
-        <ChevronRight size={12} aria-hidden="true" />
       </p>
     </button>
   )
 }
 
 /**
- * 2〜3 択の表示切替。role="tab" ではなく aria-pressed のボタン列にしているのは、
- * 切り替わるのがページの一部で、タブパネルとしての読み上げ(何枚目/全何枚)が
- * かえって回りくどくなるため。
- */
-function SegmentedToggle<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: T
-  options: Array<{ value: T; label: string; icon?: typeof List }>
-  onChange: (next: T) => void
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-0.5"
-    >
-      {options.map((option) => {
-        const selected = option.value === value
-        const Icon = option.icon
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option.value)}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
-              selected
-                ? 'bg-white text-cyan-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {Icon === undefined ? null : <Icon size={13} aria-hidden="true" />}
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/**
- * 仮のままの夜がある琥珀のアラートに添える一言。
+ * 仮のままの夜があるアラートに添える一言。
  * 「あと何をすればよいか」まで書くのは、この段階が警告ではなく
  * 「割り当ては済んだが、まだ取っていない」という途中経過だからで、
- * 何をすれば緑になるのかが分からないと、琥珀のまま放置される
+ * 何をすれば確定になるのかが分からないと、仮のまま放置される
  */
 const TENTATIVE_NIGHTS_HINT =
   '移動のつながりに不整合はありません。仮の予約を取って確定にすれば、寝る場所が確保できます'
@@ -326,19 +249,19 @@ export function ProgressPanel({
   const [axis, setAxis] = useState<KanbanAxis>('status')
 
   // 乗り継ぎの案内(severity: 'info')は直す対象ではないので、
-  // 赤いアラートの点灯にも件数にも数えない。
+  // 穴アラートの点灯にも件数にも数えない。
   // 手続き(travelDocIssues)も同じ理由でここには混ぜない。
   // 上段の穴アラートは「旅程そのものが壊れているか(寝る場所がない/移動が
   // つながっていない)」を示す場所で、手続きの抜けは旅程が壊れているかとは
   // 別の軸(現地に行く前ならまだ埋め合わせが効く)なので、点灯条件を共有すると
-  // 「旅程は完璧なのに手続き待ちで赤くなる」のような読み違えが起きる
+  // 「旅程は完璧なのに手続き待ちで警告が出る」のような読み違えが起きる
   const warningIssues = warningIssuesOf(summary.itineraryIssues)
   const hasHoles = summary.uncoveredNights > 0 || warningIssues.length > 0
 
   // 穴が無くても「確保できています」と言い切れるとは限らない。
   // 検討中・仮押さえの宿で埋めただけの夜は、割り当てがあるだけで何も取れていない。
-  // 未確保(赤)とは別の段階として琥珀で出す。赤と同じ強さで出すと、
-  // 本当に寝る場所がない夜の警告と区別が付かなくなる
+  // 未確保(エラーの帯)とは別の段階として、破線の注意の帯で出す。
+  // 同じ強さで出すと、本当に寝る場所がない夜の警告と区別が付かなくなる
   const hasTentativeNights = !hasHoles && summary.tentativeNights > 0
   // 「日程で確定させる」の飛び先。件数は summary から取れるので、
   // ここで一覧が要るのは最初の 1 泊の日付を知るためだけ
@@ -376,37 +299,22 @@ export function ProgressPanel({
   const todayInTz = Temporal.Now.plainDateISO(displayTz).toString()
 
   return (
-    <section className={cardClass}>
+    // 外枠の箱は付けない。中のカンバンの列や帯が箱の中の箱になるため
+    <section>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className={sectionTitleClass}>
-          {hasHoles ? (
-            <AlertTriangle
-              size={18}
-              className="text-rose-600"
-              aria-hidden="true"
-            />
-          ) : hasTentativeNights ? (
-            <CircleDashed
-              size={18}
-              className="text-amber-600"
-              aria-hidden="true"
-            />
-          ) : (
-            <CheckCircle2
-              size={18}
-              className="text-emerald-600"
-              aria-hidden="true"
-            />
-          )}
-          旅の進捗
-        </h2>
-        <SegmentedToggle
+        <h2 className={sectionTitleClass}>旅の進捗</h2>
+        {/*
+          ページの一部だけが切り替わるので、role="tab" ではなく 2 択の radiogroup にする
+          (タブパネルとしての読み上げ(何枚目/全何枚)がかえって回りくどくなるため)
+        */}
+        <SegmentedControl
           label="進捗の表示方法"
+          size="sm"
           value={view}
           onChange={setView}
           options={[
-            { value: 'list', label: '一覧', icon: List },
-            { value: 'kanban', label: 'カンバン', icon: Columns3 },
+            { value: 'list', label: '一覧' },
+            { value: 'kanban', label: 'カンバン' },
           ]}
         />
       </div>
@@ -417,14 +325,14 @@ export function ProgressPanel({
         3 段階にしているのは、「割り当てが無い」と「割り当てはあるが仮のまま」を
         同じ言葉で片付けると嘘になるため。仮の宿しか置いていないのに
         「すべて確保できています」と言われると、この画面を見て安心した人が
-        何も予約しないまま出発することになる。かといって仮を未確保と同じ赤で出すと、
+        何も予約しないまま出発することになる。かといって仮を未確保と同じ強さで出すと、
         警告が旅程じゅうに広がって本当の穴が埋もれる(nights.ts の
-        findTentativeNights 参照)。危険度の順に 赤 → 琥珀 → 緑 と落とす
+        findTentativeNights 参照)。危険度の順に、エラーの帯(ピンクの網)、
+        注意の帯(破線)、ふつうの帯(薄塗り)と落とす
       */}
       {hasHoles ? (
-        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-rose-800">
-            <AlertTriangle size={20} className="shrink-0" aria-hidden="true" />
+        <Note tone="error" className="mt-3">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink">
             <span className="text-sm font-medium">
               寝る場所がない夜:{' '}
               <span className="text-2xl font-bold tabular-nums">
@@ -432,7 +340,7 @@ export function ProgressPanel({
               </span>
               泊
             </span>
-            <span className="text-rose-300" aria-hidden="true">
+            <span className="text-ink" aria-hidden="true">
               ／
             </span>
             <span className="text-sm font-medium">
@@ -443,53 +351,49 @@ export function ProgressPanel({
               件
             </span>
           </p>
-        </div>
+        </Note>
       ) : hasTentativeNights ? (
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <div className="flex min-w-0 items-start gap-2 text-amber-900">
-            <CircleDashed
-              size={20}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
+        <Note
+          tone="warn"
+          className="mt-3 flex flex-wrap items-start justify-between gap-2"
+        >
+          <div className="min-w-0 text-ink">
             <div className="min-w-0">
               {/*
                 数字を span で囲まないのは、1 つの文として読み上げさせたいため。
                 「N泊」だけが独立した塊になると、前後の文と切れて意味が変わる
               */}
-              <p className="text-sm font-semibold">
+              <p className="text-sm font-bold">
                 {`寝る場所の割り当てはすべての夜にありますが、${summary.tentativeNights}泊は検討中・仮押さえのままです`}
               </p>
-              <p className="mt-0.5 text-xs text-amber-800">
-                {TENTATIVE_NIGHTS_HINT}
-              </p>
+              <p className="mt-0.5 text-xs text-ink">{TENTATIVE_NIGHTS_HINT}</p>
             </div>
           </div>
           {firstTentativeDate === undefined ? null : (
             <button
               type="button"
               onClick={() => onSelectDate(firstTentativeDate)}
-              className={`${subtleButtonClass} shrink-0 bg-white`}
+              className={`${subtleButtonClass} shrink-0 bg-paper`}
               aria-label={`${formatDateJa(firstTentativeDate)}の日程を開いて予約を確定させる`}
             >
               日程で確定させる
             </button>
           )}
-        </div>
+        </Note>
       ) : (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-          <CheckCircle2 size={20} aria-hidden="true" />
-          <p className="text-sm font-semibold">
+        <Note className="mt-3">
+          <p className="text-sm font-bold">
             穴はありません。寝る場所も移動のつながりもすべて確保できています
           </p>
-        </div>
+        </Note>
       )}
 
       {view === 'kanban' ? (
         <div className="mt-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <SegmentedToggle
+            <SegmentedControl
               label="カンバンの軸"
+              size="sm"
               value={axis}
               onChange={setAxis}
               options={[
@@ -497,7 +401,7 @@ export function ProgressPanel({
                 { value: 'payment', label: KANBAN_AXIS_LABELS.payment },
               ]}
             />
-            <p className="text-[11px] text-gray-400">
+            <p className="text-xs text-ink-muted">
               {axis === 'status'
                 ? 'カードをつかんで列を移すと、その予約の予約状況が変わります'
                 : 'キャンセル済みの予約は支払いの対象外なので出していません'}
@@ -541,11 +445,10 @@ export function ProgressPanel({
           {summary.cancelDeadlines.length > 0 ? (
             <div className="mt-4">
               <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                <p className="flex items-center gap-1 text-xs font-medium text-gray-500">
-                  <CalendarClock size={13} aria-hidden="true" />
+                <p className="palt text-xs font-medium text-ink-muted">
                   無料キャンセル期限
                 </p>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-xs text-ink-muted">
                   {formatDateJa(todayInTz)} 時点
                 </p>
               </div>
@@ -555,14 +458,15 @@ export function ProgressPanel({
                   return (
                     <li
                       key={deadline.bookingId}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+                      className={`flex items-center gap-1.5 rounded-ui border px-2.5 py-1 text-xs ${
                         urgent
-                          ? 'border-rose-300 bg-rose-50 font-semibold text-rose-700'
-                          : 'border-gray-300 bg-white text-gray-600'
+                          ? 'border-pink bg-pink-wash font-bold text-ink'
+                          : 'border-ink bg-paper text-ink-muted'
                       }`}
                     >
-                      <span>{formatDaysLeft(deadline.daysLeft)}</span>
-                      <span aria-hidden="true">・</span>
+                      <span className="font-bold">
+                        {formatDaysLeft(deadline.daysLeft)}
+                      </span>
                       <span>{formatDateJa(deadline.date)}</span>
                       <span className="font-medium">{deadline.title}</span>
                     </li>
@@ -600,20 +504,18 @@ export function ProgressPanel({
           */}
           {travelDocs.length > 0 ? (
             <div className="mt-4">
-              <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
-                <IdCard size={13} aria-hidden="true" />
+              <p className="palt mb-1.5 flex items-center gap-1 text-xs font-medium text-ink-muted">
                 手続き
                 <span className="tabular-nums">
                   {travelDocs.length}件中{doneTravelDocCount}件が取得済み
                 </span>
               </p>
               {summary.travelDocIssues.length === 0 ? (
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
-                  <CheckCircle2 size={16} aria-hidden="true" />
+                <Note>
                   <p className="text-sm font-medium">
                     手続きの抜けはありません
                   </p>
-                </div>
+                </Note>
               ) : (
                 <TravelDocIssueList issues={summary.travelDocIssues} />
               )}

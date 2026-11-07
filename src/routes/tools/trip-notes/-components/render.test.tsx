@@ -465,12 +465,12 @@ describe('BookingCard は予約状況でカード自体の見た目を変える'
     expect(confirmedContainer.querySelector('.border-dashed')).toBeNull()
   })
 
-  it('held は実線のまま琥珀のボーダーが付き、idea の破線とは違う', () => {
+  it('held は実線のまま濃い罫が付き、idea の破線とは違う', () => {
     const { container } = render(
       <BookingCard booking={bk('held-1', { status: 'held' })} {...cardProps} />,
     )
 
-    expect(container.querySelector('.border-amber-300')).toBeTruthy()
+    expect(container.querySelector('.border-ink')).toBeTruthy()
     expect(container.querySelector('.border-dashed')).toBeNull()
   })
 })
@@ -669,11 +669,11 @@ describe('「今」タブは進行中の予約に終了までのカウントダ�
     // bk() の既定の end は 2026-06-14T10:00:00+02:00 = 08:00Z
     const before = renderAt('2026-06-14T05:59:00Z')
     expect(before.scope.getByText('あと2時間1分')).toBeTruthy()
-    expect(before.container.querySelector('.border-rose-400')).toBeNull()
+    expect(before.container.querySelector('.border-pink')).toBeNull()
 
     const after = renderAt('2026-06-14T06:00:00Z')
     expect(after.scope.getByText('あと2時間')).toBeTruthy()
-    expect(after.container.querySelector('.border-rose-400')).toBeTruthy()
+    expect(after.container.querySelector('.border-pink')).toBeTruthy()
     vi.useRealTimers()
   })
 })
@@ -743,10 +743,10 @@ describe('「今」タブは次に来る時刻をマイルストーンとして�
     vi.useFakeTimers()
     // 手荷物の締切は 10:00Z。DEADLINE_SOON_MS は 45 分なので 09:15Z が境界
     const before = renderAt('2026-06-14T09:14:00Z', [flight])
-    expect(before.container.querySelector('.border-rose-400')).toBeNull()
+    expect(before.container.querySelector('.border-pink')).toBeNull()
 
     const after = renderAt('2026-06-14T09:15:00Z', [flight])
-    expect(after.container.querySelector('.border-rose-400')).toBeTruthy()
+    expect(after.container.querySelector('.border-pink')).toBeTruthy()
     vi.useRealTimers()
   })
 

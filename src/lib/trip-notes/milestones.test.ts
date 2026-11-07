@@ -519,7 +519,7 @@ describe('isDeadlineMilestone', () => {
 
   it('オンラインチェックイン開始は締切の強調の対象にしない', () => {
     // 「〜からできる」の開始点なので、乗り遅れても失うのは席の選択肢だけ。
-    // ここを true にすると、本当に危ない締切の赤い強調が効かなくなる
+    // ここを true にすると、本当に危ない締切のピンクの強調が効かなくなる
     expect(isDeadlineMilestone('onlineCheckInOpen')).toBe(false)
   })
 })

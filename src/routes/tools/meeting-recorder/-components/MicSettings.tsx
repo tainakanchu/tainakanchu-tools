@@ -1,4 +1,4 @@
-import { checkboxClass, fieldClass, labelClass } from '../-lib/styles'
+import { Checkbox, Field, Select } from '../../../../components/ui'
 import type { MicOptions } from '../-lib/capture'
 
 type Props = {
@@ -25,10 +25,8 @@ const TOGGLES: ReadonlyArray<{
 export function MicSettings({ options, devices, disabled, onChange }: Props) {
   return (
     <div className="space-y-3">
-      <label className="block space-y-1">
-        <span className={labelClass}>マイク</span>
-        <select
-          className={fieldClass}
+      <Field label="マイク">
+        <Select
           value={options.deviceId}
           disabled={disabled}
           onChange={(event) =>
@@ -41,32 +39,28 @@ export function MicSettings({ options, devices, disabled, onChange }: Props) {
               {device.label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
       <div className="flex flex-wrap gap-x-5 gap-y-2">
         {TOGGLES.map((toggle) => (
-          <label
+          <Checkbox
             key={toggle.key}
-            className="inline-flex items-center gap-2 text-sm text-gray-700"
-          >
-            <input
-              type="checkbox"
-              className={checkboxClass}
-              checked={options[toggle.key]}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange({ ...options, [toggle.key]: event.target.checked })
-              }
-            />
-            <span>
-              {toggle.label}
-              {toggle.note && (
-                <span className="ml-1 text-xs text-gray-500">
-                  （{toggle.note}）
-                </span>
-              )}
-            </span>
-          </label>
+            checked={options[toggle.key]}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({ ...options, [toggle.key]: event.target.checked })
+            }
+            label={
+              <>
+                {toggle.label}
+                {toggle.note && (
+                  <span className="ml-1 text-xs text-ink-muted">
+                    （{toggle.note}）
+                  </span>
+                )}
+              </>
+            }
+          />
         ))}
       </div>
     </div>

@@ -50,7 +50,6 @@ import {
   isColumnDropId,
 } from '../-lib/kanban'
 import { BookingStatusBadge, PaymentStatusBadge } from './StatusBadge'
-import { KindIcon } from './KindIcon'
 import type {
   Announcements,
   ClientRect,
@@ -397,19 +396,14 @@ export function KanbanBoard({ bookings, axis, dispatch }: KanbanBoardProps) {
       </div>
       <DragOverlay>
         {activeBooking === null ? null : (
-          <div className="flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-white px-2.5 py-2 text-sm font-medium shadow-lg">
-            <KindIcon
-              kind={activeBooking.kind}
-              size={14}
-              className="shrink-0 text-gray-500"
-            />
+          <div className="flex items-center gap-1.5 border border-ink bg-paper px-2.5 py-2 text-sm font-medium">
             <span className="truncate">{activeBooking.title}</span>
             {/*
               つかんだ 1 枚の題名だけが浮いていると「これ 1 枚が動く」と読めるので、
               まとめて動かしているときは件数を載せる
             */}
             {movingCount > 1 ? (
-              <span className="shrink-0 rounded-full bg-cyan-600 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
+              <span className="shrink-0 rounded-ui bg-ink px-1.5 py-0.5 text-xs font-bold tabular-nums text-paper">
                 {movingCount}件
               </span>
             ) : null}
@@ -443,8 +437,8 @@ function BulkActionBar({
   onClear,
 }: BulkActionBarProps) {
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2">
-      <p className="text-sm font-semibold tabular-nums text-cyan-900">
+    <div className="mb-2 flex flex-wrap items-center gap-2 border border-ink bg-wash px-3 py-2">
+      <p className="text-sm font-bold tabular-nums text-ink">
         {count}件を選択中
       </p>
       {/*
@@ -457,7 +451,7 @@ function BulkActionBar({
           if (event.target.value !== '') onApply(event.target.value)
         }}
         aria-label={`選択中の${count}件の${KANBAN_AXIS_LABELS[axis]}をまとめて変える`}
-        className="rounded-lg border border-cyan-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+        className="input min-h-9 w-auto py-1.5 text-sm"
       >
         <option value="">まとめて移す先を選ぶ…</option>
         {options.map((option) => (
@@ -466,11 +460,7 @@ function BulkActionBar({
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        onClick={onClear}
-        className={`${subtleButtonClass} bg-white py-1.5`}
-      >
+      <button type="button" onClick={onClear} className={subtleButtonClass}>
         選択を解除
       </button>
     </div>
@@ -511,10 +501,8 @@ function KanbanColumnView({
       ref={setNodeRef}
       // 件数を名前に含める。読み上げでは列見出しのバッジまで辿り着かないことがある
       aria-label={`${column.label} ${column.bookings.length}件`}
-      className={`flex w-64 shrink-0 snap-start flex-col rounded-xl border p-2 transition ${
-        isOver
-          ? 'border-cyan-400 bg-cyan-50 ring-2 ring-cyan-200'
-          : 'border-gray-200 bg-gray-50'
+      className={`flex w-64 shrink-0 snap-start flex-col border p-2 transition motion-reduce:transition-none ${
+        isOver ? 'border-ink bg-wash ring-2 ring-ink' : 'border-rule bg-wash'
       }`}
     >
       <header className="px-1">
@@ -535,15 +523,15 @@ function KanbanColumnView({
                   onToggleColumn(columnIds, event.currentTarget.checked)
                 }
                 aria-label={`${column.label}の${columnIds.length}件をすべて選ぶ`}
-                className="h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                className="h-4 w-4 shrink-0 accent-ink"
               />
             )}
-            <span className="truncate text-xs font-semibold text-gray-700">
+            <span className="truncate text-xs font-bold text-ink">
               {column.label}
             </span>
           </span>
-          <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-gray-600">
-            {column.bookings.length}
+          <span className="text-xs font-bold tabular-nums text-ink-muted">
+            {column.bookings.length}件
           </span>
         </p>
         {column.totals.length > 0 ? (
@@ -551,7 +539,7 @@ function KanbanColumnView({
             {column.totals.map((total) => (
               <li
                 key={total.currency}
-                className="text-[11px] font-semibold tabular-nums text-gray-700"
+                className="text-xs font-bold tabular-nums text-ink"
               >
                 {formatMoney(total.amount, total.currency)}
               </li>
@@ -559,7 +547,7 @@ function KanbanColumnView({
           </ul>
         ) : null}
         {column.untotaledCount > 0 ? (
-          <p className="mt-0.5 text-[10px] text-gray-400">
+          <p className="mt-0.5 text-xs text-ink-muted">
             {column.untotaledCount}件は金額未入力
           </p>
         ) : null}
@@ -569,7 +557,7 @@ function KanbanColumnView({
         {column.bookings.length === 0 ? (
           <li
             aria-hidden="true"
-            className="rounded-xl border border-dashed border-gray-300 px-2 py-4 text-center text-[11px] text-gray-400"
+            className="border border-dashed border-ink-muted px-2 py-4 text-center text-xs text-ink-muted"
           >
             ここにドロップ
           </li>
@@ -632,8 +620,8 @@ function KanbanCard({
   return (
     <li
       ref={setNodeRef}
-      className={`rounded-xl border bg-white p-2 shadow-sm ${
-        selected ? 'border-cyan-400 ring-2 ring-cyan-200' : 'border-gray-200'
+      className={`border bg-paper p-2 ${
+        selected ? 'border-ink ring-2 ring-ink' : 'border-rule'
       } ${
         // つかんだ 1 枚だけでなく、一緒に動く選択済みのカードも薄くする。
         // どれが持ち上がっているのかを、落とす前に確かめられるようにする
@@ -654,7 +642,7 @@ function KanbanCard({
             onToggleSelected(booking.id, event.currentTarget.checked)
           }
           aria-label={`${booking.title} をまとめて移す対象に選ぶ`}
-          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+          className="mt-1 h-4 w-4 shrink-0 accent-ink"
         />
         {/*
           つかむ場所をカード全体ではなく取っ手に限るのは、
@@ -667,20 +655,15 @@ function KanbanCard({
           {...listeners}
           {...attributes}
           aria-label={`${booking.title} をつかんで別の${KANBAN_AXIS_LABELS[axis]}に移す`}
-          className="mt-0.5 shrink-0 cursor-grab touch-none rounded text-gray-400 transition hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-500"
+          className="mt-0.5 shrink-0 cursor-grab touch-none rounded-ui text-ink-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink"
         >
           <GripVertical size={14} aria-hidden="true" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
-            <KindIcon
-              kind={booking.kind}
-              size={14}
-              className="shrink-0 text-gray-500"
-            />
-            <span className="truncate">{booking.title}</span>
+          <p className="truncate text-sm font-medium text-ink">
+            {booking.title}
           </p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{dateLabel}</p>
+          <p className="mt-0.5 text-xs text-ink-muted">{dateLabel}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {/* もう一方の軸。2 軸が独立していることをカードの上で見せる */}
             {axis === 'status' ? (
@@ -689,7 +672,7 @@ function KanbanCard({
               <BookingStatusBadge status={booking.status} size="sm" />
             )}
             {price === undefined ? null : (
-              <span className="text-xs font-semibold tabular-nums text-gray-700">
+              <span className="text-xs font-bold tabular-nums text-ink">
                 {formatMoney(price.amount, price.currency)}
               </span>
             )}
@@ -702,7 +685,7 @@ function KanbanCard({
         value={currentDropId(booking, axis)}
         onChange={(event) => applyDropId(event.target.value)}
         aria-label={`${booking.title} の${KANBAN_AXIS_LABELS[axis]}`}
-        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+        className="input mt-2 min-h-9 px-2 py-1 text-xs"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

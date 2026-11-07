@@ -18,7 +18,13 @@
  */
 
 import { useId, useMemo, useState } from 'react'
-import { ChevronDown, Sparkles, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
+import {
+  Button,
+  Checkbox,
+  Note,
+  useDialogFocus,
+} from '../../../../components/ui'
 import { parseImportedJson } from '../../../../lib/trip-notes/aiImport'
 import { buildImportPrompt } from '../../../../lib/trip-notes/aiPrompt'
 import {
@@ -44,17 +50,10 @@ import {
   isCheckInOpensMinutesBefore,
   isDeadlineMinutesBefore,
 } from '../../../../lib/trip-notes/storage'
-import type {
-  BaggageAllowance,
-  BookingBaggage,
-} from '../../../../lib/trip-notes/types'
-import { useDialogFocus } from '../-lib/focusTrap'
 import {
   fieldClass,
   iconButtonClass,
   labelClass,
-  primaryButtonClass,
-  subtleButtonClass,
   unverifiedFieldClass,
 } from '../-lib/styles'
 import {
@@ -62,13 +61,15 @@ import {
   ImportIssueDetails,
   PromptCopyBlock,
 } from './AiImportParts'
-import { BOOKING_KIND_LABELS, KindIcon } from './KindIcon'
+import { BOOKING_KIND_LABELS } from './KindIcon'
 import { ReviewDialog } from './ReviewDialog'
 import { BOOKING_STATUS_LABELS, PAYMENT_STATUS_LABELS } from './StatusBadge'
 import type { FormEvent, ReactNode } from 'react'
 import type { ImportResult } from '../../../../lib/trip-notes/aiImport'
 import type {
+  BaggageAllowance,
   Booking,
+  BookingBaggage,
   BookingKind,
   BookingStatus,
   FieldKey,
@@ -173,7 +174,7 @@ interface FormState {
 /**
  * 入力欄 1 つ 1 つが、どの FieldKey の「未確認」に対応するか。
  *
- * AI が貼り込んだ値を人が書き換えたら、その場で黄色い下線を外すのに使う。
+ * AI が貼り込んだ値を人が書き換えたら、その場で破線の下線を外すのに使う。
  * 追加モードにはまだ予約の id が無く「確認済みにする」ボタンを出せないので、
  * ここで外さないと下線を消す手段が無くなってしまう。
  * Record を全キーで埋めておけば、FormState に欄を足したときに型検査で気付ける。
@@ -624,18 +625,17 @@ export function BookingForm({
     // 「欄を直せば下線が消える」に委ねる
     const canVerify = bookingId !== undefined && aiUnverified === null
     return (
-      <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
+      <p className="flex flex-wrap items-center gap-2 text-xs text-ink">
         <span>AI が入力した値です。内容を確認してください。</span>
         {canVerify ? (
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() =>
               dispatch({ type: 'verifyField', id: bookingId, field })
             }
-            className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-800 transition hover:bg-amber-100"
           >
             確認済みにする
-          </button>
+          </Button>
         ) : null}
       </p>
     )
@@ -696,7 +696,7 @@ export function BookingForm({
     )
     if (start === null) {
       setError(
-        '開始日時を変換できませんでした。日付・時刻・タイムゾーンを確認してください',
+        '開始日時を読み取れません。日付と時刻、タイムゾーンを確認してください。',
       )
       return
     }
@@ -714,7 +714,7 @@ export function BookingForm({
       )
       if (end === null) {
         setError(
-          '終了日時を変換できませんでした。日付・時刻・タイムゾーンを確認してください',
+          '終了日時を読み取れません。日付と時刻、タイムゾーンを確認してください。',
         )
         return
       }
@@ -836,7 +836,7 @@ export function BookingForm({
     // unverified/evidence は素通しする。実際に値が変わったフィールドを
     // unverified から外す判定は reducer(mergeUpdatedBooking)側の役目。
     // AI から貼り込んだぶんがあればそちらを優先する(貼り込んだ値は
-    // 人が確認するまで黄色い下線を残す)
+    // 人が確認するまで破線の下線を残す)
     const carriedUnverified = aiUnverified ?? booking?.unverified
     if (carriedUnverified !== undefined && carriedUnverified.length > 0) {
       next.unverified = carriedUnverified
@@ -860,21 +860,22 @@ export function BookingForm({
 
   return (
     <>
+      {/*
+        背景(dialog-backdrop)は SchedulePanel 側が敷いているので、ここは共通の
+        Dialog ではなくパネルだけを dialog クラスで描き、フォーカス管理は
+        Dialog と同じ useDialogFocus に任せる
+      */}
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="dialog max-h-[90vh] max-w-lg overflow-y-auto p-5"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <header className="flex items-center justify-between gap-2">
-            <h2
-              id={titleId}
-              className="flex items-center gap-2 text-lg font-bold text-gray-900"
-            >
-              <KindIcon kind={form.kind} size={18} className="text-cyan-600" />
+            <h2 id={titleId} className="dialog-title">
               {booking === null ? '予約を追加' : '予約を編集'}
             </h2>
             <button
@@ -883,17 +884,14 @@ export function BookingForm({
               className={iconButtonClass}
               aria-label="フォームを閉じる"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
           </header>
 
           {error !== null ? (
-            <p
-              role="alert"
-              className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700"
-            >
+            <Note tone="error" role="alert">
               {error}
-            </p>
+            </Note>
           ) : null}
 
           {/*
@@ -901,22 +899,22 @@ export function BookingForm({
             手で 1 件足したいだけの人にとっては通り道でしかないので、
             開かない限りフォームの見た目をほとんど変えない大きさに留める
           */}
-          <details className="group rounded-xl border border-cyan-200 bg-cyan-50/50 p-3">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-cyan-800">
+          <details className="group border-y border-rule py-3">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink">
               <ChevronDown
                 size={14}
+                aria-hidden="true"
                 className="transition group-open:rotate-180"
               />
-              <Sparkles size={14} aria-hidden="true" />
               AI に読ませて貼り付ける
             </summary>
 
             <div className="mt-3 space-y-3">
               <PromptCopyBlock prompt={prompt} copyLabel="プロンプトをコピー" />
               <AiServiceLinks compact />
-              <p className="text-xs leading-relaxed text-gray-600">
+              <p className="text-xs leading-relaxed text-ink-muted">
                 コピーしたプロンプトを AI に貼り、
-                <strong className="font-semibold text-gray-800">
+                <strong className="font-bold text-ink">
                   予約確認メールや PDF を添付して実行
                 </strong>
                 してください。出てきた JSON をそのまま下に貼り付けます。
@@ -928,63 +926,49 @@ export function BookingForm({
                 rows={4}
                 placeholder="AI の出力をそのまま貼り付け"
                 aria-label="AI が返した JSON を貼り付ける"
-                className={`${fieldClass} resize-y bg-white font-mono text-xs leading-relaxed`}
+                className={`${fieldClass} resize-y font-mono text-xs leading-relaxed`}
               />
-              <button
-                type="button"
-                onClick={handleParse}
-                className={subtleButtonClass}
-              >
+              <Button size="sm" onClick={handleParse}>
                 読み取る
-              </button>
+              </Button>
 
               {aiResult !== null ? (
                 <div className="space-y-2">
                   {parsedCount === 0 ? (
-                    <p
-                      role="status"
-                      className="text-sm font-medium text-rose-700"
-                    >
+                    <p role="status" className="text-sm font-medium text-ink">
                       予約を読み取れませんでした。下の「問題の詳細」を確認してください
                     </p>
                   ) : null}
 
                   {parsedCount === 1 && pendingOverwrite === null ? (
-                    <p
-                      role="status"
-                      className="text-sm font-medium text-emerald-700"
-                    >
+                    <p role="status" className="text-sm font-medium text-ink">
                       1件を読み取って、下のフォームに反映しました
                     </p>
                   ) : null}
 
                   {/* 編集モードだけ通る枝。上書きの直前に一度止める */}
                   {pendingOverwrite !== null ? (
-                    <div
-                      role="alert"
-                      className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-                    >
+                    <Note tone="warn" role="alert" className="space-y-2">
                       <p>
                         1件を読み取りました。反映すると、いま入力されている内容は
                         AI が読み取った値で置き換わります。
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => applyParsed(pendingOverwrite)}
-                          className={primaryButtonClass}
                         >
                           上書きして反映する
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          size="sm"
                           onClick={() => setPendingOverwrite(null)}
-                          className={subtleButtonClass}
                         >
                           やめる
-                        </button>
+                        </Button>
                       </div>
-                    </div>
+                    </Note>
                   ) : null}
 
                   {/*
@@ -992,22 +976,21 @@ export function BookingForm({
                     複数件は既存の一括取り込み(日時とタイムゾーンのレビュー付き)へ流す
                   */}
                   {parsedCount > 1 ? (
-                    <div className="space-y-2 rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm text-gray-700">
-                      <p className="font-medium text-gray-800">
+                    <Note className="space-y-2">
+                      <p className="font-medium text-ink">
                         {parsedCount}件見つかりました。まとめて取り込みますか?
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-ink-muted">
                         このフォームには1件しか入りません。日時とタイムゾーンを確認したうえで、まとめて取り込めます。
                       </p>
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
                         onClick={() => setReviewOpen(true)}
-                        className={primaryButtonClass}
                         aria-label={`${parsedCount}件をまとめて取り込む`}
                       >
                         まとめて取り込む({parsedCount}件)
-                      </button>
-                    </div>
+                      </Button>
+                    </Note>
                   ) : null}
 
                   <ImportIssueDetails issues={aiResult.issues} />
@@ -1016,7 +999,7 @@ export function BookingForm({
             </div>
           </details>
 
-          {/* 必須の3項目: 種別・タイトルは常時表示。日付は次の開始日時ブロックに含める */}
+          {/* 必須の3項目のうち種別とタイトルは常時表示。日付は次の開始日時ブロックに含める */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1">
               <span className={labelClass}>種別</span>
@@ -1051,81 +1034,24 @@ export function BookingForm({
             </label>
           </div>
 
-          {/* start は Booking 型上必須なので折りたためない。ただし time/tz には
-            既定値(displayTz・10:00)を入れておき、開かなくても保存はできる */}
-          <fieldset className="space-y-2 rounded-xl border border-gray-200 p-3">
-            <legend className="px-1 text-sm font-semibold text-gray-700">
-              開始日時
-            </legend>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1">
-                <span className={labelClass}>日付</span>
-                <input
-                  type="date"
-                  required
-                  value={form.date}
-                  onChange={(event) => set('date', event.target.value)}
-                  className={`${fieldClass} ${ufc('start')}`}
-                />
-              </label>
-              {!form.allDay ? (
-                <label className="block space-y-1">
-                  <span className={labelClass}>時刻</span>
-                  <input
-                    type="time"
-                    required
-                    value={form.time}
-                    onChange={(event) => set('time', event.target.value)}
-                    className={`${fieldClass} ${ufc('start')}`}
-                  />
-                </label>
-              ) : null}
-              <label className="block space-y-1">
-                <span className={labelClass}>タイムゾーン</span>
-                <select
-                  value={form.tz}
-                  onChange={(event) => set('tz', event.target.value)}
-                  className={`${fieldClass} ${ufc('start')}`}
-                >
-                  {tzOptionsFor(form.tz).map((opt) => (
-                    <option key={opt.tz} value={opt.tz}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={form.allDay}
-                onChange={(event) => set('allDay', event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-              />
-              終日の予定にする
-            </label>
-            {unverifiedNote('start')}
-          </fieldset>
-
-          <fieldset className="space-y-2 rounded-xl border border-gray-200 p-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <input
-                type="checkbox"
-                checked={form.hasEnd}
-                onChange={(event) => set('hasEnd', event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-              />
-              {endLabelFor(form.kind)}を設定する
-            </label>
-            {form.hasEnd ? (
+          {/*
+            start は Booking 型上必須なので折りたためない。ただし time/tz には
+            既定値(displayTz と 10:00)を入れておき、開かなくても保存はできる
+          */}
+          <div className="border-t border-rule pt-3">
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-bold text-ink">
+                開始日時
+              </legend>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block space-y-1">
                   <span className={labelClass}>日付</span>
                   <input
                     type="date"
-                    value={form.endDate}
-                    onChange={(event) => set('endDate', event.target.value)}
-                    className={`${fieldClass} ${ufc('end')}`}
+                    required
+                    value={form.date}
+                    onChange={(event) => set('date', event.target.value)}
+                    className={`${fieldClass} ${ufc('start')}`}
                   />
                 </label>
                 {!form.allDay ? (
@@ -1133,20 +1059,21 @@ export function BookingForm({
                     <span className={labelClass}>時刻</span>
                     <input
                       type="time"
-                      value={form.endTime}
-                      onChange={(event) => set('endTime', event.target.value)}
-                      className={`${fieldClass} ${ufc('end')}`}
+                      required
+                      value={form.time}
+                      onChange={(event) => set('time', event.target.value)}
+                      className={`${fieldClass} ${ufc('start')}`}
                     />
                   </label>
                 ) : null}
                 <label className="block space-y-1">
                   <span className={labelClass}>タイムゾーン</span>
                   <select
-                    value={form.endTz}
-                    onChange={(event) => set('endTz', event.target.value)}
-                    className={`${fieldClass} ${ufc('end')}`}
+                    value={form.tz}
+                    onChange={(event) => set('tz', event.target.value)}
+                    className={`${fieldClass} ${ufc('start')}`}
                   >
-                    {tzOptionsFor(form.endTz).map((opt) => (
+                    {tzOptionsFor(form.tz).map((opt) => (
                       <option key={opt.tz} value={opt.tz}>
                         {opt.label}
                       </option>
@@ -1154,17 +1081,74 @@ export function BookingForm({
                   </select>
                 </label>
               </div>
-            ) : null}
-            {unverifiedNote('end')}
-          </fieldset>
+              <Checkbox
+                label="終日の予定にする"
+                checked={form.allDay}
+                onChange={(event) => set('allDay', event.target.checked)}
+                className="text-sm"
+              />
+              {unverifiedNote('start')}
+            </fieldset>
+          </div>
 
-          <details className="group rounded-xl border border-gray-200 p-3">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+          <div className="border-t border-rule pt-3">
+            <fieldset className="space-y-2">
+              <Checkbox
+                label={`${endLabelFor(form.kind)}を設定する`}
+                checked={form.hasEnd}
+                onChange={(event) => set('hasEnd', event.target.checked)}
+                className="text-sm font-bold"
+              />
+              {form.hasEnd ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="block space-y-1">
+                    <span className={labelClass}>日付</span>
+                    <input
+                      type="date"
+                      value={form.endDate}
+                      onChange={(event) => set('endDate', event.target.value)}
+                      className={`${fieldClass} ${ufc('end')}`}
+                    />
+                  </label>
+                  {!form.allDay ? (
+                    <label className="block space-y-1">
+                      <span className={labelClass}>時刻</span>
+                      <input
+                        type="time"
+                        value={form.endTime}
+                        onChange={(event) => set('endTime', event.target.value)}
+                        className={`${fieldClass} ${ufc('end')}`}
+                      />
+                    </label>
+                  ) : null}
+                  <label className="block space-y-1">
+                    <span className={labelClass}>タイムゾーン</span>
+                    <select
+                      value={form.endTz}
+                      onChange={(event) => set('endTz', event.target.value)}
+                      className={`${fieldClass} ${ufc('end')}`}
+                    >
+                      {tzOptionsFor(form.endTz).map((opt) => (
+                        <option key={opt.tz} value={opt.tz}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+              {unverifiedNote('end')}
+            </fieldset>
+          </div>
+
+          <details className="group border-t border-rule pt-3">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink">
               <ChevronDown
                 size={14}
+                aria-hidden="true"
                 className="transition group-open:rotate-180"
               />
-              詳細(状況・金額・場所など)
+              詳細(状況、金額、場所など)
             </summary>
 
             <div className="mt-3 space-y-4">
@@ -1217,7 +1201,7 @@ export function BookingForm({
                     onChange={(event) =>
                       set('confirmationNumber', event.target.value)
                     }
-                    className={`${fieldClass} font-mono ${ufc('confirmationNumber')}`}
+                    className={`${fieldClass} ${ufc('confirmationNumber')}`}
                   />
                   {unverifiedNote('confirmationNumber')}
                 </label>
@@ -1279,11 +1263,12 @@ export function BookingForm({
               </label>
 
               {showCheckInTimes && (
-                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
-                    オンラインチェックイン・搭乗手続きの時刻(出発の何分前か)
-                  </legend>
-                  {/*
+                <div className="border-t border-rule pt-3">
+                  <fieldset className="space-y-3">
+                    <legend className="mb-2 text-sm font-bold text-ink">
+                      オンラインチェックインと搭乗手続きの時刻(出発の何分前か)
+                    </legend>
+                    {/*
                     時刻ではなく「何分前か」を入れてもらう。予約確認書も
                     航空会社の規定も「出発の 60 分前まで」「出発の 24 時間前から」
                     という書き方をしており、絶対時刻に直させると、出発時刻を
@@ -1292,82 +1277,86 @@ export function BookingForm({
                     並びは時系列にする。オンラインチェックインが開くのがいちばん早く、
                     次に手荷物、最後に搭乗手続きが締まる。人が動く順に読める
                   */}
-                  <p className="text-xs text-gray-500">
-                    どれも空港・航空会社・路線(国内線/国際線)によって違います。
-                    オンラインチェックインが開く時刻は運賃や会員資格でも変わります。
-                    予約確認書やマイページに書かれていれば、その値を優先してください。
-                  </p>
-                  <MinutesBeforeField
-                    label="オンラインチェックイン開始"
-                    value={form.onlineCheckInMinutes}
-                    onChange={(value) => set('onlineCheckInMinutes', value)}
-                    presets={CHECK_IN_OPEN_PRESETS}
-                    max={MAX_CHECK_IN_OPENS_MINUTES_BEFORE}
-                    unverifiedClass={ufc('onlineCheckInOpensMinutesBefore')}
-                    note={unverifiedNote('onlineCheckInOpensMinutesBefore')}
-                  />
-                  <MinutesBeforeField
-                    label="受託手荷物を預ける締切"
-                    value={form.bagDropMinutes}
-                    onChange={(value) => set('bagDropMinutes', value)}
-                    presets={DEADLINE_PRESETS}
-                    max={MAX_DEADLINE_MINUTES_BEFORE}
-                    unverifiedClass={ufc('bagDropClosesMinutesBefore')}
-                    note={unverifiedNote('bagDropClosesMinutesBefore')}
-                  />
-                  <MinutesBeforeField
-                    label="搭乗手続きの締切"
-                    value={form.checkInMinutes}
-                    onChange={(value) => set('checkInMinutes', value)}
-                    presets={DEADLINE_PRESETS}
-                    max={MAX_DEADLINE_MINUTES_BEFORE}
-                    unverifiedClass={ufc('checkInClosesMinutesBefore')}
-                    note={unverifiedNote('checkInClosesMinutesBefore')}
-                  />
-                </fieldset>
+                    <p className="text-xs text-ink-muted">
+                      どれも空港や航空会社、路線(国内線か国際線か)によって違います。
+                      オンラインチェックインが開く時刻は運賃や会員資格でも変わります。
+                      予約確認書やマイページに書かれていれば、その値を優先してください。
+                    </p>
+                    <MinutesBeforeField
+                      label="オンラインチェックイン開始"
+                      value={form.onlineCheckInMinutes}
+                      onChange={(value) => set('onlineCheckInMinutes', value)}
+                      presets={CHECK_IN_OPEN_PRESETS}
+                      max={MAX_CHECK_IN_OPENS_MINUTES_BEFORE}
+                      unverifiedClass={ufc('onlineCheckInOpensMinutesBefore')}
+                      note={unverifiedNote('onlineCheckInOpensMinutesBefore')}
+                    />
+                    <MinutesBeforeField
+                      label="受託手荷物を預ける締切"
+                      value={form.bagDropMinutes}
+                      onChange={(value) => set('bagDropMinutes', value)}
+                      presets={DEADLINE_PRESETS}
+                      max={MAX_DEADLINE_MINUTES_BEFORE}
+                      unverifiedClass={ufc('bagDropClosesMinutesBefore')}
+                      note={unverifiedNote('bagDropClosesMinutesBefore')}
+                    />
+                    <MinutesBeforeField
+                      label="搭乗手続きの締切"
+                      value={form.checkInMinutes}
+                      onChange={(value) => set('checkInMinutes', value)}
+                      presets={DEADLINE_PRESETS}
+                      max={MAX_DEADLINE_MINUTES_BEFORE}
+                      unverifiedClass={ufc('checkInClosesMinutesBefore')}
+                      note={unverifiedNote('checkInClosesMinutesBefore')}
+                    />
+                  </fieldset>
+                </div>
               )}
 
               {showCheckInTimes && (
-                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
-                    荷物枠(許容量)
-                  </legend>
-                  <p className="text-xs text-gray-500">
-                    予約確認書に書いてある持込・受託の枠です。預け締切とは別です。
-                    無料枠なしは個数に 0。分からない欄は空のままにしてください。
-                  </p>
-                  <BaggageSlotFields
-                    label={BAGGAGE_SLOT_LABELS.personal}
-                    pieces={form.personalPieces}
-                    weightKg={form.personalWeightKg}
-                    dimensions={form.personalDimensions}
-                    onPieces={(value) => set('personalPieces', value)}
-                    onWeightKg={(value) => set('personalWeightKg', value)}
-                    onDimensions={(value) => set('personalDimensions', value)}
-                    unverifiedClass={ufc('baggage')}
-                  />
-                  <BaggageSlotFields
-                    label={BAGGAGE_SLOT_LABELS.cabin}
-                    pieces={form.cabinPieces}
-                    weightKg={form.cabinWeightKg}
-                    dimensions={form.cabinDimensions}
-                    onPieces={(value) => set('cabinPieces', value)}
-                    onWeightKg={(value) => set('cabinWeightKg', value)}
-                    onDimensions={(value) => set('cabinDimensions', value)}
-                    unverifiedClass={ufc('baggage')}
-                  />
-                  <BaggageSlotFields
-                    label={BAGGAGE_SLOT_LABELS.checked}
-                    pieces={form.checkedPieces}
-                    weightKg={form.checkedWeightKg}
-                    dimensions={form.checkedDimensions}
-                    onPieces={(value) => set('checkedPieces', value)}
-                    onWeightKg={(value) => set('checkedWeightKg', value)}
-                    onDimensions={(value) => set('checkedDimensions', value)}
-                    unverifiedClass={ufc('baggage')}
-                  />
-                  {unverifiedNote('baggage')}
-                </fieldset>
+                <div className="border-t border-rule pt-3">
+                  <fieldset className="space-y-3">
+                    <legend className="mb-2 text-sm font-bold text-ink">
+                      荷物枠(許容量)
+                    </legend>
+                    <p className="text-xs text-ink-muted">
+                      予約確認書に書いてある持ち込みと受託の枠です。預け締切とは別です。
+                      無料枠なしは個数に
+                      0。分からない欄は空のままにしてください。
+                    </p>
+                    <BaggageSlotFields
+                      label={BAGGAGE_SLOT_LABELS.personal}
+                      pieces={form.personalPieces}
+                      weightKg={form.personalWeightKg}
+                      dimensions={form.personalDimensions}
+                      onPieces={(value) => set('personalPieces', value)}
+                      onWeightKg={(value) => set('personalWeightKg', value)}
+                      onDimensions={(value) => set('personalDimensions', value)}
+                      unverifiedClass={ufc('baggage')}
+                    />
+                    <BaggageSlotFields
+                      label={BAGGAGE_SLOT_LABELS.cabin}
+                      pieces={form.cabinPieces}
+                      weightKg={form.cabinWeightKg}
+                      dimensions={form.cabinDimensions}
+                      onPieces={(value) => set('cabinPieces', value)}
+                      onWeightKg={(value) => set('cabinWeightKg', value)}
+                      onDimensions={(value) => set('cabinDimensions', value)}
+                      unverifiedClass={ufc('baggage')}
+                    />
+                    <BaggageSlotFields
+                      label={BAGGAGE_SLOT_LABELS.checked}
+                      pieces={form.checkedPieces}
+                      weightKg={form.checkedWeightKg}
+                      dimensions={form.checkedDimensions}
+                      onPieces={(value) => set('checkedPieces', value)}
+                      onWeightKg={(value) => set('checkedWeightKg', value)}
+                      onDimensions={(value) => set('checkedDimensions', value)}
+                      unverifiedClass={ufc('baggage')}
+                    />
+                    {unverifiedNote('baggage')}
+                  </fieldset>
+                </div>
               )}
 
               <label className="block space-y-1">
@@ -1382,128 +1371,134 @@ export function BookingForm({
               </label>
 
               {showPlace ? (
-                <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
-                    場所
-                  </legend>
-                  <label className="block space-y-1">
-                    <span className={labelClass}>名称</span>
-                    <input
-                      type="text"
-                      value={form.placeName}
-                      onChange={(event) => set('placeName', event.target.value)}
-                      className={`${fieldClass} ${ufc('place')}`}
+                <div className="border-t border-rule pt-3">
+                  <fieldset className="space-y-2">
+                    <legend className="mb-2 text-sm font-bold text-ink">
+                      場所
+                    </legend>
+                    <label className="block space-y-1">
+                      <span className={labelClass}>名称</span>
+                      <input
+                        type="text"
+                        value={form.placeName}
+                        onChange={(event) =>
+                          set('placeName', event.target.value)
+                        }
+                        className={`${fieldClass} ${ufc('place')}`}
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span className={labelClass}>現地語表記</span>
+                      <input
+                        type="text"
+                        value={form.placeLocalName}
+                        onChange={(event) =>
+                          set('placeLocalName', event.target.value)
+                        }
+                        className={fieldClass}
+                      />
+                    </label>
+                    <LatinNameField
+                      value={form.placeLatinName}
+                      onChange={(value) => set('placeLatinName', value)}
                     />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className={labelClass}>現地語表記</span>
-                    <input
-                      type="text"
-                      value={form.placeLocalName}
-                      onChange={(event) =>
-                        set('placeLocalName', event.target.value)
-                      }
-                      className={fieldClass}
-                    />
-                  </label>
-                  <LatinNameField
-                    value={form.placeLatinName}
-                    onChange={(value) => set('placeLatinName', value)}
-                  />
-                  <label className="block space-y-1">
-                    <span className={labelClass}>住所</span>
-                    <input
-                      type="text"
-                      value={form.placeAddress}
-                      onChange={(event) =>
-                        set('placeAddress', event.target.value)
-                      }
-                      className={`${fieldClass} ${ufc('place')}`}
-                    />
-                  </label>
-                  {unverifiedNote('place')}
-                </fieldset>
+                    <label className="block space-y-1">
+                      <span className={labelClass}>住所</span>
+                      <input
+                        type="text"
+                        value={form.placeAddress}
+                        onChange={(event) =>
+                          set('placeAddress', event.target.value)
+                        }
+                        className={`${fieldClass} ${ufc('place')}`}
+                      />
+                    </label>
+                    {unverifiedNote('place')}
+                  </fieldset>
+                </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                    <legend className="px-1 text-xs font-semibold text-gray-500">
-                      出発地
-                    </legend>
-                    <label className="block space-y-1">
-                      <span className={labelClass}>名称</span>
-                      <input
-                        type="text"
-                        value={form.fromName}
-                        onChange={(event) =>
-                          set('fromName', event.target.value)
-                        }
-                        className={`${fieldClass} ${ufc('from')}`}
+                  <div className="min-w-0 border-t border-rule pt-3">
+                    <fieldset className="space-y-2">
+                      <legend className="mb-2 text-sm font-bold text-ink">
+                        出発地
+                      </legend>
+                      <label className="block space-y-1">
+                        <span className={labelClass}>名称</span>
+                        <input
+                          type="text"
+                          value={form.fromName}
+                          onChange={(event) =>
+                            set('fromName', event.target.value)
+                          }
+                          className={`${fieldClass} ${ufc('from')}`}
+                        />
+                      </label>
+                      <LatinNameField
+                        value={form.fromLatinName}
+                        onChange={(value) => set('fromLatinName', value)}
                       />
-                    </label>
-                    <LatinNameField
-                      value={form.fromLatinName}
-                      onChange={(value) => set('fromLatinName', value)}
-                    />
-                    <label className="block space-y-1">
-                      <span className={labelClass}>住所</span>
-                      <input
-                        type="text"
-                        value={form.fromAddress}
-                        onChange={(event) =>
-                          set('fromAddress', event.target.value)
-                        }
-                        className={`${fieldClass} ${ufc('from')}`}
-                      />
-                    </label>
-                    {unverifiedNote('from')}
-                  </fieldset>
+                      <label className="block space-y-1">
+                        <span className={labelClass}>住所</span>
+                        <input
+                          type="text"
+                          value={form.fromAddress}
+                          onChange={(event) =>
+                            set('fromAddress', event.target.value)
+                          }
+                          className={`${fieldClass} ${ufc('from')}`}
+                        />
+                      </label>
+                      {unverifiedNote('from')}
+                    </fieldset>
+                  </div>
 
-                  <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                    <legend className="px-1 text-xs font-semibold text-gray-500">
-                      到着地
-                    </legend>
-                    <label className="block space-y-1">
-                      <span className={labelClass}>名称</span>
-                      <input
-                        type="text"
-                        value={form.toName}
-                        onChange={(event) => set('toName', event.target.value)}
-                        className={`${fieldClass} ${ufc('to')}`}
+                  <div className="min-w-0 border-t border-rule pt-3">
+                    <fieldset className="space-y-2">
+                      <legend className="mb-2 text-sm font-bold text-ink">
+                        到着地
+                      </legend>
+                      <label className="block space-y-1">
+                        <span className={labelClass}>名称</span>
+                        <input
+                          type="text"
+                          value={form.toName}
+                          onChange={(event) =>
+                            set('toName', event.target.value)
+                          }
+                          className={`${fieldClass} ${ufc('to')}`}
+                        />
+                      </label>
+                      <LatinNameField
+                        value={form.toLatinName}
+                        onChange={(value) => set('toLatinName', value)}
                       />
-                    </label>
-                    <LatinNameField
-                      value={form.toLatinName}
-                      onChange={(value) => set('toLatinName', value)}
-                    />
-                    <label className="block space-y-1">
-                      <span className={labelClass}>住所</span>
-                      <input
-                        type="text"
-                        value={form.toAddress}
-                        onChange={(event) =>
-                          set('toAddress', event.target.value)
-                        }
-                        className={`${fieldClass} ${ufc('to')}`}
-                      />
-                    </label>
-                    {unverifiedNote('to')}
-                  </fieldset>
+                      <label className="block space-y-1">
+                        <span className={labelClass}>住所</span>
+                        <input
+                          type="text"
+                          value={form.toAddress}
+                          onChange={(event) =>
+                            set('toAddress', event.target.value)
+                          }
+                          className={`${fieldClass} ${ufc('to')}`}
+                        />
+                      </label>
+                      {unverifiedNote('to')}
+                    </fieldset>
+                  </div>
                 </div>
               )}
             </div>
           </details>
 
           <footer className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className={subtleButtonClass}
-            >
+            <Button size="sm" onClick={onClose}>
               キャンセル
-            </button>
-            <button type="submit" className={primaryButtonClass}>
+            </Button>
+            <Button variant="primary" size="sm" type="submit">
               保存
-            </button>
+            </Button>
           </footer>
         </form>
       </div>
@@ -1538,7 +1533,7 @@ export function BookingForm({
  * 部品として切り出したのは、この説明を 3 箇所に書き写して片方だけ
  * 直し忘れる形にしないため。
  *
- * 未確認(黄色い下線)の扱いは付けていない。未確認は FieldKey 単位
+ * 未確認(破線の下線)の扱いは付けていない。未確認は FieldKey 単位
  * (place / from / to)で、名称や住所と同じ欄の一部として既に注記が出る。
  */
 function LatinNameField({
@@ -1558,7 +1553,7 @@ function LatinNameField({
         onChange={(event) => onChange(event.target.value)}
         className={fieldClass}
       />
-      <span className="block text-xs font-normal text-gray-500">
+      <span className="block text-xs font-normal text-ink-muted">
         Rome2Rio や Google
         マップなど外部の検索サイトに渡す用。日本語の地名のままだと検索が空振りします。
         空港などを除けば、施設名より都市名のほうが当たります。
@@ -1583,13 +1578,13 @@ function LatinNameField({
  * 「60」が分なのか時刻なのか分からなくなる。
  *
  * ■ 持つ値は分にそろえ、見せ方だけ時間にする
- *   オンラインチェックインの開始は 1440 のような大きな値になり、分のまま
- *   出されても桁を数えないと何時間前なのか読めない。かといって項目ごとに
- *   単位を変えると、締切の 60(分)と開始の 60(時間)が同じ数字で別の意味を
- *   持つことになり、「開いてから締まるまでどれだけあるか」を引き算で出すことも
- *   できなくなる。だから保存する値は必ず分にして、プリセットのラベルと
- *   入力欄の脇の換算だけを時間表記にする。換算を入力欄の脇にも出しておけば、
- *   プリセットを押さずに 1440 と手で打った人にも同じ読みやすさが届く。
+ * オンラインチェックインの開始は 1440 のような大きな値になり、分のまま
+ * 出されても桁を数えないと何時間前なのか読めない。かといって項目ごとに
+ * 単位を変えると、締切の 60(分)と開始の 60(時間)が同じ数字で別の意味を
+ * 持つことになり、「開いてから締まるまでどれだけあるか」を引き算で出すことも
+ * できなくなる。だから保存する値は必ず分にして、プリセットのラベルと
+ * 入力欄の脇の換算だけを時間表記にする。換算を入力欄の脇にも出しておけば、
+ * プリセットを押さずに 1440 と手で打った人にも同じ読みやすさが届く。
  */
 function MinutesBeforeField({
   label,
@@ -1607,7 +1602,7 @@ function MinutesBeforeField({
   presets: Array<MinutesPreset>
   /** 入力欄の上限。項目で違う(storage.ts の 2 つの定数) */
   max: number
-  /** AI が埋めたまま未確認なら黄色い下線のクラス */
+  /** AI が埋めたまま未確認なら破線の下線のクラス */
   unverifiedClass: string
   note: ReactNode
 }) {
@@ -1628,9 +1623,9 @@ function MinutesBeforeField({
             onChange={(event) => onChange(event.target.value)}
             className={`${fieldClass} max-w-28 ${unverifiedClass}`}
           />
-          <span className="shrink-0 text-sm text-gray-600">分前</span>
+          <span className="shrink-0 text-sm text-ink-muted">分前</span>
           {hours !== null ? (
-            <span className="shrink-0 text-xs text-gray-500">= {hours}</span>
+            <span className="shrink-0 text-xs text-ink-muted">= {hours}</span>
           ) : null}
         </span>
       </label>
@@ -1643,11 +1638,7 @@ function MinutesBeforeField({
               type="button"
               onClick={() => onChange(String(preset.minutes))}
               aria-pressed={selected}
-              className={`min-h-9 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                selected
-                  ? 'border-cyan-600 bg-cyan-600 text-white'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-              }`}
+              className="chip"
             >
               {preset.label}
             </button>
@@ -1657,7 +1648,7 @@ function MinutesBeforeField({
           <button
             type="button"
             onClick={() => onChange('')}
-            className="min-h-9 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+            className="chip text-ink-muted"
           >
             クリア
           </button>
@@ -1670,7 +1661,7 @@ function MinutesBeforeField({
 
 /**
  * 荷物枠 1 スロット(身の回り品 / 持込 / 受託)の入力行。
- * 個数・重量・寸法を横並びにする。未確認の黄色い下線は 3 欄まとめて baggage。
+ * 個数・重量・寸法を横並びにする。未確認の破線の下線は 3 欄まとめて baggage。
  */
 function BaggageSlotFields({
   label,
@@ -1696,7 +1687,7 @@ function BaggageSlotFields({
       <span className={labelClass}>{label}</span>
       <div className="grid grid-cols-3 gap-2">
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">個数</span>
+          <span className="text-xs text-ink-muted">個数</span>
           <input
             type="number"
             inputMode="numeric"
@@ -1710,7 +1701,7 @@ function BaggageSlotFields({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">重量(kg)</span>
+          <span className="text-xs text-ink-muted">重量(kg)</span>
           <input
             type="number"
             inputMode="decimal"
@@ -1723,7 +1714,7 @@ function BaggageSlotFields({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">寸法</span>
+          <span className="text-xs text-ink-muted">寸法</span>
           <input
             type="text"
             value={dimensions}

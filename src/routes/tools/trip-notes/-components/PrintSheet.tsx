@@ -134,7 +134,7 @@ const TIME_COL = 'w-[48pt] shrink-0'
  * 行の間に余白を空けずに積むので、太さの変化が 1 本の線の変化として読める。
  */
 const SPINE_STRONG = 'border-l-[2pt] border-l-black'
-const SPINE_WEAK = 'border-l-[0.75pt] border-dashed border-l-gray-400'
+const SPINE_WEAK = 'border-l-[0.75pt] border-dashed border-l-ink-muted'
 
 /**
  * 予約状況の刷り方。アイコンと枠の形は画面(StatusBadge.tsx)の語彙をそのまま使う。
@@ -148,10 +148,10 @@ const BOOKING_STATUS_PRINT: Record<
   BookingStatus,
   { icon: LucideIcon; className: string }
 > = {
-  idea: { icon: CircleDashed, className: 'border-dashed border-gray-500' },
-  held: { icon: Clock, className: 'border-black border-l-[2pt]' },
-  confirmed: { icon: CheckCircle2, className: 'border-black' },
-  cancelled: { icon: XCircle, className: 'border-gray-400 line-through' },
+  idea: { icon: CircleDashed, className: 'border-dashed border-ink-muted' },
+  held: { icon: Clock, className: 'border-ink border-l-[2pt]' },
+  confirmed: { icon: CheckCircle2, className: 'border-ink' },
+  cancelled: { icon: XCircle, className: 'border-ink-muted line-through' },
 }
 
 /** 節の見出し。明朝 + 1.5pt の罫線で、日付の帯(2pt)より一段下の格に置く */
@@ -165,11 +165,11 @@ function SectionHeading({
   note?: string
 }) {
   return (
-    <div className="mt-[16pt] flex break-inside-avoid items-center gap-[5pt] border-b-[1.5pt] border-black pb-[2pt] break-after-avoid">
+    <div className="mt-[16pt] flex break-inside-avoid items-center gap-[5pt] border-b-[1.5pt] border-ink pb-[2pt] break-after-avoid">
       <Icon size={12} className="shrink-0" aria-hidden="true" />
       <h2 className="font-serif text-[12pt] font-bold">{title}</h2>
       {note !== undefined ? (
-        <span className="text-[7.5pt] text-gray-600">{note}</span>
+        <span className="text-[7.5pt] text-ink-muted">{note}</span>
       ) : null}
     </div>
   )
@@ -178,8 +178,8 @@ function SectionHeading({
 /** 「確認番号 ABC-123」の枠。紙の上でいちばん探される値なので、行の中で一番強く囲う */
 function CodeBox({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex items-baseline gap-[4pt] border-[0.75pt] border-black px-[4pt] py-[1pt]">
-      <span className="text-[6.5pt] tracking-[0.1em] text-gray-600">
+    <span className="inline-flex items-baseline gap-[4pt] border-[0.75pt] border-ink px-[4pt] py-[1pt]">
+      <span className="text-[6.5pt] tracking-[0.1em] text-ink-muted">
         {label}
       </span>
       <span className="font-mono text-[10pt] font-bold tracking-[0.06em]">
@@ -216,7 +216,7 @@ function TimeCell({
               ? strong
                 ? 'text-[10.5pt] font-bold'
                 : 'text-[9pt]'
-              : 'text-[7pt] text-gray-700'
+              : 'text-[7pt] text-ink'
           }
         >
           {line}
@@ -244,11 +244,11 @@ function rolePlacesOf(booking: Booking): Array<RolePlace> {
   return places
 }
 
-/** 場所の見出し行。BookingCard の summarizePlace と同じ言い回しに揃える */
+/** 場所の見出し行。区間は「羽田から松山」のように言葉でつなぐ(docs/design.md) */
 function placeHeadline(booking: Booking): string | null {
   if (booking.place !== undefined) return booking.place.name
   if (booking.from !== undefined || booking.to !== undefined) {
-    return `${booking.from?.name ?? '?'} → ${booking.to?.name ?? '?'}`
+    return `${booking.from?.name ?? '?'}から${booking.to?.name ?? '?'}`
   }
   return null
 }
@@ -356,7 +356,7 @@ function BookingRow({
           strong
         />
         {endTime !== null ? (
-          <div className="mt-[1pt] font-mono text-[8pt] text-gray-700">
+          <div className="mt-[1pt] font-mono text-[8pt] text-ink">
             ↓ {endTime}
           </div>
         ) : null}
@@ -367,7 +367,7 @@ function BookingRow({
           <KindIcon
             kind={booking.kind}
             size={12}
-            className="shrink-0 self-center text-black"
+            className="shrink-0 self-center text-ink"
           />
           <h3 className="text-[11pt] font-bold leading-[1.3]">
             {booking.title}
@@ -384,7 +384,7 @@ function BookingRow({
             「いくら用意してカウンターに立つか」に直結する
           */}
           {booking.payment !== 'paid' ? (
-            <span className="text-[7.5pt] text-gray-700">
+            <span className="text-[7.5pt] text-ink">
               {PAYMENT_STATUS_LABELS[booking.payment]}
               {booking.price !== undefined
                 ? ` ${formatMoney(booking.price.amount, booking.price.currency)}`
@@ -403,7 +403,7 @@ function BookingRow({
             className="mt-[1pt] leading-[1.35]"
           >
             {role !== null ? (
-              <span className="mr-[3pt] border-[0.5pt] border-gray-500 px-[2pt] text-[6.5pt] text-gray-700">
+              <span className="mr-[3pt] border-[0.5pt] border-ink-muted px-[2pt] text-[6.5pt] text-ink">
                 {role}
               </span>
             ) : null}
@@ -415,7 +415,7 @@ function BookingRow({
               <span className="text-[9pt] font-bold">{place.localName}</span>
             ) : null}
             {place.address !== undefined ? (
-              <span className="text-[7.5pt] text-gray-700">
+              <span className="text-[7.5pt] text-ink">
                 {place.localName !== undefined ? ' / ' : ''}
                 {place.address}
               </span>
@@ -424,7 +424,7 @@ function BookingRow({
         ))}
 
         {endDate !== null ? (
-          <p className="mt-[1pt] text-[8pt] text-gray-700">{endDate} まで</p>
+          <p className="mt-[1pt] text-[8pt] text-ink">{endDate} まで</p>
         ) : null}
 
         {deadlines.length > 0 ? (
@@ -439,14 +439,14 @@ function BookingRow({
         ) : null}
 
         {baggageSlots !== null ? (
-          <div className="mt-[2pt] text-[8pt] leading-[1.35] text-gray-800">
+          <div className="mt-[2pt] text-[8pt] leading-[1.35] text-ink">
             <p className="font-semibold">荷物</p>
             <ul className="mt-[1pt] space-y-[0.5pt]">
               {baggageSlots.map((slot) => (
                 <li key={slot.slot}>
                   {slot.label} {slot.metrics}
                   {slot.note !== undefined ? (
-                    <span className="text-gray-600"> — {slot.note}</span>
+                    <span className="text-ink-muted"> — {slot.note}</span>
                   ) : null}
                 </li>
               ))}
@@ -461,15 +461,13 @@ function BookingRow({
               <CodeBox label="確認番号" value={booking.confirmationNumber} />
             ) : null}
             {booking.provider !== undefined ? (
-              <span className="text-[8pt] text-gray-700">
-                {booking.provider}
-              </span>
+              <span className="text-[8pt] text-ink">{booking.provider}</span>
             ) : null}
           </p>
         ) : null}
 
         {booking.note !== undefined && booking.note.length > 0 ? (
-          <p className="mt-[2pt] text-[8pt] leading-[1.35] text-gray-700">
+          <p className="mt-[2pt] text-[8pt] leading-[1.35] text-ink">
             メモ: {booking.note}
           </p>
         ) : null}
@@ -544,7 +542,7 @@ function OngoingRow({
         className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-[5pt] ${
           status.tone === 'event'
             ? 'text-[9.5pt]'
-            : 'text-[8.5pt] text-gray-600'
+            : 'text-[8.5pt] text-ink-muted'
         }`}
       >
         {status.tone === 'event' ? (
@@ -553,11 +551,11 @@ function OngoingRow({
           <KindIcon
             kind={booking.kind}
             size={10}
-            className="shrink-0 text-gray-500"
+            className="shrink-0 text-ink-muted"
           />
         )}
-        {/* 開始日の行と題名が完全一致するので、継続であることを記号でも示す */}
-        <span>↳ {booking.title}</span>
+        {/* 開始日の行と題名が完全一致するので、継続であることを「続き」と添えて示す */}
+        <span>{`続き　${booking.title}`}</span>
         <span className={status.tone === 'event' ? 'font-bold' : ''}>
           {status.label}
         </span>
@@ -637,10 +635,8 @@ function NightsSection({
           return (
             <li
               key={night.date}
-              className={`flex break-inside-avoid items-center gap-[6pt] border-b-[0.5pt] border-gray-300 py-[2.5pt] pl-[6pt] ${
-                label.alert
-                  ? SPINE_STRONG
-                  : 'border-l-[0.75pt] border-l-gray-300'
+              className={`flex break-inside-avoid items-center gap-[6pt] border-b-[0.5pt] border-rule py-[2.5pt] pl-[6pt] ${
+                label.alert ? SPINE_STRONG : 'border-l-[0.75pt] border-l-rule'
               }`}
             >
               <span className="w-[52pt] shrink-0 font-mono text-[9pt]">
@@ -718,7 +714,7 @@ function CountryInfoSection({
           return (
             <li
               key={info.id}
-              className="flex break-inside-avoid gap-[8pt] border-b-[0.5pt] border-gray-300 py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-gray-300"
+              className="flex break-inside-avoid gap-[8pt] border-b-[0.5pt] border-rule py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-rule"
             >
               <span className="w-[80pt] shrink-0 text-[9pt] font-bold">
                 {info.name}
@@ -731,7 +727,7 @@ function CountryInfoSection({
                         key={number.label}
                         className="inline-flex items-baseline gap-[4pt]"
                       >
-                        <span className="text-[6.5pt] tracking-[0.1em] text-gray-600">
+                        <span className="text-[6.5pt] tracking-[0.1em] text-ink-muted">
                           {number.label}
                         </span>
                         <span className="font-mono text-[11pt] font-bold tracking-[0.04em]">
@@ -742,12 +738,12 @@ function CountryInfoSection({
                   </p>
                 ) : null}
                 {facts.length > 0 ? (
-                  <p className="mt-[1pt] text-[8pt] text-gray-700">
+                  <p className="mt-[1pt] text-[8pt] text-ink">
                     {facts.join(' ・ ')}
                   </p>
                 ) : null}
                 {hasText(info.note) ? (
-                  <p className="mt-[1pt] text-[8pt] text-gray-700">
+                  <p className="mt-[1pt] text-[8pt] text-ink">
                     メモ: {info.note}
                   </p>
                 ) : null}
@@ -782,7 +778,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
   const hasTitle = state.tripTitle.length > 0
 
   return (
-    <div className="hidden bg-white px-[40pt] py-[32pt] text-[9pt] leading-snug text-black print:block">
+    <div className="hidden bg-paper px-[40pt] py-[32pt] text-[9pt] leading-snug text-ink print:block">
       {/*
         表紙にあたる帯。旅行名を 22pt の明朝で置き、期間・泊数・件数を
         その下に等幅で並べて、二重線で本文と切る。二重線は「ここから中身」を
@@ -790,7 +786,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
       */}
       <header className="break-inside-avoid break-after-avoid">
         {hasTitle ? (
-          <p className="font-serif text-[8pt] tracking-[0.35em] text-gray-700">
+          <p className="font-serif text-[8pt] tracking-[0.35em] text-ink">
             旅のしおり
           </p>
         ) : null}
@@ -812,9 +808,9 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
             </span>
           ) : null}
         </div>
-        <div className="mt-[6pt] border-t-[2.5pt] border-black" />
-        <div className="mt-[1.5pt] border-t-[0.75pt] border-black" />
-        <div className="mt-[3pt] flex flex-wrap justify-between gap-x-[10pt] text-[7pt] text-gray-600">
+        <div className="mt-[6pt] border-t-[2.5pt] border-ink" />
+        <div className="mt-[1.5pt] border-t-[0.75pt] border-ink" />
+        <div className="mt-[3pt] flex flex-wrap justify-between gap-x-[10pt] text-[7pt] text-ink-muted">
           <span>時刻はすべて現地時間。移動には日本時間(JST)を併記</span>
           <span>印刷日 {formatDateJa(todayISO())}</span>
         </div>
@@ -836,13 +832,13 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
               罫線の非対称で示す。地色は補助でしかなく、刷られなくても帯として読める
             */}
             <div
-              className="mt-[14pt] flex break-inside-avoid flex-wrap items-baseline justify-between gap-x-[8pt] gap-y-[2pt] border-t-[2pt] border-b-[0.75pt] border-black bg-gray-100 px-[5pt] py-[3pt] break-after-avoid"
+              className="mt-[14pt] flex break-inside-avoid flex-wrap items-baseline justify-between gap-x-[8pt] gap-y-[2pt] border-t-[2pt] border-b-[0.75pt] border-ink bg-wash px-[5pt] py-[3pt] break-after-avoid"
               style={TINT_STYLE}
             >
               <div className="flex items-baseline gap-[6pt]">
                 {dayNumber >= 1 ? (
-                  <span className="border-[0.75pt] border-black px-[3pt] py-[0.5pt] font-mono text-[7.5pt] font-bold tracking-[0.08em]">
-                    DAY {dayNumber}
+                  <span className="border-[0.75pt] border-ink px-[3pt] py-[0.5pt] text-[7.5pt] font-bold">
+                    {dayNumber}日目
                   </span>
                 ) : null}
                 <h2 className="font-serif text-[15pt] font-bold leading-none">
@@ -851,7 +847,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
               </div>
               {nightLabel !== null && NightIcon !== undefined ? (
                 <span className="flex items-center gap-[4pt] text-[8.5pt]">
-                  <span className="text-[7pt] tracking-[0.15em] text-gray-700">
+                  <span className="text-[7pt] tracking-[0.15em] text-ink">
                     今夜
                   </span>
                   <NightIcon size={10} aria-hidden="true" />
@@ -864,7 +860,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
 
             {timeline.length === 0 ? (
               <p
-                className={`py-[4pt] pl-[7pt] text-[8.5pt] text-gray-500 ${SPINE_WEAK}`}
+                className={`py-[4pt] pl-[7pt] text-[8.5pt] text-ink-muted ${SPINE_WEAK}`}
               >
                 予定なし
               </p>
@@ -910,26 +906,24 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
             {travelDocs.map((doc) => (
               <li
                 key={doc.id}
-                className="flex break-inside-avoid gap-[8pt] border-b-[0.5pt] border-gray-300 py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-gray-300"
+                className="flex break-inside-avoid gap-[8pt] border-b-[0.5pt] border-rule py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-rule"
               >
-                <span className="w-[52pt] shrink-0 text-[7.5pt] text-gray-700">
+                <span className="w-[52pt] shrink-0 text-[7.5pt] text-ink">
                   {TRAVEL_DOC_KIND_LABELS[doc.kind]}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-[6pt]">
                     <span className="text-[9.5pt] font-bold">{doc.title}</span>
                     {doc.region !== undefined ? (
-                      <span className="text-[8pt] text-gray-700">
-                        {doc.region}
-                      </span>
+                      <span className="text-[8pt] text-ink">{doc.region}</span>
                     ) : null}
-                    <span className="border-[0.5pt] border-black px-[3pt] text-[7.5pt]">
+                    <span className="border-[0.5pt] border-ink px-[3pt] text-[7.5pt]">
                       {TRAVEL_DOC_STATUS_LABELS[doc.status]}
                     </span>
                   </div>
                   {doc.validFrom !== undefined ||
                   doc.validUntil !== undefined ? (
-                    <p className="mt-[1pt] font-mono text-[8pt] text-gray-700">
+                    <p className="mt-[1pt] font-mono text-[8pt] text-ink">
                       有効期間 {doc.validFrom ?? '未定'} 〜{' '}
                       {doc.validUntil ?? '未定'}
                     </p>
@@ -940,7 +934,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
                     </p>
                   ) : null}
                   {doc.note !== undefined && doc.note.length > 0 ? (
-                    <p className="mt-[2pt] text-[8pt] text-gray-700">
+                    <p className="mt-[2pt] text-[8pt] text-ink">
                       メモ: {doc.note}
                     </p>
                   ) : null}
@@ -968,7 +962,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
       <section>
         <SectionHeading icon={PhoneCall} title="緊急連絡先" />
         {state.emergencyContacts.length === 0 ? (
-          <p className="mt-[3pt] text-[8.5pt] text-gray-600">
+          <p className="mt-[3pt] text-[8.5pt] text-ink-muted">
             緊急連絡先が未登録です。
           </p>
         ) : (
@@ -976,7 +970,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
             {state.emergencyContacts.map((contact) => (
               <li
                 key={contact.id}
-                className="flex break-inside-avoid flex-wrap items-baseline gap-x-[8pt] border-b-[0.5pt] border-gray-300 py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-gray-300"
+                className="flex break-inside-avoid flex-wrap items-baseline gap-x-[8pt] border-b-[0.5pt] border-rule py-[3pt] pl-[6pt] border-l-[0.75pt] border-l-rule"
               >
                 <span className="w-[80pt] shrink-0 text-[9pt] font-bold">
                   {contact.label}
@@ -985,9 +979,7 @@ export function PrintSheet({ state, displayTz }: PrintSheetProps) {
                   {contact.value}
                 </span>
                 {contact.note !== undefined && contact.note.length > 0 ? (
-                  <span className="text-[8pt] text-gray-700">
-                    {contact.note}
-                  </span>
+                  <span className="text-[8pt] text-ink">{contact.note}</span>
                 ) : null}
               </li>
             ))}

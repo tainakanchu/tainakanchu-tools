@@ -16,15 +16,7 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Download,
-  ExternalLink,
-  FileSpreadsheet,
-  ShieldCheck,
-  TriangleAlert,
-  UserPlus,
-  Users,
-} from 'lucide-react'
+import { Button, Note, Page, PageTitle } from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { AiImportPanel } from './-components/AiImportPanel'
 import { DataLists } from './-components/Fields'
@@ -41,13 +33,7 @@ import {
   loadState,
   saveState,
 } from './-lib/storage'
-import {
-  cardClass,
-  dangerButtonClass,
-  primaryButtonClass,
-  sectionTitleClass,
-  subtleButtonClass,
-} from './-lib/styles'
+import { panelClass, sectionLeadClass, sectionTitleClass } from './-lib/styles'
 import { TWAC_OFFICIAL_URL, TWAC_SCAM_NOTE } from './-lib/twac'
 import { MAX_TRAVELERS } from './-lib/types'
 import { collectWarnings } from './-lib/warnings'
@@ -97,10 +83,9 @@ function TwacOfficialLink({ label }: { label: string }) {
       href={TWAC_OFFICIAL_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 font-semibold text-cyan-700 underline decoration-cyan-300 underline-offset-2 transition hover:text-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+      className="ink-link font-bold"
     >
-      <ExternalLink size={13} aria-hidden="true" />
-      {label}
+      {label}(別サイト)
     </a>
   )
 }
@@ -351,190 +336,157 @@ function TaiwanArrivalCardPage() {
   }, [state])
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 sm:px-6">
+    <Page>
       <DataLists />
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">{tool.name}</h1>
-        <p className="text-sm text-gray-600">
-          <TwacOfficialLink label="TWAC 公式サイト" />
-          (台湾のオンライン入国カード)の
-          <strong className="font-semibold text-gray-800">
-            一括アップロード用 Excel
-          </strong>
-          を作ります。旅程は同行者全員で共有し、個人情報だけ人ごとに入力します(最大
-          {MAX_TRAVELERS}名)。
-        </p>
-        <p className="text-xs text-amber-700">{TWAC_SCAM_NOTE}</p>
-        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-          <ShieldCheck
-            size={14}
-            aria-hidden="true"
-            className="mt-0.5 shrink-0 text-gray-500"
-          />
-          <span>
+      <PageTitle
+        lead={
+          <>
+            <TwacOfficialLink label="TWAC 公式サイト" />
+            (台湾のオンライン入国カード)の一括アップロード用 Excel
+            を作ります。旅程は同行者全員で共有し、個人情報だけ人ごとに入力します(最大
+            {MAX_TRAVELERS}名)。
+          </>
+        }
+      >
+        {tool.name}
+      </PageTitle>
+
+      <div className="page-measure">
+        <Note className="space-y-2">
+          <p>{TWAC_SCAM_NOTE}</p>
+          <p>
             入力内容(パスポート番号・住所を含む)は
-            <strong className="font-semibold text-gray-800">
+            <strong className="font-bold">
               この端末のブラウザ内にのみ保存され、どこにも送信されません。
             </strong>
             Excel
             の生成もブラウザの中だけで完結します。共用のパソコンで使った場合は、
             下の「すべての入力内容を削除」で消してください。
-          </span>
-        </p>
+          </p>
+        </Note>
         {restored && (
-          <p className="text-xs text-gray-500">
+          <p className="mt-3 text-sm text-ink-muted">
             前回の入力内容をこの端末から復元しました。
           </p>
         )}
         {rescued && (
-          <p
-            role="status"
-            className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-          >
+          <Note tone="warn" role="status" className="mt-3">
             前回の入力内容を読み取れなかったため、空の状態で開いています。
-            <strong className="font-semibold">
-              読めなかったデータは消さずに
-            </strong>
+            <strong className="font-bold">読めなかったデータは消さずに</strong>
             このブラウザの保存領域(キー
-            <code className="mx-1 rounded bg-amber-100 px-1">
+            <code className="mx-1 bg-wash px-1">
               taiwan-arrival-card:v1:backup
             </code>
             )へ退避してあります。「すべての入力内容を削除」を押すと、退避したぶんも
             まとめて消えます。
-          </p>
+          </Note>
         )}
-      </header>
 
-      <div className="mt-6 space-y-6">
-        {/* 更新関数をそのまま渡す。取り込みは押した瞬間の state に当てる
+        <div className="mt-8 space-y-10">
+          {/* 更新関数をそのまま渡す。取り込みは押した瞬間の state に当てる
           (AiImportPanel の onApply のコメント参照) */}
-        <AiImportPanel state={state} onApply={setState} />
+          <AiImportPanel state={state} onApply={setState} />
 
-        <TripForm
-          trip={state.trip}
-          onChange={updateTrip}
-          pastTrips={state.pastTrips}
-          onApplyPastTrip={handleApplyPastTrip}
-        />
+          <TripForm
+            trip={state.trip}
+            onChange={updateTrip}
+            pastTrips={state.pastTrips}
+            onApplyPastTrip={handleApplyPastTrip}
+          />
 
-        <section className={cardClass}>
-          <h2 className={sectionTitleClass}>
-            <Users size={18} aria-hidden="true" className="text-cyan-600" />
-            旅行者({state.travelers.length} / {MAX_TRAVELERS}名)
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            パスポートの表記どおりに入力してください。次回の旅行でもそのまま使い回せます。
-          </p>
-          <ul className="mt-4 space-y-4">
-            {state.travelers.map((traveler, index) => (
-              <TravelerCard
-                key={traveler.id}
-                traveler={traveler}
-                position={index + 1}
-                canRemove={state.travelers.length > 1}
-                onRemove={() => removeTraveler(traveler.id)}
-                onChange={(key, value) =>
-                  updateTraveler(traveler.id, key, value)
-                }
-              />
-            ))}
-          </ul>
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={addTraveler}
-              disabled={state.travelers.length >= MAX_TRAVELERS}
-              className={subtleButtonClass}
-            >
-              <UserPlus size={16} aria-hidden="true" />
-              旅行者を追加
-            </button>
-          </div>
-        </section>
-
-        <section className={cardClass}>
-          <h2 className={sectionTitleClass}>
-            <FileSpreadsheet
-              size={18}
-              aria-hidden="true"
-              className="text-cyan-600"
-            />
-            Excel を書き出す
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            書き出したファイルは、
-            <TwacOfficialLink label="TWAC 公式サイト" />
-            の一括アップロード(Excel
-            の取り込み)にそのまま読み込めます。公式テンプレートの構造を一切変えずに、
-            値だけを入れているためです。
-          </p>
-          <p className="mt-1 text-xs text-amber-700">{TWAC_SCAM_NOTE}</p>
-
-          {warnings.length > 0 && (
-            <details className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              <summary className="flex cursor-pointer items-center gap-1.5 font-medium">
-                <TriangleAlert size={15} aria-hidden="true" />
-                未入力・確認したい項目({warnings.length}件)
-              </summary>
-              <p className="mt-2 text-xs text-amber-800">
-                書き出しは止めません。TWAC
-                側の検証規則をこのツールが完全に写せているとは限らないため、
-                最終的な判断は入力した本人に委ねています。
-              </p>
-              <ul className="mt-2 space-y-1">
-                {warnings.map((warning, index) => (
-                  <li key={index}>
-                    {warning.travelerIndex !== null
-                      ? `${warning.travelerIndex + 1}人目: `
-                      : '旅程: '}
-                    {warning.message}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void handleDownload()}
-              disabled={busy}
-              className={primaryButtonClass}
-            >
-              <Download size={16} aria-hidden="true" />
-              {busy ? '書き出し中…' : 'Excel をダウンロード'}
-            </button>
-            <button
-              type="button"
-              onClick={clearTripOnly}
-              className={subtleButtonClass}
-            >
-              旅程だけクリア
-            </button>
-            <button
-              type="button"
-              onClick={clearAll}
-              className={dangerButtonClass}
-            >
-              すべての入力内容を削除
-            </button>
-          </div>
-
-          {download.tone !== 'idle' && (
-            <p
-              role="status"
-              className={`mt-3 rounded-xl px-3 py-2 text-sm ${
-                download.tone === 'ok'
-                  ? 'bg-emerald-50 text-emerald-800'
-                  : 'bg-rose-50 text-rose-800'
-              }`}
-            >
-              {download.text}
+          <section className={panelClass}>
+            <h2 className={sectionTitleClass}>
+              旅行者({state.travelers.length} / {MAX_TRAVELERS}名)
+            </h2>
+            <p className={sectionLeadClass}>
+              パスポートの表記どおりに入力してください。次回の旅行でもそのまま使い回せます。
             </p>
-          )}
-        </section>
+            <ul className="mt-5">
+              {state.travelers.map((traveler, index) => (
+                <TravelerCard
+                  key={traveler.id}
+                  traveler={traveler}
+                  position={index + 1}
+                  canRemove={state.travelers.length > 1}
+                  onRemove={() => removeTraveler(traveler.id)}
+                  onChange={(key, value) =>
+                    updateTraveler(traveler.id, key, value)
+                  }
+                />
+              ))}
+            </ul>
+            <div className="border-t border-rule pt-5">
+              <Button
+                onClick={addTraveler}
+                disabled={state.travelers.length >= MAX_TRAVELERS}
+              >
+                旅行者を追加
+              </Button>
+            </div>
+          </section>
+
+          <section className={panelClass}>
+            <h2 className={sectionTitleClass}>Excel を書き出す</h2>
+            <p className={sectionLeadClass}>
+              書き出したファイルは、
+              <TwacOfficialLink label="TWAC 公式サイト" />
+              の一括アップロード(Excel
+              の取り込み)にそのまま読み込めます。公式テンプレートの構造を一切変えずに、
+              値だけを入れているためです。
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">{TWAC_SCAM_NOTE}</p>
+
+            {warnings.length > 0 && (
+              <details className="panel-note panel-note-warn mt-4">
+                <summary className="cursor-pointer font-bold">
+                  未入力・確認したい項目({warnings.length}件)
+                </summary>
+                <p className="mt-2 text-xs text-ink-muted">
+                  書き出しは止めません。TWAC
+                  側の検証規則をこのツールが完全に写せているとは限らないため、
+                  最終的な判断は入力した本人に委ねています。
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {warnings.map((warning, index) => (
+                    <li key={index}>
+                      {warning.travelerIndex !== null
+                        ? `${warning.travelerIndex + 1}人目: `
+                        : '旅程: '}
+                      {warning.message}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <Button
+                variant="primary"
+                onClick={() => void handleDownload()}
+                disabled={busy}
+              >
+                {busy ? '書き出し中…' : 'Excel をダウンロード'}
+              </Button>
+              <Button onClick={clearTripOnly}>旅程だけクリア</Button>
+              <Button variant="danger" onClick={clearAll}>
+                すべての入力内容を削除
+              </Button>
+            </div>
+
+            {download.tone !== 'idle' &&
+              (download.tone === 'ok' ? (
+                <Note role="status" className="mt-4">
+                  {download.text}
+                </Note>
+              ) : (
+                <Note tone="error" role="status" className="mt-4">
+                  {download.text}
+                </Note>
+              ))}
+          </section>
+        </div>
       </div>
-    </main>
+    </Page>
   )
 }

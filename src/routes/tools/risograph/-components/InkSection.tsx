@@ -1,7 +1,10 @@
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { Chip, Swatch } from '../../../../components/ui'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
 import {
   iconButtonClass,
+  rowClass,
+  rowListClass,
   sectionClass,
   sectionNoteClass,
   sectionTitleClass,
@@ -38,15 +41,13 @@ export function InkSection({ inkIds, onChange }: Props) {
 
   return (
     <section className={sectionClass}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-400">2.</span> インクと刷り順
-      </h2>
+      <h2 className={sectionTitleClass}>2. インクと刷り順</h2>
       <p className={`${sectionNoteClass} mt-2`}>
         2〜4 色を選びます。リストの上から順に 1 版目、2 版目…として刷る想定で、
         刷り順はトラッピング（重なり方）の予測に効きます。
       </p>
 
-      <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {INK_PRESETS.map((preset) => {
           const order = inkIds.indexOf(preset.id)
           const selected = order >= 0
@@ -55,53 +56,33 @@ export function InkSection({ inkIds, onChange }: Props) {
             : inkIds.length >= MAX_INKS
           return (
             <li key={preset.id}>
-              <button
-                type="button"
-                onClick={() => toggle(preset.id)}
+              <Chip
+                pressed={selected}
+                onPressedChange={() => toggle(preset.id)}
                 disabled={disabled}
-                aria-pressed={selected}
-                className={`flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400 ${
-                  selected
-                    ? 'border-cyan-400 bg-cyan-500/10 text-gray-100'
-                    : 'border-white/10 text-gray-300 hover:border-white/30'
-                }`}
+                dot={preset.hex}
+                count={selected ? `${order + 1}番目` : undefined}
+                className="w-full justify-start"
               >
-                <span
-                  className="h-6 w-6 shrink-0 rounded-full border border-white/20"
-                  style={{ backgroundColor: preset.hex }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate">{preset.name}</span>
-                {selected ? (
-                  <span className="shrink-0 rounded-full bg-cyan-500 px-1.5 text-[10px] font-bold text-gray-950">
-                    {order + 1}
-                  </span>
-                ) : null}
-              </button>
+                {preset.name}
+              </Chip>
             </li>
           )
         })}
       </ul>
 
-      <ol className="mt-4 space-y-2">
+      <ol className={`mt-4 ${rowListClass}`}>
         {inkIds.map((id, index) => {
           const preset = INK_PRESETS.find((p) => p.id === id)
           return (
-            <li
-              key={id}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-gray-950/60 px-3 py-2"
-            >
-              <span className="w-12 shrink-0 text-xs font-semibold text-gray-400">
+            <li key={id} className={`flex items-center gap-3 ${rowClass}`}>
+              <span className="w-12 shrink-0 text-xs font-bold text-ink-muted">
                 {index + 1}版目
               </span>
-              <span
-                className="h-6 w-6 shrink-0 rounded-full border border-white/20"
-                style={{ backgroundColor: preset?.hex ?? '#000000' }}
-                aria-hidden
-              />
-              <span className="min-w-0 flex-1 truncate text-sm text-gray-100">
+              <Swatch color={preset?.hex ?? '#000000'} size={24} />
+              <span className="min-w-0 flex-1 truncate text-sm">
                 {preset?.name ?? id}
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-ink-muted">
                   {preset?.hex}
                 </span>
               </span>

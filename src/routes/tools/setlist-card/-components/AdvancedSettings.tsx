@@ -3,7 +3,8 @@ import { MAX_PAGES, getSize, getTemplate } from '../-lib/layouts'
 import { columnsLimit } from '../-lib/render'
 import { PaletteEditor } from './PalettePicker'
 import { RedactSettings } from './TrackSection'
-import { Field, Segmented, SwitchRow } from './ui'
+import { SegmentedControl, Switch } from '../../../../components/ui'
+import { Field } from './ui'
 import type { ComponentProps } from 'react'
 import type { CanvasSize, ColumnsSetting, LayoutId } from '../-lib/layouts'
 import type { RedactOptions } from '../-lib/redact'
@@ -66,7 +67,8 @@ export function AdvancedSettings({
       <summary>詳細設定</summary>
       <div className="space-y-8 pt-2 pb-8">
         <Field label="文字組み">
-          <Segmented
+          <SegmentedControl
+            full
             label="書体"
             value={style.family}
             options={[
@@ -75,7 +77,8 @@ export function AdvancedSettings({
             ]}
             onChange={(family) => setStyle({ family })}
           />
-          <Segmented
+          <SegmentedControl
+            full
             label="アーティストと曲名の区切り"
             value={style.separator}
             options={SEPARATORS.filter(
@@ -91,20 +94,20 @@ export function AdvancedSettings({
             onChange={(separator) => setStyle({ separator })}
           />
           <div>
-            <SwitchRow
-              label="番号・時刻を等幅に"
+            <Switch
+              label="番号と時刻を等幅に"
               checked={style.monoMeta}
               onChange={(monoMeta) => setStyle({ monoMeta })}
             />
-            <SwitchRow
+            <Switch
               label="粒子"
               checked={style.grain}
               onChange={(grain) => setStyle({ grain })}
               title="紙やフィルムのような細かな粒"
             />
             {layout === 'tracklist' ? (
-              <SwitchRow
-                label="A1・B1 の面番号"
+              <Switch
+                label="A1、B1 のような面番号"
                 checked={style.sideNumbers}
                 onChange={(sideNumbers) => setStyle({ sideNumbers })}
                 title="レコード風の飾りの番号（実際の面ではない）。12 曲までは A/B、それより多ければ 6 曲ずつ"
@@ -116,7 +119,7 @@ export function AdvancedSettings({
         <Field label="表示する項目">
           <div>
             {TOGGLES.map((t) => (
-              <SwitchRow
+              <Switch
                 key={t.key}
                 label={t.label}
                 checked={display[t.key]}
@@ -127,8 +130,9 @@ export function AdvancedSettings({
         </Field>
 
         <Field label="長い曲名">
-          <Segmented
-            label="長い曲名・アーティスト名"
+          <SegmentedControl
+            full
+            label="長い曲名やアーティスト名"
             value={textOptions.longText}
             options={[
               {
@@ -148,15 +152,15 @@ export function AdvancedSettings({
             }
           />
           <div>
-            <SwitchRow
+            <Switch
               label="ミックス表記を省く"
               checked={textOptions.stripMix}
               onChange={(stripMix) =>
                 onTextOptionsChange({ ...textOptions, stripMix })
               }
-              title="(Original Mix)・[Extended Mix] など。人名入りのリミックス表記は残す"
+              title="(Original Mix) や [Extended Mix] など。人名入りのリミックス表記は残す"
             />
-            <SwitchRow
+            <Switch
               label="feat. を省く"
               checked={textOptions.stripFeat}
               onChange={(stripFeat) =>
@@ -168,7 +172,8 @@ export function AdvancedSettings({
 
         {template.columns ? (
           <Field label="段数">
-            <Segmented
+            <SegmentedControl
+              full
               label="段数"
               value={columns}
               options={(['auto', 1, 2, 3] as const).map((value) => ({
@@ -187,7 +192,8 @@ export function AdvancedSettings({
 
         <Field label="枚数">
           <div className="flex gap-2">
-            <Segmented
+            <SegmentedControl
+              full
               label="枚数"
               className="flex-1"
               value={splitChoice.mode}
@@ -217,7 +223,7 @@ export function AdvancedSettings({
                   min={1}
                   max={MAX_PAGES}
                   value={splitChoice.count}
-                  className="slc-input mono w-16!"
+                  className="input w-16!"
                   aria-label="枚数"
                   onChange={(event) => {
                     const n = Number(event.target.value)

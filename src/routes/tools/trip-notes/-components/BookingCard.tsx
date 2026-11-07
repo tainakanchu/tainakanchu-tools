@@ -12,34 +12,28 @@
  * idea には破線ボーダーという形の違いも足す(StatusBadge.tsx 冒頭のコメント参照)。
  *
  * ■ なぜモーダルではなく、その場で開くのか
- *   AI が取り込んだ値を 1 つずつ確認する道は、これまで鉛筆 → 編集フォームしか
- *   なかった。だが利用者がしたいのは「直す」ことではなく「見て、合っていると
- *   確かめる」ことで、その操作に編集の入口を通らせるのは遠回りである。
- *   しかも編集フォームは全項目を入力欄として開くので、直すつもりの無い値まで
- *   触れる状態にしてしまい、確認しに来ただけの人が取り違えて書き換えられる。
- *   カードを押したら下に開く形なら、日程の並び(前後にどの予定があるか)を
- *   保ったまま中身を見られて、閉じれば元の一覧に戻る。編集は鉛筆に残したまま、
- *   「見るだけ」の道を別に用意する、というのがこの展開の趣旨。
+ * AI が取り込んだ値を 1 つずつ確認する道は、これまで鉛筆から編集フォームを開くしか
+ * なかった。だが利用者がしたいのは「直す」ことではなく「見て、合っていると
+ * 確かめる」ことで、その操作に編集の入口を通らせるのは遠回りである。
+ * しかも編集フォームは全項目を入力欄として開くので、直すつもりの無い値まで
+ * 触れる状態にしてしまい、確認しに来ただけの人が取り違えて書き換えられる。
+ * カードを押したら下に開く形なら、日程の並び(前後にどの予定があるか)を
+ * 保ったまま中身を見られて、閉じれば元の一覧に戻る。編集は鉛筆に残したまま、
+ * 「見るだけ」の道を別に用意する、というのがこの展開の趣旨。
  *
  * ■ 展開ビューの中心は「未確認フィールドの確認」
- *   単に詳細を出すだけなら情報の置き場所が増えるだけだが、ここでは未確認の
- *   フィールドごとに AI の抽出根拠(booking.evidence)を値の隣に並べる。
- *   根拠の引用がその場にあれば、元の予約確認メールを探して開き直さなくても
- *   「メールにこう書いてあった → 画面の値と一致している」をその場で照合して
- *   確認済みにできる。この「元メールに戻らなくてよい」がこの改善の値打ちで、
- *   evidence を切り詰めずに全文出しているのもそのため(照合が目的なので、
- *   truncate で末尾が消えると根拠として役に立たない)。
+ * 単に詳細を出すだけなら情報の置き場所が増えるだけだが、ここでは未確認の
+ * フィールドごとに AI の抽出根拠(booking.evidence)を値の隣に並べる。
+ * 根拠の引用がその場にあれば、元の予約確認メールを探して開き直さなくても
+ * 「メールにこう書いてあった値と画面の値が一致している」をその場で照合して
+ * 確認済みにできる。この「元メールに戻らなくてよい」がこの改善の値打ちで、
+ * evidence を切り詰めずに全文出しているのもそのため(照合が目的なので、
+ * truncate で末尾が消えると根拠として役に立たない)。
  */
 
 import { useEffect, useId, useState } from 'react'
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Pencil,
-  Trash2,
-} from 'lucide-react'
+import { ChevronDown, Pencil, Trash2 } from 'lucide-react'
+import { Badge, Button, buttonClass } from '../../../../components/ui'
 import { googleCalendarUrl } from '../../../../lib/trip-notes/calendarLinks'
 import {
   formatDateJa,
@@ -75,16 +69,16 @@ import type {
 } from '../../../../lib/trip-notes/types'
 
 /**
- * カード全体の縁・地色。confirmed/cancelled は現状どおり白地・実線グレーのまま
+ * カード全体の縁・地色。confirmed/cancelled は現状どおり白地・実線の細罫のまま
  * 変えない(cancelled は打ち消し線と opacity-60 だけで十分「見なくていい」が伝わる)。
  * status は 4 択の単一値なので、この対応表 1 つだけで済み、
  * cancelled が idea/held の装飾を誤って引きずる心配もない。
  */
 const CARD_STATUS_CLASS: Record<BookingStatus, string> = {
-  idea: 'border-dashed border-slate-300 bg-slate-50',
-  held: 'border-amber-300 bg-amber-50',
-  confirmed: 'border-gray-200 bg-white',
-  cancelled: 'border-gray-200 bg-white',
+  idea: 'border-dashed border-ink-muted bg-paper',
+  held: 'border-ink bg-wash',
+  confirmed: 'border-rule bg-paper',
+  cancelled: 'border-rule bg-paper',
 }
 
 /**
@@ -92,19 +86,19 @@ const CARD_STATUS_CLASS: Record<BookingStatus, string> = {
  * 未確認フィールドの確認行の両方で使う。
  *
  * ■ なぜ BookingForm から借りずにここへ置くのか
- *   BookingForm もフィールド名を日本語で持っているが、あちらのラベルは
- *   「入力欄 1 つ」に付いていて、FieldKey 単位では存在しない。
- *   start は日付・時刻・タイムゾーンの 3 欄、price は金額・通貨コードの 2 欄、
- *   place は名称・現地語表記・住所の 3 欄に割れており、end に至っては
- *   種別によって「チェックアウト日時 / 到着日時 / 終了日時」と文言が変わる
- *   (BookingForm の endLabelFor)。つまり借りられる対応表が向こうに無く、
- *   作るにはフォームの入力欄の構造そのものを組み替えることになる。
- *   代わりに、値のほうのラベル(種別・予約状況・支払状況)は既存の
- *   BOOKING_KIND_LABELS / BOOKING_STATUS_LABELS / PAYMENT_STATUS_LABELS を
- *   そのまま使い回し、そちらは二重定義しない。
- *   文言は BookingForm の入力欄と揃えてある。ここで確認した項目を
- *   あとから鉛筆で直しに行ったとき、同じ名前の欄を探せるようにするため。
- *   Record を全キーで埋めておけば、FieldKey が増えたときに型検査で気付ける。
+ * BookingForm もフィールド名を日本語で持っているが、あちらのラベルは
+ * 「入力欄 1 つ」に付いていて、FieldKey 単位では存在しない。
+ * start は日付・時刻・タイムゾーンの 3 欄、price は金額・通貨コードの 2 欄、
+ * place は名称・現地語表記・住所の 3 欄に割れており、end に至っては
+ * 種別によって「チェックアウト日時 / 到着日時 / 終了日時」と文言が変わる
+ * (BookingForm の endLabelFor)。つまり借りられる対応表が向こうに無く、
+ * 作るにはフォームの入力欄の構造そのものを組み替えることになる。
+ * 代わりに、値のほうのラベル(種別・予約状況・支払状況)は既存の
+ * BOOKING_KIND_LABELS / BOOKING_STATUS_LABELS / PAYMENT_STATUS_LABELS を
+ * そのまま使い回し、そちらは二重定義しない。
+ * 文言は BookingForm の入力欄と揃えてある。ここで確認した項目を
+ * あとから鉛筆で直しに行ったとき、同じ名前の欄を探せるようにするため。
+ * Record を全キーで埋めておけば、FieldKey が増えたときに型検査で気付ける。
  */
 const FIELD_LABELS: Record<FieldKey, string> = {
   kind: '種別',
@@ -184,7 +178,7 @@ function placeText(place: Place | undefined): string {
   const extra = [place.localName, place.address].filter(
     (value): value is string => value !== undefined && value !== '',
   )
-  return extra.length === 0 ? place.name : `${place.name}(${extra.join(' / ')})`
+  return extra.length === 0 ? place.name : `${place.name}(${extra.join('、')})`
 }
 
 /**
@@ -192,12 +186,12 @@ function placeText(place: Place | undefined): string {
  * 時間に直す(1440 →「出発の24時間前」)。
  *
  * ■ なぜこの項目だけ時間で出すのか
- *   締切の 2 項目は 45 / 60 / 90 分前という 1 時間前後の値で、時間に直すと
- *   「1.5時間前」のような読みにくい数になるだけなので分のままがいちばん短い。
- *   一方この項目は 24 / 48 / 72 時間前が実在する値で、分のまま
- *   「出発の1440分前」と出されても桁を数えないと何時間前か読めない。
- *   保存する単位は分でそろえたまま(項目ごとに単位を変えると同じ 60 が
- *   別の意味を持つ。types.ts と BookingForm を参照)、読みだけをここで切り替える。
+ * 締切の 2 項目は 45 / 60 / 90 分前という 1 時間前後の値で、時間に直すと
+ * 「1.5時間前」のような読みにくい数になるだけなので分のままがいちばん短い。
+ * 一方この項目は 24 / 48 / 72 時間前が実在する値で、分のまま
+ * 「出発の1440分前」と出されても桁を数えないと何時間前か読めない。
+ * 保存する単位は分でそろえたまま(項目ごとに単位を変えると同じ 60 が
+ * 別の意味を持つ。types.ts と BookingForm を参照)、読みだけをここで切り替える。
  */
 function checkInOpensText(minutes: number): string {
   return minutes >= 120 && minutes % 60 === 0
@@ -358,16 +352,18 @@ interface PlaceSummary {
   fields: Array<FieldKey>
 }
 
-/** カードに出す場所の要約。宿泊・アクティビティは place、移動は from → to */
+/** カードに出す場所の要約。宿泊・アクティビティは place、移動は「AからB」 */
 function summarizePlace(booking: Booking): PlaceSummary | null {
   if (booking.place !== undefined) {
     return { text: booking.place.name, fields: ['place'] }
   }
-  if (booking.from !== undefined || booking.to !== undefined) {
-    const from = booking.from?.name ?? '?'
-    const to = booking.to?.name ?? '?'
-    return { text: `${from} → ${to}`, fields: ['from', 'to'] }
+  const from = booking.from?.name
+  const to = booking.to?.name
+  if (from !== undefined && to !== undefined) {
+    return { text: `${from}から${to}`, fields: ['from', 'to'] }
   }
+  if (from !== undefined) return { text: `${from}から`, fields: ['from'] }
+  if (to !== undefined) return { text: `${to}まで`, fields: ['to'] }
   return null
 }
 
@@ -417,17 +413,17 @@ export function BookingCard({
               ? `${row.shortLabel} ${row.relative}`
               : `${row.shortLabel} ${row.absolute}`,
           )
-          .join(' · ')
+          .join('、')
 
   return (
     <div
-      className={`rounded-2xl border p-3 shadow-sm transition sm:p-4 ${statusClass} ${
+      className={`border p-3 transition sm:p-4 ${statusClass} ${
         cancelled ? 'opacity-60' : ''
       }`}
     >
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 ${isUnverified('kind')}`}
+          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center text-ink ${isUnverified('kind')}`}
         >
           <KindIcon kind={booking.kind} size={16} />
         </span>
@@ -453,29 +449,29 @@ export function BookingCard({
               onClick={onToggleExpand}
               aria-expanded={expanded}
               aria-controls={detailsId}
-              className="flex w-full cursor-pointer items-start gap-2 rounded-lg text-left transition hover:bg-gray-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="flex w-full cursor-pointer items-start gap-2 rounded-ui text-left transition hover:bg-wash"
             >
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
-                    className={`truncate text-sm font-semibold text-gray-900 ${
+                    className={`truncate text-sm font-bold text-ink ${
                       cancelled ? 'line-through' : ''
                     } ${isUnverified('title')}`}
                   >
                     {booking.title}
                   </span>
                   {unverified.length > 0 ? (
-                    <span
-                      className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                    <Badge
+                      tone="dashed"
                       title="AI が入力したまま未確認のフィールドがあります"
                     >
                       未確認 {unverified.length}件
-                    </span>
+                    </Badge>
                   ) : null}
                 </span>
 
                 <span
-                  className={`mt-0.5 block text-xs text-gray-600 ${isUnverified('start', 'end')}`}
+                  className={`mt-0.5 block text-xs text-ink-muted ${isUnverified('start', 'end')}`}
                 >
                   {timeLabel}
                   {endLabel !== null ? `〜${endLabel}` : ''}
@@ -483,7 +479,7 @@ export function BookingCard({
 
                 {place !== null ? (
                   <span
-                    className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(...place.fields)}`}
+                    className={`mt-1 block truncate text-xs text-ink-muted ${isUnverified(...place.fields)}`}
                   >
                     {place.text}
                   </span>
@@ -491,7 +487,7 @@ export function BookingCard({
 
                 {timingSummary !== null && !expanded ? (
                   <span
-                    className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(
+                    className={`mt-1 block truncate text-xs text-ink-muted ${isUnverified(
                       'onlineCheckInOpensMinutesBefore',
                       'bagDropClosesMinutesBefore',
                       'checkInClosesMinutesBefore',
@@ -505,7 +501,7 @@ export function BookingCard({
               <ChevronDown
                 size={16}
                 aria-hidden="true"
-                className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${
+                className={`mt-0.5 shrink-0 text-ink-muted transition-transform ${
                   expanded ? 'rotate-180' : ''
                 }`}
               />
@@ -520,19 +516,17 @@ export function BookingCard({
               予約は 10 回近い操作になる。カードの表示だけで内容を見終えた人の
               ために、予約単位でまとめて外す出口を並べておく。
               見出しの行から状況バッジの行へ移したのは、上が開閉ボタンになって
-              入れ子の button を作れなくなったため。同じ amber の語彙で
-              「未確認 N件」のチップと呼応するので、離れても対応は読める
+              入れ子の button を作れなくなったため。「確認」という同じ言葉で
+              「未確認 N件」の札と呼応するので、離れても対応は読める
             */}
             {unverified.length > 0 ? (
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={onVerifyAll}
                 aria-label={`${booking.title} の未確認 ${unverified.length}件をすべて確認済みにする`}
-                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
               >
-                <Check size={11} aria-hidden="true" />
                 確認済みにする
-              </button>
+              </Button>
             ) : null}
           </div>
 
@@ -549,7 +543,7 @@ export function BookingCard({
           */}
           {booking.confirmationNumber !== undefined && !expanded ? (
             <p
-              className={`mt-1.5 font-mono text-[11px] text-gray-500 ${isUnverified('confirmationNumber')}`}
+              className={`mt-1.5 text-xs break-all text-ink-muted ${isUnverified('confirmationNumber')}`}
             >
               確認番号: {booking.confirmationNumber}
             </p>
@@ -563,15 +557,15 @@ export function BookingCard({
             className={iconButtonClass}
             aria-label={`${booking.title} を編集`}
           >
-            <Pencil size={15} />
+            <Pencil size={15} aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className={`${iconButtonClass} hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600`}
+            className={`${iconButtonClass} hover:bg-pink-wash`}
             aria-label={`${booking.title} を削除`}
           >
-            <Trash2 size={15} />
+            <Trash2 size={15} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -621,7 +615,7 @@ function BookingDetails({
   const timingRows = transportTimingRows(booking, displayTz)
 
   return (
-    <div id={id} className="mt-3 space-y-3 border-t border-gray-200 pt-3">
+    <div id={id} className="mt-3 space-y-3 border-t border-rule pt-3">
       {unverified.length > 0 ? (
         <UnverifiedChecklist
           booking={booking}
@@ -737,20 +731,20 @@ function BookingDetails({
  * この予約 1 件を Google カレンダーに登録するリンク。
  *
  * ■ なぜ展開ビューの末尾なのか
- *   折りたたみ時には出さない。カードの 1 行 1 行は「次に何をすればよいか」を
- *   読む場所で、そこに常時出す操作ではないからである(検索リンクと違い、
- *   予約が確定していても消えないので、出しっぱなしにすると全カードに 1 行増える)。
- *   詳細をひととおり見終えたあとに来るので、置き場所は中身の最後にする。
+ * 折りたたみ時には出さない。カードの 1 行 1 行は「次に何をすればよいか」を
+ * 読む場所で、そこに常時出す操作ではないからである(検索リンクと違い、
+ * 予約が確定していても消えないので、出しっぱなしにすると全カードに 1 行増える)。
+ * 詳細をひととおり見終えたあとに来るので、置き場所は中身の最後にする。
  *
  * ■ 検索リンク(探す:)と同じ行に混ぜない
- *   見た目は同じチップだが、あちらは「まだ取れていない予約をどこで探すか」で、
- *   こちらは「取れている予約を自分のカレンダーへ写す」。並べると
- *   予約サイトの 1 つに見える。
+ * 見た目は同じチップだが、あちらは「まだ取れていない予約をどこで探すか」で、
+ * こちらは「取れている予約を自分のカレンダーへ写す」。並べると
+ * 予約サイトの 1 つに見える。
  *
  * ■ 設定タブの .ics との使い分け
- *   一括で入れるなら .ics のほうが速い。ただしスマホの Google カレンダーアプリは
- *   .ics を取り込めないので、スマホしか手元にないときはこのリンクが唯一の道になる
- *   (calendarLinks.ts の冒頭を参照)。
+ * 一括で入れるなら .ics のほうが速い。ただしスマホの Google カレンダーアプリは
+ * .ics を取り込めないので、スマホしか手元にないときはこのリンクが唯一の道になる
+ * (calendarLinks.ts の冒頭を参照)。
  */
 function CalendarAddLink({ booking }: { booking: Booking }) {
   // 行かないと決めた予定をカレンダーに入れる意味はない(.ics 側の扱いと揃える)
@@ -761,17 +755,17 @@ function CalendarAddLink({ booking }: { booking: Booking }) {
   if (url === null) return null
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <p className="text-xs">
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        className="ink-link font-medium text-ink"
       >
-        <ExternalLink size={11} aria-hidden="true" />
         Googleカレンダーに追加
       </a>
-    </div>
+      <span className="ml-1 text-ink-muted">(別サイト)</span>
+    </p>
   )
 }
 
@@ -782,14 +776,14 @@ function DetailRow({
   children,
 }: {
   label: string
-  /** 未確認なら黄色い下線(折りたたみ時のカードと同じ語彙) */
+  /** 未確認なら破線の下線(折りたたみ時のカードと同じ語彙) */
   valueClass: string
   children: ReactNode
 }) {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-      <dt className="w-24 shrink-0 text-gray-500">{label}</dt>
-      <dd className={`min-w-0 flex-1 break-words text-gray-800 ${valueClass}`}>
+      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dd className={`min-w-0 flex-1 break-words text-ink ${valueClass}`}>
         {children}
       </dd>
     </div>
@@ -812,18 +806,18 @@ function BaggageDetail({
 }) {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-      <dt className="w-24 shrink-0 text-gray-500">{FIELD_LABELS.baggage}</dt>
+      <dt className="w-24 shrink-0 text-ink-muted">{FIELD_LABELS.baggage}</dt>
       <dd className={`min-w-0 flex-1 space-y-1.5 ${valueClass}`}>
         {slots.map((slot) => (
           <div key={slot.slot} className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="shrink-0 font-medium text-gray-700">
+              <span className="shrink-0 font-medium text-ink">
                 {slot.label}
               </span>
-              <span className="text-gray-800">{slot.metrics}</span>
+              <span className="text-ink">{slot.metrics}</span>
             </div>
             {slot.note !== undefined ? (
-              <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+              <p className="mt-0.5 text-xs leading-snug text-ink-muted">
                 {slot.note}
               </p>
             ) : null}
@@ -850,10 +844,10 @@ function PlaceRow({
     <DetailRow label={label} valueClass={valueClass}>
       <span className="block">{place.name}</span>
       {place.localName !== undefined ? (
-        <span className="block text-gray-600">{place.localName}</span>
+        <span className="block text-ink-muted">{place.localName}</span>
       ) : null}
       {place.address !== undefined ? (
-        <span className="block text-gray-500">{place.address}</span>
+        <span className="block text-ink-muted">{place.address}</span>
       ) : null}
     </DetailRow>
   )
@@ -882,40 +876,39 @@ function UnverifiedChecklist({
   onVerifyField: (field: FieldKey) => void
 }) {
   return (
-    <section className="rounded-xl border border-amber-300 bg-amber-50/60 p-2.5">
-      <h5 className="text-[11px] font-semibold text-amber-800">
+    <section className="border-l-2 border-dashed border-ink pl-3">
+      <h5 className="text-xs font-bold text-ink">
         AI が入力したまま未確認の項目({unverified.length}件)
       </h5>
-      <p className="mt-0.5 text-[11px] text-amber-800/80">
+      <p className="mt-0.5 text-xs text-ink">
         引用と見比べて、合っていれば確認済みにしてください。
       </p>
 
-      <ul className="mt-2 space-y-1.5">
+      <ul className="mt-2">
         {unverified.map((field) => {
           const label = FIELD_LABELS[field]
           const evidence = booking.evidence?.[field]
           return (
             <li
               key={field}
-              className="rounded-lg border border-amber-200 bg-white p-2"
+              className="border-t border-rule py-2 first:border-t-0"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="min-w-0 flex-1 text-xs">
-                  <span className="font-semibold text-gray-800">{label}</span>
-                  <span className="mx-1 text-gray-400">:</span>
-                  <span className="break-words text-gray-800">
+                  <span className="font-bold text-ink">{label}</span>
+                  <span className="mx-1 text-ink-muted">:</span>
+                  <span className="break-words text-ink">
                     {fieldValueText(booking, field, displayTz)}
                   </span>
                 </p>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  className="shrink-0"
                   onClick={() => onVerifyField(field)}
                   aria-label={`${booking.title} の${label}を確認済みにする`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
                 >
-                  <Check size={11} aria-hidden="true" />
                   確認済みにする
-                </button>
+                </Button>
               </div>
 
               {/*
@@ -923,11 +916,11 @@ function UnverifiedChecklist({
                 「メールにそう書いてあったか」を判断できなくなる
               */}
               {evidence !== undefined ? (
-                <p className="mt-1 border-l-2 border-amber-300 pl-2 text-[11px] leading-relaxed break-words whitespace-pre-wrap text-gray-600">
+                <p className="mt-1 border-l-2 border-rule pl-2 text-xs leading-relaxed break-words whitespace-pre-wrap text-ink-muted">
                   {evidence}
                 </p>
               ) : (
-                <p className="mt-1 text-[11px] text-gray-400">
+                <p className="mt-1 text-xs text-ink-muted">
                   AI からの引用はありません
                 </p>
               )}
@@ -972,15 +965,14 @@ function ConfirmationNumberRow({
           })
         }}
         aria-label={`確認番号 ${value} をタップしてコピー`}
-        className={`inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-white px-2.5 py-1.5 font-mono text-xs font-bold tracking-wider break-all text-gray-900 transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${valueClass}`}
+        className={`${buttonClass('secondary', 'sm')} h-auto min-w-0 break-all tabular-nums ${valueClass}`}
       >
-        <Copy size={12} aria-hidden="true" />
         {value}
       </button>
       <span
         role="status"
         aria-live="polite"
-        className="text-[11px] font-medium text-gray-500"
+        className="text-xs font-medium text-ink-muted"
       >
         {copied ? 'コピーしました' : 'タップして確認番号をコピー'}
       </span>

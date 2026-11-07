@@ -6,7 +6,7 @@
  * 利用者の操作を最初から最後まで通す。
  *
  * 検証は「利用者から見える振る舞い」に寄せる。role とアクセシブル名で要素を
- * 引き、内部の state 名やクラス名には依存しない(未確認フィールドの黄色い下線だけは、
+ * 引き、内部の state 名やクラス名には依存しない(未確認フィールドの破線の下線だけは、
  * 見た目そのものが仕様なので例外的にクラスを見る)。
  *
  * ページは createFileRoute に渡した component をそのまま取り出して描画する。
@@ -257,9 +257,13 @@ describe('保存待ちの編集', () => {
       await act(() => vi.advanceTimersByTime(300))
       fireEvent.change(title, { target: { value: '保存する名前' } })
       await act(() => vi.advanceTimersByTime(300))
-      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('テスト旅行')
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe(
+        'テスト旅行',
+      )
       view.unmount()
-      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('保存する名前')
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe(
+        '保存する名前',
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -354,10 +358,10 @@ describe('進捗タブから日程タブへのジャンプ', () => {
       .getByRole('heading', { level: 3, name: /^6\/14/ })
       .closest('li')
     if (day === null) throw new Error('6/14 の日付ブロックが見つからない')
-    expect(day.className).toContain('ring-cyan-400')
+    expect(day.className).toContain('ring-ink')
 
     // 一定時間で消えること(消灯タイマーが張り直しで消されていないこと)
-    await waitFor(() => expect(day.className).not.toContain('ring-cyan-400'), {
+    await waitFor(() => expect(day.className).not.toContain('ring-ink'), {
       timeout: 5000,
     })
   })
@@ -475,10 +479,10 @@ describe('AI インポート', () => {
       expect(screen.getByLabelText('寝る場所が未確保の夜が 1 泊')).toBeTruthy(),
     )
 
-    // 日時以外は未確認のまま。黄色い下線と未確認バッジで気付けること
+    // 日時以外は未確認のまま。破線の下線と未確認バッジで気付けること
     await goToTab(user, '日程')
     const title = within(main()).getByText('ホテル・ド・パリ')
-    expect(title.className).toContain('border-amber-400')
+    expect(title.className).toContain('border-dashed')
     expect(within(main()).getByText(/^未確認 \d+件$/)).toBeTruthy()
   })
 })
@@ -645,7 +649,7 @@ describe('AI インポートの一括承認', () => {
       .getByRole('heading', { level: 3, name: /^6\/12/ })
       .closest('li')
     if (day === null) throw new Error('6/12 の日付ブロックが見つからない')
-    expect(day.className).toContain('ring-cyan-400')
+    expect(day.className).toContain('ring-ink')
   })
 
   it('取り込んだ直後に、その場でまとめて確認済みにできる', async () => {
@@ -832,8 +836,8 @@ describe('予約追加フォームからの AI 貼り付け', () => {
       within(form).getByLabelText<HTMLInputElement>(/^確認番号/).value,
     ).toBe('JL-778899')
 
-    // AI 由来なので、確認するまで黄色い下線が残る
-    expect(title.className).toContain('border-amber-400')
+    // AI 由来なので、確認するまで破線の下線が残る
+    expect(title.className).toContain('border-dashed')
     expect(
       within(form).getAllByText(/^AI が入力した値です/).length,
     ).toBeGreaterThan(0)
@@ -843,7 +847,7 @@ describe('予約追加フォームからの AI 貼り付け', () => {
     await user.type(title, '手で直した便名')
     expect(
       within(form).getByLabelText<HTMLInputElement>(/^タイトル/).className,
-    ).not.toContain('border-amber-400')
+    ).not.toContain('border-dashed')
 
     // そのまま保存すれば 1 件として入る
     await user.click(within(form).getByRole('button', { name: '保存' }))

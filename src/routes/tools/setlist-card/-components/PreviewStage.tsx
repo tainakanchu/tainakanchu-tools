@@ -134,11 +134,9 @@ export function PreviewStage({
     status = (
       <>
         <span>{pages.length} 枚に分けました</span>
-        <span aria-hidden>·</span>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="link"
+          className="btn btn-quiet"
           onClick={() =>
             onSplitChoiceChange({ ...splitChoice, mode: 'single' })
           }
@@ -153,11 +151,9 @@ export function PreviewStage({
         <span data-tone="alert" className="slc-note">
           {overflow.hiddenCount} 曲が入りません
         </span>
-        <span aria-hidden>·</span>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="link"
+          className="btn btn-quiet"
           onClick={() => onSplitChoiceChange({ ...splitChoice, mode: 'auto' })}
         >
           分ける
@@ -174,11 +170,9 @@ export function PreviewStage({
     status = (
       <>
         <span>1 枚</span>
-        <span aria-hidden>·</span>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="link"
+          className="btn btn-quiet"
           onClick={() => onSplitChoiceChange({ ...splitChoice, mode: 'auto' })}
         >
           自動で分ける
@@ -188,7 +182,7 @@ export function PreviewStage({
   } else if (hiddenMeta.length > 0) {
     status = (
       <span>
-        幅が足りないので {hiddenMeta.map((k) => META_LABELS[k]).join('・')}{' '}
+        幅が足りないので {hiddenMeta.map((k) => META_LABELS[k]).join('、')}{' '}
         を省略
       </span>
     )

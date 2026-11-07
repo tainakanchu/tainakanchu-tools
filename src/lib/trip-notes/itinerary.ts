@@ -382,7 +382,7 @@ function continuityMessage(
       return `${day} の移動は ${toLabel} 発ですが、その手前は ${fromLabel} にいる予定です。出発地か、${fromLabel} からの移動を見直してください`
     default:
       // missing-transport。missing-lodging は専用の文言を組み立てるのでここは通らない
-      return `${fromLabel} → ${toLabel} の移動が登録されていません。${day} の移動を追加してください`
+      return `${fromLabel}から${toLabel}への移動が登録されていません。${day} の移動を追加してください`
   }
 }
 

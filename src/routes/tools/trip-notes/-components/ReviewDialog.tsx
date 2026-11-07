@@ -6,7 +6,7 @@
  * タイトルや料金を打ち間違えても旅先で困ることは少ないが、
  * 出発時刻やタイムゾーンの誤りは即座に行程を崩す。だからこの1点だけを
  * 「取り込む前に必ず人間の目を通す」必須の関門にし、それ以外のフィールドは
- * 取り込んだあとに黄色い下線(unverified)で気付けるようにして後回しにする。
+ * 取り込んだあとに破線の下線(unverified)で気付けるようにして後回しにする。
  *
  * ただし「必ず目を通す」は「1件ずつ入力欄を開かせる」とは違う。
  * 予約ごとにフォームを展開して確認していく作りだと、10件取り込んだだけで
@@ -21,20 +21,21 @@
  */
 
 import { useId, useState } from 'react'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Dialog,
+  Note,
+} from '../../../../components/ui'
 import {
   COMMON_TIMEZONES,
   isValidISODate,
   parseStamp,
   tryMakeStamp,
 } from '../../../../lib/trip-notes/datetime'
-import { useDialogFocus } from '../-lib/focusTrap'
-import {
-  fieldClass,
-  labelClass,
-  primaryButtonClass,
-  subtleButtonClass,
-} from '../-lib/styles'
+import { fieldClass, iconButtonClass, labelClass } from '../-lib/styles'
 import { KindIcon } from './KindIcon'
 import type { Booking, FieldKey, Stamp } from '../../../../lib/trip-notes/types'
 
@@ -198,11 +199,6 @@ export function ReviewDialog({
       }),
   )
 
-  // Esc・初期フォーカス・フォーカスの循環・閉じたあとの復帰をまとめて任せる。
-  // Esc は、旅先で片手操作しているときに日時を編集しかけた状態のまま
-  // 誤操作で確定させないための最後の逃げ道でもある。
-  const panelRef = useDialogFocus<HTMLDivElement>({ onClose: onCancel })
-
   function patchEdit(
     index: number,
     patch: (edit: BookingEditState) => BookingEditState,
@@ -272,314 +268,282 @@ export function ReviewDialog({
     onConfirm(result)
   }
 
+  // Esc・初期フォーカス・フォーカスの循環・閉じたあとの復帰は Dialog に任せる。
+  // Esc は、旅先で片手操作しているときに日時を編集しかけた状態のまま
+  // 誤操作で確定させないための最後の逃げ道でもある。
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onCancel}
+    <Dialog
+      onClose={onCancel}
+      labelledBy={titleId}
+      className="max-h-[80vh] max-w-2xl"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl outline-none"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-2 border-b border-gray-200 p-4 sm:p-5">
-          <div>
-            <h2 id={titleId} className="text-base font-semibold text-gray-800">
-              日時とタイムゾーンの確認
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              下の一覧が、そのまま取り込まれる日時とタイムゾーンです。目を通して問題なければ
-              まとめて取り込めます。直したい予約だけ「日時を直す」を開いてください。
-              それ以外の項目は取り込んだあと、黄色い下線が付いた状態で確認できます。
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-            aria-label="閉じる"
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
+      <div className="flex items-start justify-between gap-2 border-b border-rule p-4 sm:p-5">
+        <div>
+          <h2 id={titleId} className="dialog-title">
+            日時とタイムゾーンの確認
+          </h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            下の一覧が、そのまま取り込まれる日時とタイムゾーンです。目を通して問題なければ
+            まとめて取り込めます。直したい予約だけ「日時を直す」を開いてください。
+            それ以外の項目は取り込んだあと、破線の下線が付いた状態で確認できます。
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={iconButtonClass}
+          aria-label="閉じる"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
-          {attentionCount > 0 && (
-            <p
-              role="status"
-              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-            >
-              {bookings.length}件のうち{attentionCount}
-              件は特に確認してください。一覧の先頭にまとめ、理由のラベルを付けています。
-            </p>
-          )}
+      <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+        {attentionCount > 0 && (
+          <Note role="status">
+            {bookings.length}件のうち{attentionCount}
+            件は特に確認してください。一覧の先頭にまとめ、理由のラベルを付けています。
+          </Note>
+        )}
 
-          <ul className="space-y-2">
-            {order.map((index) => {
-              const booking = bookings[index]
-              const edit = edits[index]
-              const startInvalid =
-                !edit.excluded && fieldToStamp(edit.start) === null
-              const endInvalid =
-                !edit.excluded &&
-                edit.end !== null &&
-                fieldToStamp(edit.end) === null
-              // 値が壊れている予約は畳ませない。畳んだまま確定ボタンだけが
-              // 無効になっていると、何を直せばいいのか分からなくなる
-              const open = edit.expanded || startInvalid || endInvalid
-              const reasons = attentionOf(booking, edit.start.date)
-              const tzListId = `review-tz-${booking.id}`
-              const detailId = `${detailIdPrefix}-${booking.id}`
+        <ul className="ink-line-t ink-line-b">
+          {order.map((index) => {
+            const booking = bookings[index]
+            const edit = edits[index]
+            const startInvalid =
+              !edit.excluded && fieldToStamp(edit.start) === null
+            const endInvalid =
+              !edit.excluded &&
+              edit.end !== null &&
+              fieldToStamp(edit.end) === null
+            // 値が壊れている予約は畳ませない。畳んだまま確定ボタンだけが
+            // 無効になっていると、何を直せばいいのか分からなくなる
+            const open = edit.expanded || startInvalid || endInvalid
+            const reasons = attentionOf(booking, edit.start.date)
+            const tzListId = `review-tz-${booking.id}`
+            const detailId = `${detailIdPrefix}-${booking.id}`
 
-              return (
-                <li
-                  key={booking.id}
-                  className={`rounded-2xl border bg-white p-3 shadow-sm sm:p-4 ${
-                    reasons.length > 0
-                      ? 'border-amber-300 bg-amber-50/40'
-                      : 'border-gray-200'
-                  } ${edit.excluded ? 'opacity-50' : ''}`}
-                >
-                  <datalist id={tzListId}>
-                    {COMMON_TIMEZONES.map((option) => (
-                      <option key={option.tz} value={option.tz}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </datalist>
+            return (
+              <li
+                key={booking.id}
+                className={`border-t border-rule py-3 first:border-t-0 ${
+                  edit.excluded ? 'opacity-50' : ''
+                }`}
+              >
+                <datalist id={tzListId}>
+                  {COMMON_TIMEZONES.map((option) => (
+                    <option key={option.tz} value={option.tz}>
+                      {option.label}
+                    </option>
+                  ))}
+                </datalist>
 
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <KindIcon kind={booking.kind} />
-                        <span className="truncate font-semibold text-gray-800">
-                          {booking.title}
-                        </span>
-                        {reasons.map((reason) => (
-                          <span
-                            key={reason}
-                            className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-                          >
-                            {ATTENTION_LABELS[reason]}
-                          </span>
-                        ))}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <KindIcon kind={booking.kind} />
+                      <span className="truncate font-bold text-ink">
+                        {booking.title}
+                      </span>
+                      {reasons.map((reason) => (
+                        <Badge key={reason}>{ATTENTION_LABELS[reason]}</Badge>
+                      ))}
+                    </div>
+
+                    <dl className="mt-1.5 space-y-0.5 text-xs">
+                      <div className="flex gap-2">
+                        <dt className="w-8 shrink-0 text-ink-muted">開始</dt>
+                        <dd className="text-ink tabular-nums">
+                          {describeField(edit.start)}
+                        </dd>
                       </div>
-
-                      <dl className="mt-1.5 space-y-0.5 text-xs">
+                      {edit.end !== null && (
                         <div className="flex gap-2">
-                          <dt className="w-8 shrink-0 text-gray-500">開始</dt>
-                          <dd className="font-mono text-gray-800">
-                            {describeField(edit.start)}
+                          <dt className="w-8 shrink-0 text-ink-muted">終了</dt>
+                          <dd className="text-ink tabular-nums">
+                            {describeField(edit.end)}
                           </dd>
                         </div>
-                        {edit.end !== null && (
-                          <div className="flex gap-2">
-                            <dt className="w-8 shrink-0 text-gray-500">終了</dt>
-                            <dd className="font-mono text-gray-800">
-                              {describeField(edit.end)}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-                    </div>
-
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(index)}
-                        aria-expanded={open}
-                        aria-controls={detailId}
-                        aria-label={`${booking.title} の日時を直す`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-                      >
-                        {open ? (
-                          <ChevronUp size={13} aria-hidden="true" />
-                        ) : (
-                          <ChevronDown size={13} aria-hidden="true" />
-                        )}
-                        日時を直す
-                      </button>
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600">
-                        <input
-                          type="checkbox"
-                          checked={edit.excluded}
-                          onChange={() => toggleExcluded(index)}
-                        />
-                        取り込まない
-                      </label>
-                    </div>
+                      )}
+                    </dl>
                   </div>
 
-                  {/*
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <Button
+                      size="sm"
+                      onClick={() => toggleExpanded(index)}
+                      aria-expanded={open}
+                      aria-controls={detailId}
+                      aria-label={`${booking.title} の日時を直す`}
+                    >
+                      日時を直す
+                    </Button>
+                    <Checkbox
+                      label="取り込まない"
+                      checked={edit.excluded}
+                      onChange={() => toggleExcluded(index)}
+                      className="text-xs text-ink-muted"
+                    />
+                  </div>
+                </div>
+
+                {/*
                     閉じているときは中身ごと描画しない。hidden 属性で隠すだけだと
-                    focusTrap が中の入力欄をフォーカス可能とみなし、Tab で
+                    useDialogFocus が中の入力欄をフォーカス可能とみなし、Tab で
                     見えない欄に飛んでしまう。器の div は aria-controls の
                     参照先として残す
                   */}
-                  <div id={detailId}>
-                    {open && (
-                      <>
+                <div id={detailId}>
+                  {open && (
+                    <>
+                      <fieldset
+                        className="mt-3 space-y-1.5"
+                        disabled={edit.excluded}
+                      >
+                        <legend className={labelClass}>開始日時</legend>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <input
+                            type="date"
+                            value={edit.start.date}
+                            onChange={(e) =>
+                              updateStart(index, { date: e.target.value })
+                            }
+                            className={fieldClass}
+                            aria-label={`${booking.title} の開始日`}
+                          />
+                          <input
+                            type="time"
+                            value={edit.start.time}
+                            disabled={edit.excluded || edit.start.allDay}
+                            onChange={(e) =>
+                              updateStart(index, { time: e.target.value })
+                            }
+                            className={fieldClass}
+                            aria-label={`${booking.title} の開始時刻`}
+                          />
+                          <input
+                            type="text"
+                            list={tzListId}
+                            value={edit.start.tz}
+                            onChange={(e) =>
+                              updateStart(index, { tz: e.target.value })
+                            }
+                            className={fieldClass}
+                            placeholder="IANAタイムゾーン名"
+                            aria-label={`${booking.title} の開始タイムゾーン`}
+                          />
+                          <Checkbox
+                            label="終日"
+                            checked={edit.start.allDay}
+                            onChange={(e) =>
+                              updateStart(index, {
+                                allDay: e.target.checked,
+                              })
+                            }
+                            className="text-sm text-ink-muted"
+                          />
+                        </div>
+                        {startInvalid && (
+                          <p
+                            role="alert"
+                            className="text-xs font-medium text-ink"
+                          >
+                            開始日時を読み取れません。日付と時刻、タイムゾーンを見直してください。
+                          </p>
+                        )}
+                        {booking.evidence?.start !== undefined && (
+                          <blockquote className="border-l-2 border-rule pl-2 text-xs text-ink-muted">
+                            {booking.evidence.start}
+                          </blockquote>
+                        )}
+                      </fieldset>
+
+                      {edit.end !== null && (
                         <fieldset
                           className="mt-3 space-y-1.5"
                           disabled={edit.excluded}
                         >
-                          <legend className={labelClass}>開始日時</legend>
+                          <legend className={labelClass}>終了日時</legend>
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <input
                               type="date"
-                              value={edit.start.date}
+                              value={edit.end.date}
                               onChange={(e) =>
-                                updateStart(index, { date: e.target.value })
+                                updateEnd(index, { date: e.target.value })
                               }
                               className={fieldClass}
-                              aria-label={`${booking.title} の開始日`}
+                              aria-label={`${booking.title} の終了日`}
                             />
                             <input
                               type="time"
-                              value={edit.start.time}
-                              disabled={edit.excluded || edit.start.allDay}
+                              value={edit.end.time}
+                              disabled={edit.excluded || edit.end.allDay}
                               onChange={(e) =>
-                                updateStart(index, { time: e.target.value })
+                                updateEnd(index, { time: e.target.value })
                               }
                               className={fieldClass}
-                              aria-label={`${booking.title} の開始時刻`}
+                              aria-label={`${booking.title} の終了時刻`}
                             />
                             <input
                               type="text"
                               list={tzListId}
-                              value={edit.start.tz}
+                              value={edit.end.tz}
                               onChange={(e) =>
-                                updateStart(index, { tz: e.target.value })
+                                updateEnd(index, { tz: e.target.value })
                               }
                               className={fieldClass}
                               placeholder="IANAタイムゾーン名"
-                              aria-label={`${booking.title} の開始タイムゾーン`}
+                              aria-label={`${booking.title} の終了タイムゾーン`}
                             />
-                            <label className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <input
-                                type="checkbox"
-                                checked={edit.start.allDay}
-                                onChange={(e) =>
-                                  updateStart(index, {
-                                    allDay: e.target.checked,
-                                  })
-                                }
-                              />
-                              終日
-                            </label>
+                            <Checkbox
+                              label="終日"
+                              checked={edit.end.allDay}
+                              onChange={(e) =>
+                                updateEnd(index, {
+                                  allDay: e.target.checked,
+                                })
+                              }
+                              className="text-sm text-ink-muted"
+                            />
                           </div>
-                          {startInvalid && (
+                          {endInvalid && (
                             <p
                               role="alert"
-                              className="text-xs font-medium text-rose-600"
+                              className="text-xs font-medium text-ink"
                             >
-                              開始日時を解釈できません。日付・時刻・タイムゾーンを見直してください
+                              終了日時を読み取れません。日付と時刻、タイムゾーンを見直してください。
                             </p>
                           )}
-                          {booking.evidence?.start !== undefined && (
-                            <blockquote className="border-l-4 border-gray-300 pl-2 text-xs text-gray-600">
-                              {booking.evidence.start}
+                          {booking.evidence?.end !== undefined && (
+                            <blockquote className="border-l-2 border-rule pl-2 text-xs text-ink-muted">
+                              {booking.evidence.end}
                             </blockquote>
                           )}
                         </fieldset>
-
-                        {edit.end !== null && (
-                          <fieldset
-                            className="mt-3 space-y-1.5"
-                            disabled={edit.excluded}
-                          >
-                            <legend className={labelClass}>終了日時</legend>
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                              <input
-                                type="date"
-                                value={edit.end.date}
-                                onChange={(e) =>
-                                  updateEnd(index, { date: e.target.value })
-                                }
-                                className={fieldClass}
-                                aria-label={`${booking.title} の終了日`}
-                              />
-                              <input
-                                type="time"
-                                value={edit.end.time}
-                                disabled={edit.excluded || edit.end.allDay}
-                                onChange={(e) =>
-                                  updateEnd(index, { time: e.target.value })
-                                }
-                                className={fieldClass}
-                                aria-label={`${booking.title} の終了時刻`}
-                              />
-                              <input
-                                type="text"
-                                list={tzListId}
-                                value={edit.end.tz}
-                                onChange={(e) =>
-                                  updateEnd(index, { tz: e.target.value })
-                                }
-                                className={fieldClass}
-                                placeholder="IANAタイムゾーン名"
-                                aria-label={`${booking.title} の終了タイムゾーン`}
-                              />
-                              <label className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <input
-                                  type="checkbox"
-                                  checked={edit.end.allDay}
-                                  onChange={(e) =>
-                                    updateEnd(index, {
-                                      allDay: e.target.checked,
-                                    })
-                                  }
-                                />
-                                終日
-                              </label>
-                            </div>
-                            {endInvalid && (
-                              <p
-                                role="alert"
-                                className="text-xs font-medium text-rose-600"
-                              >
-                                終了日時を解釈できません。日付・時刻・タイムゾーンを見直してください
-                              </p>
-                            )}
-                            {booking.evidence?.end !== undefined && (
-                              <blockquote className="border-l-4 border-gray-300 pl-2 text-xs text-gray-600">
-                                {booking.evidence.end}
-                              </blockquote>
-                            )}
-                          </fieldset>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 p-4 sm:p-5">
-          <button
-            type="button"
-            className={subtleButtonClass}
-            onClick={onCancel}
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            onClick={handleConfirm}
-            disabled={!allValid}
-            aria-label={`${includedCount}件すべての日時とタイムゾーンを確認済みとして取り込む`}
-          >
-            すべて確認して取り込む({includedCount}件)
-          </button>
-        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       </div>
-    </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-rule p-4 sm:p-5">
+        <Button size="sm" onClick={onCancel}>
+          キャンセル
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleConfirm}
+          disabled={!allValid}
+          aria-label={`${includedCount}件すべての日時とタイムゾーンを確認済みとして取り込む`}
+        >
+          すべて確認して取り込む({includedCount}件)
+        </Button>
+      </div>
+    </Dialog>
   )
 }

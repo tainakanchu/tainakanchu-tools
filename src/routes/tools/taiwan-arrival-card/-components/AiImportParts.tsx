@@ -6,10 +6,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, ExternalLink } from 'lucide-react'
+import { Button, Textarea, buttonClass } from '../../../../components/ui'
 import { AI_SERVICE_LINKS } from '../-lib/aiPrompt'
 import { copyText } from '../-lib/format'
-import { fieldClass, primaryButtonClass } from '../-lib/styles'
 import type { ImportIssue } from '../-lib/aiImport'
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
@@ -62,35 +61,21 @@ export function PromptCopyBlock({
   return (
     <div className="space-y-2">
       {showPrompt && (
-        <textarea
+        <Textarea
           readOnly
           value={prompt}
           rows={rows}
-          className={`${fieldClass} resize-y font-mono text-xs leading-relaxed`}
+          className="resize-y font-mono text-xs leading-relaxed"
           aria-label="AI に貼り付けるプロンプト"
           onFocus={(event) => event.currentTarget.select()}
         />
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void handleCopy()}
-          className={primaryButtonClass}
-        >
-          {status === 'copied' ? (
-            <>
-              <Check size={14} aria-hidden="true" />
-              コピーしました
-            </>
-          ) : (
-            <>
-              <Copy size={14} aria-hidden="true" />
-              {copyLabel}
-            </>
-          )}
-        </button>
+        <Button onClick={() => void handleCopy()}>
+          {status === 'copied' ? 'コピーしました' : copyLabel}
+        </Button>
         {status === 'failed' && (
-          <span role="alert" className="text-xs text-rose-600">
+          <span role="alert" className="field-error">
             コピーに失敗しました。テキストを選択して手動でコピーしてください
           </span>
         )}
@@ -113,10 +98,9 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
             href={service.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            className={buttonClass('secondary', 'sm')}
           >
-            <ExternalLink size={12} aria-hidden="true" />
-            {service.label}
+            {service.label}(別サイト)
           </a>
         ))}
       </div>
@@ -124,25 +108,24 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <ul className="border-b border-rule">
       {AI_SERVICE_LINKS.map((service) => (
-        <a
+        <li
           key={service.id}
-          href={service.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-col gap-0.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-rule py-2 text-sm"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <ExternalLink size={14} aria-hidden="true" />
-            {service.label} を開く
-          </span>
-          <span className="text-xs font-normal text-gray-500">
-            {service.hint}
-          </span>
-        </a>
+          <a
+            href={service.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ink-link font-bold"
+          >
+            {service.label} を開く(別サイト)
+          </a>
+          <span className="text-xs text-ink-muted">{service.hint}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }
 
@@ -155,22 +138,22 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
 export function ImportIssueDetails({ issues }: { issues: Array<ImportIssue> }) {
   if (issues.length === 0) return null
   return (
-    <details className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-      <summary className="cursor-pointer font-medium">
+    <details className="border-t border-rule pt-3 text-sm">
+      <summary className="cursor-pointer font-bold">
         問題の詳細({issues.length}件)
       </summary>
       <ul className="mt-2 space-y-2">
         {issues.map((issue, i) => (
           <li
             key={i}
-            className="border-t border-amber-200 pt-2 first:border-t-0 first:pt-0"
+            className="border-t border-rule pt-2 first:border-t-0 first:pt-0"
           >
             <p>
               {issue.index !== null ? `${issue.index + 1}人目: ` : ''}
               {issue.message}
             </p>
             {issue.raw !== undefined && (
-              <blockquote className="mt-1 border-l-4 border-amber-300 pl-2 text-xs text-amber-700">
+              <blockquote className="mt-1 border-l-4 border-ink-muted pl-2 text-xs text-ink-muted">
                 {issue.raw}
               </blockquote>
             )}

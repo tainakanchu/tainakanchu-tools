@@ -1,10 +1,18 @@
-import { Play, TriangleAlert } from 'lucide-react'
+import { useId } from 'react'
 import { deltaE00Xyz } from '../../../../lib/risograph/color'
+import {
+  Chip,
+  Note,
+  Radio,
+  SegmentedControl,
+  Swatch,
+} from '../../../../components/ui'
 import { INK_PRESETS, PAPER_PRESETS } from '../../../../lib/risograph/presets'
 import {
-  fieldClass,
   labelClass,
   primaryButtonClass,
+  rowClass,
+  rowListClass,
   sectionClass,
   sectionNoteClass,
   sectionTitleClass,
@@ -60,10 +68,10 @@ function Stat({
   note?: string
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-gray-950/60 px-3 py-2">
-      <p className="text-xs text-gray-400">{label}</p>
+    <div className="border-t border-rule pt-2">
+      <p className="text-xs text-ink-muted">{label}</p>
       <p className={statValueClass}>{value}</p>
-      {note ? <p className="mt-0.5 text-[11px] text-gray-500">{note}</p> : null}
+      {note ? <p className="mt-0.5 text-xs text-ink-muted">{note}</p> : null}
     </div>
   )
 }
@@ -86,87 +94,78 @@ export function SeparationSection({
   result,
   onRun,
 }: Props) {
+  const qualityLabelId = useId()
   return (
     <section className={sectionClass}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-400">3.</span> 分版設定と実行
-      </h2>
+      <h2 className={sectionTitleClass}>3. 分版設定と実行</h2>
       <p className={`${sectionNoteClass} mt-2`}>
-        選んだインクの組み合わせで仮想プレスのプロファイルを作り、 sRGB →
-        インク面積率の LUT を解いて画像に適用します。
+        選んだインクの組み合わせで仮想プレスのプロファイルを作り、sRGB
+        からインク面積率への LUT を解いて画像に適用します。
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1">
-          <span className={labelClass}>ガモットマッピング</span>
-          <select
-            className={fieldClass}
-            value={gamutMode}
-            onChange={(event) => {
-              const found = GAMUT_LABELS.find(
-                (g) => g.value === event.target.value,
-              )
-              if (found) onGamutModeChange(found.value)
-            }}
-          >
+        <fieldset className="min-w-0">
+          <legend className={`${labelClass} mb-2`}>ガモットマッピング</legend>
+          <div className="space-y-2">
             {GAMUT_LABELS.map((g) => (
-              <option key={g.value} value={g.value}>
-                {g.label}
-              </option>
+              <Radio
+                key={g.value}
+                name="risograph-gamut"
+                value={g.value}
+                checked={gamutMode === g.value}
+                onChange={() => onGamutModeChange(g.value)}
+                label={
+                  <>
+                    {g.label}
+                    <span className="block text-xs text-ink-muted">
+                      {g.note}
+                    </span>
+                  </>
+                }
+              />
             ))}
-          </select>
-          <span className="block text-xs text-gray-500">
-            {GAMUT_LABELS.find((g) => g.value === gamutMode)?.note}
-          </span>
-        </label>
+          </div>
+        </fieldset>
 
-        <label className="space-y-1">
-          <span className={labelClass}>品質</span>
-          <select
-            className={fieldClass}
-            value={lutSize}
-            onChange={(event) =>
-              onLutSizeChange(event.target.value === '33' ? 33 : 17)
-            }
-          >
-            <option value={17}>下書き（17³ LUT・速い）</option>
-            <option value={33}>高品質（33³ LUT・遅い）</option>
-          </select>
-          <span className="block text-xs text-gray-500">
-            高品質は数十秒かかることがあります。
+        <div className="field">
+          <span id={qualityLabelId} className={labelClass}>
+            品質
           </span>
-        </label>
+          <SegmentedControl
+            labelledBy={qualityLabelId}
+            value={lutSize}
+            onChange={onLutSizeChange}
+            options={[
+              { value: 17, label: '下書き' },
+              { value: 33, label: '高品質' },
+            ]}
+          />
+          <span className="field-hint">
+            下書きは 17³、高品質は 33³ の LUT
+            で解きます。高品質は数十秒かかることがあります。
+          </span>
+        </div>
       </div>
 
       <div className="mt-4 space-y-2">
         <span className={labelClass}>紙</span>
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-3">
           {PAPER_PRESETS.map((paper) => {
             const selected = paper.id === paperId
             return (
               <li key={paper.id}>
-                <button
-                  type="button"
-                  onClick={() => onPaperIdChange(paper.id)}
-                  aria-pressed={selected}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition ${
-                    selected
-                      ? 'border-cyan-400 bg-cyan-500/10 text-cyan-100'
-                      : 'border-white/15 text-gray-300 hover:bg-white/10'
-                  }`}
+                <Chip
+                  pressed={selected}
+                  onPressedChange={() => onPaperIdChange(paper.id)}
+                  dot={paper.hex}
                 >
-                  <span
-                    className="h-5 w-5 rounded-full border border-white/30"
-                    style={{ backgroundColor: paper.hex }}
-                    aria-hidden
-                  />
                   {paper.name}
-                </button>
+                </Chip>
               </li>
             )
           })}
         </ul>
-        <p className="text-xs leading-relaxed text-gray-500">
+        <p className="field-hint">
           紙の色は分版そのものに反映されます（暗い紙では出せる色が狭くなります）。
           変更すると分版はやり直しになります。
         </p>
@@ -179,11 +178,10 @@ export function SeparationSection({
           onClick={onRun}
           disabled={!canRun || running}
         >
-          <Play size={16} aria-hidden />
           {running ? '分版中…' : '分版する'}
         </button>
         {!canRun && !running ? (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-ink-muted">
             画像を読み込むと実行できます。
           </span>
         ) : null}
@@ -192,20 +190,20 @@ export function SeparationSection({
       {running ? (
         <div className="mt-3">
           <div
-            className="h-2 w-full overflow-hidden rounded-full bg-white/10"
+            className="h-2 w-full overflow-hidden border border-ink bg-wash"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round((progress?.fraction ?? 0) * 100)}
           >
             <div
-              className="h-full rounded-full bg-cyan-500 transition-[width] duration-150"
+              className="h-full bg-ink transition-[width] duration-150"
               style={{
                 width: `${Math.round((progress?.fraction ?? 0) * 100)}%`,
               }}
             />
           </div>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-ink-muted">
             {progress?.message ?? '準備中'}（
             {Math.round((progress?.fraction ?? 0) * 100)}%）
           </p>
@@ -213,17 +211,15 @@ export function SeparationSection({
       ) : null}
 
       {error ? (
-        <p className="mt-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+        <Note tone="error" role="alert" className="mt-3">
           {error}
-        </p>
+        </Note>
       ) : null}
 
       {result ? (
         <div className="mt-5 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-200">
-            プロファイル品質
-          </h3>
-          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <h3 className="text-sm font-bold">プロファイル品質</h3>
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
             <Stat
               label="Yule-Nielsen n"
               value={result.profile.yuleNielsenN.toFixed(2)}
@@ -239,7 +235,7 @@ export function SeparationSection({
               value={fmt(result.profile.fitStats.holdoutDeltaEP95)}
             />
             <Stat
-              label="3インク検証 ΔE00"
+              label="3 インク検証 ΔE00"
               value={
                 result.profile.fitStats.threeInkDeltaEMean === null
                   ? '—'
@@ -254,16 +250,14 @@ export function SeparationSection({
             />
           </div>
 
-          <h3 className="pt-2 text-sm font-semibold text-gray-200">
-            参照色との ΔE00
-          </h3>
-          <p className="text-xs leading-relaxed text-gray-500">
+          <h3 className="pt-2 text-sm font-bold">参照色との ΔE00</h3>
+          <p className="text-xs leading-relaxed text-ink-muted">
             仮想インクのベタが、RISO
             公称色（参照色）からどれだけ離れているかの表示です。
             参照色は計算には使っておらず、値が大きいことは失敗を意味しません。
             実機の特色そのものではなく「その色を狙った仮想インク」だと捉えてください。
           </p>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className={`sm:max-w-sm ${rowListClass}`}>
             {result.inkIds.map((id) => {
               const preset = INK_PRESETS.find((p) => p.id === id)
               const ink = result.profile.inks.find((i) => i.id === id)
@@ -272,19 +266,12 @@ export function SeparationSection({
                   ? null
                   : deltaE00Xyz(ink.referenceColor, ink.measuredSolid)
               return (
-                <li
-                  key={id}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-gray-950/60 px-3 py-2"
-                >
-                  <span
-                    className="h-5 w-5 shrink-0 rounded-full border border-white/20"
-                    style={{ backgroundColor: preset?.hex ?? '#000000' }}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1 truncate text-xs text-gray-300">
+                <li key={id} className={`flex items-center gap-2 ${rowClass}`}>
+                  <Swatch color={preset?.hex ?? '#000000'} />
+                  <span className="min-w-0 flex-1 truncate text-sm">
                     {preset?.name ?? id}
                   </span>
-                  <span className="text-sm font-semibold text-gray-100 tabular-nums">
+                  <span className="text-sm font-bold tabular-nums">
                     {delta === null ? '—' : fmt(delta)}
                   </span>
                 </li>
@@ -293,17 +280,13 @@ export function SeparationSection({
           </ul>
 
           {result.warnings.length > 0 ? (
-            <ul className="space-y-1">
-              {result.warnings.map((warning) => (
-                <li
-                  key={warning}
-                  className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-200"
-                >
-                  <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-                  <span>{warning}</span>
-                </li>
-              ))}
-            </ul>
+            <Note tone="warn">
+              <ul className="space-y-1">
+                {result.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </Note>
           ) : null}
         </div>
       ) : null}

@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { CalendarRange, Moon } from 'lucide-react'
+import { Moon } from 'lucide-react'
 import { cityName } from '../../../../lib/trip-scheduler/cities'
 import { travelModeLabel } from '../../../../lib/trip-scheduler/travel'
 import { formatDays } from '../-lib/format'
 import { fallbackCityColor } from '../-lib/palette'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { emptyClass, panelClass, sectionTitleClass } from '../-lib/styles'
 import { DateLabel } from './DateLabel'
 import { DayStrip } from './DayStrip'
 import type { CityColor } from '../-lib/palette'
@@ -76,9 +76,9 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
         key: `leg-${stay.id}`,
         grow: overnight ? 0 : Math.max(0.25, leg.chosen.dayCost),
         overnight,
-        title: `${cityName(leg.fromCityId)} → ${cityName(leg.toCityId)} / ${
+        title: `${cityName(leg.fromCityId)}から${cityName(leg.toCityId)}へ${
           travelModeLabel[leg.chosen.mode]
-        }`,
+        }で移動`,
       })
     }
     if (derived.unassignedNights > 0) {
@@ -93,14 +93,11 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
   }, [state.stays, state.startDate, derived])
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <CalendarRange size={18} className="text-cyan-600" />
-        タイムライン
-      </h2>
+    <section className={`${panelClass} min-w-0`}>
+      <h2 className={sectionTitleClass}>タイムライン</h2>
 
       {segments.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className={`mt-4 ${emptyClass}`}>
           滞在を追加するとここに横棒で並びます。
         </p>
       ) : (
@@ -121,7 +118,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                   {segment.kind === 'stay' ? (
                     <DateLabel
                       iso={segment.arriveDate}
-                      className="block truncate text-[10px] text-gray-500"
+                      className="block truncate text-xs text-ink-muted"
                     />
                   ) : null}
                 </div>
@@ -137,17 +134,17 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                     <div
                       key={segment.key}
                       style={{ flexGrow: segment.grow, flexBasis: 0 }}
-                      title={`${cityName(segment.cityId)} ${segment.nights}泊 / 実質観光 ${formatDays(segment.effectiveDays)}日`}
-                      className={`flex min-w-0 flex-col justify-center rounded-lg px-2 py-3 text-white ${color.bar} ${
+                      title={`${cityName(segment.cityId)} ${segment.nights}泊、実質観光 ${formatDays(segment.effectiveDays)}日`}
+                      className={`ink-line flex min-w-0 flex-col justify-center px-2 py-3 ${color.bar} ${color.text} ${
                         segment.violated
-                          ? 'ring-2 ring-red-500 ring-offset-1'
+                          ? 'outline-[3px] outline-offset-1 outline-pink'
                           : ''
                       }`}
                     >
-                      <span className="truncate text-sm font-semibold">
+                      <span className="truncate text-sm font-bold">
                         {cityName(segment.cityId)}
                       </span>
-                      <span className="truncate text-xs text-white/85">
+                      <span className="truncate text-xs">
                         {segment.nights}泊
                       </span>
                     </div>
@@ -159,10 +156,11 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                     return (
                       <div
                         key={segment.key}
-                        title={`${segment.title}(夜行・泊を1消費)`}
-                        className="flex w-6 shrink-0 grow-0 items-center justify-center rounded-lg bg-indigo-900 text-indigo-100"
+                        title={`${segment.title}(夜行で1泊ぶん使います)`}
+                        className="ink-line flex w-6 shrink-0 grow-0 items-center justify-center bg-riso-purple text-paper"
                       >
-                        <Moon size={14} />
+                        {/* 凡例の「夜行」と同じ月の印。ここでは記号が区間の種類を表す */}
+                        <Moon size={14} aria-hidden />
                       </div>
                     )
                   }
@@ -171,7 +169,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                       key={segment.key}
                       style={{ flexGrow: segment.grow, flexBasis: 0 }}
                       title={segment.title}
-                      className="min-w-[6px] rounded-sm bg-[repeating-linear-gradient(45deg,#4b5563_0px,#4b5563_4px,#9ca3af_4px,#9ca3af_8px)]"
+                      className="min-w-[6px] border-[1.5px] border-dashed border-ink bg-paper"
                     />
                   )
                 }
@@ -181,7 +179,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                     key={segment.key}
                     style={{ flexGrow: segment.grow, flexBasis: 0 }}
                     title={`未割り当て ${segment.nights}泊`}
-                    className="flex min-w-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-2 py-3 text-xs text-gray-500"
+                    className="flex min-w-0 items-center justify-center border-[1.5px] border-dashed border-ink-muted bg-paper px-2 py-3 text-xs text-ink-muted"
                   >
                     <span className="truncate">
                       未割り当て {segment.nights}泊
@@ -191,17 +189,17 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
               })}
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <div className="mt-2 flex items-center justify-between text-xs text-ink-muted">
               <span>
                 到着 <DateLabel iso={state.startDate} />
               </span>
               <span className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-4 rounded-sm bg-[repeating-linear-gradient(45deg,#4b5563_0px,#4b5563_4px,#9ca3af_4px,#9ca3af_8px)]" />
+                  <span className="inline-block h-2 w-4 border-[1.5px] border-dashed border-ink" />
                   移動
                 </span>
                 <span className="flex items-center gap-1">
-                  <Moon size={12} className="text-indigo-700" />
+                  <Moon size={12} aria-hidden />
                   夜行
                 </span>
               </span>
@@ -214,10 +212,8 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
       )}
 
       {/* 日ごと(曜日つき)。横棒より粒度が細かく、モバイルでもここだけは見える */}
-      <div className="mt-4 md:mt-5 md:border-t md:border-gray-100 md:pt-4">
-        <h3 className="text-xs font-semibold text-gray-500">
-          日ごと(曜日つき)
-        </h3>
+      <div className="mt-4 md:mt-5 md:border-t md:border-rule md:pt-4">
+        <h3 className="text-sm font-bold">日ごと(曜日つき)</h3>
         <div className="mt-2">
           <DayStrip
             startDate={state.startDate}

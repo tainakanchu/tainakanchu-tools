@@ -9,7 +9,8 @@ import {
   fixPalette,
   sameColors,
 } from '../-lib/palettes'
-import { Field, radioKeys, radioTabIndex } from './ui'
+import { radioKeys, radioTabIndex } from '../../../../components/ui'
+import { Field } from './ui'
 import type { ReactNode } from 'react'
 import type { Palette, PaletteRole } from '../-lib/palettes'
 import type { Swatch as PhotoSwatch } from '../-lib/palette-extract'
@@ -202,7 +203,7 @@ export function PaletteEditor({
                 />
                 {renaming === p.id ? (
                   <input
-                    className="slc-input min-h-9!"
+                    className="input min-h-9!"
                     defaultValue={p.name}
                     autoFocus
                     maxLength={40}
@@ -231,8 +232,7 @@ export function PaletteEditor({
                 )}
                 <button
                   type="button"
-                  className="slc-btn"
-                  data-variant="ghost"
+                  className="btn btn-quiet"
                   onClick={() => setRenaming(p.id)}
                   aria-label={`${p.name} の名前を変える`}
                 >
@@ -240,8 +240,7 @@ export function PaletteEditor({
                 </button>
                 <button
                   type="button"
-                  className="slc-btn"
-                  data-variant="ghost"
+                  className="btn btn-quiet"
                   data-size="icon"
                   onClick={() => onDeleteMine(p.id)}
                   aria-label={`${p.name} を削除`}
@@ -288,7 +287,7 @@ export function PaletteEditor({
         </div>
         <div className="flex gap-2">
           <input
-            className="slc-input mono"
+            className="input"
             placeholder="#0b0b0b #f2efe9 #e8552f"
             aria-label="色の並びを貼り付け（16 進の色か coolors.co の URL）"
             title="いちばんコントラストの高い 2 色を背景と文字に、彩度の高い色を差し色に"
@@ -300,7 +299,7 @@ export function PaletteEditor({
           />
           <button
             type="button"
-            className="slc-btn"
+            className="btn btn-secondary"
             onClick={applyPaste}
             disabled={!paste.trim()}
           >
@@ -344,14 +343,13 @@ export function PaletteEditor({
             {picked ? (
               <div className="flex flex-wrap items-center gap-1">
                 <span className="mono text-[12px] text-(--muted)">
-                  {picked} →
+                  {picked}
                 </span>
                 {PALETTE_ROLES.map((role) => (
                   <button
                     key={role}
                     type="button"
-                    className="slc-btn px-2!"
-                    data-variant="ghost"
+                    className="btn btn-quiet px-2!"
                     onClick={() => {
                       onChange(
                         fixPalette({
@@ -374,7 +372,7 @@ export function PaletteEditor({
         <div className="flex gap-2">
           <input
             type="text"
-            className="slc-input"
+            className="input"
             placeholder={`マイパレット ${myPalettes.length + 1}`}
             value={saveName}
             maxLength={40}
@@ -383,7 +381,7 @@ export function PaletteEditor({
           />
           <button
             type="button"
-            className="slc-btn"
+            className="btn btn-secondary"
             onClick={() => {
               const name =
                 saveName.trim() || `マイパレット ${myPalettes.length + 1}`

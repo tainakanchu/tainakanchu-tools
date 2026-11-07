@@ -4,6 +4,7 @@ import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { createForwardContext } from '../../../lib/risograph/forward'
 import { getPaperPreset } from '../../../lib/risograph/presets'
 import { randomRegistration } from '../../../lib/risograph/registration'
+import { Note, Page, PageTitle } from '../../../components/ui'
 import { ImageSection } from './-components/ImageSection'
 import { InkSection } from './-components/InkSection'
 import { SeparationSection } from './-components/SeparationSection'
@@ -259,23 +260,14 @@ function RisographPage() {
     plateSettings.length === result.inkIds.length
 
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-gray-950 text-gray-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10">
-        <header className="space-y-3">
-          <h1 className="text-3xl font-bold">リソグラフ風 多版分解</h1>
-          <p className="max-w-3xl text-sm leading-relaxed text-gray-400">
-            画像を 2〜4
-            色の特色インクへ分版し、網点をかけて重ね刷りした結果を予測します。
-            版ごとに、製版用のグレースケール PNG と、家庭用プリンタで
-            そのまま刷れる単色 PNG の両方を書き出せます。
-          </p>
-          <p className="max-w-3xl rounded-xl border border-cyan-400/20 bg-cyan-500/5 px-3 py-2 text-xs leading-relaxed text-cyan-100/80">
-            このツールは実測プロファイルではなく、仮想プレス（シミュレーション）で
-            インクの挙動を合成して分版しています。ドットゲインやトラッピングは
-            もっともらしい値の推定であり、実機の刷り上がりとは差が出ます。
-            実際に刷る前は必ずテスト刷りで確認してください。
-          </p>
-        </header>
+    <Page>
+      <PageTitle lead="画像を 2〜4 色の特色インクへ分版し、網点をかけて重ね刷りした結果を予測します。版ごとに、製版用のグレースケール PNG と、家庭用プリンタでそのまま刷れる単色 PNG の両方を書き出せます。">
+        リソグラフ風 多版分解
+      </PageTitle>
+      <div className="flex flex-col gap-10">
+        <Note tone="warn" className="page-measure">
+          このツールは実測プロファイルではなく、仮想プレス（シミュレーション）でインクの挙動を合成して分版しています。ドットゲインやトラッピングはもっともらしい値の推定であり、実機の刷り上がりとは差が出ます。実際に刷る前は必ずテスト刷りで確認してください。
+        </Note>
 
         <ImageSection
           image={image}
@@ -352,6 +344,6 @@ function RisographPage() {
           </>
         ) : null}
       </div>
-    </main>
+    </Page>
   )
 }

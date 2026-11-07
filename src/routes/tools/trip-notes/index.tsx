@@ -8,16 +8,8 @@ import {
   useState,
 } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  CalendarDays,
-  Gauge,
-  Plus,
-  Redo2,
-  Settings,
-  Undo2,
-  X,
-  Zap,
-} from 'lucide-react'
+import { X } from 'lucide-react'
+import { Button, Dialog, Note, Page, PageTitle } from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { computeSummary } from '../../../lib/trip-notes/derive'
 import { getDeviceTz } from '../../../lib/trip-notes/datetime'
@@ -44,14 +36,8 @@ import { SchedulePanel } from './-components/SchedulePanel'
 import { SettingsPanel } from './-components/SettingsPanel'
 import { TripSwitcher, tripLabel } from './-components/TripSwitcher'
 import { createHistory, historyReducer } from './-lib/reducer'
-import { useDialogFocus } from './-lib/focusTrap'
 import { todayISO } from './-lib/format'
-import {
-  fieldClass,
-  labelClass,
-  primaryButtonClass,
-  subtleButtonClass,
-} from './-lib/styles'
+import { fieldClass, labelClass } from './-lib/styles'
 import type { FormEvent } from 'react'
 import type { TripEntry, TripLibrary } from '../../../lib/trip-notes/trips'
 import type { TripNotesState } from '../../../lib/trip-notes/types'
@@ -76,16 +62,16 @@ const CLOCK_TICK_MS = 60_000
 
 type TabId = 'now' | 'schedule' | 'progress' | 'settings'
 
-const TABS: Array<{
-  id: TabId
-  label: string
-  icon: typeof Zap
-  hint: string
-}> = [
-  { id: 'now', label: '今', icon: Zap, hint: '進行中と次の予定' },
-  { id: 'schedule', label: '日程', icon: CalendarDays, hint: '日付順の一覧' },
-  { id: 'progress', label: '進捗', icon: Gauge, hint: '予約の穴を潰す' },
-  { id: 'settings', label: '設定', icon: Settings, hint: '共有・印刷・AI' },
+/**
+ * タブは名前だけにする。以前は横にアイコンと「進行中と次の予定」のような補足を
+ * 並べていたが、どれも名前の言い換えで、狭い幅では折り返しの原因にしかならなかった。
+ * 何がどのタブにあるかは、開いた先の見出しが言う。
+ */
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: 'now', label: '今' },
+  { id: 'schedule', label: '日程' },
+  { id: 'progress', label: '進捗' },
+  { id: 'settings', label: '設定' },
 ]
 
 /** 新しい旅程 1 件ぶんの入れ物。id は旅程の入れ物側でだけ使う */
@@ -358,20 +344,29 @@ function TripNotesPage() {
     <>
       {/*
         カンバン(KanbanBoard)は列幅 w-64(256px) x 4列 + gap-3(12px) x 3 で
-        1060px が必要。sm:px-6 のページ余白とカードの p-4 sm:p-5 を差し引くと
-        max-w-6xl(1152px)ではわずか数px しか余らず崩れやすいため、
-        余裕を持って max-w-7xl(1280px)まで広げる
+        1060px が必要。標準の page(72rem)でも収まるが、カードの余白を差し引くと
+        わずかしか余らず崩れやすいため、作業面の広いツールとして page-wide(90rem)にする。
+        スマホでは下端に固定のタブバー(56px)が重なるので、そのぶん下の余白を足す
       */}
-      <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 text-gray-900 sm:px-6 md:pb-10 print:hidden">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            {/*
-              「いまどの旅程を編集しているか」は常時見えていないといけないので、
-              タブや設定の中ではなく見出しの真横に置く。
-              狭い画面では折り返して 2 段になる(flex-wrap)
-            */}
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold sm:text-3xl">旅のしおり</h1>
+      <Page width="wide" className="text-ink max-md:pb-36 print:hidden">
+        {/*
+          「いまどの旅程を編集しているか」は常時見えていないといけないので、
+          タブや設定の中ではなく見出しの真横(PageTitle の actions)に置く。
+          狭い画面では折り返してタイトルの下に回る
+        */}
+        <PageTitle
+          lead={
+            <>
+              予約の抜けを旅行前に潰し、旅行中は必要な予約情報だけをすぐ出すためのツールです。
+              行き先が決まる前は
+              <a href="/tools/trip-scheduler" className="ink-link mx-1">
+                旅程パズル
+              </a>
+              が担当します。
+            </>
+          }
+          actions={
+            <>
               <TripSwitcher
                 library={liveLibrary}
                 onSelect={selectTrip}
@@ -380,52 +375,37 @@ function TripNotesPage() {
                 onRename={() => setTripDialog('rename')}
                 onDelete={() => setTripDialog('delete')}
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={createTrip}
-                className={subtleButtonClass}
                 aria-label="新しい旅程を作る"
-                title="新しい旅程を作る"
               >
-                <Plus size={16} />
-                <span className="hidden sm:inline">新規</span>
-              </button>
-            </div>
-            <p className="max-w-2xl text-sm leading-relaxed text-gray-600">
-              予約の抜けを旅行前に潰し、旅行中は必要な予約情報だけをすぐ出すためのツールです。
-              行き先が決まる前は
-              <a
-                href="/tools/trip-scheduler"
-                className="mx-1 text-cyan-700 underline underline-offset-2 hover:text-cyan-800"
-              >
-                旅程パズル
-              </a>
-              が担当します。
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'undo' })}
-              disabled={history.past.length === 0}
-              className={subtleButtonClass}
-              title="元に戻す (Ctrl/⌘ + Z)"
-            >
-              <Undo2 size={16} />
-              <span className="hidden sm:inline">元に戻す</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'redo' })}
-              disabled={history.future.length === 0}
-              className={subtleButtonClass}
-              title="やり直す (Ctrl/⌘ + Shift + Z)"
-            >
-              <Redo2 size={16} />
-              <span className="hidden sm:inline">やり直す</span>
-            </button>
-          </div>
-        </header>
+                新しい旅程
+              </Button>
+              {/* 元に戻す・やり直すは対なので、狭い画面で折り返すときも一緒に次の行へ送る */}
+              <span className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => dispatch({ type: 'undo' })}
+                  disabled={history.past.length === 0}
+                  title="元に戻す (Ctrl/⌘ + Z)"
+                >
+                  元に戻す
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => dispatch({ type: 'redo' })}
+                  disabled={history.future.length === 0}
+                  title="やり直す (Ctrl/⌘ + Shift + Z)"
+                >
+                  やり直す
+                </Button>
+              </span>
+            </>
+          }
+        >
+          旅のしおり
+        </PageTitle>
 
         {/*
           取り込みの結果のお知らせ。タブを切り替えても勝手には消さない。
@@ -433,27 +413,27 @@ function TripNotesPage() {
           消えるのは閉じるボタンを押したときか、次の取り込みで文が入れ替わるときだけ
         */}
         {importNotice !== null && (
-          <div
+          <Note
             role="status"
-            className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-cyan-50 px-3 py-2 text-sm text-cyan-900"
+            className="mb-6 flex items-start justify-between gap-3"
           >
-            <p className="leading-relaxed">{importNotice}</p>
+            <p>{importNotice}</p>
             <button
               type="button"
               onClick={() => setImportNotice(null)}
               aria-label="お知らせを閉じる"
-              className="rounded-lg px-2 py-1 font-semibold text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="-my-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-ui text-ink transition hover:bg-paper"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
-          </div>
+          </Note>
         )}
 
         {/* デスクトップは上部タブ。狭い画面では下部固定のタブバーに任せる */}
         <div
           role="tablist"
           aria-label="旅のしおりの表示切り替え"
-          className="mt-6 hidden gap-1 rounded-2xl border border-gray-200 bg-white p-1 shadow-sm md:flex"
+          className="ink-line-b hidden gap-1 md:flex"
         >
           {TABS.map((item) => (
             <button
@@ -462,26 +442,18 @@ function TripNotesPage() {
               role="tab"
               aria-selected={tab === item.id}
               onClick={() => selectTab(item.id)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+              className={`palt flex flex-1 items-center justify-center border-b-[3px] px-3 py-2.5 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${
                 tab === item.id
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'border-pink text-ink'
+                  : 'border-transparent text-ink-muted hover:bg-wash hover:text-ink'
               }`}
             >
-              <item.icon size={16} />
               {item.label}
-              <span
-                className={`text-xs font-normal ${
-                  tab === item.id ? 'text-cyan-100' : 'text-gray-400'
-                }`}
-              >
-                {item.hint}
-              </span>
             </button>
           ))}
         </div>
 
-        <div className="mt-4 md:mt-6">
+        <div className="md:mt-8">
           {tab === 'now' && (
             <NowPanel
               state={state}
@@ -531,12 +503,12 @@ function TripNotesPage() {
             />
           )}
         </div>
-      </main>
+      </Page>
 
       {/* 旅行中はスマホの親指が届く下端に置く。デスクトップでは上部タブに任せて隠す */}
       <nav
         aria-label="旅のしおりの表示切り替え"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 ink-line-t bg-paper md:hidden print:hidden"
       >
         {TABS.map((item) => (
           <button
@@ -544,16 +516,17 @@ function TripNotesPage() {
             type="button"
             aria-current={tab === item.id ? 'page' : undefined}
             onClick={() => selectTab(item.id)}
-            className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 ${
-              tab === item.id ? 'text-cyan-700' : 'text-gray-500'
+            className={`relative flex min-h-[56px] items-center justify-center py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${
+              tab === item.id
+                ? 'border-t-[3px] border-pink text-ink'
+                : 'border-t-[3px] border-transparent text-ink-muted'
             }`}
           >
-            <item.icon size={20} />
             {item.label}
             {/* 未確保の夜があることは、どのタブにいても分かるようにする */}
             {item.id === 'progress' && summary.uncoveredNights > 0 && (
               <span
-                className="absolute right-1/4 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white"
+                className="absolute right-1/4 top-1.5 inline-flex h-4 min-w-4 items-center justify-center bg-pink px-1 text-xs font-bold text-ink"
                 aria-label={`寝る場所が未確保の夜が ${summary.uncoveredNights} 泊`}
               >
                 {summary.uncoveredNights}
@@ -656,10 +629,6 @@ function RenameTripDialog({ title, onSave, onCancel }: RenameTripDialogProps) {
   const titleId = useId()
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  const panelRef = useDialogFocus<HTMLFormElement>({
-    onClose: onCancel,
-    initialFocusRef: inputRef,
-  })
   const [draft, setDraft] = useState(title)
 
   const handleSubmit = (event: FormEvent) => {
@@ -668,17 +637,17 @@ function RenameTripDialog({ title, onSave, onCancel }: RenameTripDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center print:hidden">
-      <form
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl outline-none"
-      >
-        <h2 id={titleId} className="text-base font-semibold text-gray-900">
+    <Dialog
+      onClose={onCancel}
+      labelledBy={titleId}
+      initialFocusRef={inputRef}
+      // 入力の途中で背景に触れて書きかけが消えないようにする
+      closeOnBackdrop={false}
+      className="max-w-sm"
+      backdropClassName="print:hidden"
+    >
+      <form onSubmit={handleSubmit} className="p-5">
+        <h2 id={titleId} className="dialog-title">
           旅程の名前を変える
         </h2>
         <label htmlFor={inputId} className={`${labelClass} mt-3 block`}>
@@ -694,18 +663,14 @@ function RenameTripDialog({ title, onSave, onCancel }: RenameTripDialogProps) {
           placeholder="例: 初夏のポルトガル一周"
         />
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className={subtleButtonClass}
-          >
+          <Button size="sm" onClick={onCancel}>
             キャンセル
-          </button>
-          <button type="submit" className={primaryButtonClass}>
+          </Button>
+          <Button variant="primary" size="sm" type="submit">
             保存
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </Dialog>
   )
 }

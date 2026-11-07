@@ -1,7 +1,12 @@
-import { BarChart3, Zap } from 'lucide-react'
+import { Note } from '../../../../components/ui'
 import { formatMinutes } from '../../../../lib/trip-scheduler/travel'
 import { formatDays } from '../-lib/format'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import {
+  panelClass,
+  ruledListClass,
+  ruledRowClass,
+  sectionTitleClass,
+} from '../-lib/styles'
 import type { DerivedTrip } from '../../../../lib/trip-scheduler/types'
 
 interface MetricsPanelProps {
@@ -23,29 +28,24 @@ export function MetricsPanel({ derived }: MetricsPanelProps) {
   ]
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <BarChart3 size={18} className="text-cyan-600" />
-        この案の指標
-      </h2>
-      <dl className="mt-4 grid grid-cols-2 gap-3">
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>この案の指標</h2>
+      <dl className={`mt-3 ${ruledListClass}`}>
         {items.map((item) => (
-          <div key={item.label} className="rounded-xl bg-gray-50 px-3 py-2">
-            <dt className="text-xs text-gray-500">{item.label}</dt>
-            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900">
-              {item.value}
-            </dd>
+          <div
+            key={item.label}
+            className={`${ruledRowClass} flex items-baseline justify-between gap-4 py-2`}
+          >
+            <dt className="text-sm text-ink-muted">{item.label}</dt>
+            <dd className="text-base font-bold tabular-nums">{item.value}</dd>
           </div>
         ))}
       </dl>
       {metrics.oneNightStayCount > 0 ? (
-        <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          <Zap size={15} className="mt-0.5 shrink-0" />
-          <span>
-            駆け足注意: 1泊しかしない都市が {metrics.oneNightStayCount}
-            つあります。到着日と出発日で観光がほとんど残りません。
-          </span>
-        </p>
+        <Note tone="warn" className="mt-4">
+          1泊しかしない都市が {metrics.oneNightStayCount}
+          つあります。到着日と出発日で観光がほとんど残らないので、駆け足になります。
+        </Note>
       ) : null}
     </section>
   )

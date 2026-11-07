@@ -1,9 +1,14 @@
 import { Fragment, useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ListOrdered } from 'lucide-react'
 import { fallbackCityColor } from '../-lib/palette'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import {
+  emptyClass,
+  panelClass,
+  ruledListClass,
+  sectionLeadClass,
+  sectionTitleClass,
+} from '../-lib/styles'
 import {
   STAY_LIST_END_DROPPABLE_ID,
   isDragging,
@@ -34,10 +39,10 @@ function StayListEndDropZone() {
   return (
     <li
       ref={setNodeRef}
-      className={`ml-8 rounded-xl border-2 border-dashed px-3 py-3 text-center text-xs transition ${
+      className={`my-2 border-[1.5px] border-dashed px-3 py-3 text-center text-xs transition-colors ${
         isOver
-          ? 'border-cyan-500 bg-cyan-50 font-medium text-cyan-700'
-          : 'border-gray-300 bg-gray-50 text-gray-500'
+          ? 'border-ink bg-pink-tint font-bold'
+          : 'border-ink-muted bg-paper text-ink-muted'
       }`}
     >
       ここに落とすと最後に入ります
@@ -79,7 +84,7 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
   )
 
   /**
-   * 同じ都市の何回目の滞在か(パリIN・パリOUTのような再訪を行だけで見分けられるように)。
+   * 同じ都市の何回目の滞在か(パリ往復で最初と最後にパリを置くような再訪を行だけで見分けられるように)。
    * 直前の滞在と同じ都市なら移動 leg が立たないので「続き」として区別する。
    */
   const revisits = useMemo(
@@ -97,23 +102,20 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
   )
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <ListOrdered size={18} className="text-cyan-600" />
-        滞在の並び
-      </h2>
-      <p className="mt-2 text-sm text-gray-600">
-        順番は左のハンドル(⠿)を掴んでドラッグ、または▲▼で1つずつ。泊数は −/+
-        で1泊ずつ。1泊のときに −
-        を押すと日程から外れて候補に戻ります(取り消しは元に戻すボタンで)。同じ都市を2回置いた滞在には「再訪」が付きます。
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>滞在の並び</h2>
+      <p className={sectionLeadClass}>
+        順番は左のつまみをドラッグするか、上下のボタンで1つずつ動かします。泊数は
+        −/+ で1泊ずつ変わり、1泊のときに −
+        を押すと日程から外れて候補に戻ります。
       </p>
 
       {state.stays.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className={`mt-4 ${emptyClass}`}>
           まだ滞在がありません。「行きたい都市の候補」から日程に入れてください。
         </p>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className={`mt-4 ${ruledListClass}`}>
           <SortableContext
             items={stayIds}
             strategy={verticalListSortingStrategy}

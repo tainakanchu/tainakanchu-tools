@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { PageTitle } from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { DrumRollEngine } from './-lib/engine'
 
@@ -20,6 +21,11 @@ type EngineStatus = 'loading' | 'ready' | 'error'
 type PadMode = 'idle' | 'rolling' | 'crashed'
 
 const CRASH_DISPLAY_MS = 1400
+
+/** 絵文字は継承した文字色（ステージでは紙色）を引かないよう、色を明示する */
+const EMOJI_STYLE = {
+  color: 'initial',
+} as const
 
 /** ヘッダーのボタン等にフォーカスがあるときはスペースキーを奪わない */
 const isInteractiveTarget = (target: EventTarget | null) =>
@@ -118,10 +124,21 @@ function DrumRollPage() {
         ? '音源の読み込みに失敗しました。リロードしてみてください。'
         : mode === 'rolling'
           ? 'ドロロロロロ……（放すとジャーン！）'
-          : 'ここを長押し or スペースキー押しっぱなし'
+          : 'ここを長押しするか、スペースキーを押し続けてください'
 
   return (
     <main className="flex h-[calc(100dvh-4rem)] flex-col">
+      {/* タイトルだけ標準のページ幅に置き、ステージは全幅にする（docs/design.md「ページの枠」の例外） */}
+      <div className="page shrink-0 pb-6 md:pb-8">
+        <PageTitle
+          className="mb-0"
+          lead="スペースキーか画面の長押しでドラムロール。放すとシンバルが鳴って「ジャーン！」。"
+        >
+          {tool.name}
+        </PageTitle>
+      </div>
+
+      {/* 演出の面だけは暗いインクで刷って、ステージらしくする */}
       <div
         role="button"
         tabIndex={0}
@@ -133,32 +150,31 @@ function DrumRollPage() {
         onPointerUp={release}
         onPointerCancel={cancel}
         onContextMenu={(event) => event.preventDefault()}
-        className="relative flex flex-1 cursor-pointer touch-none select-none flex-col items-center justify-center gap-8 bg-gradient-to-b from-gray-900 via-gray-950 to-black p-8 text-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-cyan-500"
+        className="relative flex flex-1 cursor-pointer touch-none flex-col items-center justify-center gap-8 on-ink border-t-[1.5px] border-ink p-8 text-center select-none focus-visible:-outline-offset-6"
       >
-        <h2 className="absolute top-6 inset-x-0 text-sm font-semibold tracking-[0.3em] text-gray-500 uppercase">
-          Drum Roll
-        </h2>
-
         {mode === 'crashed' ? (
           <>
-            <span className="animate-drum-pop text-8xl md:text-9xl" aria-hidden>
+            <span
+              className="animate-drum-pop text-8xl motion-reduce:animate-none md:text-9xl"
+              style={EMOJI_STYLE}
+              aria-hidden
+            >
               💥🥁✨
             </span>
-            <span className="animate-drum-pop text-5xl font-black tracking-widest text-amber-300 md:text-6xl">
+            <span className="animate-drum-pop text-5xl font-black text-riso-yellow motion-reduce:animate-none md:text-6xl">
               ジャーン！！
             </span>
           </>
         ) : (
           <>
             <span
-              className={`text-8xl md:text-9xl ${mode === 'rolling' ? 'animate-drum-shake' : ''}`}
+              className={`text-8xl md:text-9xl ${mode === 'rolling' ? 'animate-drum-shake motion-reduce:animate-none' : ''}`}
+              style={EMOJI_STYLE}
               aria-hidden
             >
               🥁
             </span>
-            <span className="text-lg font-medium text-gray-200 md:text-xl">
-              {hint}
-            </span>
+            <span className="text-lg font-medium md:text-xl">{hint}</span>
           </>
         )}
       </div>
