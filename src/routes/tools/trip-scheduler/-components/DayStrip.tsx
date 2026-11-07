@@ -15,17 +15,13 @@ import type { DerivedTrip } from '../../../../lib/trip-scheduler/types'
 /** 描画するマスの上限。日付の入力ミスで数千日になっても DOM を作り過ぎないための保険 */
 const MAX_CELLS = 120
 
-/** 曜日ごとのマスの地色。土=青・日=赤で週末が帯として浮かび上がるようにする */
+/** マスの枠と地色。割り当て済みは実線の青、未割り当ては破線。土日は薄塗りで帯として浮かび上がらせる */
 function cellSurfaceClass(iso: string, assigned: boolean): string {
-  const border = assigned ? 'border-solid' : 'border-dashed'
-  switch (weekdayIndex(iso)) {
-    case 0:
-      return `${border} border-red-200 bg-red-50`
-    case 6:
-      return `${border} border-blue-200 bg-blue-50`
-    default:
-      return `${border} border-gray-200 ${assigned ? 'bg-white' : 'bg-gray-50'}`
-  }
+  const border = assigned
+    ? 'border-solid border-ink'
+    : 'border-dashed border-ink-muted'
+  const weekend = [0, 6].includes(weekdayIndex(iso)) ? 'bg-wash' : 'bg-paper'
+  return `${border} ${weekend}`
 }
 
 /** 月初と先頭だけ '7/1'、それ以外は日にちだけ */
@@ -38,7 +34,8 @@ function cellTitle(cell: DayCell): string {
   const where =
     cell.cityIds.length === 0
       ? '未割り当て'
-      : cell.cityIds.map(cityName).join(' → ')
+      : cell.cityIds.map(cityName).join('から') +
+        (cell.cityIds.length > 1 ? 'へ' : '')
   const suffix = cell.overnight ? '(夜行移動)' : cell.travel ? '(移動日)' : ''
   return `${formatShortJa(cell.date)} ${where}${suffix}`
 }
@@ -83,33 +80,32 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
               <div
                 key={cell.date}
                 title={cellTitle(cell)}
-                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1 pb-1.5 pt-1 ${cellSurfaceClass(
+                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 border px-1 pb-1.5 pt-1 ${cellSurfaceClass(
                   cell.date,
                   assigned,
                 )} ${monthBreak ? 'ml-2' : ''}`}
               >
                 <span
-                  className={`text-[10px] font-medium tabular-nums leading-none ${
-                    assigned ? 'text-gray-700' : 'text-gray-400'
+                  className={`text-[11px] font-medium tabular-nums leading-none ${
+                    assigned ? '' : 'text-ink-muted'
                   }`}
                 >
                   {dayNumberLabel(cell)}
                 </span>
                 <span
-                  className={`text-[10px] leading-none ${
-                    weekdayToneClass(weekdayIndex(cell.date)) || 'text-gray-500'
+                  className={`text-[11px] font-medium leading-none ${
+                    weekdayToneClass(weekdayIndex(cell.date)) ||
+                    'text-ink-muted'
                   }`}
                 >
                   {weekdayJa(cell.date)}
                 </span>
                 {hasOvernight ? (
                   <span className="flex h-3 items-center justify-center">
-                    {cell.overnight ? (
-                      <Moon size={10} className="text-indigo-500" />
-                    ) : null}
+                    {cell.overnight ? <Moon size={10} aria-hidden /> : null}
                   </span>
                 ) : null}
-                <span className="mt-1 flex h-1.5 w-full overflow-hidden rounded-full">
+                <span className="mt-1 flex h-2 w-full overflow-hidden border border-ink">
                   {assigned ? (
                     cell.cityIds.map((cityId, index) => (
                       <span
@@ -120,7 +116,7 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
                       />
                     ))
                   ) : (
-                    <span className="h-full w-full rounded-full border border-dashed border-gray-400" />
+                    <span className="h-full w-full bg-paper" />
                   )}
                 </span>
               </div>
@@ -129,24 +125,17 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded-sm border border-blue-200 bg-blue-50" />
-          土
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded-sm border border-red-200 bg-red-50" />
-          日
-        </span>
-        <span>下の色帯 = その日いる都市(移動日は2色)</span>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+        <span>土日は薄く塗っています。</span>
+        <span>下の色帯はその日いる都市です(移動日は2色)。</span>
         {hasOvernight ? (
           <span className="inline-flex items-center gap-1">
-            <Moon size={11} className="text-indigo-500" />
+            <Moon size={11} aria-hidden />
             夜行
           </span>
         ) : null}
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-1.5 w-4 rounded-full border border-dashed border-gray-400" />
+          <span className="inline-block h-2 w-4 border border-dashed border-ink-muted bg-paper" />
           未割り当て
         </span>
         {hiddenCount > 0 ? <span>(以降 {hiddenCount} 日は省略)</span> : null}

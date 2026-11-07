@@ -1,6 +1,6 @@
 ---
 name: add-tool
-description: かんちゅツールズ (tainakanchu-tools) リポジトリに新しいツールページ (/tools/<slug>) を追加する手順とチェックリスト。ユーザーが「新しいツールを追加したい」「〇〇するツールを作って」「ツールを増やしたい」など、このリポジトリへの新アプリ・新ページ・新ツールの追加に言及したら、実装に着手する前に必ずこのスキルを読むこと。site-meta・ルーティング・Header ナビ・OG カード画像・README の更新漏れ（特に手動同期が必要な Header と README）を防ぐ。
+description: かんちゅツールズ (tainakanchu-tools) リポジトリに新しいツールページ (/tools/<slug>) を追加する手順とチェックリスト。ユーザーが「新しいツールを追加したい」「〇〇するツールを作って」「ツールを増やしたい」など、このリポジトリへの新アプリ・新ページ・新ツールの追加に言及したら、実装に着手する前に必ずこのスキルを読むこと。site-meta・ルーティング・OG カード画像・README の更新漏れ（特に手動同期が必要な README）とデザインの決まりごとを防ぐ。
 ---
 
 # 新ツール追加ガイド（かんちゅツールズ）
@@ -15,7 +15,7 @@ description: かんちゅツールズ (tainakanchu-tools) リポジトリに新�
 | ページ本体                    | `src/routes/tools/<slug>/index.tsx`                             | 手動作成                    |
 | トップページのカード一覧      | `src/routes/index.tsx`                                          | 自動（TOOL_META 由来）      |
 | ツール別 OG メタ入り静的 HTML | `dist/tools/<slug>.html`                                        | 自動（ビルドプラグイン）    |
-| ヘッダーのドロワーナビ        | `src/components/Header.tsx` の `tools` 配列                     | ⚠️ 手動同期                 |
+| ヘッダーの目次ナビ            | `src/components/Header.tsx`                                     | 自動（TOOL_META 由来）      |
 | OG カード画像                 | `scripts/generate-og-images.ts` + `public/assets/og/<slug>.png` | 手動定義 + `pnpm og:images` |
 | README                        | `README.md` の「✨ 現在のアプリ」                               | ⚠️ 手動同期                 |
 
@@ -77,9 +77,9 @@ export const Route = createFileRoute('/tools/<slug>/')({
 
 `src/routeTree.gen.ts` は dev/build 時に自動再生成される。手で編集しないこと（ただし生成された差分のコミットは必要）。
 
-### 4. ヘッダーナビに追加する — `src/components/Header.tsx`（忘れやすい）
+### 4. 見た目を共通デザインに合わせる
 
-ドロワーの `tools` 配列は `TOOL_META` から導出されていない。lucide-react のアイコンと短い説明文を添えて手動で 1 エントリ追加する。ここを忘れると「トップページには出るのにメニューに出ない」ツールになる。
+`docs/design.md` を読み、`src/components/ui/` の部品（Button / Chip / Field / Panel / PageTitle など）とトークン（`text-ink` `border-rule` `bg-wash` など）で組む。ヘッダーとトップの目次は `TOOL_META` / `EXTERNAL_TOOLS` から自動で出るので手で足すものはない。
 
 ### 5. OG カード画像を作る — `scripts/generate-og-images.ts`
 
@@ -129,7 +129,7 @@ build 後に `dist/tools/<slug>.html` の og:title / og:image がツール別の
 
 - [ ] `TOOL_META` に追加した（slug / name / description / path / ogImagePath）
 - [ ] `src/routes/tools/<slug>/index.tsx` を作り、`head()` が site-meta を参照している
-- [ ] `Header.tsx` の `tools` 配列に追加した
+- [ ] `docs/design.md` に沿って共通部品・トークンで組んだ
 - [ ] `CARDS` に CardDef を追加し `pnpm og:images` を実行、`public/assets/og/<slug>.png` が生成された
 - [ ] `README.md` にエントリを追加した
 - [ ] `pnpm check && pnpm typecheck && pnpm test && pnpm build` が通る

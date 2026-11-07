@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download } from 'lucide-react'
+import { Checkbox, Swatch } from '../../../../components/ui'
 import { renderComposite } from '../../../../lib/risograph/preview'
 import { INK_PRESETS } from '../../../../lib/risograph/presets'
 import { renderPlateCoverage } from '../-lib/density'
@@ -14,7 +14,6 @@ import {
   toPlateTransforms,
 } from '../-lib/plates'
 import {
-  primaryButtonClass,
   sectionClass,
   sectionNoteClass,
   sectionTitleClass,
@@ -143,7 +142,7 @@ export function ExportSection({
 
   /** 版ごとの単独書き出しボタン列 */
   const plateButtons = (color: boolean) => (
-    <ul className="mt-3 flex flex-wrap gap-2">
+    <ul className="mt-3 flex flex-wrap gap-3">
       {settings.map((setting, index) => {
         const preset = presetAt(index)
         return (
@@ -154,11 +153,7 @@ export function ExportSection({
               onClick={() => void exportPlate(index, color)}
               disabled={busy !== null}
             >
-              <span
-                className="h-4 w-4 rounded-full border border-white/20"
-                style={{ backgroundColor: preset?.hex ?? '#000000' }}
-                aria-hidden
-              />
+              <Swatch color={preset?.hex ?? '#000000'} size={16} />
               {index + 1}版目だけ
             </button>
           </li>
@@ -169,41 +164,34 @@ export function ExportSection({
 
   return (
     <section className={sectionClass}>
-      <h2 className={sectionTitleClass}>
-        <span className="text-cyan-400">6.</span> 書き出し
-      </h2>
+      <h2 className={sectionTitleClass}>6. 書き出し</h2>
       <p className={`${sectionNoteClass} mt-2`}>
         分版した解像度（{width}×{height}
-        px）のまま、現在のハーフトーン設定を反映して書き出します。 版の PNG は 2
+        px）のまま、現在のハーフトーン設定を反映して書き出します。版の PNG は 2
         種類あります。
       </p>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-gray-950/40 p-4">
-        <h3 className="text-sm font-semibold text-gray-100">
-          製版データ（グレースケール）
-        </h3>
+      <div className="mt-5 border-t border-rule pt-4">
+        <h3 className="text-sm font-bold">製版データ（グレースケール）</h3>
         <p className={`${sectionNoteClass} mt-1`}>
-          「0% = 白 / 100% =
-          黒」の汎用フォーマット。リソグラフの製版や、他ソフトへの受け渡し向けです。
+          0% が白、100%
+          が黒の汎用フォーマット。リソグラフの製版や、他ソフトへの受け渡し向けです。
         </p>
         <div className="mt-3">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             onClick={() => void exportPlates(false)}
             disabled={busy !== null}
           >
-            <Download size={16} aria-hidden />
             全ての版を書き出す
           </button>
         </div>
         {plateButtons(false)}
       </div>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-gray-950/40 p-4">
-        <h3 className="text-sm font-semibold text-gray-100">
-          印刷データ（単色）
-        </h3>
+      <div className="mt-5 border-t border-rule pt-4">
+        <h3 className="text-sm font-bold">印刷データ（単色）</h3>
         <p className={`${sectionNoteClass} mt-1`}>
           各版を仮想インクのプリンタ入力色で着色した PNG。
           家庭用インクジェットでこのままフチなし・等倍で刷って、1
@@ -212,17 +200,16 @@ export function ExportSection({
         <div className="mt-3">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={subtleButtonClass}
             onClick={() => void exportPlates(true)}
             disabled={busy !== null}
           >
-            <Download size={16} aria-hidden />
             全ての版を単色で書き出す
           </button>
         </div>
         {plateButtons(true)}
 
-        <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-gray-400">
+        <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-ink-muted">
           <li>1 版目を必要枚数まとめて印刷する</li>
           <li>しっかり乾かす（顔料インクなら 30 分以上が目安）</li>
           <li>刷った束を裏返さず、向きも変えずにそのまま給紙トレイへ戻す</li>
@@ -235,32 +222,29 @@ export function ExportSection({
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-rule pt-4">
         <button
           type="button"
           className={subtleButtonClass}
           onClick={() => void exportComposite()}
           disabled={busy !== null}
         >
-          <Download size={16} aria-hidden />
           合成プレビューを書き出す
         </button>
-        <label className="inline-flex items-center gap-2 text-sm text-gray-300">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-white/20 bg-gray-950 text-cyan-500 focus:ring-cyan-500"
-            checked={bake}
-            disabled={!registrationEnabled}
-            onChange={(event) => onBakeChange(event.target.checked)}
-          />
-          <span>
-            版ズレを焼き込む
-            {registrationEnabled ? '' : '（版ズレ設定が「ズレなし」）'}
-          </span>
-        </label>
+        <Checkbox
+          checked={bake}
+          disabled={!registrationEnabled}
+          onChange={(event) => onBakeChange(event.target.checked)}
+          label={
+            <>
+              版ズレを焼き込む
+              {registrationEnabled ? '' : '（版ズレ設定が「ズレなし」）'}
+            </>
+          }
+        />
       </div>
 
-      {busy ? <p className="mt-3 text-sm text-gray-400">{busy}</p> : null}
+      {busy ? <p className="mt-3 text-sm text-ink-muted">{busy}</p> : null}
     </section>
   )
 }

@@ -278,7 +278,7 @@ function descriptionText(booking: Booking): string | null {
     lines.push(`予約先: ${booking.provider}`)
   }
   if (booking.from !== undefined || booking.to !== undefined) {
-    lines.push(`${booking.from?.name ?? '?'} → ${booking.to?.name ?? '?'}`)
+    lines.push(`${booking.from?.name ?? '?'}から${booking.to?.name ?? '?'}`)
   }
   if (booking.note !== undefined) {
     lines.push(booking.note)

@@ -1,192 +1,184 @@
-import { Link } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
-import type { ComponentType } from 'react'
-import {
-  Dices,
-  Disc3,
-  Drum,
-  ExternalLink,
-  Home,
-  Layers,
-  Luggage,
-  Map,
-  Menu,
-  Mic,
-  PlaneLanding,
-  Printer,
-  Sparkles,
-  X,
-  ZoomIn,
-} from 'lucide-react'
+import { Link, useRouterState } from '@tanstack/react-router'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { getCatalogByCategory } from '../lib/site-meta'
-import type { CatalogItem } from '../lib/site-meta'
+import type { ReactNode } from 'react'
+import type { CatalogItem, ToolCategoryId } from '../lib/site-meta'
 
-/** Header 専用: site-meta に lucide を入れないため slug → icon はここで持つ */
-const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
-  'actual-size-layout': Printer,
-  risograph: Layers,
-  'meeting-recorder': Mic,
-  'trip-scheduler': Map,
-  'trip-notes': Luggage,
-  'drum-roll': Drum,
-  'setlist-card': Disc3,
-  'taiwan-arrival-card': PlaneLanding,
-  'magnify-image': ZoomIn,
-  'online-roulette': Dices,
-}
+/*
+ * サイト共通のヘッダー。白い紙に青インクのワードマークと細罫 1 本だけ。
+ * 高さは 64px（h-16）で固定。ツール側に `top-16` や `calc(100dvh-4rem)` で
+ * この高さを前提にしている箇所があるので、変えるときはそちらも直すこと。
+ */
 
-function toolIcon(slug: string) {
-  return TOOL_ICONS[slug] ?? Sparkles
+/** 文字リンク。現在地はピンクの下線 */
+function navLinkClass(isCurrent: boolean): string {
+  return `border-b-[1.5px] py-0.5 text-sm font-medium no-underline ${
+    isCurrent ? 'border-pink' : 'border-transparent hover:border-rule'
+  }`
 }
 
 export default function Header() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuId = useId()
   const categories = useMemo(() => getCatalogByCategory(), [])
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
+  // いま開いているツールのカテゴリ（トップなら null）
+  const currentCategory = useMemo<ToolCategoryId | null>(() => {
+    for (const category of categories) {
+      for (const item of category.items) {
+        if (item.kind === 'internal' && pathname.startsWith(item.path)) {
+          return category.id
+        }
+      }
+    }
+    return null
+  }, [categories, pathname])
+  const isTop = pathname === '/'
+
+  // ページを移ったらメニューを閉じる
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!isMenuOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isMenuOpen])
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:bg-gray-900/60 print:hidden">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 text-white">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsOpen(true)}
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-              aria-label="メニューを開く"
+      <header className="sticky top-0 z-40 h-16 ink-line-b bg-paper text-ink print:hidden">
+        <div className="site-header-inner mx-auto flex h-full items-center justify-between gap-8 px-4 sm:px-6">
+          <div className="flex min-w-0 items-baseline gap-8">
+            <Link
+              to="/"
+              className="shrink-0 font-display text-[19px] leading-tight text-ink no-underline sm:text-2xl"
             >
-              <Menu size={20} />
-            </button>
-            <Link to="/" className="flex items-center gap-3">
-              <BrandBadge />
-              <div className="leading-tight">
-                <span className="block text-base font-semibold tracking-wide">
-                  かんちゅツールズ
-                </span>
-                <span className="block text-xs text-cyan-200">
-                  Daily helpers crafted by tainakanchu
-                </span>
-              </div>
+              かんちゅツールズ
             </Link>
+
+            <nav aria-label="目次" className="hidden md:block">
+              <ul className="m-0 flex list-none items-baseline gap-5 p-0">
+                <li>
+                  <Link
+                    to="/"
+                    className={navLinkClass(isTop)}
+                    aria-current={isTop ? 'page' : undefined}
+                  >
+                    目次
+                  </Link>
+                </li>
+                {categories.map((category) => {
+                  const isCurrent = currentCategory === category.id
+                  return (
+                    <li key={category.id}>
+                      <Link
+                        to="/"
+                        hash={category.id}
+                        className={navLinkClass(isCurrent)}
+                        aria-current={isCurrent ? 'location' : undefined}
+                      >
+                        {category.name}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </nav>
           </div>
 
           <a
             href="https://x.com/tainakanchu"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition hover:border-cyan-400/60 hover:text-white md:flex"
+            className="hidden text-sm text-ink-muted underline decoration-rule decoration-[1.5px] underline-offset-4 hover:text-ink hover:decoration-ink md:inline"
           >
-            <span className="inline-flex h-2 w-2 rounded-full bg-cyan-400" />
-            @tainakanchu
+            作っている人
           </a>
+
+          <button
+            type="button"
+            className="-mr-1 min-h-11 px-1 text-sm font-medium text-ink md:hidden"
+            aria-expanded={isMenuOpen}
+            aria-controls={menuId}
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            {isMenuOpen ? '閉じる' : '目次'}
+          </button>
         </div>
       </header>
 
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[320px] flex-col bg-gray-950 text-white shadow-2xl transition-transform duration-300 ease-in-out print:hidden ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+      {/* スマホの目次。ヘッダーの下に紙を 1 枚重ねる */}
+      <div
+        id={menuId}
+        hidden={!isMenuOpen}
+        className="fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto bg-paper text-ink md:hidden print:hidden"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <BrandBadge size="sm" />
-            <div>
-              <p className="text-sm font-semibold">かんちゅツールズ</p>
-              <p className="text-xs text-gray-400">Utility lab</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-            aria-label="メニューを閉じる"
+        <nav aria-label="ツールの目次" className="px-4 pt-2 pb-10">
+          <Link
+            to="/"
+            className="block border-b border-rule py-3 font-bold no-underline"
+            aria-current={isTop ? 'page' : undefined}
           >
-            <X size={18} />
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="space-y-1">
-            <Link
-              to="/"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition hover:bg-white/10 hover:text-white"
-              activeProps={{
-                className:
-                  'flex items-center gap-3 rounded-2xl bg-cyan-500/20 px-4 py-3 text-cyan-100 hover:bg-cyan-500/30',
-              }}
+            <MenuLabel isCurrent={isTop}>目次</MenuLabel>
+          </Link>
+          {categories.map((category) => (
+            <section key={category.id} className="mt-6">
+              <h2 className="m-0 text-[13px] font-bold text-ink-muted">
+                {category.name}
+              </h2>
+              <ul className="m-0 mt-1 list-none ink-line-t p-0">
+                {category.items.map((item) => (
+                  <li key={item.slug} className="border-b border-rule">
+                    <MenuItem item={item} pathname={pathname} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <p className="mt-8 text-sm">
+            <a
+              href="https://x.com/tainakanchu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ink-link"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5">
-                <Home size={18} />
-              </span>
-              <span className="text-sm font-medium">ホーム</span>
-            </Link>
-          </div>
-
-          <div className="mt-6 space-y-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
-              Tools
-            </p>
-
-            {categories.map((category) => (
-              <div key={category.id} className="space-y-2">
-                <p className="px-1 text-xs font-medium tracking-wide text-gray-400">
-                  {category.name}
-                </p>
-                <div className="space-y-2">
-                  {category.items.map((item) => (
-                    <ToolNavItem
-                      key={item.slug}
-                      item={item}
-                      onNavigate={() => setIsOpen(false)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </nav>
-
-        <footer className="border-t border-white/10 px-5 py-4 text-xs text-gray-500">
-          <p className="font-medium text-gray-300">かんちゅ</p>
-          <p className="mt-1">
-            “Gathering small, handy tools for everyday workflow.”
+              作っている人（@tainakanchu）
+            </a>
           </p>
-        </footer>
-      </aside>
+        </nav>
+      </div>
     </>
   )
 }
 
-function ToolNavItem({
-  item,
-  onNavigate,
+function MenuLabel({
+  isCurrent,
+  children,
 }: {
-  item: CatalogItem
-  onNavigate: () => void
+  isCurrent: boolean
+  children: ReactNode
 }) {
-  const Icon = toolIcon(item.slug)
-  const body = (
-    <>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-cyan-200 group-hover:bg-cyan-500/20 group-[&.active]:bg-cyan-500/25">
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-white">
-          <span className="truncate">{item.name}</span>
-          {item.kind === 'external' && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-              外部
-              <ExternalLink size={10} aria-hidden />
-            </span>
-          )}
-        </p>
-        <p className="mt-1 text-xs text-gray-400 line-clamp-2">
-          {item.description}
-        </p>
-      </div>
-    </>
+  return (
+    <span
+      className={
+        isCurrent
+          ? 'underline decoration-pink decoration-[3px] underline-offset-[6px]'
+          : undefined
+      }
+    >
+      {children}
+    </span>
   )
+}
 
-  const baseClassName =
-    'group flex gap-3 rounded-2xl border border-white/5 bg-white/[0.04] p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/10'
+function MenuItem({ item, pathname }: { item: CatalogItem; pathname: string }) {
+  const itemClass = 'block py-3 text-[15px] font-bold no-underline'
 
   if (item.kind === 'external') {
     return (
@@ -194,56 +186,24 @@ function ToolNavItem({
         href={item.href}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={onNavigate}
-        className={baseClassName}
+        className={itemClass}
       >
-        {body}
+        {item.name}
+        <span className="ml-2 text-xs font-normal text-ink-muted">
+          別サイト
+        </span>
       </a>
     )
   }
 
+  const isCurrent = pathname.startsWith(item.path)
   return (
     <Link
       to={item.path}
-      onClick={onNavigate}
-      className={baseClassName}
-      activeProps={{
-        className:
-          'group flex gap-3 rounded-2xl border border-cyan-400/60 bg-cyan-500/15 p-4',
-      }}
+      className={itemClass}
+      aria-current={isCurrent ? 'page' : undefined}
     >
-      {body}
+      <MenuLabel isCurrent={isCurrent}>{item.name}</MenuLabel>
     </Link>
-  )
-}
-
-function BrandBadge({ size = 'md' }: { size?: 'md' | 'sm' }) {
-  const dimension =
-    size === 'sm' ? 'h-9 w-9 rounded-2xl' : 'h-10 w-10 rounded-3xl'
-  const iconSize = size === 'sm' ? 18 : 20
-  const [failedToLoad, setFailedToLoad] = useState(false)
-  const avatarSrc = '/assets/tainakanchu-avatar.png'
-
-  return (
-    <span
-      className={`relative inline-flex ${dimension} overflow-hidden bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 shadow-lg`}
-    >
-      <span className="absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.45),rgba(255,255,255,0)_55%)] opacity-70 mix-blend-screen" />
-      {failedToLoad ? (
-        <Sparkles
-          size={iconSize}
-          className="relative text-white drop-shadow-[0_4px_10px_rgba(15,118,110,0.55)]"
-        />
-      ) : (
-        <img
-          src={avatarSrc}
-          alt="tainakanchu avatar"
-          className="relative h-full w-full object-cover"
-          loading="lazy"
-          onError={() => setFailedToLoad(true)}
-        />
-      )}
-      <span className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/30 mix-blend-screen" />
-    </span>
   )
 }

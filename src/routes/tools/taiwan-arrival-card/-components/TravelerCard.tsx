@@ -7,7 +7,7 @@
  * 書き出されて TWAC 側で弾かれる。
  */
 
-import { Trash2, User } from 'lucide-react'
+import { Button } from '../../../../components/ui'
 import {
   NATIONALITY_OPTIONS,
   OCCUPATION_OPTIONS,
@@ -16,7 +16,6 @@ import {
   needsVisaNumber,
   visaTypeOptionsFor,
 } from '../-lib/options'
-import { iconButtonClass } from '../-lib/styles'
 import { LIST_IDS, ListField, SelectField, TextField } from './Fields'
 import type { Traveler } from '../-lib/types'
 
@@ -38,10 +37,8 @@ export function TravelerCard({
   canRemove,
 }: TravelerCardProps) {
   const visaTypes = visaTypeOptionsFor(traveler.nationality)
-  const heading =
-    traveler.englishName.trim().length > 0
-      ? traveler.englishName
-      : `旅行者${position}`
+  const hasName = traveler.englishName.trim().length > 0
+  const heading = hasName ? traveler.englishName : `旅行者${position}`
 
   /*
     ビザ番号は、区分を変えたら**必ず**消す。
@@ -75,28 +72,30 @@ export function TravelerCard({
   }
 
   return (
-    <li className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-800">
-          <User
-            size={16}
-            aria-hidden="true"
-            className="shrink-0 text-cyan-600"
-          />
-          <span className="truncate">{heading}</span>
+    <li className="border-t border-rule pb-6 pt-4 first:border-t-0 first:pt-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="min-w-0 text-base font-bold">
+          <span className="mr-2">{position}人目</span>
+          {hasName ? (
+            <span className="break-all">{traveler.englishName}</span>
+          ) : (
+            <span className="text-sm font-medium text-ink-muted">
+              氏名は未入力
+            </span>
+          )}
         </h3>
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           onClick={onRemove}
           disabled={!canRemove}
-          className={iconButtonClass}
           aria-label={`${heading}を削除する`}
         >
-          <Trash2 size={15} aria-hidden="true" />
-        </button>
+          削除
+        </Button>
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <TextField
           label="氏名(パスポート表記)"
           value={traveler.englishName}

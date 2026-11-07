@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Upload } from 'lucide-react'
 import { loadPendingFonts } from '../-lib/fonts'
 import { renderPage, resetMeasureCache } from '../-lib/render'
 import { createSampleSetlist } from '../-lib/sample'
@@ -91,23 +90,22 @@ export function EmptyStage({
     >
       <canvas ref={canvasRef} aria-hidden />
       <span className="slc-drop-shade" aria-hidden />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-start gap-3 p-5 sm:p-8">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-start gap-3 border-t-[1.5px] border-ink bg-paper p-5 sm:p-8">
         <button
           type="button"
-          className="pointer-events-auto flex min-h-11 items-center gap-3 text-left text-[16px] leading-snug font-semibold"
+          className="pointer-events-auto flex min-h-11 items-center gap-3 text-left text-[16px] leading-snug font-bold"
           onClick={onPick}
           disabled={loading}
         >
-          <Upload size={20} aria-hidden className="shrink-0 text-(--accent)" />
           <span>
             {loading
               ? '読み込み中…'
-              : 'rekordbox・Traktor・Serato の履歴をここに'}
+              : 'rekordbox、Traktor、Serato の履歴をここに'}
           </span>
         </button>
         <button
           type="button"
-          className="slc-btn pointer-events-auto bg-(--bg)!"
+          className="btn btn-secondary pointer-events-auto bg-(--bg)!"
           onClick={onSample}
         >
           サンプルで見る

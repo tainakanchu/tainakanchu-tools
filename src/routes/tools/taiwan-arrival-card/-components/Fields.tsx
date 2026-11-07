@@ -1,6 +1,5 @@
 /**
- * フォームの入力欄。label でラップし、見出しは `<span className={labelClass}>` に
- * 入れる(trip-notes の BookingForm と同じ書き方)。
+ * フォームの入力欄。共通部品の Field(label・補足・エラーと入力欄をつなぐ)で包む。
  *
  * 設計判断:
  * - 選択肢が数百件ある欄(国籍 256 件・電話の国番号 219 件・航空会社 108 件)は
@@ -11,18 +10,17 @@
  *   旅行者 16 人 × 3 つの国名欄それぞれに 256 件の option を出すと
  *   1 万個以上の DOM ノードになり、入力のたびに描画が引っかかる。
  * - datalist は入力を選択肢に**縛らない**(自由に打てる)。リストに無い値は
- *   そのままだと TWAC 側で弾かれるので、琥珀色の注記で知らせる。ここで
+ *   そのままだと TWAC 側で弾かれるので、ピンクの印付きの注記で知らせる。ここで
  *   勝手に消したり近い値に寄せたりはしない。打った値が黙って変わるほうが
  *   分かりにくいうえ、正しい値を知っているのは利用者のほうだからである。
  */
 
+import { Field, Select, TextInput } from '../../../../components/ui'
 import {
   FLIGHT_CODE_OPTIONS,
   NATIONALITY_OPTIONS,
   REGION_CODE_OPTIONS,
 } from '../-lib/options'
-import { fieldClass, labelClass, unverifiedFieldClass } from '../-lib/styles'
-import type { ReactNode } from 'react'
 
 /** ページに 1 つだけ置く datalist の id */
 export const LIST_IDS = {
@@ -60,31 +58,13 @@ export function DataLists() {
   )
 }
 
-interface FieldShellProps {
-  label: string
-  /** 入力欄の下に出す補足。空欄のときの例など */
-  hint?: string
-  children: ReactNode
-}
-
-function FieldShell({ label, hint, children }: FieldShellProps) {
-  return (
-    <label className="block space-y-1">
-      <span className={labelClass}>{label}</span>
-      {children}
-      {hint !== undefined && (
-        <span className="block text-xs text-gray-500">{hint}</span>
-      )}
-    </label>
-  )
-}
-
 interface TextFieldProps {
   label: string
   value: string
   onChange: (value: string) => void
   type?: 'text' | 'date' | 'email' | 'tel'
   placeholder?: string
+  /** 入力欄の下に出す補足。空欄のときの例など */
   hint?: string
 }
 
@@ -97,15 +77,14 @@ export function TextField({
   hint,
 }: TextFieldProps) {
   return (
-    <FieldShell label={label} hint={hint}>
-      <input
+    <Field label={label} hint={hint}>
+      <TextInput
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClass}
       />
-    </FieldShell>
+    </Field>
   )
 }
 
@@ -128,20 +107,16 @@ export function SelectField({
   hint,
 }: SelectFieldProps) {
   return (
-    <FieldShell label={label} hint={hint}>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={fieldClass}
-      >
+    <Field label={label} hint={hint}>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
         {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-      </select>
-    </FieldShell>
+      </Select>
+    </Field>
   )
 }
 
@@ -158,7 +133,7 @@ interface ListFieldProps {
 }
 
 /**
- * 検索つきの選択入力。値が公式の選択肢に無ければ琥珀色の注記を添える。
+ * 検索つきの選択入力。値が公式の選択肢に無ければピンクの印付きの注記を添える。
  * 注記は書き出し前のチェック(index.tsx の collectWarnings)とも同じ判定を使う。
  */
 export function ListField({
@@ -172,26 +147,21 @@ export function ListField({
 }: ListFieldProps) {
   const unknown = value.length > 0 && !options.includes(value)
   return (
-    <label className="block space-y-1">
-      <span className={labelClass}>{label}</span>
-      <input
-        type="text"
+    <Field
+      label={label}
+      hint={unknown ? undefined : hint}
+      error={
+        unknown
+          ? '公式の選択肢にない値です。このままでは TWAC 側で弾かれる可能性があります。'
+          : undefined
+      }
+    >
+      <TextInput
         list={listId}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className={`${fieldClass} ${unknown ? unverifiedFieldClass : ''}`}
       />
-      {unknown ? (
-        <span className="block text-xs text-amber-700">
-          公式の選択肢にない値です。このままでは TWAC
-          側で弾かれる可能性があります
-        </span>
-      ) : (
-        hint !== undefined && (
-          <span className="block text-xs text-gray-500">{hint}</span>
-        )
-      )}
-    </label>
+    </Field>
   )
 }

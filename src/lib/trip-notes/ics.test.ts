@@ -502,7 +502,7 @@ describe('buildTripIcs / SUMMARY・LOCATION・DESCRIPTION', () => {
       NOW,
     )
     expect(firstProperty(ics, 'DESCRIPTION')).toBe(
-      'DESCRIPTION:確認番号: ABC123\\n予約先: Air France\\nパリ → 東京\\n座席は 32A',
+      'DESCRIPTION:確認番号: ABC123\\n予約先: Air France\\nパリから東京\\n座席は 32A',
     )
   })
 

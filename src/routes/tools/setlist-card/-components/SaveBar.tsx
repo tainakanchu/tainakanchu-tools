@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Download, Share2 } from 'lucide-react'
 import { FORMAT_CHOICES, formatBytes } from '../-lib/export'
-import { Field, Segmented } from './ui'
+import { SegmentedControl } from '../../../../components/ui'
+import { Field } from './ui'
 import type { ExportScale } from '../-lib/export'
 import type { ExportState } from './useSetlistRender'
 
@@ -69,18 +69,16 @@ export function SaveBar({ state }: { state: ExportState }) {
       <div ref={wrapRef} className="relative flex items-stretch gap-2">
         <button
           type="button"
-          className="slc-btn flex-1"
-          data-variant="primary"
+          className="btn btn-primary flex-1"
           onClick={() => void state.download()}
           disabled={state.busy}
         >
-          <Download size={18} aria-hidden />
           {multi ? `${state.pageCount} 枚を保存` : '保存'}
         </button>
         {state.shareSupported ? (
           <button
             type="button"
-            className="slc-btn"
+            className="btn btn-secondary"
             onClick={state.share}
             disabled={state.busy || state.shareStatus === 'no'}
             title={
@@ -89,22 +87,20 @@ export function SaveBar({ state }: { state: ExportState }) {
                 : undefined
             }
           >
-            <Share2 size={18} aria-hidden />
             共有
           </button>
         ) : null}
         <button
           ref={buttonRef}
           type="button"
-          className="slc-btn mono text-[12px]!"
-          data-variant="ghost"
+          className="btn btn-quiet text-[13px]!"
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
           aria-controls={menuId}
-          aria-label={`形式と解像度: ${formatLabel}・${state.scale}x`}
+          aria-label={`形式と解像度: ${formatLabel} ${state.scale}x`}
           onClick={() => setMenuOpen((v) => !v)}
         >
-          {formatLabel} · {state.scale}x<span aria-hidden>▾</span>
+          {formatLabel} {state.scale}x
         </button>
         {menuOpen ? (
           <div
@@ -114,7 +110,8 @@ export function SaveBar({ state }: { state: ExportState }) {
             className="slc-popover space-y-4"
           >
             <Field label="形式">
-              <Segmented
+              <SegmentedControl
+                full
                 label="形式"
                 value={state.hasPhoto ? state.formatChoice : 'png'}
                 options={FORMAT_CHOICES.map((o) => ({
@@ -132,7 +129,8 @@ export function SaveBar({ state }: { state: ExportState }) {
               />
             </Field>
             <Field label="解像度">
-              <Segmented
+              <SegmentedControl
+                full
                 label="解像度"
                 value={state.scale}
                 options={SCALES.map((o) => ({

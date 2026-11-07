@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { NotebookPen } from 'lucide-react'
+import { Button, Note } from '../../../../components/ui'
 import { convertToTripNotes } from '../../../../lib/trip-scheduler/toTripNotes'
 import { getDeviceTz } from '../../../../lib/trip-notes/datetime'
 import {
@@ -9,11 +9,7 @@ import {
   saveLibrary,
 } from '../../../../lib/trip-notes/trips'
 import { todayISO } from '../-lib/format'
-import {
-  cardClass,
-  primaryButtonClass,
-  sectionTitleClass,
-} from '../-lib/styles'
+import { panelClass, sectionLeadClass, sectionTitleClass } from '../-lib/styles'
 import type { TripState } from '../../../../lib/trip-scheduler/types'
 
 interface HandoffPanelProps {
@@ -79,43 +75,37 @@ export function HandoffPanel({ state }: HandoffPanelProps) {
   }
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <NotebookPen size={18} className="text-cyan-600" />
-        旅のしおりへ引き継ぐ
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">
-        行き先が決まったら、この骨組みを旅のしおりの新しい旅程にします。
-        滞在は「検討中の宿」、都市間は「手段未定の移動」として入るので、あとは向こうで実際の予約に育てていきます。
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>旅のしおりへ引き継ぐ</h2>
+      <p className={sectionLeadClass}>
+        行き先が決まったら、この骨組みを旅のしおりの新しい旅程にします。滞在は「検討中の宿」、都市間は「手段未定の移動」として入ります。
       </p>
 
       {preview !== null ? (
-        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
-          「{preview.tripTitle}」として、宿 {lodgingCount} 件・移動 {moveCount}{' '}
+        <p className="mt-3 text-sm">
+          「{preview.tripTitle}」として、宿 {lodgingCount} 件と移動 {moveCount}{' '}
           件を作ります。
         </p>
       ) : (
-        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500">
+        <p className="mt-3 text-sm text-ink-muted">
           滞在を 1 つ以上入れると引き継げます。
         </p>
       )}
 
       <div className="mt-4">
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={handleHandoff}
           disabled={preview === null}
-          className={primaryButtonClass}
         >
-          <NotebookPen size={16} />
           旅のしおりへ引き継ぐ
-        </button>
+        </Button>
       </div>
 
       {error !== null ? (
-        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+        <Note tone="error" className="mt-4" role="alert">
           {error}
-        </p>
+        </Note>
       ) : null}
     </section>
   )

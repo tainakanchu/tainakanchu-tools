@@ -3,7 +3,7 @@ import { FORMAT_LABELS } from '../-lib/types'
 import type { ParseResult, Setlist } from '../-lib/types'
 
 /**
- * 読み込んだもの（ファイル名 · 差し替え · プレイリスト）を 1 行で。
+ * 読み込んだもの（ファイル名、差し替え、プレイリスト）を 1 行で。
  */
 export function SourceLine({
   result,
@@ -40,17 +40,16 @@ export function SourceLine({
         </span>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="link"
+          className="btn btn-quiet"
           onClick={onPick}
-          title="rekordbox（.xml / .txt / .m3u8）・Traktor（.nml）・Serato（.csv）の履歴・プレイリスト"
+          title="rekordbox（.xml / .txt / .m3u8）、Traktor（.nml）、Serato（.csv）の履歴やプレイリスト"
         >
           {fileName ? '差し替え' : '履歴を読み込む'}
         </button>
       </div>
       {playlists.length > 1 ? (
         <select
-          className="slc-input"
+          className="input"
           aria-label={`プレイリスト（${playlists.length} 件）`}
           value={selectedIndex}
           onChange={(event) => onSelectPlaylist(Number(event.target.value))}
@@ -97,7 +96,7 @@ export function MetaLine({
   const panelId = useId()
   const summary = FIELDS.map((f) => setlist[f.key])
     .filter(Boolean)
-    .join(' · ')
+    .join('、')
   return (
     <div>
       <button
@@ -125,7 +124,7 @@ export function MetaLine({
             <span className="slc-label block">{field.label}</span>
             <input
               type="text"
-              className="slc-input"
+              className="input"
               value={setlist[field.key] ?? ''}
               placeholder={field.placeholder}
               onChange={(event) => onChange(field.key, event.target.value)}

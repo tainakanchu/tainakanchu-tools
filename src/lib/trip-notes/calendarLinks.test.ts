@@ -54,7 +54,7 @@ describe('googleCalendarUrl / 宛先とパラメータ', () => {
     const params = urlOf(flight).searchParams
     expect(params.get('location')).toBe('パリ シャルル・ド・ゴール空港')
     expect(params.get('details')).toBe(
-      '確認番号: ABC123\n予約先: Air France\nパリ → 東京',
+      '確認番号: ABC123\n予約先: Air France\nパリから東京',
     )
   })
 

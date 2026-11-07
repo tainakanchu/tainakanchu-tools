@@ -30,7 +30,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Check, LogOut, MapPinCheck, Plus } from 'lucide-react'
 import {
   diffDays,
   formatDateJa,
@@ -50,8 +49,6 @@ import { BookingCard } from './BookingCard'
 import { BookingForm } from './BookingForm'
 import { ConfirmDialog } from './ConfirmDialog'
 import { GapAlertCard } from './GapAlertCard'
-import { KindIcon } from './KindIcon'
-import type { LucideIcon } from 'lucide-react'
 import type {
   Booking,
   BookingKind,
@@ -90,12 +87,9 @@ const HIGHLIGHT_DURATION_MS = 2600
  * 呼び出し側はこれだけを見て行の見た目を選ぶ。ラベルの文字列から
  * 「チェックアウトで始まるか」を判定し直す手もあるが、それは文言を少し
  * 変えた瞬間に静かに壊れるので、判別できる形で返す。
- * アイコンを持つのがイベント側だけなのは、状態側には「滞在中」を
- * 言い当てる絵が無く、そこは今までどおり種別の KindIcon で足りるため。
  */
 type OngoingStatus =
-  | { tone: 'event'; label: string; icon: LucideIcon }
-  | { tone: 'state'; label: string }
+  { tone: 'event'; label: string } | { tone: 'state'; label: string }
 
 /**
  * その日の状態。終了日なら「チェックアウト/到着」というイベント、
@@ -123,14 +117,6 @@ function ongoingStatus(
     return {
       tone: 'event',
       label: `${isLodging ? 'チェックアウト' : '到着'}${time}`,
-      /*
-        宿は「部屋から出る」ので LogOut。移動側は種別を問わず MapPinCheck で
-        「着いた」だけを表す。列車やバスの到着に飛行機の PlaneLanding を
-        出すわけにはいかず、かといって種別ごとに絵を割り振ると、隣に出ている
-        はずの KindIcon と役割が重なって「なぜ2つ絵があるのか」になる。
-        種別は KindIcon に任せ、ここは中立の1つに寄せる
-      */
-      icon: isLodging ? LogOut : MapPinCheck,
     }
   }
 
@@ -164,31 +150,22 @@ function OngoingRow({
   const status = ongoingStatus(booking, date, displayTz)
 
   /*
-    イベント行を持ち上げたいが、色で持ち上げることはできない。
-    この日程タブの amber は GapAlertCard(未確保の夜)が押さえていて、とくに
-    その continuation バリアント
-    (border border-amber-200/80 bg-amber-50/60 px-3 py-1.5 text-xs)は、
+    イベント行は持ち上げたいが、色で持ち上げることはしない。この日程タブで
+    いちばん強い警告は GapAlertCard(未確保の夜)で、その continuation バリアントは
     OngoingRow とほぼ同じ大きさ・形の 1 行として同じ日のセクションに並ぶ。
-    ここで amber を使うと「宿が取れていない警告」と見分けが付かなくなる。
-    cyan / sky はブランド・リンク・プライマリ操作の専用色(-lib/styles.ts)で、
-    rose は危険、emerald は良好。チェックアウトはそのどれでもない
-    「時刻の決まった事実」なので、当てられる色が残っていない。
+    同じ強さにすると「宿が取れていない警告」と見分けが付かなくなる。
 
-    そこで色はニュートラル(slate)のまま据え置き、色以外の signal を重ねる。
-    実線に戻す・左だけ太い罫線・淡い地色・濃い文字・時刻の太字・意味のある
-    アイコン、の 6 つ。左だけ太い罫線は StatusBadge の
-    TRAVEL_DOC_STATUS_STYLES で既に使っている「形で系統を分ける」語彙なので、
-    新しい語彙を増やさずそれに倣う。
+    そこで色は青インクのまま据え置き、色以外の signal を重ねる。
+    実線に戻す・左だけ太い罫線・濃い文字・時刻の太字、の 4 つ。
 
     その上で、BookingCard より目立たせないことを守る。その日の主役はその日に
-    始まる予約で、あちらは rounded-2xl + 白地 + shadow-sm + 大きな見出し。
-    こちらは text-xs・px-3 py-2・rounded-xl という小ささを状態行と揃えたまま、
-    shadow や大きな文字には手を出さない
+    始まる予約で、あちらは大きな見出しの付いた枠。こちらは text-xs・px-3 py-2 という
+    小ささを状態行と揃えたまま、大きな文字には手を出さない
   */
   const rowClass =
     status.tone === 'event'
-      ? 'border-slate-300 border-l-4 border-l-slate-500 bg-slate-50 text-gray-700 hover:bg-slate-100'
-      : 'border-dashed border-gray-200 bg-gray-50/60 text-gray-500 hover:bg-gray-100'
+      ? 'border-ink border-l-4 border-l-ink bg-paper text-ink hover:bg-wash'
+      : 'border-dashed border-rule bg-paper text-ink-muted hover:bg-wash'
 
   return (
     <button
@@ -205,33 +182,21 @@ function OngoingRow({
       // スクリーンリーダーには一切届かない。締切を目立たせるのは視覚だけの
       // 話ではないので、読み上げ側にも同じ情報が渡るようにする
       aria-label={`${formatDateJa(date)}の${booking.title}(${status.label})を編集`}
-      className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${rowClass}`}
+      className={`flex w-full items-center gap-2 border px-3 py-2 text-left text-xs transition ${rowClass}`}
     >
-      {status.tone === 'event' ? (
-        <status.icon
-          size={13}
-          className="shrink-0 text-slate-600"
-          aria-hidden="true"
-        />
-      ) : (
-        <KindIcon
-          kind={booking.kind}
-          size={13}
-          className="shrink-0 text-gray-400"
-        />
-      )}
       {/*
         タイトルだけを単独の要素にすると、開始日の BookingCard 側の見出しと
         文字列が完全一致してしまい、画面を見ている人にも支援技術にも
         「同じ名前の別要素が2つ以上ある」状態になって紛らわしい。
-        先頭に継続を表す記号を足して「前日から続いている行」だと分かるようにする
+        先頭に「続き」と添えて「前の日から続いている行」だと分かるようにする
       */}
-      <span className="min-w-0 flex-1 truncate">↳ {booking.title}</span>
+      {/* 「続き」と題名は 1 つの文字列にする。題名だけの要素が残ると上の問題が戻る */}
+      <span className="min-w-0 flex-1 truncate">{`続き　${booking.title}`}</span>
       <span
         className={
           status.tone === 'event'
-            ? 'shrink-0 font-bold text-gray-900'
-            : 'shrink-0 text-gray-400'
+            ? 'shrink-0 font-bold text-ink'
+            : 'shrink-0 text-ink-muted'
         }
       >
         {status.label}
@@ -299,7 +264,15 @@ export function SchedulePanel({
   useEffect(() => {
     if (focusDate === null) return
     const el = dayRefs.current.get(focusDate)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // 動きを減らす設定のときは、なめらかなスクロールも止めて一気に飛ぶ。
+    // テスト環境(jsdom)には matchMedia が無いので、有るときだけ見る
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    })
     setHighlightDate(focusDate)
     onFocusHandled()
   }, [focusDate, onFocusHandled])
@@ -331,15 +304,12 @@ export function SchedulePanel({
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className={sectionTitleClass}>
-          <CalendarDays size={18} className="text-cyan-600" />
-          日程タイムライン
-        </h2>
+        <h2 className={sectionTitleClass}>日程タイムライン</h2>
         <div className="flex flex-wrap items-center gap-2">
           {/*
             AI 取り込み直後は全予約の全フィールドが未確認になる。1 つずつ外すのは
             現実的ではないので、一覧の入口にまとめて外す出口を置く。ただし
-            「黄色い下線を根拠に旅程を見直す」機能そのものを一度で消す操作なので、
+            「破線の下線を根拠に旅程を見直す」機能そのものを一度で消す操作なので、
             必ず確認ダイアログを挟む
           */}
           {unverifiedCount > 0 ? (
@@ -349,7 +319,6 @@ export function SchedulePanel({
               className={subtleButtonClass}
               aria-label={`未確認の項目が残る${unverifiedCount}件の予約を、まとめて確認済みにする`}
             >
-              <Check size={15} aria-hidden="true" />
               未確認をすべて解除({unverifiedCount}件)
             </button>
           ) : null}
@@ -358,25 +327,15 @@ export function SchedulePanel({
             onClick={() => setModalState({ mode: 'add', date: null })}
             className={primaryButtonClass}
           >
-            <Plus size={16} aria-hidden="true" />
             予約を追加
           </button>
         </div>
       </div>
 
       {state.bookings.length === 0 ? (
-        <div
-          className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`}
-        >
-          <CalendarDays
-            size={32}
-            className="text-gray-300"
-            aria-hidden="true"
-          />
-          <p className="text-sm font-medium text-gray-700">
-            まだ予約がありません
-          </p>
-          <p className="max-w-sm text-xs text-gray-500">
+        <div className={`${cardClass} flex flex-col items-start gap-3`}>
+          <p className="text-sm font-medium text-ink">まだ予約がありません</p>
+          <p className="max-w-sm text-xs text-ink-muted">
             宿泊・移動・アクティビティの予約を追加すると、ここに日ごとのタイムラインが並びます。
           </p>
           <button
@@ -384,7 +343,6 @@ export function SchedulePanel({
             onClick={() => setModalState({ mode: 'add', date: null })}
             className={primaryButtonClass}
           >
-            <Plus size={16} aria-hidden="true" />
             最初の予約を追加
           </button>
         </div>
@@ -401,12 +359,12 @@ export function SchedulePanel({
                   if (el) dayRefs.current.set(day.date, el)
                   else dayRefs.current.delete(day.date)
                 }}
-                className={`scroll-mt-20 rounded-2xl transition ${
-                  highlighted ? 'ring-2 ring-cyan-400 ring-offset-2' : ''
+                className={`scroll-mt-20 transition motion-reduce:transition-none ${
+                  highlighted ? 'ring-2 ring-ink ring-offset-2' : ''
                 }`}
               >
-                <div className="sticky top-16 z-10 flex items-center justify-between gap-2 bg-white/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-                  <h3 className="text-sm font-bold text-gray-800">
+                <div className="ink-line-b sticky top-16 z-10 flex items-center justify-between gap-2 bg-paper py-2">
+                  <h3 className="text-sm font-bold text-ink">
                     {formatDateJa(day.date)}
                   </h3>
                   <button
@@ -417,14 +375,13 @@ export function SchedulePanel({
                     className={subtleButtonClass}
                     aria-label={`${formatDateJa(day.date)}に予約を追加`}
                   >
-                    <Plus size={14} aria-hidden="true" />
                     この日に追加
                   </button>
                 </div>
 
                 <div className="mt-2 space-y-2">
                   {timeline.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-400">
+                    <p className="py-1 text-xs text-ink-muted">
                       この日の予定はまだありません
                     </p>
                   ) : (
@@ -503,7 +460,7 @@ export function SchedulePanel({
 
       {modalState.mode !== 'closed' ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="dialog-backdrop"
           onClick={(event) => {
             if (event.target === event.currentTarget) closeModal()
           }}
@@ -525,7 +482,7 @@ export function SchedulePanel({
       {bulkVerifyOpen ? (
         <ConfirmDialog
           title="未確認をすべて解除しますか?"
-          description={`${unverifiedCount}件の予約に付いている黄色い下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
+          description={`${unverifiedCount}件の予約に付いている破線の下線が消え、AI が入力した値と自分で確認した値の区別が付かなくなります。取り消したいときは「元に戻す」で1回ぶん戻せます。`}
           confirmLabel="すべて解除する"
           confirmAriaLabel={`${unverifiedCount}件の予約の未確認をすべて解除する`}
           onConfirm={() => {

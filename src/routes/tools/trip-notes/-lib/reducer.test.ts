@@ -239,7 +239,7 @@ describe('tripNotesReducer / 未確認フィールド', () => {
   })
 
   it('値を書き換えて更新すると、そのフィールドは自動で未確認から外れる', () => {
-    // AI が入れた出発時刻を人間が直したのに黄色い下線が残るのは筋が通らない
+    // AI が入れた出発時刻を人間が直したのに破線の下線が残るのは筋が通らない
     const updated = makeBooking('b1', {
       unverified: ['start', 'confirmationNumber'],
       start: { zdt: '2026-06-12T18:30:00+02:00[Europe/Paris]', allDay: false },
@@ -252,7 +252,7 @@ describe('tripNotesReducer / 未確認フィールド', () => {
   })
 
   it('オンラインチェックインの開放時刻を直すと、その未確認マークも外れる', () => {
-    // 判定に使うキーの一覧に足し忘れると、直したのに黄色い下線が残り続ける。
+    // 判定に使うキーの一覧に足し忘れると、直したのに破線の下線が残り続ける。
     // 締切と違って「〜からできる」時刻なので、見落としても画面上は自然に見えてしまう
     const withOpens = makeState({
       bookings: [

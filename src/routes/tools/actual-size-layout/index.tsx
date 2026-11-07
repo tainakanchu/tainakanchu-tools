@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import {
+  Button,
+  Checkbox,
+  DropZone,
+  Field,
+  Note,
+  Page,
+  PageTitle,
+  Panel,
+  Select,
+  TextInput,
+} from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { documentPresets } from './-lib/presets'
 import type { PresetId } from './-lib/presets'
@@ -41,7 +52,6 @@ function ActualSizeLayoutPage() {
   const [cardGapMm, setCardGapMm] = useState(16)
   const [cardCornersRounded, setCardCornersRounded] = useState(true)
   const [images, setImages] = useState<Array<UploadedImage>>([])
-  const [isDragOver, setIsDragOver] = useState(false)
 
   const imagesRef = useRef(images)
   imagesRef.current = images
@@ -131,14 +141,6 @@ function ActualSizeLayoutPage() {
     }
   }
 
-  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const fileList = event.target.files
-    if (!fileList) return
-
-    await addImageFiles(Array.from(fileList))
-    event.target.value = ''
-  }
-
   useEffect(() => {
     let cancelled = false
     const timer = window.setTimeout(async () => {
@@ -203,295 +205,233 @@ function ActualSizeLayoutPage() {
   ]
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 text-gray-900 md:flex-row print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
-      <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur print:hidden md:w-80 md:shrink-0 md:sticky md:top-4">
-        <header className="space-y-2">
-          <h1 className="text-xl font-semibold whitespace-nowrap">
-            原寸レイアウトメーカー
-          </h1>
-          <p className="text-sm text-gray-600">
-            免許証やパスポートなどの書類画像をアップロードして、原寸大でA4にレイアウトします。印刷またはPDF出力でそのまま利用できます。
-          </p>
-        </header>
+    <Page width="wide" className="print:mx-0 print:max-w-none print:p-0">
+      <PageTitle
+        className="print:hidden"
+        lead="免許証やパスポートなどの書類画像をアップロードして、原寸大で A4 にレイアウトします。印刷または PDF 保存でそのまま使えます。"
+      >
+        原寸レイアウトメーカー
+      </PageTitle>
+      <div className="flex w-full flex-col gap-8 md:flex-row print:flex-col print:gap-0">
+        <aside className="w-full space-y-8 md:w-80 md:shrink-0 print:hidden">
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold">ドキュメント設定</h2>
+            <Field label="種類">
+              <Select
+                value={presetId}
+                onChange={(event) => {
+                  const found = documentPresets.find(
+                    (preset) => preset.id === event.target.value,
+                  )
+                  if (found) setPresetId(found.id)
+                }}
+              >
+                {documentPresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-        <section className="space-y-4">
-          <h2 className="text-lg font-medium text-gray-800">
-            ドキュメント設定
-          </h2>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">種類</span>
-            <select
-              value={presetId}
-              // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- option の value は documentPresets (PresetId 型) からのみ生成されるため実行時も安全
-              onChange={(event) => setPresetId(event.target.value as PresetId)}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-            >
-              {documentPresets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            {presetId === 'custom' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="幅 (mm)">
+                  <TextInput
+                    type="number"
+                    min={30}
+                    max={210}
+                    step={0.1}
+                    value={customWidthMm}
+                    onChange={(event) =>
+                      setCustomWidthMm(Number(event.target.value))
+                    }
+                  />
+                </Field>
+                <Field label="高さ (mm)">
+                  <TextInput
+                    type="number"
+                    min={30}
+                    max={297}
+                    step={0.1}
+                    value={customHeightMm}
+                    onChange={(event) =>
+                      setCustomHeightMm(Number(event.target.value))
+                    }
+                  />
+                </Field>
+              </div>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                {currentPreset?.description ??
+                  `幅 ${currentPreset?.widthMm ?? '--'}mm × 高さ ${
+                    currentPreset?.heightMm ?? '--'
+                  }mm`}
+              </p>
+            )}
 
-          {presetId === 'custom' ? (
-            <div className="grid grid-cols-2 gap-3">
-              <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">
-                  幅 (mm)
-                </span>
-                <input
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+              <Field label="余白 (mm)">
+                <TextInput
                   type="number"
-                  min={30}
-                  max={210}
-                  step={0.1}
-                  value={customWidthMm}
+                  min={0}
+                  max={30}
+                  step={1}
+                  value={pageMarginMm}
                   onChange={(event) =>
-                    setCustomWidthMm(Number(event.target.value))
+                    setPageMarginMm(Number(event.target.value))
                   }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
                 />
-              </label>
-              <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">
-                  高さ (mm)
-                </span>
-                <input
+              </Field>
+              <Field label="画像の間隔 (mm)">
+                <TextInput
                   type="number"
-                  min={30}
-                  max={297}
-                  step={0.1}
-                  value={customHeightMm}
-                  onChange={(event) =>
-                    setCustomHeightMm(Number(event.target.value))
-                  }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={cardGapMm}
+                  onChange={(event) => setCardGapMm(Number(event.target.value))}
                 />
-              </label>
+              </Field>
             </div>
-          ) : (
-            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600">
-              {currentPreset?.description ??
-                `幅 ${currentPreset?.widthMm ?? '--'}mm × 高さ ${
-                  currentPreset?.heightMm ?? '--'
-                }mm`}
-            </p>
-          )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
-                余白 (mm)
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={30}
-                step={1}
-                value={pageMarginMm}
-                onChange={(event) =>
-                  setPageMarginMm(Number(event.target.value))
-                }
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
-                画像の間隔 (mm)
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={50}
-                step={1}
-                value={cardGapMm}
-                onChange={(event) => setCardGapMm(Number(event.target.value))}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-              />
-            </label>
-          </div>
-
-          <label className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
+            <Checkbox
+              label="角を丸くする"
               checked={cardCornersRounded}
               onChange={(event) => setCardCornersRounded(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
             />
-            <span>角を丸くする</span>
-          </label>
-        </section>
+          </section>
 
-        <section className="space-y-3">
-          <h2 className="text-lg font-medium text-gray-800">
-            画像アップロード
-          </h2>
-          <label
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-sm text-gray-600 transition ${
-              isDragOver
-                ? 'border-cyan-400 bg-cyan-50'
-                : 'border-gray-300 bg-gray-50 hover:border-cyan-400 hover:bg-cyan-50'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault()
-              setIsDragOver(true)
-            }}
-            onDragLeave={(e) => {
-              // 子要素への移動でもちらつかないよう、label の外に出たときだけ解除する
-              const related =
-                e.relatedTarget instanceof Node ? e.relatedTarget : null
-              if (related && e.currentTarget.contains(related)) return
-              setIsDragOver(false)
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              setIsDragOver(false)
-              void addImageFiles(Array.from(e.dataTransfer.files))
-            }}
-          >
-            <input
-              type="file"
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold">画像アップロード</h2>
+            <DropZone
               accept="image/*"
               multiple
-              onChange={handleFilesSelected}
-              className="hidden"
+              onFiles={(files) => void addImageFiles(files)}
+              title="画像を選ぶか、ここへドロップ（2 枚まで）"
+              hint="PNG / JPG / HEIC"
             />
-            <span className="font-medium text-gray-800">
-              画像を選択またはドラッグ&ドロップ（最大2枚）
-            </span>
-            <span className="mt-1 text-xs text-gray-500">
-              PNG / JPG / HEIC などに対応しています
-            </span>
-          </label>
 
-          {images.length > 0 ? (
-            <ul className="space-y-2">
-              {images.map((image, index) => (
-                <li
-                  key={image.id}
-                  className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 text-sm"
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-xs font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <span className="truncate">{image.name}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeImage(image.id)}
-                    className="flex-shrink-0 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+            {images.length > 0 ? (
+              <ul className="ink-line-t ink-line-b divide-y divide-rule">
+                {images.map((image, index) => (
+                  <li
+                    key={image.id}
+                    className="flex items-center gap-3 py-2 text-sm"
                   >
-                    削除
-                  </button>
-                </li>
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center border-[1.5px] border-ink text-xs font-bold">
+                        {index + 1}
+                      </span>
+                      <span className="truncate">{image.name}</span>
+                    </span>
+                    <Button
+                      variant="quiet"
+                      size="sm"
+                      onClick={() => removeImage(image.id)}
+                      aria-label={`${image.name} を削除`}
+                    >
+                      削除
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                画像は 1 枚か 2 枚。2 枚のときは縦に並べて配置します。
+              </p>
+            )}
+
+            {overflowsPrintableArea || overflowsPrintableWidth ? (
+              <Note tone="error" role="alert">
+                {overflowsPrintableArea
+                  ? '画像の合計の高さが余白の内側に収まりません。余白や間隔を減らすか、画像を 1 枚にしてください。'
+                  : null}
+                {overflowsPrintableArea && overflowsPrintableWidth ? ' ' : null}
+                {overflowsPrintableWidth
+                  ? '画像の幅が余白の内側に収まりません。余白を減らしてください。'
+                  : null}
+              </Note>
+            ) : null}
+          </section>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" onClick={() => window.print()}>
+              印刷する
+            </Button>
+            <Button variant="danger" onClick={resetAll}>
+              最初からやり直す
+            </Button>
+          </div>
+
+          <Panel tone="wash" className="space-y-2 px-4 py-3 text-sm">
+            <h3 className="text-sm font-bold">印刷時のポイント</h3>
+            <ul className="list-disc space-y-1 pl-5">
+              {instructions.map((tip) => (
+                <li key={tip}>{tip}</li>
               ))}
             </ul>
-          ) : (
-            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500">
-              1枚または2枚の画像を選択してください。2枚の場合は同じ位置に縦並びで配置します。
+          </Panel>
+        </aside>
+
+        <section className="min-w-0 flex-1 print:w-full print:px-0 print:py-0">
+          <div className="space-y-2 print:hidden">
+            <h2 className="text-lg font-bold">レイアウトプレビュー</h2>
+            <p className="text-sm text-ink-muted">
+              白い面が A4 の用紙を原寸で再現しています。
             </p>
-          )}
-
-          {overflowsPrintableArea ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              配置した画像の合計高さが印刷可能領域を超えています。余白や間隔を減らすか、画像を1枚にしてください。
-            </p>
-          ) : null}
-
-          {overflowsPrintableWidth ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              画像の幅が印刷可能領域（余白の内側）を超えています。余白を減らしてください。
-            </p>
-          ) : null}
-        </section>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-          >
-            印刷 / PDF 出力
-          </button>
-          <button
-            type="button"
-            onClick={resetAll}
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500"
-          >
-            リセット
-          </button>
-        </div>
-
-        <section className="space-y-2 rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-          <h3 className="text-sm font-semibold">印刷時のポイント</h3>
-          <ul className="list-disc space-y-1 pl-5">
-            {instructions.map((tip) => (
-              <li key={tip}>{tip}</li>
-            ))}
-          </ul>
-        </section>
-      </aside>
-
-      <section className="min-w-0 flex-1 print:w-full print:px-0 print:py-0">
-        <div className="space-y-4 print:hidden">
-          <h2 className="text-lg font-medium text-gray-800">
-            レイアウトプレビュー
-          </h2>
-          <p className="text-sm text-gray-600">
-            下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
-          </p>
-        </div>
-        <div className="mt-4 overflow-x-auto rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 print:m-0 print:overflow-visible print:rounded-none print:border-0 print:bg-transparent print:p-0">
-          <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
-            <div
-              className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0"
-              style={a4Style}
-            >
+          </div>
+          <div className="mt-4 overflow-x-auto border-[1.5px] border-ink bg-wash p-4 print:m-0 print:overflow-visible print:border-0 print:bg-transparent print:p-0">
+            <div className="relative mx-auto flex items-center justify-center overflow-visible border border-rule bg-paper print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
               <div
-                className="flex h-full w-full flex-col items-center justify-start"
-                style={cardAreaStyle}
+                className="relative flex h-full w-full flex-col items-center justify-start bg-paper print:m-0 print:border-0"
+                style={a4Style}
               >
-                {images.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500 print:border-0 print:bg-transparent">
-                    <p>
-                      ここに画像が配置されます。左側から画像を選択してください。
-                    </p>
-                    <p className="mt-2 text-xs text-gray-400">
-                      印刷時は倍率を100%に設定すると実寸になります。
-                    </p>
-                  </div>
-                ) : (
-                  images.map((image) => (
-                    <figure
-                      key={image.id}
-                      className="flex flex-col items-center"
-                      style={cardStyle}
-                    >
-                      <img
-                        src={image.dataUrl}
-                        alt={image.name}
-                        className={`h-full w-full object-contain ${
-                          cardCornersRounded ? 'rounded-xl' : ''
-                        }`}
-                        style={{
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </figure>
-                  ))
-                )}
-              </div>
+                <div
+                  className="flex h-full w-full flex-col items-center justify-start"
+                  style={cardAreaStyle}
+                >
+                  {images.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center border border-dashed border-ink-muted bg-wash p-6 text-center text-sm text-ink-muted print:border-0 print:bg-transparent">
+                      <p>
+                        ここに画像を配置します。左の欄で画像を選んでください。
+                      </p>
+                      <p className="mt-2 text-xs">
+                        印刷時は倍率を100%に設定すると実寸になります。
+                      </p>
+                    </div>
+                  ) : (
+                    images.map((image) => (
+                      <figure
+                        key={image.id}
+                        className="flex flex-col items-center"
+                        style={cardStyle}
+                      >
+                        <img
+                          src={image.dataUrl}
+                          alt={image.name}
+                          className={`h-full w-full object-contain ${
+                            cardCornersRounded ? 'rounded-xl' : ''
+                          }`}
+                          style={{
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </figure>
+                    ))
+                  )}
+                </div>
 
-              <footer className="pointer-events-none mt-auto w-full text-center text-[10pt] text-gray-400 print:hidden">
-                A4: 210mm × 297mm | 配置サイズ: {contentSize.widthMm.toFixed(1)}
-                mm × {contentSize.heightMm.toFixed(1)}mm
-              </footer>
+                <footer className="pointer-events-none mt-auto w-full text-center text-[10pt] text-ink-muted print:hidden">
+                  A4（210 × 297mm）に {contentSize.widthMm.toFixed(1)} ×{' '}
+                  {contentSize.heightMm.toFixed(1)}mm で配置
+                </footer>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </div>
+    </Page>
   )
 }
 

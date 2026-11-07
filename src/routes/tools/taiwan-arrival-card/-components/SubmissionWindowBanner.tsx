@@ -1,20 +1,14 @@
 /**
  * 入国日に対する TWAC 提出可能期間の簡易表示。
  *
- * 文字説明は最小限にし、状態は色・形・大きな数字で伝える。
- * - まだ早い: カウントダウン + 提出窓の日帯 + カレンダー登録
- * - 申請可: 緑のチェック + 今日を強調した日帯 + 公式サイトへ
- * - 期間外: 静かな表示
+ * 文字説明は最小限にし、状態は線の種類・大きな数字・ラベルで伝える。
+ * - まだ早い: 破線の面 + カウントダウン + 提出窓の日帯 + カレンダー登録
+ * - 申請可: 実線の面 + 今日を強調した日帯 + 公式サイトへ
+ * - 期間外: 薄い罫の静かな表示
  */
 
 import type { ReactNode } from 'react'
-import {
-  CalendarPlus,
-  CheckCircle2,
-  ExternalLink,
-  Hourglass,
-  PlaneLanding,
-} from 'lucide-react'
+import { buttonClass } from '../../../../components/ui'
 import {
   buildTwacOpenDayIcs,
   twacOpenDayGoogleCalendarUrl,
@@ -67,48 +61,35 @@ function WindowStrip({
 
         let base: string
         if (tone === 'past') {
-          base = 'bg-gray-200 text-gray-500'
+          base = 'border border-rule bg-paper text-ink-muted'
         } else if (tone === 'open') {
           base = isToday
-            ? 'bg-emerald-500 text-white shadow-sm'
-            : 'bg-emerald-100 text-emerald-800'
+            ? 'border-[1.5px] border-ink bg-pink-tint font-bold'
+            : 'border border-ink bg-wash'
         } else {
-          // waiting: まだ開いていない。開始日だけ目印、他は薄い枠
+          // waiting: まだ開いていない。開始日だけ目印、他は破線の枠
           base = isStart
-            ? 'bg-amber-200 text-amber-950 ring-1 ring-amber-400'
-            : 'bg-white text-gray-400 ring-1 ring-dashed ring-gray-200'
+            ? 'border-[1.5px] border-ink bg-pink-tint font-bold'
+            : 'border border-dashed border-ink-muted bg-paper text-ink-muted'
         }
 
-        const ring =
-          isToday && tone === 'open'
-            ? 'ring-2 ring-emerald-600 ring-offset-1'
-            : ''
+        const label = isEntry
+          ? '入国'
+          : tone === 'open' && isToday
+            ? '今日'
+            : isStart && tone === 'waiting'
+              ? '開始'
+              : ''
 
         return (
           <div
             key={day}
             role="listitem"
             title={`${formatMonthDay(day)}${isStart ? ' 開始' : ''}${isEntry ? ' 入国' : ''}${isToday ? ' 今日' : ''}`}
-            className={`relative flex h-9 min-w-0 flex-1 flex-col items-center justify-center rounded-lg text-[10px] font-semibold leading-none ${base} ${ring}`}
+            className={`flex h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-ui text-[11px] leading-tight ${base}`}
           >
             <span className="tabular-nums">{formatMonthDay(day)}</span>
-            {isEntry ? (
-              <PlaneLanding
-                size={10}
-                aria-hidden="true"
-                className="mt-0.5 opacity-80"
-              />
-            ) : tone === 'open' && isToday ? (
-              <span className="mt-0.5 text-[9px] font-bold tracking-wide">
-                今日
-              </span>
-            ) : isStart && tone === 'waiting' ? (
-              <span className="mt-0.5 text-[9px] font-bold tracking-wide">
-                開始
-              </span>
-            ) : (
-              <span className="mt-0.5 h-2.5" aria-hidden="true" />
-            )}
+            <span className="h-3.5">{label}</span>
           </div>
         )
       })}
@@ -125,15 +106,12 @@ function StatusHero({
 }) {
   const shell =
     tone === 'open'
-      ? 'border-emerald-200 bg-emerald-50'
+      ? 'panel'
       : tone === 'waiting'
-        ? 'border-amber-200 bg-amber-50'
-        : 'border-gray-200 bg-gray-50'
+        ? 'panel panel-dashed'
+        : 'panel border-rule'
   return (
-    <div
-      className={`mt-3 overflow-hidden rounded-xl border ${shell}`}
-      role="status"
-    >
+    <div className={`${shell} mt-4`} role="status">
       {children}
     </div>
   )
@@ -148,18 +126,17 @@ function CalendarActions({ opensOn }: { opensOn: string }) {
           href={googleUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 transition hover:bg-amber-100"
+          className={buttonClass('secondary', 'sm')}
         >
-          <CalendarPlus size={14} aria-hidden="true" />
-          {formatMonthDay(opensOn)} を登録
+          {formatMonthDay(opensOn)} をカレンダーに登録(別サイト)
         </a>
       )}
       <button
         type="button"
         onClick={() => downloadIcs(opensOn)}
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-amber-800/80 underline-offset-2 hover:underline"
+        className={buttonClass('quiet', 'sm')}
       >
-        .ics
+        .ics をダウンロード
       </button>
     </div>
   )
@@ -177,30 +154,25 @@ function BannerBody({
   if (status.kind === 'too_early') {
     return (
       <StatusHero tone="waiting">
-        <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-amber-100 text-amber-900">
-              <span className="text-2xl font-bold tabular-nums leading-none">
+            <p className="flex shrink-0 items-baseline gap-1">
+              <span className="text-3xl font-bold tabular-nums leading-none">
                 {status.daysUntilOpen}
               </span>
-              <span className="mt-0.5 text-[10px] font-semibold tracking-wide">
-                日後
-              </span>
-            </div>
+              <span className="text-sm font-bold">日後</span>
+            </p>
             <div className="min-w-0">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-950">
-                <Hourglass size={14} aria-hidden="true" className="shrink-0" />
-                申請開始まで
-              </p>
-              <p className="mt-0.5 text-xs text-amber-800/90">
-                <span className="font-semibold tabular-nums">
+              <p className="text-sm font-bold">申請開始まで</p>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                <span className="font-bold tabular-nums text-ink">
                   {formatMonthDay(status.opensOn)}
                 </span>
-                <span className="mx-1 text-amber-700/60">→</span>
+                〜
                 <span className="tabular-nums">
                   {formatMonthDay(status.entryDate)}
                 </span>
-                <span className="ml-1 text-amber-700/70">の 7 日間</span>
+                {' の 7 日間'}
               </p>
             </div>
           </div>
@@ -208,7 +180,7 @@ function BannerBody({
             <CalendarActions opensOn={status.opensOn} />
           </div>
         </div>
-        <div className="border-t border-amber-100 px-3 pb-3 pt-2">
+        <div className="border-t border-rule px-4 pb-4 pt-3">
           <WindowStrip
             windowDays={status.windowDays}
             today={today}
@@ -222,37 +194,31 @@ function BannerBody({
   if (status.kind === 'open') {
     return (
       <StatusHero tone="open">
-        <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
-              <CheckCircle2 size={28} aria-hidden="true" strokeWidth={2.25} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-emerald-950">
-                今日は申請できます
-              </p>
-              <p className="mt-0.5 text-xs text-emerald-800/90">
-                入国日まで
-                <span className="mx-1 font-semibold tabular-nums">
-                  {status.daysUntilEntry === 0
-                    ? '本日'
-                    : `あと ${status.daysUntilEntry} 日`}
-                </span>
-              </p>
-            </div>
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+          <div className="min-w-0">
+            <p className="text-base font-bold">
+              <span className="mark-pink">今日は申請できます</span>
+            </p>
+            <p className="mt-1 text-sm text-ink-muted">
+              入国日まで
+              <span className="mx-1 font-bold tabular-nums text-ink">
+                {status.daysUntilEntry === 0
+                  ? '本日'
+                  : `あと ${status.daysUntilEntry} 日`}
+              </span>
+            </p>
           </div>
           <a
             href={TWAC_OFFICIAL_URL}
             target="_blank"
             rel="noopener noreferrer"
             title={TWAC_SCAM_NOTE}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:ml-auto"
+            className={`${buttonClass('secondary', 'sm')} sm:ml-auto`}
           >
-            TWAC 公式
-            <ExternalLink size={13} aria-hidden="true" />
+            TWAC 公式サイトを開く(別サイト)
           </a>
         </div>
-        <div className="border-t border-emerald-100 px-3 pb-3 pt-2">
+        <div className="border-t border-rule px-4 pb-4 pt-3">
           <WindowStrip
             windowDays={status.windowDays}
             today={today}
@@ -266,18 +232,16 @@ function BannerBody({
   // past
   return (
     <StatusHero tone="past">
-      <div className="flex items-center gap-3 p-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-500">
-          <PlaneLanding size={18} aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-700">申請期間外</p>
-          <p className="text-xs text-gray-500">
-            入国日 {formatMonthDay(status.entryDate)} まで
-          </p>
-        </div>
+      <div className="p-4">
+        <p className="text-sm font-bold text-ink-muted">
+          申請期間をすぎています
+        </p>
+        <p className="text-sm text-ink-muted">
+          入国日 {formatMonthDay(status.entryDate)}{' '}
+          をすぎているため、申請できる期間ではありません。
+        </p>
       </div>
-      <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+      <div className="border-t border-rule px-4 pb-4 pt-3">
         <WindowStrip windowDays={status.windowDays} today={today} tone="past" />
       </div>
     </StatusHero>

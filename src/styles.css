@@ -1,6 +1,53 @@
 @import 'tailwindcss';
 
+/*
+ * デザインの決まりごとは docs/design.md にまとめている。
+ * 「自分で riso 印刷した文具・ノート」: 白い紙に青インク 1 色で刷り、
+ * 差し色の蛍光ピンクは選択・主要ボタン・ハイライト・エラー印だけに使う。
+ */
+
 @theme {
+  /* 紙とインク */
+  --color-paper: #ffffff;
+  /* 主インク Riso Medium Blue 系の濃紺。本文もこれで刷る（黒は使わない） */
+  --color-ink: #1d3a8a;
+  /* 弱い文字。青 60% の想定だが、小さい文字でも白地で 4.5:1 を超えるよう 75% に寄せている */
+  --color-ink-muted: #566ba7;
+  /* 罫（青 22%） */
+  --color-rule: #cdd4e5;
+  /* 面の薄塗り（青 6%） */
+  --color-wash: #f1f3f8;
+  /* 差し色 Fluorescent Pink */
+  --color-pink: #ff48b0;
+  /* ピンクの網（主要ボタンと選択中チップの地。青文字を載せても 7:1 ある） */
+  --color-pink-tint: #ffcce9;
+  /* ピンクの薄網（エラー中の入力欄の地など） */
+  --color-pink-wash: #ffe9f6;
+
+  /* Riso インク（カテゴリ色）。イエローの上に文字を載せるときは青インクの文字にする */
+  --color-riso-pink: #ff48b0;
+  --color-riso-blue: #3255a4;
+  --color-riso-yellow: #ffe800;
+  --color-riso-teal: #00838a;
+  --color-riso-orange: #ff6c2f;
+  --color-riso-purple: #765ba7;
+  --color-riso-green: #00a95c;
+  --color-riso-brick: #a75154;
+  --color-riso-grey: #88898a;
+
+  /* 書体: 本文・UI は Zen Kaku Gothic New、ページタイトルとワードマークだけ Dela Gothic One */
+  --font-sans:
+    'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+    'Noto Sans JP', Meiryo, system-ui, sans-serif;
+  --font-display: 'Dela Gothic One', 'Zen Kaku Gothic New', sans-serif;
+
+  /* 入力・チップ・ボタンの角丸。パネルは角丸なし */
+  --radius-ui: 3px;
+
+  /* 版ズレの量 */
+  --misreg: 3px;
+  --misreg-sm: 2px;
+
   --animate-drum-shake: drum-shake 0.26s ease-in-out infinite;
   --animate-drum-pop: drum-pop 0.5s cubic-bezier(0.22, 1.61, 0.36, 1) both;
 
@@ -26,18 +73,842 @@
   }
 }
 
-body {
-  @apply m-0;
-  font-family:
-    'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
-    'Noto Sans JP', Meiryo, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* 青インクの線（1.5px）。`border-[1.5px] border-ink` の短縮 */
+@utility ink-line {
+  border: 1.5px solid var(--color-ink);
+}
+@utility ink-line-t {
+  border-top: 1.5px solid var(--color-ink);
+}
+@utility ink-line-b {
+  border-bottom: 1.5px solid var(--color-ink);
 }
 
-code {
-  font-family:
-    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  /* ページ枠の最大幅（.page / .page-wide とヘッダーで共有） */
+  :root {
+    --page-max: 72rem;
+    --page-max-wide: 90rem;
+    /* UI の文字の詰め（下の h1–h6 / button / label など） */
+    --ui-tracking: -0.04em;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--color-pink-tint);
+    color: var(--color-ink);
+  }
+
+  /* キーボードフォーカスは青 2px。部品側でピンクのズレを足す */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  /* UI の文字（見出し・ボタン・ラベル・ナビ）は字間を詰める。
+   * Zen Kaku Gothic New は全角送りのままだと UI ではゆるく見えるため。
+   * ただし Google Fonts 配信の Zen Kaku Gothic New には palt（と halt / chws）が無く、
+   * font-feature-settings だけでは 1px も詰まらない（実測）。そこで letter-spacing で
+   * -0.04em 詰め、palt は書体が対応したとき用に併記しておく。
+   * 本文（p / li の地の文）は読みやすさを優先して全角送りのままにする */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  button,
+  label,
+  legend,
+  summary,
+  th,
+  nav,
+  select,
+  .btn,
+  .chip,
+  .field-label,
+  .palt {
+    font-feature-settings: 'palt';
+    letter-spacing: var(--ui-tracking);
+  }
+
+  code {
+    font-family:
+      source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
+}
+
+@layer components {
+  /* ---------- ボタン ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    min-height: 44px;
+    padding: 9px 20px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.12s ease-out;
+  }
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .btn-sm {
+    min-height: 36px;
+    padding: 5px 14px;
+    font-size: 14px;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-wash);
+  }
+  /* 版ズレの無いボタン・チップも、キーボードフォーカスでは青の線＋ピンクのズレ */
+  .btn-secondary:focus-visible,
+  .btn-quiet:focus-visible,
+  .chip:not([aria-pressed='true']):focus-visible {
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .btn-quiet {
+    border-color: transparent;
+    background: transparent;
+    padding-inline: 4px;
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 5px;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    text-decoration-color: var(--color-ink);
+  }
+
+  /* ---------- チップ（aria-pressed のトグル） ---------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 3px 12px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .chip:hover:not(:disabled) {
+    border-color: var(--color-ink);
+  }
+  /* 選べないチップは薄く。ただし選択中のまま外せないもの（最低数に達しているなど）は
+   * 選択中に見えることのほうが大事なので薄くしない */
+  .chip:disabled {
+    cursor: not-allowed;
+  }
+  .chip:disabled:not([aria-pressed='true']) {
+    opacity: 0.45;
+  }
+  .chip[aria-pressed='true'] {
+    --misreg-shift: var(--misreg-sm);
+    font-weight: 700;
+  }
+  .chip-dot {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+  .chip-count {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-ink-muted);
+  }
+
+  /* ---------- 版ズレ（主要ボタン・選択中チップ。ほかで使うなら .misreg） ----------
+   * 背後にピンクの版を右下へずらして置き、面はピンクの網にする。
+   * ベタのピンクが見えるのは右下のズレだけなので、押す場所は分かるが強すぎない。
+   * 面と線を疑似要素に描いているのは、背後の版を要素自身の背景より下に置くため
+   * （isolation で要素の中に重なりを閉じ込めている）。 */
+  .misreg,
+  .btn-primary,
+  .chip[aria-pressed='true'] {
+    position: relative;
+    isolation: isolate;
+    border-color: transparent;
+    background: transparent;
+  }
+  .misreg::before,
+  .misreg::after,
+  .btn-primary::before,
+  .btn-primary::after,
+  .chip[aria-pressed='true']::before,
+  .chip[aria-pressed='true']::after {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  /* ピンクの版 */
+  .misreg::before,
+  .btn-primary::before,
+  .chip[aria-pressed='true']::before {
+    z-index: -2;
+    background: var(--color-pink);
+    transform: translate(
+      var(--misreg-shift, var(--misreg)),
+      var(--misreg-shift, var(--misreg))
+    );
+    transition: transform 0.12s ease-out;
+  }
+  /* 面（ピンクの網）と青インクの線 */
+  .misreg::after,
+  .btn-primary::after,
+  .chip[aria-pressed='true']::after {
+    z-index: -1;
+    background: var(--color-pink-tint);
+    border: 1.5px solid var(--color-ink);
+  }
+  /* 押すと版が揃う */
+  .misreg:active::before,
+  .btn-primary:active::before,
+  .chip[aria-pressed='true']:active::before,
+  .btn-primary:disabled::before,
+  .btn-primary[aria-disabled='true']::before {
+    transform: translate(0, 0);
+  }
+  /* キーボードフォーカスは少し大きくずらす */
+  .misreg:focus-visible::before,
+  .btn-primary:focus-visible::before,
+  .chip[aria-pressed='true']:focus-visible::before {
+    transform: translate(
+      calc(var(--misreg-shift, var(--misreg)) + 1px),
+      calc(var(--misreg-shift, var(--misreg)) + 1px)
+    );
+  }
+
+  /* ---------- 入力 ---------- */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .field-label {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .field-hint {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+  /* エラーは文言の頭にピンクの四角を刷る */
+  .field-error {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+  .field-error::before {
+    content: '';
+    flex: none;
+    width: 0.7em;
+    height: 0.7em;
+    background: var(--color-pink);
+    transform: translateY(0.05em);
+  }
+
+  .input {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .input::placeholder {
+    color: var(--color-ink-muted);
+    opacity: 0.75;
+  }
+  .input:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .input[aria-invalid='true'] {
+    background-color: var(--color-pink-wash);
+  }
+  .input:disabled {
+    cursor: not-allowed;
+    background-color: var(--color-wash);
+    color: var(--color-ink-muted);
+  }
+  textarea.input {
+    min-height: 6em;
+    resize: vertical;
+  }
+  select.input {
+    appearance: none;
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231D3A8A' stroke-width='1.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    cursor: pointer;
+  }
+
+  .checkbox {
+    display: flex;
+    width: fit-content;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+  }
+  .checkbox input {
+    appearance: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper) no-repeat center / 12px 10px;
+    cursor: pointer;
+  }
+  /* 印は疑似要素ではなく背景に描く。疑似要素があるとチェック有無でベースラインが変わり、
+   * 横に並べたときに縦位置がずれる */
+  .checkbox input:checked {
+    background-color: var(--color-ink);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1.5 5l3.2 3.2L10.5 1.8' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E");
+  }
+  .checkbox input:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .checkbox input:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  /* ---------- 面 ---------- */
+  .panel {
+    border: 1.5px solid var(--color-ink);
+    border-radius: 0;
+    background: var(--color-paper);
+  }
+  .panel-wash {
+    background: var(--color-wash);
+  }
+  /* 「まだ」「下書き」など確定していない面 */
+  .panel-dashed {
+    border-style: dashed;
+    border-color: var(--color-ink-muted);
+  }
+
+  /* ---------- 取り消しにくい操作のボタン ----------
+   * 色ベタにはしない（ピンクはエラー印と選択に取っておく）。
+   * 線は青インクのまま、hover とフォーカスでピンクの薄網（エラー中の入力欄と同じ地）を敷く */
+  .btn-danger:hover:not(:disabled),
+  .btn-danger:focus-visible {
+    background: var(--color-pink-wash);
+  }
+  .btn-danger:focus-visible {
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+
+  /* ---------- 2〜4 択の切り替え（role="radiogroup" のセグメント） ----------
+   * 1 本の枠を罫で仕切り、選んでいる 1 つだけをピンクの網＋版ズレにする（選択中チップと同じ規則） */
+  .seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper);
+  }
+  .seg-full {
+    display: flex;
+    width: 100%;
+  }
+  .seg-item {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: max-content;
+    min-height: 40px;
+    padding: 4px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .seg-item + .seg-item {
+    box-shadow: inset 1px 0 0 var(--color-rule);
+  }
+  .seg-sm .seg-item {
+    min-height: 32px;
+    padding: 2px 10px;
+    font-size: 13px;
+  }
+  .seg-item:hover:not(:disabled):not([aria-checked='true']) {
+    background: var(--color-wash);
+  }
+  .seg-item[aria-checked='true'] {
+    z-index: 1;
+    background: var(--color-pink-tint);
+    font-weight: 700;
+    /* 青インクの線を 1 つだけ囲み直し、背後のピンクの版を右下へずらす */
+    box-shadow:
+      0 0 0 1.5px var(--color-ink),
+      2px 2px 0 1.5px var(--color-pink);
+  }
+  .seg-item[aria-checked='true']:active {
+    box-shadow: 0 0 0 1.5px var(--color-ink);
+  }
+  .seg-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .seg-item:focus-visible {
+    z-index: 2;
+    outline-offset: 2px;
+  }
+  .seg-item:not([aria-checked='true']):focus-visible {
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+
+  /* ---------- ラジオ（label に付け、中に input[type=radio]） ---------- */
+  .radio {
+    display: flex;
+    width: fit-content;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+  }
+  .radio input {
+    appearance: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 50%;
+    background: var(--color-paper);
+    cursor: pointer;
+  }
+  .radio input:checked {
+    background: radial-gradient(
+      circle,
+      var(--color-ink) 0 4.5px,
+      var(--color-paper) 5px
+    );
+  }
+  .radio input:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .radio input:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  /* ---------- スイッチ（button[role=switch]。ラベル左・つまみ右の 1 行） ---------- */
+  .switch {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .switch:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .switch-track {
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 20px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper);
+    transition: background-color 0.12s ease-out;
+  }
+  .switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 1px;
+    background: var(--color-ink);
+    transition: transform 0.12s ease-out;
+  }
+  .switch[aria-checked='true'] .switch-track {
+    background: var(--color-pink-tint);
+  }
+  .switch[aria-checked='true'] .switch-track::after {
+    transform: translateX(16px);
+  }
+  .switch:focus-visible {
+    outline: none;
+  }
+  .switch:focus-visible .switch-track {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+
+  /* ---------- スライダー（input[type=range]） ---------- */
+  .range {
+    width: 100%;
+    height: 36px;
+    margin: 0;
+    background: transparent;
+    accent-color: var(--color-ink);
+    cursor: pointer;
+    appearance: none;
+  }
+  .range::-webkit-slider-runnable-track {
+    height: 1.5px;
+    background: var(--color-ink);
+  }
+  .range::-moz-range-track {
+    height: 1.5px;
+    background: var(--color-ink);
+  }
+  .range::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -7px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-pink-tint);
+  }
+  .range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-pink-tint);
+  }
+  .range:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .range:focus-visible {
+    outline-offset: -6px;
+  }
+  .range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .range:focus-visible::-moz-range-thumb {
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+
+  /* ---------- 小バッジ（「確定」「検討中」「再訪」など状態の札） ----------
+   * 既定は青インクの細線。badge-solid は確定したもの、badge-dashed は未確定のもの */
+  .badge {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-ui);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+  .badge-solid {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .badge-dashed {
+    border-style: dashed;
+    border-color: var(--color-ink-muted);
+    color: var(--color-ink-muted);
+  }
+  .badge-muted {
+    border-color: var(--color-rule);
+    color: var(--color-ink-muted);
+  }
+
+  /* ---------- 状態の通知帯（保存した・注意・エラー） ---------- */
+  .panel-note {
+    padding: 10px 14px;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-wash);
+    color: var(--color-ink);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  /* 注意（続行はできる）。破線で囲むだけでピンクは使わない */
+  .panel-note-warn {
+    border-style: dashed;
+    background: var(--color-paper);
+  }
+  /* エラー。ピンクの薄網に、文頭のピンクの四角 */
+  .panel-note-error {
+    background: var(--color-pink-wash);
+  }
+  .panel-note-error > .panel-note-mark::before {
+    content: '';
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 0.45em;
+    vertical-align: -0.02em;
+    background: var(--color-pink);
+  }
+
+  /* ---------- ダイアログ（背後に青インクの薄網を敷き、panel を 1 枚載せる） ---------- */
+  .dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgb(29 58 138 / 0.4);
+  }
+  .dialog {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    outline: none;
+  }
+  .dialog-title {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  /* ---------- ファイルのドロップ領域（label に付け、中に sr-only の input[type=file]） ---------- */
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 24px 16px;
+    border: 1.5px dashed var(--color-ink-muted);
+    background: var(--color-wash);
+    color: var(--color-ink);
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .dropzone:hover {
+    border-color: var(--color-ink);
+  }
+  .dropzone[data-dragover='true'] {
+    border-color: var(--color-ink);
+    background: var(--color-pink-tint);
+  }
+  .dropzone:focus-within {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+  }
+  .dropzone-title {
+    font-weight: 700;
+  }
+  .dropzone-hint {
+    font-size: 12px;
+    color: var(--color-ink-muted);
+  }
+
+  /* ---------- 色の丸（インク・紙の色見本）。薄い色でも形が見えるよう青インクの縁 ---------- */
+  .swatch {
+    display: inline-block;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--color-ink);
+  }
+
+  /* ---------- 青インクのベタ面（drum-roll のステージなど） ----------
+   * 地が青なのでフォーカスの線は紙の白にする。ピンクのズレはそのまま */
+  .on-ink {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .on-ink:focus-visible,
+  .on-ink :focus-visible {
+    outline-color: var(--color-paper);
+  }
+
+  /* ---------- ページの枠 ----------
+   * page: 標準。ヘッダーと同じ幅（max-w-6xl）で、タイトルの左端がワードマークと揃う。
+   * page-wide: 地図・プレビューなど作業面の広いツール。開いている間はヘッダーも同じ幅に広がる。
+   * どちらも左右の余白は 16px / 24px（sm 以上）、タイトルの上は 32px / 48px（md 以上） */
+  .page {
+    width: 100%;
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: 32px 16px 80px;
+  }
+  .page-wide {
+    max-width: var(--page-max-wide);
+  }
+  /* ヘッダーの中身もページ枠と同じ幅にする（広幅のページを開いている間は広げる） */
+  .site-header-inner {
+    max-width: var(--page-max);
+  }
+  html:has(.page-wide) .site-header-inner {
+    max-width: var(--page-max-wide);
+  }
+  .page-head {
+    margin-bottom: 32px;
+  }
+  /* 単一列のフォームや読み物の幅（ページ枠の中で左寄せ） */
+  .page-measure {
+    max-width: 48rem;
+  }
+  @media (min-width: 640px) {
+    .page {
+      padding-inline: 24px;
+    }
+  }
+  @media (min-width: 768px) {
+    .page {
+      padding-top: 48px;
+    }
+  }
+  @media print {
+    .page {
+      max-width: none;
+      padding: 0;
+    }
+  }
+
+  /* ---------- 文字 ---------- */
+  .page-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.5rem, 1.05rem + 2vw, 2.75rem);
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+  }
+  .page-lead {
+    max-width: 40em;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--color-ink-muted);
+  }
+  /* 本文中のリンク */
+  .ink-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 4px;
+  }
+  .ink-link:hover {
+    text-decoration-color: var(--color-ink);
+  }
+  /* ピンクの蛍光ペン（青インクと重ね刷り） */
+  .mark-pink {
+    padding: 0 0.35em;
+    background: var(--color-pink);
+    color: var(--color-ink);
+    mix-blend-mode: multiply;
+  }
+}
+
+/* 部品は `font: inherit` で書体を受け継ぐため、palt は部品の定義より後ろで当て直す
+ * （base の h1 / button / label などへの指定と同じ方針。docs/design.md「文字」） */
+@layer components {
+  .btn,
+  .chip,
+  .seg-item,
+  .switch,
+  .badge,
+  .field-label,
+  .field-error,
+  .dropzone-title,
+  .dialog-title,
+  .palt {
+    font-feature-settings: 'palt';
+    letter-spacing: var(--ui-tracking);
+  }
+}
+
+/* 動きを減らす設定では、版ズレの戻りなどのトランジションを止める。
+ * 各ツールのアニメーション（ドラムロールなど）はツール側で扱う */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @page {

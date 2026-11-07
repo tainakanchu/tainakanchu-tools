@@ -19,7 +19,7 @@ export const EXPORT_MODES: ReadonlyArray<{
 }> = [
   {
     id: 'stereo',
-    label: 'ステレオ（L=マイク / R=相手）',
+    label: 'ステレオ（左がマイク、右が相手）',
     note: '1 ファイルで話者を左右に分けて保存します。',
   },
   {

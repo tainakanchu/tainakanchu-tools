@@ -7,11 +7,11 @@
  *
  * 初期フォーカスは「やめる」に置く。ここに来るのは取り消しの効きにくい操作
  * ばかりなので、Enter の連打がそのまま実行に化けないようにする。
+ * 実行ボタンも同じ理由で主要ボタンではなく danger の見た目にする。
  */
 
 import { useId, useRef } from 'react'
-import { useDialogFocus } from '../-lib/focusTrap'
-import { primaryButtonClass, subtleButtonClass } from '../-lib/styles'
+import { Button, Dialog, buttonClass } from '../../../../components/ui'
 
 interface ConfirmDialogProps {
   title: string
@@ -37,51 +37,39 @@ export function ConfirmDialog({
   const titleId = useId()
   const descriptionId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useDialogFocus<HTMLDivElement>({
-    onClose: onCancel,
-    initialFocusRef: cancelRef,
-  })
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onCancel}
+    <Dialog
+      onClose={onCancel}
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      initialFocusRef={cancelRef}
+      className="max-w-sm p-4 sm:p-5"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        tabIndex={-1}
-        className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl outline-none sm:p-5"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 id={titleId} className="text-base font-semibold text-gray-800">
-          {title}
-        </h2>
-        <p id={descriptionId} className="mt-2 text-sm text-gray-600">
-          {description}
-        </p>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            ref={cancelRef}
-            className={subtleButtonClass}
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            onClick={onConfirm}
-            aria-label={confirmAriaLabel}
-          >
-            {confirmLabel}
-          </button>
-        </div>
+      <h2 id={titleId} className="dialog-title">
+        {title}
+      </h2>
+      <p id={descriptionId} className="mt-2 text-sm text-ink-muted">
+        {description}
+      </p>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          ref={cancelRef}
+          className={buttonClass('secondary', 'sm')}
+          onClick={onCancel}
+        >
+          {cancelLabel}
+        </button>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={onConfirm}
+          aria-label={confirmAriaLabel}
+        >
+          {confirmLabel}
+        </Button>
       </div>
-    </div>
+    </Dialog>
   )
 }

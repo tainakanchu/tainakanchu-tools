@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { Page, PageTitle, SegmentedControl } from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { AdvancedSettings } from './-components/AdvancedSettings'
 import { MetaLine, SourceLine } from './-components/DataLines'
@@ -11,7 +12,6 @@ import { SaveBar } from './-components/SaveBar'
 import { LockChip, ShuffleControls } from './-components/ShuffleControls'
 import { TemplatePicker } from './-components/TemplatePicker'
 import { TrackSection } from './-components/TrackSection'
-import { Segmented } from './-components/ui'
 import { useSetlistRender } from './-components/useSetlistRender'
 import { fileBaseName } from './-lib/export'
 import { ensureFontStylesheet } from './-lib/fonts'
@@ -305,7 +305,9 @@ function SetlistCardPage() {
         mode: prev.mode,
       }))
     } catch {
-      setPhotoError('画像を読み込めません。JPEG・PNG・WebP で')
+      setPhotoError(
+        '画像を読み込めません。JPEG、PNG、WebP の画像を選んでください。',
+      )
     } finally {
       setPhotoLoading(false)
     }
@@ -437,7 +439,8 @@ function SetlistCardPage() {
   const first = view.infos.at(0)
 
   return (
-    <main
+    <Page
+      width="wide"
       className="slc"
       onDrop={(event) => {
         const file = event.dataTransfer.files.item(0)
@@ -474,191 +477,179 @@ function SetlistCardPage() {
         }}
       />
 
-      <div className="mx-auto w-full max-w-[1240px] px-4 lg:px-8">
-        <header
-          className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 py-5 lg:py-6 ${started ? '' : 'lg:justify-center'}`}
-        >
-          <h1 className="slc-title">{tool.name}</h1>
-          <p className="text-(--muted)">
-            昨夜のセトリ、そのまま載せる。画像はブラウザの中だけで作る。
-          </p>
-        </header>
+      <PageTitle lead="昨夜のセトリ、そのまま載せる。画像はブラウザの中だけで作る。">
+        {tool.name}
+      </PageTitle>
 
-        {!started ? (
-          <div className="pb-10">
-            <EmptyStage
-              input={input}
-              loading={loading}
-              error={error}
-              onPick={() => setlistInput.current?.click()}
-              onFile={(file) => void handleFile(file)}
-              onSample={() => handleSample()}
+      {!started ? (
+        <div>
+          <EmptyStage
+            input={input}
+            loading={loading}
+            error={error}
+            onPick={() => setlistInput.current?.click()}
+            onFile={(file) => void handleFile(file)}
+            onSample={() => handleSample()}
+          />
+          <div className="mx-auto mt-2 flex flex-wrap items-center justify-center gap-2">
+            <button type="button" className="btn btn-quiet" onClick={addTrack}>
+              曲を手で入れる
+            </button>
+            {debug
+              ? [50, 80].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className="btn btn-quiet mono"
+                    onClick={() => handleSample(count)}
+                    title="長い曲名を含む長いセットのサンプル（開発用）"
+                  >
+                    {count} 曲
+                  </button>
+                ))
+              : null}
+          </div>
+        </div>
+      ) : (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+          <div className="slc-stage lg:sticky lg:top-[calc(4rem+8px)] lg:self-start">
+            <PreviewStage
+              canvasRefs={view.canvasRefs}
+              plan={view.plan}
+              infos={view.infos}
+              input={view.renderInput}
+              splitChoice={splitChoice}
+              onSplitChoiceChange={setSplitChoice}
+              onPhotoSettingsChange={setPhotoSettings}
             />
-            <div className="mx-auto mt-2 flex flex-wrap items-center justify-center gap-2">
-              <button
-                type="button"
-                className="slc-btn"
-                data-variant="ghost"
-                onClick={addTrack}
-              >
-                曲を手で入れる
-              </button>
-              {debug
-                ? [50, 80].map((count) => (
-                    <button
-                      key={count}
-                      type="button"
-                      className="slc-btn mono"
-                      data-variant="ghost"
-                      onClick={() => handleSample(count)}
-                      title="長い曲名を含む長いセットのサンプル（開発用）"
-                    >
-                      {count} 曲
-                    </button>
-                  ))
-                : null}
-            </div>
           </div>
-        ) : (
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
-            <div className="slc-stage lg:sticky lg:top-[calc(4rem+8px)] lg:self-start">
-              <PreviewStage
-                canvasRefs={view.canvasRefs}
-                plan={view.plan}
-                infos={view.infos}
-                input={view.renderInput}
-                splitChoice={splitChoice}
-                onSplitChoiceChange={setSplitChoice}
-                onPhotoSettingsChange={setPhotoSettings}
+
+          <div className="flex min-w-0 flex-col lg:block">
+            <div className="slc-row-soft order-2 lg:border-t-0">
+              <SourceLine
+                result={parseResult}
+                fileName={fileName}
+                selectedIndex={playlistIndex}
+                loading={loading}
+                error={error}
+                onPick={() => setlistInput.current?.click()}
+                onSelectPlaylist={handleSelectPlaylist}
+              />
+            </div>
+            <div className="slc-row-soft order-2">
+              <MetaLine
+                setlist={setlist}
+                onChange={(key, value) =>
+                  setSetlist((prev) => ({ ...prev, [key]: value }))
+                }
+              />
+            </div>
+            <div className="slc-row-soft order-2">
+              <TrackSection
+                tracks={setlist.tracks}
+                onChange={(tracks) =>
+                  setSetlist((prev) => ({ ...prev, tracks }))
+                }
+                onAdd={addTrack}
+                open={tracksOpen}
+                onOpenChange={setTracksOpen}
               />
             </div>
 
-            <div className="flex min-w-0 flex-col lg:block">
-              <div className="slc-row-soft order-2 lg:border-t-0">
-                <SourceLine
-                  result={parseResult}
-                  fileName={fileName}
-                  selectedIndex={playlistIndex}
-                  loading={loading}
-                  error={error}
-                  onPick={() => setlistInput.current?.click()}
-                  onSelectPlaylist={handleSelectPlaylist}
-                />
-              </div>
-              <div className="slc-row-soft order-2">
-                <MetaLine
-                  setlist={setlist}
-                  onChange={(key, value) =>
-                    setSetlist((prev) => ({ ...prev, [key]: value }))
-                  }
-                />
-              </div>
-              <div className="slc-row-soft order-2">
-                <TrackSection
-                  tracks={setlist.tracks}
-                  onChange={(tracks) =>
-                    setSetlist((prev) => ({ ...prev, tracks }))
-                  }
-                  onAdd={addTrack}
-                  open={tracksOpen}
-                  onOpenChange={setTracksOpen}
-                />
-              </div>
-
-              {/* phone ではプレビューのすぐ下に、選ぶもの（ランダム・テンプレート・配色・サイズ・写真）を先に置く */}
-              <div className="slc-row order-1 space-y-3 pt-3 pb-5 max-lg:border-t-0">
-                <ShuffleControls {...shuffleProps} />
-                <TemplatePicker
-                  layout={layout}
-                  onChange={setLayout}
-                  input={input}
-                  aside={
-                    <LockChip
-                      target="layout"
-                      locks={locks}
-                      onLocksChange={setLocks}
-                    />
-                  }
-                />
-                <PalettePicker
-                  palette={palette}
-                  onChange={setPalette}
-                  photoPalettes={candidates}
-                  aside={
-                    <LockChip
-                      target="palette"
-                      locks={locks}
-                      onLocksChange={setLocks}
-                    />
-                  }
-                />
-                <Segmented
-                  label="サイズ"
-                  value={sizeId}
-                  options={CANVAS_SIZES.map((s) => ({
-                    value: s.id,
-                    label: SIZE_NAMES[s.id],
-                    title: s.label,
-                  }))}
-                  onChange={setSizeId}
-                />
-                <PhotoSection
-                  photo={photo}
-                  loading={photoLoading}
-                  error={photoError}
-                  settings={photoSettings}
-                  onSettingsChange={setPhotoSettings}
-                  onPick={() => photoInput.current?.click()}
-                  onRemove={() => setPhoto(null)}
-                  fallback={photo !== null && (first?.photoFallback ?? false)}
-                  layout={layout}
-                  contrast={photo ? (first?.photoContrast ?? null) : null}
-                />
-                <SaveBar state={view.exportState} />
-              </div>
-
-              <AdvancedSettings
-                className="order-3"
+            {/* phone ではプレビューのすぐ下に、選ぶもの（ランダム・テンプレート・配色・サイズ・写真）を先に置く */}
+            <div className="slc-row order-1 space-y-3 pt-3 pb-5 max-lg:border-t-0">
+              <ShuffleControls {...shuffleProps} />
+              <TemplatePicker
                 layout={layout}
-                sizeId={sizeId}
-                style={style}
-                onStyleChange={setStyle}
-                display={display}
-                onDisplayChange={setDisplay}
-                textOptions={textOptions}
-                onTextOptionsChange={setTextOptions}
-                columns={columns}
-                onColumnsChange={setColumns}
-                splitChoice={splitChoice}
-                onSplitChoiceChange={setSplitChoice}
-                redact={redact}
-                onRedactChange={(next) => setRedact(parseRedact(next))}
-                paletteEditor={{
-                  palette,
-                  onChange: setPalette,
-                  myPalettes,
-                  onSaveMine: (p, name) => {
-                    const saved: Palette = { ...p, id: newMyPaletteId(), name }
-                    const ok = updateMyPalettes([...myPalettes, saved])
-                    setPalette(saved)
-                    return ok
-                  },
-                  onRenameMine: (id, name) => {
-                    updateMyPalettes(
-                      myPalettes.map((p) => (p.id === id ? { ...p, name } : p)),
-                    )
-                    if (palette.id === id) setPalette({ ...palette, name })
-                  },
-                  onDeleteMine: (id) => {
-                    updateMyPalettes(myPalettes.filter((p) => p.id !== id))
-                  },
-                  photoSwatches: photo?.swatches ?? [],
-                }}
+                onChange={setLayout}
+                input={input}
+                aside={
+                  <LockChip
+                    target="layout"
+                    locks={locks}
+                    onLocksChange={setLocks}
+                  />
+                }
               />
+              <PalettePicker
+                palette={palette}
+                onChange={setPalette}
+                photoPalettes={candidates}
+                aside={
+                  <LockChip
+                    target="palette"
+                    locks={locks}
+                    onLocksChange={setLocks}
+                  />
+                }
+              />
+              <SegmentedControl
+                full
+                label="サイズ"
+                value={sizeId}
+                options={CANVAS_SIZES.map((s) => ({
+                  value: s.id,
+                  label: SIZE_NAMES[s.id],
+                  title: s.label,
+                }))}
+                onChange={setSizeId}
+              />
+              <PhotoSection
+                photo={photo}
+                loading={photoLoading}
+                error={photoError}
+                settings={photoSettings}
+                onSettingsChange={setPhotoSettings}
+                onPick={() => photoInput.current?.click()}
+                onRemove={() => setPhoto(null)}
+                fallback={photo !== null && (first?.photoFallback ?? false)}
+                layout={layout}
+                contrast={photo ? (first?.photoContrast ?? null) : null}
+              />
+              <SaveBar state={view.exportState} />
             </div>
+
+            <AdvancedSettings
+              className="order-3"
+              layout={layout}
+              sizeId={sizeId}
+              style={style}
+              onStyleChange={setStyle}
+              display={display}
+              onDisplayChange={setDisplay}
+              textOptions={textOptions}
+              onTextOptionsChange={setTextOptions}
+              columns={columns}
+              onColumnsChange={setColumns}
+              splitChoice={splitChoice}
+              onSplitChoiceChange={setSplitChoice}
+              redact={redact}
+              onRedactChange={(next) => setRedact(parseRedact(next))}
+              paletteEditor={{
+                palette,
+                onChange: setPalette,
+                myPalettes,
+                onSaveMine: (p, name) => {
+                  const saved: Palette = { ...p, id: newMyPaletteId(), name }
+                  const ok = updateMyPalettes([...myPalettes, saved])
+                  setPalette(saved)
+                  return ok
+                },
+                onRenameMine: (id, name) => {
+                  updateMyPalettes(
+                    myPalettes.map((p) => (p.id === id ? { ...p, name } : p)),
+                  )
+                  if (palette.id === id) setPalette({ ...palette, name })
+                },
+                onDeleteMine: (id) => {
+                  updateMyPalettes(myPalettes.filter((p) => p.id !== id))
+                },
+                photoSwatches: photo?.swatches ?? [],
+              }}
+            />
           </div>
-        )}
-      </div>
-    </main>
+        </div>
+      )}
+    </Page>
   )
 }

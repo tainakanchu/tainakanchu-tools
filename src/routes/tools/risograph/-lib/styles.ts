@@ -1,34 +1,37 @@
 /**
  * リソグラフ分版ツールで共有する Tailwind クラス。
- * 刷り上がりの色を正しく見るため、このページだけ暗い背景に振っている
- * （ヘッダーと同じ gray-900/950 系 + サイト共通の rounded-2xl / cyan アクセント）。
+ * 見た目は docs/design.md の部品（input / btn / range）に揃える。
+ * 手順の区切りは箱を積まず、青インクの罫で上を区切る。
+ * 刷り上がりを見る面（canvas の枠）は紙の色を問わず形が分かるよう、
+ * 青インクの細線で囲んだ白地にしている。
  */
+import { buttonClass } from '../../../../components/ui'
 
-export const sectionClass =
-  'rounded-2xl border border-white/10 bg-gray-900/60 p-5 shadow-sm sm:p-6'
+export const sectionClass = 'ink-line-t pt-5'
 
-export const sectionTitleClass =
-  'flex items-center gap-2 text-base font-semibold text-gray-100'
+export const sectionTitleClass = 'text-lg font-bold'
 
-export const sectionNoteClass = 'text-sm leading-relaxed text-gray-400'
+export const sectionNoteClass = 'text-sm leading-relaxed text-ink-muted'
 
-export const labelClass = 'text-sm font-medium text-gray-300'
+export const labelClass = 'field-label'
 
-export const fieldClass =
-  'w-full rounded-xl border border-white/15 bg-gray-950 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40'
+export const fieldClass = 'input'
 
-export const primaryButtonClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400'
+export const primaryButtonClass = buttonClass('primary')
 
-export const subtleButtonClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-sm font-medium text-gray-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400'
+export const subtleButtonClass = buttonClass('secondary')
 
-export const iconButtonClass =
-  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-gray-300 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400'
+/** 上下ボタンなど、記号だけの小さいボタン */
+export const iconButtonClass = `${buttonClass('secondary', 'sm')} size-10 min-h-0 p-0`
 
-export const chipClass =
-  'inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-xs font-medium text-gray-300'
+/** 刷り上がり・原画を載せる枠 */
+export const previewFrameClass = 'border border-ink bg-paper'
 
-export const statValueClass = 'text-lg font-semibold text-gray-100 tabular-nums'
+/** 罫で区切った一覧の行（ul に rowListClass、li に rowClass） */
+export const rowListClass = 'divide-y divide-rule border-y border-rule'
 
-export const sliderClass = 'w-full accent-cyan-500'
+export const rowClass = 'py-2'
+
+export const statValueClass = 'text-lg font-bold tabular-nums'
+
+export const sliderClass = 'range'

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Download, RotateCcw, Save, Upload } from 'lucide-react'
+import { Button, Note } from '../../../../components/ui'
 import { parseTripState } from '../../../../lib/trip-scheduler/storage'
 import { todayISO } from '../-lib/format'
-import { cardClass, sectionTitleClass, subtleButtonClass } from '../-lib/styles'
+import { panelClass, sectionLeadClass, sectionTitleClass } from '../-lib/styles'
 import type { ChangeEvent } from 'react'
 import type { TripDispatch } from '../-lib/reducer'
 import type { TripState } from '../../../../lib/trip-scheduler/types'
@@ -64,54 +64,38 @@ export function DataPanel({ state, dispatch }: DataPanelProps) {
   }
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <Save size={18} className="text-cyan-600" />
-        データ
-      </h2>
-      <p className="mt-2 text-sm text-gray-600">
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>データ</h2>
+      <p className={sectionLeadClass}>
         編集内容はこのブラウザに自動保存されます。
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={handleExport}
-          className={subtleButtonClass}
-        >
-          <Download size={16} />
-          JSONで書き出す
-        </button>
-        <label className={`${subtleButtonClass} cursor-pointer`}>
-          <Upload size={16} />
+        <Button onClick={handleExport}>JSONで書き出す</Button>
+        <label className="btn btn-secondary cursor-pointer has-[:focus-visible]:shadow-[3px_3px_0_0_var(--color-pink)]">
           JSONを読み込む
           <input
             type="file"
             accept="application/json,.json"
             onChange={handleImport}
-            className="hidden"
+            className="sr-only"
           />
         </label>
-        <button
-          type="button"
-          onClick={handleReset}
-          className={`${subtleButtonClass} text-red-600 hover:bg-red-50`}
-        >
-          <RotateCcw size={16} />
+        <Button variant="danger" onClick={handleReset}>
           最初からやり直す
-        </button>
+        </Button>
       </div>
 
       {message ? (
-        <p
-          className={`mt-3 rounded-xl px-3 py-2 text-sm ${
-            message.tone === 'ok'
-              ? 'bg-emerald-50 text-emerald-800'
-              : 'bg-red-50 text-red-800'
-          }`}
-        >
-          {message.text}
-        </p>
+        message.tone === 'ok' ? (
+          <Note className="mt-4" role="status">
+            {message.text}
+          </Note>
+        ) : (
+          <Note tone="error" className="mt-4" role="alert">
+            {message.text}
+          </Note>
+        )
       ) : null}
     </section>
   )

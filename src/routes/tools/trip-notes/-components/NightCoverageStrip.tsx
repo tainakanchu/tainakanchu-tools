@@ -4,12 +4,14 @@
  *
  * 色だけに頼らない設計にしている:
  * - 未確保は模様(斜めストライプ)+ アイコン + リングの3重で示す。
+ *   セルには文字が入らないので、セルの中のアイコン(未確保・夜行移動)は飾りではなく
+ *   意味を担う印として残す(凡例にも同じ印を出す)。
  *   色覚特性や白黒印刷、点滅ができない(前庭障害への配慮で点滅は使わない)環境でも
  *   「ここが危ない」が伝わるようにするため。
  * - 宿泊の確定/仮は塗りつぶし/破線という「形」の違いでも区別する。
  */
 
-import { AlertTriangle, CheckCircle2, CircleDashed, Moon } from 'lucide-react'
+import { AlertTriangle, Moon } from 'lucide-react'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { countTentativeNights } from '../../../../lib/trip-notes/nights'
 import type { CSSProperties } from 'react'
@@ -84,29 +86,26 @@ function diagonalStripe(colorA: string, colorB: string): CSSProperties {
 }
 
 const OVERNIGHT_STRIPE = diagonalStripe(
-  'rgba(255,255,255,0)',
-  'rgba(255,255,255,0.35)',
+  'rgba(29,58,138,0)',
+  'rgba(29,58,138,0.14)',
 )
-// 未確保は「ハザードテープ」に寄せた強めのコントラストにして、遠目でも危険度が伝わるようにする
-const UNCOVERED_STRIPE = diagonalStripe(
-  'rgba(255,255,255,0.55)',
-  'rgba(159,18,57,0.85)',
-)
+// 未確保はピンクの網に斜線を重ねて、遠目でも抜けている夜だと分かるようにする
+const UNCOVERED_STRIPE = diagonalStripe('#ffcce9', '#ff48b0')
 
 function cellButtonClass(state: CellState, snapStart: boolean): string {
-  const base = `flex h-14 items-center justify-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+  const base = `flex h-14 items-center justify-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
     snapStart ? 'snap-start' : ''
   }`
   switch (state.kind) {
     case 'confirmed':
-      return `${base} border-l border-white/60 bg-emerald-500 first:border-l-0`
+      return `${base} border-l border-paper bg-ink first:border-l-0`
     case 'tentative':
       // 破線の太い枠自体が「まだ仮」の合図であり、隣セルとの区切りも兼ねる
-      return `${base} border-2 border-dashed border-amber-600 bg-amber-400`
+      return `${base} border-2 border-dashed border-ink bg-paper`
     case 'overnight':
-      return `${base} border-l border-white/60 bg-sky-400 first:border-l-0`
+      return `${base} border-l border-paper bg-wash first:border-l-0`
     case 'uncovered':
-      return `${base} border-l border-white/60 bg-rose-500 ring-2 ring-inset ring-rose-700 first:border-l-0`
+      return `${base} border-l border-paper bg-pink-tint ring-2 ring-inset ring-pink first:border-l-0`
   }
 }
 
@@ -155,17 +154,14 @@ function NightRow({
         {cells.map(({ night }) => (
           <span
             key={night.date}
-            className={`truncate px-0.5 text-center text-[11px] text-gray-500 ${hiddenClass}`}
+            className={`truncate px-0.5 text-center text-xs text-ink-muted ${hiddenClass}`}
           >
             {formatDateJa(night.date)}
           </span>
         ))}
       </div>
 
-      <div
-        className="grid overflow-hidden rounded-lg ring-1 ring-black/5"
-        style={gridStyle}
-      >
+      <div className="grid overflow-hidden ink-line" style={gridStyle}>
         {cells.map(({ night, state }) => (
           <button
             key={night.date}
@@ -176,12 +172,12 @@ function NightRow({
             style={cellButtonStyle(state)}
           >
             {state.kind === 'overnight' ? (
-              <Moon size={14} className="text-white" aria-hidden="true" />
+              <Moon size={14} className="text-ink" aria-hidden="true" />
             ) : null}
             {state.kind === 'uncovered' ? (
               <AlertTriangle
                 size={16}
-                className="text-white"
+                className="text-ink"
                 aria-hidden="true"
               />
             ) : null}
@@ -195,10 +191,10 @@ function NightRow({
           return (
             <span
               key={night.date}
-              className={`truncate px-0.5 text-center text-[10px] ${
+              className={`truncate px-0.5 text-center text-xs ${
                 uncovered
-                  ? 'font-medium text-rose-700'
-                  : `text-gray-500 ${hiddenClass}`
+                  ? 'font-medium text-ink'
+                  : `text-ink-muted ${hiddenClass}`
               }`}
             >
               {cellLabel(state)}
@@ -226,9 +222,9 @@ export function NightCoverageStrip({
   const bookingMap = new Map(bookings.map((b) => [b.id, b]))
   const uncoveredCount = nights.filter((n) => n.covered === null).length
   // 仮のままの夜の数え方は lib 側(nights.ts)と共有する。
-  // セルの色は「何で寝るか(宿・夜行移動・無し)」を、ここの一言は
+  // セルの塗りは「何で寝るか(宿・夜行移動・無し)」を、ここの一言は
   // 「どれだけ確定しているか」を答えていて、問いが別なので数え直さない。
-  // とくに夜行移動のセルは色としては空色のままだが、その便がまだ確定していなければ
+  // とくに夜行移動のセルは色としては薄塗りのままだが、その便がまだ確定していなければ
   // ここでは仮に数える(取っていない夜行便は確保できた夜ではない)
   const tentativeCount = countTentativeNights(nights, bookings)
   const isEmpty = nights.length === 0
@@ -240,30 +236,25 @@ export function NightCoverageStrip({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <h3 className="text-sm font-semibold text-gray-800">
-          寝る場所カバレッジ
-        </h3>
+        <h3 className="text-sm font-bold text-ink">寝る場所カバレッジ</h3>
         {isEmpty ? null : allConfirmed ? (
-          <p className="flex items-center gap-1 text-sm font-medium text-emerald-700">
-            <CheckCircle2 size={15} aria-hidden="true" />
+          <p className="text-sm font-medium text-ink">
             {nights.length}泊すべて寝る場所が確保できています
           </p>
         ) : allCovered ? (
-          <p className="flex items-center gap-1 text-sm font-medium text-amber-700">
-            <CircleDashed size={15} aria-hidden="true" />
+          <p className="text-sm font-medium text-ink">
             {nights.length}泊中 {nights.length - tentativeCount}泊が確定、
             {tentativeCount}泊は仮
           </p>
         ) : (
-          <p className="flex items-center gap-1 text-sm font-medium text-rose-700">
-            <AlertTriangle size={15} aria-hidden="true" />
+          <p className="text-sm font-medium text-ink">
             {nights.length}泊中 {uncoveredCount}泊が未確保
           </p>
         )}
       </div>
 
       {isEmpty ? (
-        <p className="text-sm text-gray-500">旅行期間を設定してください</p>
+        <p className="text-sm text-ink-muted">旅行期間を設定してください</p>
       ) : weekMode ? (
         <div className="overflow-x-auto pb-1">
           <div className="flex snap-x gap-4">
@@ -271,10 +262,10 @@ export function NightCoverageStrip({
               <div
                 key={week[0]?.date ?? index}
                 className={`w-64 shrink-0 ${
-                  index > 0 ? 'border-l border-gray-200 pl-4' : ''
+                  index > 0 ? 'border-l border-rule pl-4' : ''
                 }`}
               >
-                <p className="mb-1 truncate text-[11px] font-medium text-gray-500">
+                <p className="mb-1 truncate text-xs font-medium text-ink-muted">
                   {formatDateJa(week[0].date)}〜
                   {formatDateJa(week[week.length - 1].date)}
                 </p>
@@ -300,24 +291,23 @@ export function NightCoverageStrip({
       )}
 
       {isEmpty ? null : (
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
           <li className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-500" />
+            <span className="inline-block h-3 w-3 bg-ink" />
             宿泊確定
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-amber-600 bg-amber-400" />
+            <span className="inline-block h-3 w-3 border-2 border-dashed border-ink bg-paper" />
             宿泊仮
           </li>
           <li className="flex items-center gap-1.5">
-            <Moon size={12} className="text-sky-500" aria-hidden="true" />
+            <Moon size={12} className="text-ink" aria-hidden="true" />
             夜行移動
           </li>
           <li className="flex items-center gap-1.5">
-            <AlertTriangle
-              size={12}
-              className="text-rose-600"
-              aria-hidden="true"
+            <span
+              className="inline-block h-3 w-3 ring-1 ring-pink"
+              style={UNCOVERED_STRIPE}
             />
             未確保
           </li>

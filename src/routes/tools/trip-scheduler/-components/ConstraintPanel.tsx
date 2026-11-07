@@ -1,25 +1,26 @@
 import { useMemo, useState } from 'react'
+import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import {
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  ListChecks,
-  Plus,
-  Trash2,
-} from 'lucide-react'
+  Badge,
+  Button,
+  SegmentedControl,
+  Select,
+  TextInput,
+} from '../../../../components/ui'
 import { constraintLabel } from '../../../../lib/trip-scheduler/constraints'
 import { isValidISODate } from '../../../../lib/trip-scheduler/dates'
 import { newId } from '../../../../lib/trip-scheduler/storage'
 import {
-  cardClass,
-  fieldClass,
-  primaryButtonClass,
+  panelClass,
+  quietIconButtonClass,
+  ruledListClass,
+  ruledRowClass,
+  sectionLeadClass,
   sectionTitleClass,
 } from '../-lib/styles'
 import { CitySelect } from './CitySelect'
 import { DateLabel } from './DateLabel'
+import { ViolationLine } from './ViolationLine'
 import type { TripDispatch } from '../-lib/reducer'
 import type {
   Constraint,
@@ -107,24 +108,20 @@ export function ConstraintPanel({
   }
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <ListChecks size={18} className="text-cyan-600" />
-        条件(2人の希望)
-      </h2>
-      <p className="mt-2 text-sm text-gray-600">
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>条件(2人の希望)</h2>
+      <p className={sectionLeadClass}>
         「ここは3泊したい」「この日は誕生日だからパリ」のような希望を文で足していきます。
       </p>
 
-      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <select
+      <div className="panel panel-wash mt-4 space-y-3 p-3">
+        <Select
           value={kind}
           onChange={(event) => {
             // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- option の value は kindLabels (ConstraintKind 型) からのみ生成されるため実行時も安全
             setKind(event.target.value as ConstraintKind)
             resetForm()
           }}
-          className={fieldClass}
           aria-label="条件の種類"
         >
           {kindLabels.map((item) => (
@@ -132,146 +129,155 @@ export function ConstraintPanel({
               {item.label}
             </option>
           ))}
-        </select>
+        </Select>
 
         {kind === 'mustVisit' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <CitySelect
+              label="都市"
               value={cityId}
               onChange={setCityId}
-              className={`${fieldClass} sm:w-48`}
+              className="sm:w-48"
             />
             <span>には必ず行く</span>
           </div>
         ) : null}
 
         {kind === 'stayNights' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <CitySelect
+              label="都市"
               value={cityId}
               onChange={setCityId}
-              className={`${fieldClass} sm:w-40`}
+              className="sm:w-40"
             />
             <span>に</span>
-            <input
+            <TextInput
               type="number"
               min={0}
               step={1}
               value={minNights}
               onChange={(event) => setMinNights(event.target.value)}
-              placeholder="—"
+              placeholder="-"
               aria-label="最低泊数"
-              className={`${fieldClass} w-20`}
+              className="w-20"
             />
             <span>泊以上</span>
-            <input
+            <TextInput
               type="number"
               min={0}
               step={1}
               value={maxNights}
               onChange={(event) => setMaxNights(event.target.value)}
-              placeholder="—"
+              placeholder="-"
               aria-label="最大泊数"
-              className={`${fieldClass} w-20`}
+              className="w-20"
             />
             <span>泊まで(片方だけでも可)</span>
           </div>
         ) : null}
 
         {kind === 'presenceOnDate' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
-            <input
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <TextInput
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
               aria-label="日付"
-              className={`${fieldClass} w-44`}
+              className="w-44"
             />
             {isValidISODate(date) ? (
               // 入力欄だけだと曜日が見えないので、選んだ日の曜日をその場で出す
-              <DateLabel iso={date} className="text-xs text-gray-500" />
+              <DateLabel iso={date} className="text-xs text-ink-muted" />
             ) : null}
             <span>は</span>
             <CitySelect
+              label="都市"
               value={cityId}
               onChange={setCityId}
-              className={`${fieldClass} sm:w-40`}
+              className="sm:w-40"
             />
             <span>にいる</span>
           </div>
         ) : null}
 
         {kind === 'order' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <CitySelect
+              label="先に回る都市"
               value={cityId}
               onChange={setCityId}
-              className={`${fieldClass} sm:w-40`}
+              className="sm:w-40"
             />
             <span>を</span>
             <CitySelect
+              label="後に回る都市"
               value={otherCityId}
               onChange={setOtherCityId}
-              className={`${fieldClass} sm:w-40`}
+              className="sm:w-40"
             />
             <span>より先に回る</span>
           </div>
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SeverityChips value={severity} onChange={setSeverity} />
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className={primaryButtonClass}
-          >
-            <Plus size={16} />
-            条件を追加
-          </button>
+          <SeverityControl
+            label="新しい条件の重さ"
+            value={severity}
+            onChange={setSeverity}
+          />
+          <Button onClick={handleSubmit}>条件を追加</Button>
         </div>
       </div>
 
       {state.constraints.length > 0 ? (
-        <ul className="mt-4 space-y-2">
+        <ul className={`mt-4 ${ruledListClass}`}>
           {state.constraints.map((constraint) => {
+            const label = constraintLabel(constraint)
             const violated = violatedIds.has(constraint.id)
             return (
               <li
                 key={constraint.id}
-                className={`rounded-xl border p-3 ${
-                  !constraint.enabled
-                    ? 'border-gray-200 bg-gray-50 opacity-70'
-                    : violated
-                      ? constraint.severity === 'must'
-                        ? 'border-red-300 bg-red-50/60'
-                        : 'border-amber-300 bg-amber-50/60'
-                      : 'border-emerald-200 bg-emerald-50/40'
+                className={`${ruledRowClass} py-3 ${
+                  !constraint.enabled ? 'text-ink-muted' : ''
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  <ConstraintStatusIcon
-                    enabled={constraint.enabled}
-                    violated={violated}
-                    severity={constraint.severity}
-                  />
-                  <span className="min-w-0 flex-1 text-sm text-gray-800">
-                    {constraintLabel(constraint)}
+                  <span className="min-w-0 flex-1 text-sm leading-relaxed">
+                    {label}
+                    <span className="mt-1 block">
+                      {!constraint.enabled ? (
+                        <Badge tone="dashed">無効</Badge>
+                      ) : violated ? (
+                        constraint.severity === 'must' ? (
+                          <span className="field-error">満たしていません</span>
+                        ) : (
+                          <span className="text-xs text-ink-muted">
+                            まだ満たしていません
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-xs text-ink-muted">
+                          満たしています
+                        </span>
+                      )}
+                    </span>
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       dispatch({ type: 'toggleConstraint', id: constraint.id })
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
-                    aria-label={
+                    className={quietIconButtonClass}
+                    aria-label={`「${label}」を${
                       constraint.enabled ? '無効にする' : '有効にする'
-                    }
+                    }`}
                     title={constraint.enabled ? '無効にする' : '有効にする'}
                   >
                     {constraint.enabled ? (
-                      <Eye size={15} />
+                      <Eye size={15} aria-hidden />
                     ) : (
-                      <EyeOff size={15} />
+                      <EyeOff size={15} aria-hidden />
                     )}
                   </button>
                   <button
@@ -279,14 +285,16 @@ export function ConstraintPanel({
                     onClick={() =>
                       dispatch({ type: 'removeConstraint', id: constraint.id })
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-100 hover:text-red-600"
-                    aria-label="条件を削除"
+                    className={quietIconButtonClass}
+                    aria-label={`「${label}」を削除`}
+                    title="条件を削除"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={15} aria-hidden />
                   </button>
                 </div>
-                <div className="mt-2 pl-6">
-                  <SeverityChips
+                <div className="mt-2">
+                  <SeverityControl
+                    label={`「${label}」の重さ`}
                     value={constraint.severity}
                     onChange={(next) =>
                       dispatch({
@@ -302,36 +310,26 @@ export function ConstraintPanel({
           })}
         </ul>
       ) : (
-        <p className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500">
+        <p className="mt-4 border-[1.5px] border-dashed border-ink-muted px-3 py-3 text-sm text-ink-muted">
           条件はまだありません。
         </p>
       )}
 
       <div className="mt-5">
-        <h3 className="text-sm font-semibold text-gray-800">気になるところ</h3>
+        <h3 className="text-sm font-bold">気になるところ</h3>
         {derived.violations.length === 0 ? (
-          <p className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            <CheckCircle2 size={15} />
+          <p className="mt-2 text-sm text-ink-muted">
             いまのところ条件はすべて満たしています。
           </p>
         ) : (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1.5">
             {derived.violations.map((violation, index) => (
-              <li
+              <ViolationLine
                 key={`${violation.constraintId}-${index}`}
-                className={`flex items-start gap-1.5 rounded-xl px-3 py-2 text-sm ${
-                  violation.severity === 'must'
-                    ? 'bg-red-50 text-red-800'
-                    : 'bg-amber-50 text-amber-800'
-                }`}
+                severity={violation.severity}
               >
-                {violation.severity === 'must' ? (
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                ) : (
-                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                )}
-                <span>{violation.message}</span>
-              </li>
+                {violation.message}
+              </ViolationLine>
             ))}
           </ul>
         )}
@@ -340,60 +338,27 @@ export function ConstraintPanel({
   )
 }
 
-function ConstraintStatusIcon({
-  enabled,
-  violated,
-  severity,
-}: {
-  enabled: boolean
-  violated: boolean
-  severity: ConstraintSeverity
-}) {
-  if (!enabled) {
-    return <EyeOff size={16} className="mt-0.5 shrink-0 text-gray-400" />
-  }
-  if (!violated) {
-    return (
-      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
-    )
-  }
-  return severity === 'must' ? (
-    <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-  ) : (
-    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
-  )
-}
+const severityOptions: Array<{ value: ConstraintSeverity; label: string }> = [
+  { value: 'must', label: '必須' },
+  { value: 'want', label: 'できれば' },
+]
 
-function SeverityChips({
+function SeverityControl({
+  label,
   value,
   onChange,
 }: {
+  label: string
   value: ConstraintSeverity
   onChange: (severity: ConstraintSeverity) => void
 }) {
-  const options: Array<{ value: ConstraintSeverity; label: string }> = [
-    { value: 'must', label: '必須' },
-    { value: 'want', label: 'できれば' },
-  ]
   return (
-    <span className="inline-flex overflow-hidden rounded-full border border-gray-300 bg-white text-xs">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          aria-pressed={value === option.value}
-          className={`px-3 py-1 font-medium transition ${
-            value === option.value
-              ? option.value === 'must'
-                ? 'bg-red-500 text-white'
-                : 'bg-amber-500 text-white'
-              : 'text-gray-500 hover:bg-gray-100'
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </span>
+    <SegmentedControl
+      size="sm"
+      label={label}
+      value={value}
+      options={severityOptions}
+      onChange={onChange}
+    />
   )
 }

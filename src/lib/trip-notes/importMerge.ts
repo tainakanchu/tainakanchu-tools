@@ -252,7 +252,7 @@ export function mergeBooking(existing: Booking, incoming: Booking): Booking {
    * 実際に採用した側(取り込み/既存)の unverified 状態だけを引き継ぐ。
    * 単純な和集合にしないのは、既存の予約側で既に人間が確認済み(unverified に
    * 入っていない)フィールドまで、無関係な取り込み側の未確認状態と混ぜてしまうと
-   * 「確認したはずの項目に黄色い下線が復活する」という逆行が起きるため。
+   * 「確認したはずの項目に破線の下線が復活する」という逆行が起きるため。
    */
   function markUnverified(key: FieldKey, fromIncoming: boolean): void {
     const source = fromIncoming ? incomingUnverified : existingUnverified

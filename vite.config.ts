@@ -34,7 +34,7 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        theme_color: '#0f172a',
+        theme_color: '#ffffff',
         background_color: '#ffffff',
         // アイコンはリポジトリにコミット済みの PNG をそのまま使う。ビルド時
         // に PNG を生成する仕組み (アイコンジェネレータ) を足すとビルド依存
@@ -73,8 +73,9 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // 外部から読むのはセトリ画像メーカーの Web フォント (Google Fonts) だけ。
-        // canvas の出力を端末の標準フォントに左右されないようにするために読む。
+        // 外部から読むのは Google Fonts だけ。サイト共通の書体 (Zen Kaku Gothic New /
+        // Dela Gothic One) と、セトリ画像メーカーが canvas の出力を端末の標準フォントに
+        // 左右されないようにするために読む書体。
         // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
         // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
         // StaleWhileRevalidate、フォント本体はファイル名が版ごとに変わるので

@@ -25,7 +25,8 @@ import {
   hideTargetOf,
   isHidden,
 } from '../-lib/redact'
-import { Field, Segmented, SwitchRow } from './ui'
+import { SegmentedControl, Switch } from '../../../../components/ui'
+import { Field } from './ui'
 import type { DragEndEvent } from '@dnd-kit/core'
 import type { RedactOptions } from '../-lib/redact'
 import type { Track } from '../-lib/types'
@@ -39,7 +40,7 @@ type Props = {
 }
 
 /**
- * 曲リスト。ふだんは「14 曲 · 編集」の 1 行で、開くと並べ替え・隠す・削除・追加。
+ * 曲リスト。ふだんは「14 曲」と「編集」の 1 行で、開くと並べ替え・隠す・削除・追加。
  * PointerSensor は pointerdown が touchstart より先に走って TouchSensor を無効化して
  * しまうので、既存ツールと同じく Mouse / Touch を分けて使う。
  */
@@ -88,8 +89,8 @@ export function TrackSection({
           <span className="mono">{tracks.length}</span> 曲
           {hiddenCount > 0 ? (
             <span className="text-(--muted)">
-              {' '}
-              · <span className="mono">{hiddenCount}</span> 曲を隠す
+              {'、'}
+              <span className="mono">{hiddenCount}</span> 曲を隠す
             </span>
           ) : null}
         </span>
@@ -122,11 +123,10 @@ export function TrackSection({
         ) : null}
         <button
           type="button"
-          className="slc-btn mt-2 w-full"
-          data-variant="ghost"
+          className="btn btn-quiet mt-2 w-full"
           onClick={onAdd}
         >
-          ＋ 曲を追加
+          曲を追加
         </button>
       </div>
     </div>
@@ -145,7 +145,8 @@ export function RedactSettings({
     onChange({ ...redact, ...patch })
   return (
     <Field label="隠した曲の見せ方">
-      <Segmented
+      <SegmentedControl
+        full
         label="隠した曲の見せ方"
         value={redact.style}
         options={REDACT_STYLES.map((o) => ({ value: o.id, label: o.label }))}
@@ -153,7 +154,7 @@ export function RedactSettings({
       />
       {redact.style === 'custom' ? (
         <input
-          className="slc-input"
+          className="input"
           aria-label={`隠した欄に出す文字（${CUSTOM_MAX} 文字まで）`}
           value={redact.custom}
           maxLength={CUSTOM_MAX * 2}
@@ -161,8 +162,8 @@ export function RedactSettings({
           onChange={(event) => set({ custom: event.target.value })}
         />
       ) : null}
-      <SwitchRow
-        label="BPM・Key も隠す"
+      <Switch
+        label="BPM と Key も隠す"
         checked={redact.hideMeta}
         onChange={(hideMeta) => set({ hideMeta })}
         title="番号と時刻はそのまま。隠した曲のレーベルは出さない"
@@ -233,8 +234,7 @@ function TrackRow({
       <button
         type="button"
         aria-pressed={target !== null}
-        className="slc-btn px-2!"
-        data-variant="ghost"
+        className="btn btn-quiet px-2!"
         onClick={() =>
           onUpdate({ hidden: target ? undefined : hiddenFor('both') })
         }
@@ -245,18 +245,17 @@ function TrackRow({
       </button>
       <button
         type="button"
-        className="slc-btn"
-        data-variant="ghost"
-        data-size="icon"
+        className="btn btn-quiet"
         onClick={onDelete}
         aria-label={`${n} 曲目を削除`}
         title="削除"
       >
-        ×
+        削除
       </button>
       {target ? (
         <div className="col-span-5 pb-2 pl-[60px]">
-          <Segmented
+          <SegmentedControl
+            size="sm"
             label={`${n} 曲目で隠す欄`}
             value={target}
             options={HIDE_TARGETS.map((o) => ({

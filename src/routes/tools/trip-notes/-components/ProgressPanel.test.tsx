@@ -74,7 +74,7 @@ function renderPanel(
 
 /** カンバンに切り替える。初期表示は一覧なので、どのテストも最初にこれを通る */
 function switchToKanban() {
-  fireEvent.click(screen.getByRole('button', { name: 'カンバン' }))
+  fireEvent.click(screen.getByRole('radio', { name: 'カンバン' }))
 }
 
 /** カードのチェックボックスを入れる。選択の手段は修飾キーではなく触れる印 */
@@ -98,7 +98,7 @@ describe('進捗タブの表示切替', () => {
   it('初期表示は一覧で、カンバンの列は出ていない', () => {
     renderPanel(makeState([makeBooking('b1')]))
     expect(
-      screen.getByRole('button', { name: '一覧' }).getAttribute('aria-pressed'),
+      screen.getByRole('radio', { name: '一覧' }).getAttribute('aria-checked'),
     ).toBe('true')
     expect(screen.queryByRole('region', { name: /確定/ })).toBeNull()
   })
@@ -152,7 +152,7 @@ describe('進捗タブの表示切替', () => {
   it('軸を支払状況に切り替えると列が入れ替わる', () => {
     renderPanel(makeState([makeBooking('b1', { payment: 'unpaid' })]))
     switchToKanban()
-    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    fireEvent.click(screen.getByRole('radio', { name: '支払状況' }))
 
     expect(screen.getByRole('region', { name: '未払 1件' })).toBeTruthy()
     expect(
@@ -171,7 +171,7 @@ describe('進捗タブの表示切替', () => {
       ]),
     )
     switchToKanban()
-    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    fireEvent.click(screen.getByRole('radio', { name: '支払状況' }))
 
     const unpaid = screen.getByRole('region', { name: '未払 1件' })
     expect(within(unpaid).getByText('宿 alive')).toBeTruthy()
@@ -201,7 +201,7 @@ describe('進捗タブの表示切替', () => {
       ]),
     )
     switchToKanban()
-    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    fireEvent.click(screen.getByRole('radio', { name: '支払状況' }))
 
     // 個々のカードの金額と紛れないよう、小計にしか現れない額で確かめる
     const unpaid = screen.getByRole('region', { name: '未払 5件' })
@@ -232,7 +232,7 @@ describe('カンバンのドラッグ以外の操作手段', () => {
     const dispatch = vi.fn()
     renderPanel(makeState([makeBooking('b1', { payment: 'unpaid' })]), dispatch)
     switchToKanban()
-    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    fireEvent.click(screen.getByRole('radio', { name: '支払状況' }))
 
     fireEvent.change(screen.getByLabelText('宿 b1 の支払状況'), {
       target: { value: 'kanban-column:payment:deposit' },
@@ -336,7 +336,7 @@ describe('カンバンの複数選択', () => {
 
     // 支払状況の軸ではキャンセル済みが盤から外れる。
     // 見えていないカードが一括操作に巻き込まれないよう、選択からも落ちる
-    fireEvent.click(screen.getByRole('button', { name: '支払状況' }))
+    fireEvent.click(screen.getByRole('radio', { name: '支払状況' }))
     expect(selectionCountTexts(1)).toHaveLength(2)
   })
 
@@ -374,7 +374,7 @@ describe('旅程の整合性チェックの表示', () => {
     expect(screen.getByText('旅程の不整合')).toBeTruthy()
     expect(screen.getByText('移動が未登録')).toBeTruthy()
     expect(
-      screen.getByText(/東京 → 大阪 の移動が登録されていません/),
+      screen.getByText(/東京から大阪への移動が登録されていません/),
     ).toBeTruthy()
     expect(screen.getByText(/移動を追加してください/)).toBeTruthy()
   })
@@ -413,14 +413,14 @@ describe('旅程の整合性チェックの表示', () => {
 
   it('件数が上段のアラートに反映される', () => {
     const { container } = renderPanel(stateWithGap)
-    const banner = container.querySelector('.bg-rose-50')
+    const banner = container.querySelector('.panel-note-error')
     expect(banner?.textContent).toContain('旅程の不整合')
     expect(banner?.textContent).toContain('1')
   })
 
   it('乗り継ぎの案内は不整合として数えず、別の見出しで出す', () => {
     // 同じ空港に着いて同じ空港から発つ乗り継ぎ。宿は無いが直す対象ではないので、
-    // 赤いアラートを点けず「確認しておきたい点」として出す。
+    // ピンクのアラートを点けず「確認しておきたい点」として出す。
     // 旅行期間を 6/13 の 1 日だけにして、寝る場所の穴のほうでアラートが
     // 点かないようにしてある(点くと severity の切り分けが見えない)
     const layover = makeState([
@@ -453,7 +453,7 @@ describe('旅程の整合性チェックの表示', () => {
     expect(screen.getByText('確認しておきたい点')).toBeTruthy()
     expect(screen.getByText('乗り継ぎ')).toBeTruthy()
     expect(screen.queryByText('旅程の不整合')).toBeNull()
-    expect(container.querySelector('.bg-rose-50')).toBeNull()
+    expect(container.querySelector('.panel-note-error')).toBeNull()
     // 宿の要否の話なので「同じ場所として扱う」は出さない(押しても何も消えない)
     expect(screen.queryByText('同じ場所として扱う')).toBeNull()
   })
@@ -489,16 +489,16 @@ describe('上段アラートの3段階', () => {
     ])
   }
 
-  it('寝る場所がない夜があれば赤いアラートで泊数を出す', () => {
+  it('寝る場所がない夜があればエラーの帯で泊数を出す', () => {
     const { container } = renderPanel(makeState([]))
 
-    const banner = container.querySelector('.bg-rose-50')
+    const banner = container.querySelector('.panel-note-error')
     expect(banner?.textContent).toContain('寝る場所がない夜')
     expect(banner?.textContent).toContain('4')
-    expect(container.querySelector('.bg-amber-50')).toBeNull()
+    expect(container.querySelector('.panel-note-warn')).toBeNull()
   })
 
-  it('仮の宿でしか埋まっていない夜があれば、確保できたとは言わず琥珀で出す', () => {
+  it('仮の宿でしか埋まっていない夜があれば、確保できたとは言わず破線で出す', () => {
     const { container } = renderPanel(wholeTrip('idea'))
 
     // 「確保できています」と言い切ってよいのは全泊が確定しているときだけ
@@ -512,9 +512,9 @@ describe('上段アラートの3段階', () => {
         '寝る場所の割り当てはすべての夜にありますが、4泊は検討中・仮押さえのままです',
       ),
     ).toBeTruthy()
-    // 未確保の赤とは別の段階であることが、色以外(枠の色ではなく本文)でも分かる
-    expect(container.querySelector('.bg-rose-50')).toBeNull()
-    expect(container.querySelector('.bg-amber-50')).toBeTruthy()
+    // 未確保のエラーの帯とは別の段階であることが、線の種類だけでなく本文でも分かる
+    expect(container.querySelector('.panel-note-error')).toBeNull()
+    expect(container.querySelector('.panel-note-warn')).toBeTruthy()
   })
 
   it('仮のままの夜からは、確定させるために日程タブへ飛べる', () => {
@@ -539,7 +539,7 @@ describe('上段アラートの3段階', () => {
     expect(onSelectDate).toHaveBeenCalledWith('2026-06-12')
   })
 
-  it('全泊が確定していれば緑で言い切る', () => {
+  it('全泊が確定していれば、穴は無いと言い切る', () => {
     const { container } = renderPanel(wholeTrip('confirmed'))
 
     expect(
@@ -547,17 +547,17 @@ describe('上段アラートの3段階', () => {
         '穴はありません。寝る場所も移動のつながりもすべて確保できています',
       ),
     ).toBeTruthy()
-    expect(container.querySelector('.bg-rose-50')).toBeNull()
-    expect(container.querySelector('.bg-amber-50')).toBeNull()
+    expect(container.querySelector('.panel-note-error')).toBeNull()
+    expect(container.querySelector('.panel-note-warn')).toBeNull()
   })
 
-  it('仮の夜と未確保の夜が両方あるときは、重いほうの赤を出す', () => {
+  it('仮の夜と未確保の夜が両方あるときは、重いほうのエラーの帯を出す', () => {
     // 6/12・6/13 だけを仮の宿でカバーし、6/14・6/15 は何も無い状態
     const { container } = renderPanel(
       makeState([makeBooking('b1', { status: 'idea' })]),
     )
 
-    expect(container.querySelector('.bg-rose-50')).toBeTruthy()
+    expect(container.querySelector('.panel-note-error')).toBeTruthy()
     expect(screen.queryByText(/検討中・仮押さえのまま/)).toBeNull()
   })
 })

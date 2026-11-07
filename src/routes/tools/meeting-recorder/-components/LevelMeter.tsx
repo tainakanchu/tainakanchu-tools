@@ -64,31 +64,28 @@ export function LevelMeter({ label, analyser, silentHint }: Props) {
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium text-gray-700">{label}</span>
+        <span className="font-bold">{label}</span>
         {analyser ? (
           <span
-            className={`text-xs ${silent ? 'text-amber-700' : 'text-emerald-700'}`}
+            className={`text-xs ${silent ? 'font-bold' : 'text-ink-muted'}`}
           >
-            {silent ? `無音 — ${silentHint}` : '音声あり'}
+            {silent ? `無音です。${silentHint}` : '音声あり'}
           </span>
         ) : (
-          <span className="text-xs text-gray-400">未接続</span>
+          <span className="text-xs text-ink-muted">未接続</span>
         )}
       </div>
       <div
-        className="relative h-3 overflow-hidden rounded-full bg-gray-100"
+        className="relative h-3 overflow-hidden border border-ink bg-paper"
         role="meter"
         aria-label={`${label}の音量`}
         aria-valuemin={FLOOR_DB}
         aria-valuemax={0}
       >
-        <div
-          ref={barRef}
-          className="h-full w-0 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-amber-400"
-        />
+        <div ref={barRef} className="h-full w-0 bg-ink" />
         <div
           ref={peakRef}
-          className="absolute inset-y-0 w-0.5 bg-gray-500"
+          className="absolute inset-y-0 w-0.5 bg-ink-muted"
           style={{ left: '0%' }}
         />
       </div>

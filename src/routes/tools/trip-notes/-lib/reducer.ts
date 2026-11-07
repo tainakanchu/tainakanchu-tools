@@ -220,7 +220,7 @@ function withoutUnverified(
 /**
  * 予約の更新。
  * 値が変わったフィールドは、その時点で人間が目を通したことになるので
- * 未確認リストから自動で外す。「編集したのに黄色い下線が残る」を避ける。
+ * 未確認リストから自動で外す。「編集したのに破線の下線が残る」を避ける。
  */
 function mergeUpdatedBooking(previous: Booking, next: Booking): Booking {
   const changed: Array<FieldKey> = []

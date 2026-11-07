@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
-import { Image } from 'lucide-react'
 import { DEFAULT_PHOTO_SETTINGS, getTemplate } from '../-lib/layouts'
-import { Field, Segmented, SliderRow } from './ui'
+import { SegmentedControl } from '../../../../components/ui'
+import { Field, SliderRow } from './ui'
 import type { LayoutId, PhotoSettings } from '../-lib/layouts'
 import type { LoadedPhoto } from '../-lib/photo'
 import type { RenderInfo } from '../-lib/render'
@@ -32,7 +32,7 @@ const TINTS = [
 const percent = (v: number) => `${Math.round(v * 100)}%`
 
 /**
- * 写真。入れる前は 1 ボタン、入れたら「ファイル名 · 調整 · 外す」の 1 行。
+ * 写真。入れる前は 1 ボタン、入れたら「ファイル名、調整、外す」の 1 行。
  * 調整は開いたときだけ（ズーム・暗さ・ぼかし・色調・置き方）。位置はプレビューで動かす。
  */
 export function PhotoSection({
@@ -59,12 +59,11 @@ export function PhotoSection({
       <div>
         <button
           type="button"
-          className="slc-btn w-full justify-start!"
+          className="btn btn-secondary w-full justify-start!"
           onClick={onPick}
           disabled={loading}
           title="ブースの写真やフライヤーを敷く"
         >
-          <Image size={18} aria-hidden />
           {loading ? '読み込み中…' : '写真を入れる'}
         </button>
         {error ? (
@@ -84,7 +83,6 @@ export function PhotoSection({
   return (
     <div>
       <div className="flex min-h-11 items-center gap-1">
-        <Image size={18} aria-hidden className="mr-1 shrink-0 text-(--muted)" />
         <button
           type="button"
           className="min-h-11 min-w-0 flex-1 truncate text-left"
@@ -96,20 +94,14 @@ export function PhotoSection({
         </button>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="ghost"
+          className="btn btn-quiet"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
         >
           調整
         </button>
-        <button
-          type="button"
-          className="slc-btn"
-          data-variant="ghost"
-          onClick={onRemove}
-        >
+        <button type="button" className="btn btn-quiet" onClick={onRemove}>
           外す
         </button>
       </div>
@@ -120,7 +112,8 @@ export function PhotoSection({
       ) : null}
 
       <div id={panelId} hidden={!open} className="space-y-3 pt-1 pb-4">
-        <Segmented
+        <SegmentedControl
+          full
           label="置き方"
           value={mode}
           options={[
@@ -172,7 +165,8 @@ export function PhotoSection({
           onChange={(blur) => set({ blur })}
         />
         <Field label="色調">
-          <Segmented
+          <SegmentedControl
+            full
             label="色調"
             value={forcedTint ? 'xerox' : settings.tint}
             options={TINTS.map((t) => ({
@@ -190,8 +184,7 @@ export function PhotoSection({
         </Field>
         <button
           type="button"
-          className="slc-btn"
-          data-variant="link"
+          className="btn btn-quiet"
           onClick={() =>
             onSettingsChange({
               ...DEFAULT_PHOTO_SETTINGS,

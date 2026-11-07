@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react'
-import { History, MapPin, PlaneLanding, PlaneTakeoff } from 'lucide-react'
+import { Button, Field, Select } from '../../../../components/ui'
 import { formatSavedAt, summarizePastTrip } from '../-lib/pastTrips'
 import {
   ACCOMMODATION_OPTIONS,
@@ -22,10 +22,10 @@ import {
   PURPOSE_VISIT_RELATIVE,
 } from '../-lib/options'
 import {
-  cardClass,
-  labelClass,
+  legendClass,
+  panelClass,
+  sectionLeadClass,
   sectionTitleClass,
-  subtleButtonClass,
 } from '../-lib/styles'
 import { LIST_IDS, ListField, SelectField, TextField } from './Fields'
 import { SubmissionWindowBanner } from './SubmissionWindowBanner'
@@ -88,22 +88,20 @@ function LegFields({
 }) {
   return (
     <>
-      <label className="block space-y-1">
-        <span className={labelClass}>手段</span>
-        <select
+      <Field label="手段">
+        <Select
           value={mode}
           onChange={(event) => {
             if (isMode(event.target.value)) onModeChange(event.target.value)
           }}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
         >
           {MODE_OF_TRAVEL_OPTIONS.map((option) => (
             <option key={option} value={option}>
               {option === 'AIR' ? 'AIR(航空)' : 'SEA(船舶)'}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {mode === 'AIR' ? (
         <>
@@ -156,40 +154,34 @@ function PastTripPicker({
 
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        className={subtleButtonClass}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-      >
-        <History size={16} aria-hidden="true" />
+      <Button onClick={() => setOpen((prev) => !prev)} aria-expanded={open}>
         過去の旅程からコピー({pastTrips.length}件)
-      </button>
+      </Button>
 
       {open && (
-        <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-          <p className="text-xs text-gray-600">
+        <div className="panel panel-wash mt-3 p-4">
+          <p className="text-sm leading-relaxed">
             便名・渡航目的・宿泊先などをコピーします。
-            <strong className="font-semibold text-gray-800">
+            <strong className="font-bold">
               入国日と出国予定日はコピーしません。
             </strong>
             前回の日付がそのまま残ったまま書き出されるのを防ぐためです。
           </p>
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-3 border-b border-rule">
             {pastTrips.map((past) => (
-              <li key={past.id}>
+              <li key={past.id} className="border-t border-rule">
                 <button
                   type="button"
                   onClick={() => {
                     onApply(past)
                     setOpen(false)
                   }}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                  className="min-h-11 w-full rounded-ui px-2 py-2 text-left text-sm transition-colors hover:bg-paper focus-visible:shadow-[3px_3px_0_0_var(--color-pink)]"
                 >
-                  <span className="block font-medium text-gray-800">
+                  <span className="block font-bold">
                     {summarizePastTrip(past)}
                   </span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-ink-muted">
                     {formatSavedAt(past.savedAt)} に保存
                   </span>
                 </button>
@@ -234,23 +226,19 @@ export function TripForm({
   }
 
   return (
-    <section className={cardClass}>
-      <h2 className={sectionTitleClass}>
-        <PlaneLanding size={18} aria-hidden="true" className="text-cyan-600" />
-        旅程(同行者全員で共通)
-      </h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className={panelClass}>
+      <h2 className={sectionTitleClass}>旅程(同行者全員で共通)</h2>
+      <p className={sectionLeadClass}>
         同じ便で入国し、同じ宿に泊まる前提です。書き出すときに全員の行へ同じ値が入ります。
       </p>
 
       <PastTripPicker pastTrips={pastTrips} onApply={onApplyPastTrip} />
 
-      <fieldset className="mt-4 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
-          <PlaneLanding size={15} aria-hidden="true" />
+      <fieldset className="mt-6 border-t border-rule pt-5">
+        <legend className={`${legendClass} float-left mb-4 w-full`}>
           台湾に入る
         </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 clear-both sm:grid-cols-2">
           <TextField
             label="入国日"
             type="date"
@@ -277,12 +265,11 @@ export function TripForm({
         <SubmissionWindowBanner entryDate={trip.dateOfEntry} />
       </fieldset>
 
-      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
-          <PlaneTakeoff size={15} aria-hidden="true" />
+      <fieldset className="mt-6 border-t border-rule pt-5">
+        <legend className={`${legendClass} float-left mb-4 w-full`}>
           台湾から出る
         </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 clear-both sm:grid-cols-2">
           <TextField
             label="出国予定日"
             type="date"
@@ -306,7 +293,7 @@ export function TripForm({
         </div>
       </fieldset>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-6 grid gap-4 border-t border-rule pt-5 sm:grid-cols-2">
         <SelectField
           label="渡航目的"
           value={trip.purpose}
@@ -322,7 +309,7 @@ export function TripForm({
         毎回考えることになり、関係ないのに埋めてしまう人が出る
       */}
       {trip.purpose === PURPOSE_VISIT_RELATIVE && (
-        <div className="mt-3 grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 bg-wash p-4 sm:grid-cols-2">
           <TextField
             label="親族の氏名"
             value={trip.relativesName}
@@ -338,7 +325,7 @@ export function TripForm({
       )}
 
       {trip.purpose === PURPOSE_OTHERS && (
-        <div className="mt-3 rounded-xl border border-gray-200 p-3">
+        <div className="mt-4 bg-wash p-4">
           <TextField
             label="理由"
             value={trip.reason}
@@ -348,30 +335,27 @@ export function TripForm({
         </div>
       )}
 
-      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
-          <MapPin size={15} aria-hidden="true" />
+      <fieldset className="mt-6 border-t border-rule pt-5">
+        <legend className={`${legendClass} float-left mb-4 w-full`}>
           台湾での滞在先
         </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1">
-            <span className={labelClass}>滞在先の種別</span>
-            <select
+        <div className="grid gap-4 clear-both sm:grid-cols-2">
+          <Field label="滞在先の種別">
+            <Select
               value={trip.accommodation}
               onChange={(event) => {
                 if (isAccommodation(event.target.value)) {
                   handleAccommodationChange(event.target.value)
                 }
               }}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
             >
               {ACCOMMODATION_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {ACCOMMODATION_LABELS[option]}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
           {trip.accommodation !== 'Transfer' && (
             <TextField
               label={trip.accommodation === 'Hotel Name' ? 'ホテル名' : '住所'}
@@ -387,7 +371,7 @@ export function TripForm({
           )}
         </div>
         {trip.accommodation === 'Transfer' && (
-          <p className="text-xs text-gray-500">
+          <p className="mt-4 text-sm text-ink-muted">
             乗り継ぎのみの場合、住所やホテル名の入力は不要です。
           </p>
         )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createFileRoute, useBlocker } from '@tanstack/react-router'
-import { ShieldCheck } from 'lucide-react'
+import { Note, Page, PageTitle } from '../../../components/ui'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { DEFAULT_SAMPLE_RATE } from '../../../lib/meeting-recorder/session'
 import { CaptureGraph, Recorder } from './-lib/audio-graph'
@@ -20,7 +20,6 @@ import {
   storageInfo,
 } from './-lib/sessions'
 import { checkSupport } from './-lib/support'
-import { errorClass } from './-lib/styles'
 import { RecordingSection } from './-components/RecordingSection'
 import { SessionsSection } from './-components/SessionsSection'
 import { SetupSection } from './-components/SetupSection'
@@ -282,104 +281,100 @@ function MeetingRecorderPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">{tool.name}</h1>
-        <p className="text-sm text-gray-600">
-          イヤホンで会議に出たまま、
-          <strong className="font-semibold text-gray-800">
-            相手の音声（タブ / システム音声）と自分のマイクを左右別のチャンネル
-          </strong>
-          で録音します。書き出しは NotebookLM
-          などの文字起こしサービスにそのまま渡せる MP3 が既定です（より軽量な
-          Opus や WAV も選べます）。
-        </p>
-        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-          <ShieldCheck
-            size={14}
-            aria-hidden="true"
-            className="mt-0.5 shrink-0 text-gray-500"
-          />
-          <span>
-            録音・書き出しはすべて
-            <strong className="font-semibold text-gray-800">
-              このブラウザの中だけ
+    <Page>
+      <PageTitle
+        lead={
+          <>
+            イヤホンで会議に出たまま、
+            <strong className="font-bold">
+              相手の音声（タブかシステム音声）と自分のマイクを左右別のチャンネル
             </strong>
-            で行い、音声がサーバーへ送られることはありません。
-          </span>
-        </p>
-      </header>
+            で録音します。書き出しは NotebookLM
+            などの文字起こしサービスにそのまま渡せる MP3 が既定です（より軽量な
+            Opus や WAV も選べます）。
+          </>
+        }
+      >
+        {tool.name}
+      </PageTitle>
+      <div className="page-measure">
+        <Note>
+          録音・書き出しはすべて
+          <strong className="font-bold">このブラウザの中だけ</strong>
+          で行い、音声がサーバーへ送られることはありません。
+        </Note>
 
-      {!support.ok ? (
-        <div role="alert" className={`${errorClass} mt-6 space-y-2`}>
-          <p className="font-semibold">
-            このブラウザでは使えません。パソコン版の Chrome または Edge
-            で開いてください。
-          </p>
-          {support.missing.length > 0 && (
-            <p className="text-xs">
-              足りない機能: {support.missing.join('、')}
+        {!support.ok ? (
+          <Note tone="error" role="alert" className="mt-10 space-y-2">
+            <p className="font-bold">
+              このブラウザでは使えません。パソコン版の Chrome または Edge
+              で開いてください。
             </p>
-          )}
-          <p className="text-xs">
-            Firefox と Safari は画面共有で音声を取得できないため対象外です。
-          </p>
-        </div>
-      ) : (
-        <div className="mt-6 space-y-6">
-          {recording ? (
-            <RecordingSection
-              startedAt={startedAt}
-              savedSeconds={
-                saved.durationSamples /
-                (graphRef.current?.sampleRate ?? sampleRate)
-              }
-              savedBytes={saved.bytes}
-              storage={storage}
-              stopping={phase === 'stopping'}
-              displayEnded={displayEnded}
-              micEnded={micEnded}
-              error={error}
-              micOptions={micOptions}
-              micDevices={micDevices}
-              onMicOptionsChange={(next) => void handleMicOptionsChange(next)}
-              micAnalyser={analysers.mic}
-              systemAnalyser={analysers.system}
-              onReshare={() => void handleReshare()}
-              onStop={() => void handleStop()}
-            />
-          ) : (
-            <SetupSection
-              phase={phase}
-              sampleRate={sampleRate}
-              onSampleRateChange={setSampleRate}
-              micOptions={micOptions}
-              micDevices={micDevices}
-              onMicOptionsChange={(next) => void handleMicOptionsChange(next)}
-              micAnalyser={analysers.mic}
-              systemAnalyser={analysers.system}
-              sourceLabel={sourceLabel}
-              error={error}
-              onShare={() => void handleShare()}
-              onReshare={() => void handleReshare()}
-              onCancel={() => {
-                releaseCapture()
-                setPhase('idle')
-              }}
-              onStart={() => void handleStart()}
-            />
-          )}
+            {support.missing.length > 0 && (
+              <p className="text-xs">
+                足りない機能: {support.missing.join('、')}
+              </p>
+            )}
+            <p className="text-xs">
+              Firefox と Safari は画面共有で音声を取得できないため対象外です。
+            </p>
+          </Note>
+        ) : (
+          <div className="mt-10 space-y-10">
+            {recording ? (
+              <RecordingSection
+                startedAt={startedAt}
+                savedSeconds={
+                  saved.durationSamples /
+                  (graphRef.current?.sampleRate ?? sampleRate)
+                }
+                savedBytes={saved.bytes}
+                storage={storage}
+                stopping={phase === 'stopping'}
+                displayEnded={displayEnded}
+                micEnded={micEnded}
+                error={error}
+                micOptions={micOptions}
+                micDevices={micDevices}
+                onMicOptionsChange={(next) => void handleMicOptionsChange(next)}
+                micAnalyser={analysers.mic}
+                systemAnalyser={analysers.system}
+                onReshare={() => void handleReshare()}
+                onStop={() => void handleStop()}
+              />
+            ) : (
+              <SetupSection
+                phase={phase}
+                sampleRate={sampleRate}
+                onSampleRateChange={setSampleRate}
+                micOptions={micOptions}
+                micDevices={micDevices}
+                onMicOptionsChange={(next) => void handleMicOptionsChange(next)}
+                micAnalyser={analysers.mic}
+                systemAnalyser={analysers.system}
+                sourceLabel={sourceLabel}
+                error={error}
+                onShare={() => void handleShare()}
+                onReshare={() => void handleReshare()}
+                onCancel={() => {
+                  releaseCapture()
+                  setPhase('idle')
+                }}
+                onStart={() => void handleStart()}
+              />
+            )}
 
-          <SessionsSection
-            sessions={sessions}
-            storage={storage}
-            openId={openSessionId}
-            onOpenChange={setOpenSessionId}
-            onRefresh={() => void refreshSessions()}
-            onDelete={(id) => void handleDelete(id)}
-          />
-        </div>
-      )}
-    </main>
+            <SessionsSection
+              sessions={sessions}
+              storage={storage}
+              openId={openSessionId}
+              onOpenChange={setOpenSessionId}
+              onRefresh={() => void refreshSessions()}
+              onDelete={(id) => void handleDelete(id)}
+            />
+          </div>
+        )}
+      </div>
+    </Page>
   )
 }

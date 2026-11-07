@@ -12,15 +12,13 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { Badge, Button, Textarea } from '../../../../components/ui'
 import { buildImportPrompt } from '../-lib/aiPrompt'
 import { parseArrivalJson, planArrivalImport } from '../-lib/aiImport'
 import {
-  cardClass,
-  fieldClass,
-  primaryButtonClass,
+  asidePanelClass,
+  sectionLeadClass,
   sectionTitleClass,
-  subtleButtonClass,
 } from '../-lib/styles'
 import {
   AiServiceLinks,
@@ -51,12 +49,12 @@ type WizardStep = 1 | 2 | 3
 /** ステップの見出しと進捗表示。中身は呼び出し側に委ねる薄いラッパー */
 function StepHeading({ step, title }: { step: WizardStep; title: string }) {
   return (
-    <div>
-      <p className="text-xs font-semibold tracking-wide text-cyan-700">
-        ステップ {step} / 3
-      </p>
-      <h3 className="text-base font-semibold text-gray-800">{title}</h3>
-    </div>
+    <h3 className="text-base font-bold">
+      {title}
+      <span className="ml-2 text-sm font-normal text-ink-muted">
+        3 つの手順の {step} つ目
+      </span>
+    </h3>
   )
 }
 
@@ -76,10 +74,11 @@ function ChangeRow({
   after: string
 }) {
   return (
-    <li className="text-sm text-gray-700">
-      <span className="font-medium">{label}</span>: {displayValue(before)}
-      <span className="mx-1 text-gray-400">→</span>
-      <span className="font-semibold text-gray-900">{after}</span>
+    <li className="text-sm">
+      <span className="font-bold">{label}</span>: {displayValue(before)}
+      {' を '}
+      <span className="font-bold">{after}</span>
+      {' に'}
     </li>
   )
 }
@@ -91,7 +90,7 @@ function ImportPreview({ plan }: { plan: ImportPlan }) {
 
   if (nothingToDo) {
     return (
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-ink-muted">
         取り込める変更はありませんでした。すでに入力済みの欄は AI
         の抽出結果で上書きしません。
       </p>
@@ -99,10 +98,10 @@ function ImportPreview({ plan }: { plan: ImportPlan }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="border-b border-rule">
       {plan.tripChanges.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-          <p className="text-sm font-semibold text-gray-800">旅程</p>
+        <div className="border-t border-rule py-3">
+          <p className="text-sm font-bold">旅程</p>
           <ul className="mt-1 space-y-1">
             {plan.tripChanges.map((change) => (
               <ChangeRow key={change.label} {...change} />
@@ -114,15 +113,11 @@ function ImportPreview({ plan }: { plan: ImportPlan }) {
       {plan.travelerChanges.map((traveler, index) => (
         <div
           key={`${traveler.name}-${index}`}
-          className="rounded-xl border border-gray-200 bg-gray-50 p-3"
+          className="border-t border-rule py-3"
         >
-          <p className="text-sm font-semibold text-gray-800">
+          <p className="text-sm font-bold">
             {traveler.name}
-            {traveler.isNew && (
-              <span className="ml-2 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">
-                新しく追加
-              </span>
-            )}
+            {traveler.isNew && <Badge className="ml-2">新しく追加</Badge>}
           </p>
           {traveler.fields.length > 0 ? (
             <ul className="mt-1 space-y-1">
@@ -131,7 +126,7 @@ function ImportPreview({ plan }: { plan: ImportPlan }) {
               ))}
             </ul>
           ) : (
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-ink-muted">
               読み取れた項目はありませんでした(空の行として追加します)
             </p>
           )}
@@ -197,12 +192,9 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
   }
 
   return (
-    <section className={cardClass}>
-      <div className={sectionTitleClass}>
-        <Sparkles size={18} aria-hidden="true" className="text-cyan-600" />
-        AI でまとめて入力
-      </div>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className={asidePanelClass}>
+      <h2 className={sectionTitleClass}>AI でまとめて入力</h2>
+      <p className={sectionLeadClass}>
         航空券の e チケットやホテルの予約確認メールを AI
         に読み取らせて、入国日・便名・宿泊先をまとめて入力します。
         このアプリ自体は外部の API を呼びません。
@@ -211,17 +203,17 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
       {successMessage !== null && (
         <div
           role="status"
-          className="mt-3 flex items-start justify-between gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+          className="mt-4 flex items-start justify-between gap-2 border-t border-rule pt-3 text-sm"
         >
           <span>{successMessage}</span>
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="sm"
             onClick={() => setSuccessMessage(null)}
             aria-label="このメッセージを閉じる"
-            className="shrink-0 rounded p-0.5 text-emerald-700 transition hover:bg-emerald-100"
           >
-            <X size={14} aria-hidden="true" />
-          </button>
+            閉じる
+          </Button>
         </div>
       )}
 
@@ -231,9 +223,9 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
             <StepHeading step={1} title="プロンプトをコピー" />
             <PromptCopyBlock prompt={prompt} alwaysShowPrompt rows={10} />
 
-            <p className="text-sm text-gray-600">
+            <p className="text-sm leading-relaxed">
               コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けたあと、
-              <strong className="font-semibold text-gray-800">
+              <strong className="font-bold">
                 航空券の e
                 チケット控えやホテルの予約確認メールを添付して実行してください。
               </strong>
@@ -243,13 +235,7 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
             <AiServiceLinks />
 
             <div className="flex justify-end">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={() => setStep(2)}
-              >
-                次へ: 結果を貼り付ける
-              </button>
+              <Button onClick={() => setStep(2)}>次へ: 結果を貼り付ける</Button>
             </div>
           </div>
         )}
@@ -257,34 +243,22 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
         {step === 2 && (
           <div className="space-y-3">
             <StepHeading step={2} title="結果を貼り付ける" />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm leading-relaxed">
               AI が返した JSON
               をそのまま貼り付けてください。前後に説明文が付いていたり、 ```json
               のようなフェンスが付いたままでも構いません。
             </p>
-            <textarea
+            <Textarea
               value={pastedText}
               onChange={(event) => setPastedText(event.target.value)}
               rows={12}
               placeholder="AI の出力をそのまま貼り付け"
-              className={`${fieldClass} resize-y font-mono text-xs leading-relaxed`}
+              className="resize-y font-mono text-xs leading-relaxed"
               aria-label="AI が返した JSON"
             />
             <div className="flex flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className={subtleButtonClass}
-                onClick={() => setStep(1)}
-              >
-                戻る
-              </button>
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={handleParse}
-              >
-                読み込む
-              </button>
+              <Button onClick={() => setStep(1)}>戻る</Button>
+              <Button onClick={handleParse}>読み込む</Button>
             </div>
           </div>
         )}
@@ -295,20 +269,8 @@ export function AiImportPanel({ state, onApply }: AiImportPanelProps) {
             <ImportPreview plan={plan} />
             <ImportIssueDetails issues={plan.issues} />
             <div className="flex flex-wrap justify-between gap-2">
-              <button
-                type="button"
-                className={subtleButtonClass}
-                onClick={() => setStep(2)}
-              >
-                戻る
-              </button>
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={handleConfirm}
-              >
-                取り込む
-              </button>
+              <Button onClick={() => setStep(2)}>戻る</Button>
+              <Button onClick={handleConfirm}>取り込む</Button>
             </div>
           </div>
         )}

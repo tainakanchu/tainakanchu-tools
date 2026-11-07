@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, X } from 'lucide-react'
+import { Field, Note, Panel, Radio, Select } from '../../../../components/ui'
 import {
   DEFAULT_EXPORT_FORMAT,
   DEFAULT_EXPORT_MODE,
@@ -24,8 +24,6 @@ import {
 } from '../-lib/export-client'
 import { clearExportTemp } from '../-lib/sessions'
 import {
-  errorClass,
-  fieldClass,
   labelClass,
   primaryButtonClass,
   subtleButtonClass,
@@ -41,8 +39,6 @@ type Props = {
   meta: SessionMeta
   durationSeconds: number
 }
-
-const radioClass = 'h-4 w-4 accent-cyan-600'
 
 export function ExportPanel({ meta, durationSeconds }: Props) {
   const [mode, setMode] = useState<ExportMode>(DEFAULT_EXPORT_MODE)
@@ -132,24 +128,25 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <Panel tone="wash" className="space-y-4 p-4">
       <fieldset className="space-y-2">
         <legend className={labelClass}>書き出し方</legend>
         {EXPORT_MODES.map((option) => (
-          <label key={option.id} className="flex items-start gap-2 text-sm">
-            <input
-              type="radio"
-              name={`mode-${meta.id}`}
-              className={`${radioClass} mt-0.5`}
-              checked={mode === option.id}
-              disabled={running}
-              onChange={() => setMode(option.id)}
-            />
-            <span>
-              <span className="font-medium text-gray-800">{option.label}</span>
-              <span className="block text-xs text-gray-500">{option.note}</span>
-            </span>
-          </label>
+          <Radio
+            key={option.id}
+            name={`mode-${meta.id}`}
+            checked={mode === option.id}
+            disabled={running}
+            onChange={() => setMode(option.id)}
+            label={
+              <>
+                <span className="font-bold">{option.label}</span>
+                <span className="block text-xs text-ink-muted">
+                  {option.note}
+                </span>
+              </>
+            }
+          />
         ))}
       </fieldset>
 
@@ -157,34 +154,31 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
         <fieldset className="space-y-2">
           <legend className={labelClass}>形式</legend>
           {formats.map((option) => (
-            <label key={option.id} className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name={`format-${meta.id}`}
-                className={`${radioClass} mt-0.5`}
-                checked={format === option.id}
-                disabled={running}
-                onChange={() => setFormat(option.id)}
-              />
-              <span>
-                <span className="text-gray-800">{option.label}</span>
-                {option.note && (
-                  <span className="block text-xs text-gray-500">
-                    {option.note}
-                  </span>
-                )}
-              </span>
-            </label>
+            <Radio
+              key={option.id}
+              name={`format-${meta.id}`}
+              checked={format === option.id}
+              disabled={running}
+              onChange={() => setFormat(option.id)}
+              label={
+                <>
+                  {option.label}
+                  {option.note && (
+                    <span className="block text-xs text-ink-muted">
+                      {option.note}
+                    </span>
+                  )}
+                </>
+              }
+            />
           ))}
         </fieldset>
 
         {format !== 'wav' && (
-          <label className="block space-y-1">
-            <span className={labelClass}>
-              ビットレート（{channels === 2 ? 'ステレオ' : 'モノラル'}）
-            </span>
-            <select
-              className={fieldClass}
+          <Field
+            label={`ビットレート（${channels === 2 ? 'ステレオ' : 'モノラル'}）`}
+          >
+            <Select
               value={bitrate}
               disabled={running}
               onChange={(event) => setBitrateChoice(Number(event.target.value))}
@@ -195,13 +189,13 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
                   {value === defaultBitrate(format, channels) ? '（既定）' : ''}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
       </div>
 
       {mode === 'stereo' && format !== 'wav' && (
-        <p className="text-xs leading-relaxed text-gray-500">
+        <p className="text-xs leading-relaxed text-ink-muted">
           低いビットレートのステレオ圧縮では左右の音が少し混ざることがあります。
           話者を完全に分けて文字起こししたいときは「別ファイル」が確実です。
         </p>
@@ -214,7 +208,6 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
           onClick={() => void run()}
           disabled={running || durationSeconds <= 0}
         >
-          <Download size={16} aria-hidden />
           書き出す
         </button>
         {running && (
@@ -223,64 +216,58 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
             className={subtleButtonClass}
             onClick={() => jobRef.current?.cancel()}
           >
-            <X size={16} aria-hidden />
-            中止
+            中止する
           </button>
         )}
-        <span className="text-xs text-gray-500">
-          {targets.map((t) => t.fileName).join(' / ')}（約{' '}
+        <span className="min-w-0 text-xs break-all text-ink-muted">
+          {targets.map((t) => t.fileName).join('、')}（約{' '}
           {formatBytes(estimate * targets.length)}）
         </span>
       </div>
 
       {progress !== null && (
         <div
-          className="h-2 overflow-hidden rounded-full bg-gray-200"
+          className="h-2 overflow-hidden border border-ink bg-paper"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(progress * 100)}
         >
           <div
-            className="h-full bg-cyan-500 transition-[width]"
+            className="h-full bg-ink transition-[width]"
             style={{ width: `${(progress * 100).toFixed(1)}%` }}
           />
         </div>
       )}
 
       {error && (
-        <p role="alert" className={errorClass}>
+        <Note tone="error" role="alert">
           {error}
-        </p>
+        </Note>
       )}
 
       {result && (
-        <div
-          role="status"
-          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
-        >
+        <Note role="status" className="bg-paper">
           <p>
             書き出しました（{(result.elapsedMs / 1000).toFixed(1)}{' '}
-            秒・実時間の約{' '}
+            秒。実時間の約{' '}
             {Math.round(
               result.audioSeconds / Math.max(result.elapsedMs / 1000, 0.001),
             )}{' '}
             倍速）
           </p>
-          <ul className="mt-1 text-xs">
+          <ul className="mt-1 text-xs break-all">
             {result.outputs.map((output) => (
               <li key={output.fileName}>
-                {output.fileName} — {formatBytes(output.bytes)}
+                {output.fileName}（{formatBytes(output.bytes)}）
               </li>
             ))}
           </ul>
           {result.encoderNote && (
-            <p className="mt-1 text-xs text-emerald-800/70">
-              {result.encoderNote}
-            </p>
+            <p className="mt-1 text-xs text-ink-muted">{result.encoderNote}</p>
           )}
-        </div>
+        </Note>
       )}
-    </div>
+    </Panel>
   )
 }

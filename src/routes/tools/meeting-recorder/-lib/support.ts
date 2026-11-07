@@ -21,7 +21,7 @@ export function checkSupport(): SupportCheck {
   } else if (!media.getSupportedConstraints().suppressLocalAudioPlayback) {
     // 「共有した音声を取れるか」は直接は調べられない。タブ音声キャプチャと
     // 同時期に Chromium だけが実装した制約の有無を目安にする
-    missing.push('タブ / システム音声のキャプチャ')
+    missing.push('タブやシステム音声のキャプチャ')
   }
   if (typeof AudioWorkletNode === 'undefined') missing.push('AudioWorklet')
   if (typeof AudioEncoder === 'undefined') {

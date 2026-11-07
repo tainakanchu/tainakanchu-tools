@@ -291,47 +291,40 @@ const ICONS = {
 type IconName = keyof typeof ICONS
 
 // ---------------------------------------------------------------------------
-// パレット: main / sub(teal) / accent(rose)。シーン配置の color キーに対応。
+// パレット: main(青インク) / sub(Riso Teal) / accent(蛍光ピンク)。シーン配置の color キーに対応。
+// サイト共通の配色（src/styles.css の @theme / docs/design.md）に揃えている。
 // ---------------------------------------------------------------------------
 const PALETTE = {
-  main: '#0f172a',
-  sub: '#0891b2',
-  accent: '#f43f5e',
+  main: '#1D3A8A',
+  sub: '#00838A',
+  accent: '#FF48B0',
 } as const
 
 type PaletteKey = keyof typeof PALETTE
 
 // ---------------------------------------------------------------------------
-// ダーク専用トークン（ライト版は運用しない）
+// 紙とインク（riso 印刷の 2 色刷り。影・グラデーションは使わない）
 // ---------------------------------------------------------------------------
-const DARK = {
-  bg: {
-    base: '#0f172a',
-    radial: '#1e293b',
-  },
-  titleFill: '#f8fafc',
-  eyebrowFill: '#cbd5e1',
-  domainFill: '#94a3b8',
-  hexStroke: '#22d3ee',
-  hexStrokeOpacity: 0.22,
-  hexFillSmall: '#22d3ee',
-  hexFillSmallOpacity: 0.16,
-  cardStroke: '#22d3ee',
+const PAPER = {
+  bg: '#FFFFFF',
+  ink: '#1D3A8A',
+  inkMuted: '#566BA7',
+  rule: '#CDD4E5',
+  pink: '#FF48B0',
 } as const
 
 // ---------------------------------------------------------------------------
-// 背景装飾: flat-top 六角形（上下端からはみ出す配置）
+// 罫: ノートのように青インクの細罫を上下に 1 本ずつ
 // ---------------------------------------------------------------------------
-const HEXAGONS = [
-  { cx: 640, cy: 40, r: 180, mode: 'stroke' as const },
-  { cx: 185, cy: 555, r: 110, mode: 'stroke' as const },
-  { cx: 600, cy: 150, r: 34, mode: 'fill' as const },
-]
+const RULES = { top: 140, bottom: 510, x1: 88, x2: 1112 }
+
+/** カードの背後にずらして置くピンクの版（版ズレ） */
+const MISREG = 12
 
 // ---------------------------------------------------------------------------
 // ツールカード共通レイアウト
 // ---------------------------------------------------------------------------
-const CARD = { cx: 940, cy: 315, size: 400, rx: 48, rotate: -4 }
+const CARD = { cx: 940, cy: 315, size: 400, rx: 6, rotate: -4 }
 
 // ---------------------------------------------------------------------------
 // シーン定義（プレゼンテーション用。改行位置やアイコン配置はここだけがソース）
@@ -742,44 +735,22 @@ function iconGroup(opts: {
   return `<g transform="${transform}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</g>`
 }
 
-/** flat-top 正六角形の点列 */
-function hexPoints(cx: number, cy: number, r: number): string {
-  const pts: Array<string> = []
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i)
-    pts.push(
-      `${(cx + r * Math.cos(angle)).toFixed(2)},${(cy + r * Math.sin(angle)).toFixed(2)}`,
-    )
-  }
-  return pts.join(' ')
-}
-
-function renderHexagons(): string {
-  return HEXAGONS.map((h) => {
-    const points = hexPoints(h.cx, h.cy, h.r)
-    if (h.mode === 'stroke') {
-      return `<polygon points="${points}" fill="none" stroke="${DARK.hexStroke}" stroke-opacity="${DARK.hexStrokeOpacity}" stroke-width="3"/>`
-    }
-    return `<polygon points="${points}" fill="${DARK.hexFillSmall}" fill-opacity="${DARK.hexFillSmallOpacity}"/>`
-  }).join('')
+function renderRules(): string {
+  const { top, bottom, x1, x2 } = RULES
+  return `<line x1="${x1}" y1="${top}" x2="${x2}" y2="${top}" stroke="${PAPER.ink}" stroke-width="3"/><line x1="${x1}" y1="${bottom}" x2="${x2}" y2="${bottom}" stroke="${PAPER.ink}" stroke-width="3"/>`
 }
 
 function renderBackground(): string {
-  return `<rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" fill="${DARK.bg.base}"/><rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" fill="url(#bgRadial)"/>`
-}
-
-function renderBackgroundDefs(): string {
-  return `<radialGradient id="bgRadial" cx="0%" cy="0%" r="75%">
-    <stop offset="0%" stop-color="${DARK.bg.radial}" stop-opacity="0.6"/>
-    <stop offset="100%" stop-color="${DARK.bg.radial}" stop-opacity="0"/>
-  </radialGradient>`
+  return `<rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" fill="${PAPER.bg}"/>`
 }
 
 function renderCard(): string {
   const { cx, cy, size, rx, rotate } = CARD
   const x = cx - size / 2
   const y = cy - size / 2
-  return `<rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${rx}" fill="#ffffff" stroke="${DARK.cardStroke}" stroke-width="3" filter="url(#cardShadow)" transform="rotate(${rotate} ${cx} ${cy})"/>`
+  const transform = `rotate(${rotate} ${cx} ${cy})`
+  // 背後のピンクの版を右下へずらし、面は白・線は青インクで刷る
+  return `<g transform="${transform}"><rect x="${x + MISREG}" y="${y + MISREG}" width="${size}" height="${size}" rx="${rx}" fill="${PAPER.pink}"/><rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${rx}" fill="${PAPER.bg}" stroke="${PAPER.ink}" stroke-width="5"/></g>`
 }
 
 /** site カード用: アバターを角丸正方形で切り抜く */
@@ -807,7 +778,7 @@ function renderScene(card: CardDef, avatarBase64: string): string {
         return avatarSquareGroup({
           ...placement,
           avatarBase64,
-          strokeColor: DARK.cardStroke,
+          strokeColor: PAPER.ink,
         })
       }
       return iconGroup({
@@ -824,7 +795,7 @@ function renderTitle(card: CardDef): string {
   const tspans = card.titleLines
     .map((line) => `<tspan x="88" y="${line.y}">${line.text}</tspan>`)
     .join('')
-  return `<text font-family="${FONT_TITLE}" font-weight="900" font-size="${card.titleFontSize}" fill="${DARK.titleFill}">${tspans}</text>`
+  return `<text font-family="${FONT_TITLE}" font-weight="900" font-size="${card.titleFontSize}" fill="${PAPER.ink}">${tspans}</text>`
 }
 
 function renderSvg(card: CardDef, avatarBase64: string): string {
@@ -836,25 +807,21 @@ function renderSvg(card: CardDef, avatarBase64: string): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
   <defs>
-    ${renderBackgroundDefs()}
     <clipPath id="avatarClip"><circle cx="118" cy="88" r="30"/></clipPath>
-    <filter id="cardShadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.15"/>
-    </filter>
   </defs>
 
   ${renderBackground()}
-  ${renderHexagons()}
+  ${renderRules()}
 
   <!-- Eyebrow: avatar + brand name -->
   ${showEyebrowAvatar ? `<image href="data:image/png;base64,${avatarBase64}" x="88" y="58" width="60" height="60" clip-path="url(#avatarClip)" preserveAspectRatio="xMidYMid slice"/>` : ''}
-  <text x="${eyebrowTextX}" y="97" font-family="${eyebrowFontFamily}" font-weight="700" font-size="27" letter-spacing="2px" fill="${DARK.eyebrowFill}">${eyebrowText}</text>
+  <text x="${eyebrowTextX}" y="97" font-family="${eyebrowFontFamily}" font-weight="700" font-size="27" letter-spacing="2px" fill="${PAPER.ink}">${eyebrowText}</text>
 
   <!-- Title -->
   ${renderTitle(card)}
 
   <!-- Domain -->
-  <text x="90" y="562" font-family="${FONT_MONO}" font-size="23" letter-spacing="1px" fill="${DARK.domainFill}">${new URL(SITE_ORIGIN).host}</text>
+  <text x="90" y="562" font-family="${FONT_MONO}" font-size="23" letter-spacing="1px" fill="${PAPER.inkMuted}">${new URL(SITE_ORIGIN).host}</text>
 
   <!-- Tool card signature -->
   ${renderCard()}

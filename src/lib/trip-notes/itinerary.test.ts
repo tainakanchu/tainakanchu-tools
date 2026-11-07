@@ -282,7 +282,7 @@ describe('findItineraryIssues: 4 種類の不整合', () => {
       fromLabel: 'パリ',
       toLabel: 'ローマ',
     })
-    expect(issues[0].message).toContain('パリ → ローマ')
+    expect(issues[0].message).toContain('パリからローマへの移動')
     expect(issues[0].message).toContain('移動を追加')
   })
 

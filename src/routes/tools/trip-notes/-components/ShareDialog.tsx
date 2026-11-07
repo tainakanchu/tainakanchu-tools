@@ -13,17 +13,12 @@
  */
 
 import { useEffect, useId, useState } from 'react'
-import { Check, Copy, Loader2, Share2, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import QRCode from 'qrcode'
+import { Button, Dialog, Note, Switch } from '../../../../components/ui'
 import { QR_SAFE_BYTES, buildShare } from '../../../../lib/trip-notes/share'
 import { copyText } from '../-lib/format'
-import { useDialogFocus } from '../-lib/focusTrap'
-import {
-  fieldClass,
-  iconButtonClass,
-  primaryButtonClass,
-  subtleButtonClass,
-} from '../-lib/styles'
+import { fieldClass, iconButtonClass } from '../-lib/styles'
 import type { TripNotesState } from '../../../../lib/trip-notes/types'
 
 interface ShareDialogProps {
@@ -39,13 +34,11 @@ type ShareResult =
 export function ShareDialog({ state, onClose }: ShareDialogProps) {
   const titleId = useId()
   const urlInputId = useId()
-  const kanjiToggleId = useId()
 
   const [result, setResult] = useState<ShareResult>({ status: 'loading' })
   const [copied, setCopied] = useState(false)
   // 漢字URLはネタなので既定はオフ。明示的に選んだときだけ marker '3' で作る
   const [kanji, setKanji] = useState(false)
-  const panelRef = useDialogFocus<HTMLDivElement>({ onClose })
   const shareSupported =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
@@ -125,169 +118,142 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      onClose={onClose}
+      labelledBy={titleId}
+      className="max-h-[90vh] max-w-md overflow-y-auto p-5"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
-      >
-        <div className="flex items-center justify-between">
-          <h2 id={titleId} className="text-base font-semibold text-gray-800">
-            共有URL
-          </h2>
-          <button
-            type="button"
-            aria-label="閉じる"
-            className={iconButtonClass}
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
+      <div className="flex items-center justify-between">
+        <h2 id={titleId} className="dialog-title">
+          共有URL
+        </h2>
+        <button
+          type="button"
+          aria-label="閉じる"
+          className={iconButtonClass}
+          onClick={onClose}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      {result.status === 'loading' ? (
+        <div className="flex items-center gap-2 py-8 text-sm text-ink-muted">
+          <Loader2
+            size={18}
+            className="animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          共有URLを作成しています…
         </div>
+      ) : null}
 
-        {result.status === 'loading' ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-gray-600">
-            <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-            共有URLを作成しています…
-          </div>
-        ) : null}
+      {result.status === 'error' ? (
+        <Note tone="error" role="alert" className="mt-4">
+          共有URLを作れませんでした。時間をおいてもう一度試してください。
+        </Note>
+      ) : null}
 
-        {result.status === 'error' ? (
-          <p
-            role="alert"
-            className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-          >
-            共有URLの作成に失敗しました。時間をおいて再度お試しください。
-          </p>
-        ) : null}
-
-        {result.status === 'ready' ? (
-          <div className="mt-4 space-y-4">
-            <div>
-              <label htmlFor={urlInputId} className="sr-only">
-                共有URL
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id={urlInputId}
-                  type="text"
-                  readOnly
-                  value={result.url}
-                  onFocus={(e) => e.currentTarget.select()}
-                  className={`${fieldClass} font-mono text-xs`}
-                />
-                <button
-                  type="button"
-                  className={`${subtleButtonClass} shrink-0`}
-                  onClick={() => {
-                    void handleCopy()
-                  }}
-                >
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
-                  {copied ? 'コピー済み' : 'コピー'}
-                </button>
-              </div>
-            </div>
-
-            {result.qrDataUrl !== null ? (
-              <div className="flex flex-col items-center gap-2">
-                <img
-                  src={result.qrDataUrl}
-                  alt="共有URLのQRコード"
-                  className="h-48 w-48"
-                />
-                <p className="text-xs text-gray-500">
-                  同行者のスマホのカメラで読み取ってもらえます。
-                </p>
-              </div>
-            ) : null}
-
-            {result.qrDataUrl === null && !kanji ? (
-              <p
-                role="alert"
-                className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
-              >
-                予約が多いためQRコードは使えません(
-                {result.size.toLocaleString('ja-JP')}文字)。
-                URLをコピーして共有してください。
-              </p>
-            ) : null}
-
-            {shareSupported ? (
-              <button
-                type="button"
-                className={`${primaryButtonClass} w-full`}
+      {result.status === 'ready' ? (
+        <div className="mt-4 space-y-4">
+          <div>
+            <label htmlFor={urlInputId} className="sr-only">
+              共有URL
+            </label>
+            <div className="flex gap-2">
+              <input
+                id={urlInputId}
+                type="text"
+                readOnly
+                value={result.url}
+                onFocus={(e) => e.currentTarget.select()}
+                className={`${fieldClass} min-w-0 text-xs`}
+              />
+              <Button
+                size="sm"
+                className="shrink-0"
                 onClick={() => {
-                  void handleShare()
+                  void handleCopy()
                 }}
               >
-                <Share2 size={16} />
-                共有する
-              </button>
-            ) : null}
+                {copied ? 'コピー済み' : 'コピー'}
+              </Button>
+            </div>
+          </div>
 
-            <div className="rounded-lg border border-gray-200 px-3 py-2">
-              <label
-                htmlFor={kanjiToggleId}
-                className="flex items-center gap-2 text-sm text-gray-700"
-              >
-                <input
-                  id={kanjiToggleId}
-                  type="checkbox"
-                  checked={kanji}
-                  onChange={(e) => setKanji(e.currentTarget.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                />
-                URLを漢字にする(ネタ)
-              </label>
-              <p className="mt-1 text-xs text-gray-500">
-                同じ内容を漢字だけで書き表します。文字数は半分以下になりますが、
-                実際に送れる量が増えるわけではありません。
+          {result.qrDataUrl !== null ? (
+            <div className="flex flex-col items-center gap-2">
+              <img
+                src={result.qrDataUrl}
+                alt="共有URLのQRコード"
+                className="h-48 w-48"
+              />
+              <p className="text-xs text-ink-muted">
+                同行者のスマホのカメラで読み取ってもらえます。
               </p>
             </div>
+          ) : null}
 
-            {kanji ? (
-              <ul
-                role="alert"
-                className="list-disc space-y-1 rounded-lg bg-amber-50 px-3 py-2 pl-7 text-xs text-amber-900"
-              >
+          {result.qrDataUrl === null && !kanji ? (
+            <Note role="alert">
+              予約が多いためQRコードは使えません(
+              {result.size.toLocaleString('ja-JP')}文字)。
+              URLをコピーして共有してください。
+            </Note>
+          ) : null}
+
+          {shareSupported ? (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                void handleShare()
+              }}
+            >
+              共有する
+            </Button>
+          ) : null}
+
+          <div className="border-t border-rule pt-3">
+            <Switch
+              label="URLを漢字にする(ネタ)"
+              checked={kanji}
+              onChange={setKanji}
+              className="w-full"
+            />
+            <p className="mt-1 text-xs text-ink-muted">
+              同じ内容を漢字だけで書き表します。文字数は半分以下になりますが、
+              実際に送れる量が増えるわけではありません。
+            </p>
+          </div>
+
+          {kanji ? (
+            <Note tone="warn" role="alert" className="text-xs">
+              <ul className="list-disc space-y-1 pl-4">
                 <li>LINEなどでリンクが途中で切れることがあります。</li>
                 <li>
-                  ブラウザのアドレスバーからコピーすると
-                  <span className="font-mono">%E8%B2%9E…</span>
-                  のような形式に戻ります。このダイアログのコピーボタンを使ってください。
+                  ブラウザのアドレスバーからコピーすると「%E8%B2%9E…」のような形式に戻ります。このダイアログのコピーボタンを使ってください。
                 </li>
                 <li>
                   SMSでは送らないでください(文字数制限が一気に厳しくなります)。
                 </li>
                 <li>QRコードは作れません。</li>
               </ul>
-            ) : null}
+            </Note>
+          ) : null}
 
-            <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-900">
-              このURLを自分にLINEやメールで送っておくと、端末のデータが消えても
-              復元できます。iOSのSafariは7日間開かなかったサイトのデータを
-              消すことがあるため、旅行直前に限らず今のうちに送っておくと安心です。
-            </p>
-          </div>
-        ) : null}
+          <p className="text-xs text-ink-muted">
+            このURLを自分にLINEやメールで送っておくと、端末のデータが消えても
+            復元できます。iOSのSafariは7日間開かなかったサイトのデータを
+            消すことがあるため、旅行直前に限らず今のうちに送っておくと安心です。
+          </p>
+        </div>
+      ) : null}
 
-        <button
-          type="button"
-          className={`${subtleButtonClass} mt-4 w-full`}
-          onClick={onClose}
-        >
-          閉じる
-        </button>
-      </div>
-    </div>
+      <Button size="sm" className="mt-4 w-full" onClick={onClose}>
+        閉じる
+      </Button>
+    </Dialog>
   )
 }
