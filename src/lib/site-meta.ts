@@ -106,6 +106,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
   },
   // イベント
   {
+    slug: 'timetable',
+    name: 'マイタイムテーブル',
+    description:
+      'フェスやイベントの公式タイムテーブルを AI で取り込み、見たい出演だけの自分用タイムテーブルを作れるツール。',
+    path: '/tools/timetable',
+    ogImagePath: '/assets/og/timetable.png',
+    category: 'event',
+  },
+  {
     slug: 'drum-roll',
     name: 'ドラムロール',
     description:
@@ -161,7 +170,7 @@ const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
     'meeting-recorder',
     'magnify-image',
   ],
-  event: ['drum-roll', 'setlist-card', 'online-roulette'],
+  event: ['timetable', 'drum-roll', 'setlist-card', 'online-roulette'],
 }
 
 function sortByCategoryOrder(

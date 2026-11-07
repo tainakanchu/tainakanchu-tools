@@ -28,7 +28,7 @@ const FONT_MONO = "'Noto Sans Mono CJK JP', 'Noto Sans CJK JP'"
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,mic,headphones,audio-lines,disc-3,list-music,image}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,calendar-clock,music,mic,headphones,audio-lines,disc-3,list-music,image}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -219,6 +219,26 @@ const ICONS = {
           d: 'M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17',
         },
       ],
+    ],
+  },
+  'calendar-clock': {
+    all: [
+      ['path', { d: 'M16 14v2.2l1.6 1' }],
+      ['path', { d: 'M16 2v3' }],
+      [
+        'path',
+        { d: 'M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338' },
+      ],
+      ['path', { d: 'M3 9h5.859' }],
+      ['path', { d: 'M8 2v3' }],
+      ['circle', { cx: '16', cy: '16', r: '6' }],
+    ],
+  },
+  music: {
+    all: [
+      ['path', { d: 'M9 18V5l12-2v13' }],
+      ['circle', { cx: '6', cy: '18', r: '3' }],
+      ['circle', { cx: '18', cy: '16', r: '3' }],
     ],
   },
   palette: {
@@ -480,6 +500,43 @@ const CARDS: ReadonlyArray<CardDef> = [
         cx: 828,
         cy: 195,
         size: 76,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
+    slug: 'timetable',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'マイ', y: 300 },
+      { text: 'タイムテーブル', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'calendar-clock',
+        part: 'all',
+        cx: 940,
+        cy: 300,
+        size: 195,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'ticket',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 100,
+        rotate: -10,
+        color: 'sub',
+      },
+      {
+        icon: 'music',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 72,
         rotate: 0,
         color: 'accent',
       },

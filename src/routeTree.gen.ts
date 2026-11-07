@@ -17,6 +17,7 @@ import { Route as ToolsMeetingRecorderIndexRouteImport } from './routes/tools/me
 import { Route as ToolsRisographIndexRouteImport } from './routes/tools/risograph/index'
 import { Route as ToolsSetlistCardIndexRouteImport } from './routes/tools/setlist-card/index'
 import { Route as ToolsTaiwanArrivalCardIndexRouteImport } from './routes/tools/taiwan-arrival-card/index'
+import { Route as ToolsTimetableIndexRouteImport } from './routes/tools/timetable/index'
 import { Route as ToolsTripNotesIndexRouteImport } from './routes/tools/trip-notes/index'
 import { Route as ToolsTripSchedulerIndexRouteImport } from './routes/tools/trip-scheduler/index'
 
@@ -63,6 +64,11 @@ const ToolsTaiwanArrivalCardIndexRoute =
     path: '/tools/taiwan-arrival-card/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ToolsTimetableIndexRoute = ToolsTimetableIndexRouteImport.update({
+  id: '/tools/timetable/',
+  path: '/tools/timetable/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsTripNotesIndexRoute = ToolsTripNotesIndexRouteImport.update({
   id: '/tools/trip-notes/',
   path: '/tools/trip-notes/',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/tools/risograph/': typeof ToolsRisographIndexRoute
   '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
+  '/tools/timetable/': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/tools/risograph': typeof ToolsRisographIndexRoute
   '/tools/setlist-card': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card': typeof ToolsTaiwanArrivalCardIndexRoute
+  '/tools/timetable': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler': typeof ToolsTripSchedulerIndexRoute
 }
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/tools/risograph/': typeof ToolsRisographIndexRoute
   '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
+  '/tools/timetable/': typeof ToolsTimetableIndexRoute
   '/tools/trip-notes/': typeof ToolsTripNotesIndexRoute
   '/tools/trip-scheduler/': typeof ToolsTripSchedulerIndexRoute
 }
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/tools/risograph/'
     | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
+    | '/tools/timetable/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
   fileRoutesByTo: FileRoutesByTo
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/tools/risograph'
     | '/tools/setlist-card'
     | '/tools/taiwan-arrival-card'
+    | '/tools/timetable'
     | '/tools/trip-notes'
     | '/tools/trip-scheduler'
   id:
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/tools/risograph/'
     | '/tools/setlist-card/'
     | '/tools/taiwan-arrival-card/'
+    | '/tools/timetable/'
     | '/tools/trip-notes/'
     | '/tools/trip-scheduler/'
   fileRoutesById: FileRoutesById
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   ToolsRisographIndexRoute: typeof ToolsRisographIndexRoute
   ToolsSetlistCardIndexRoute: typeof ToolsSetlistCardIndexRoute
   ToolsTaiwanArrivalCardIndexRoute: typeof ToolsTaiwanArrivalCardIndexRoute
+  ToolsTimetableIndexRoute: typeof ToolsTimetableIndexRoute
   ToolsTripNotesIndexRoute: typeof ToolsTripNotesIndexRoute
   ToolsTripSchedulerIndexRoute: typeof ToolsTripSchedulerIndexRoute
 }
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsTaiwanArrivalCardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools/timetable/': {
+      id: '/tools/timetable/'
+      path: '/tools/timetable'
+      fullPath: '/tools/timetable/'
+      preLoaderRoute: typeof ToolsTimetableIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools/trip-notes/': {
       id: '/tools/trip-notes/'
       path: '/tools/trip-notes'
@@ -247,6 +267,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsRisographIndexRoute: ToolsRisographIndexRoute,
   ToolsSetlistCardIndexRoute: ToolsSetlistCardIndexRoute,
   ToolsTaiwanArrivalCardIndexRoute: ToolsTaiwanArrivalCardIndexRoute,
+  ToolsTimetableIndexRoute: ToolsTimetableIndexRoute,
   ToolsTripNotesIndexRoute: ToolsTripNotesIndexRoute,
   ToolsTripSchedulerIndexRoute: ToolsTripSchedulerIndexRoute,
 }
