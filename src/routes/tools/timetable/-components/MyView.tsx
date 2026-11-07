@@ -4,6 +4,7 @@
  */
 
 import { venueColor } from '../../../../lib/timetable/colors'
+import { Txt } from '@/components/Txt'
 import { actTimeText, buildMyTimeline } from '../../../../lib/timetable/derive'
 import { formatDateLabel, formatDuration } from '../../../../lib/timetable/time'
 import { FavButton, FriendTags } from './FavButton'
@@ -19,8 +20,8 @@ interface MyViewProps {
 }
 
 function GapRow({ gap }: { gap: MyGap }) {
-  const from = gap.fromVenue?.name ?? '前の会場'
-  const to = gap.toVenue?.name ?? '次の会場'
+  const from = gap.fromVenue ? <Txt text={gap.fromVenue.name} /> : '前の会場'
+  const to = gap.toVenue ? <Txt text={gap.toVenue.name} /> : '次の会場'
   const assumed = gap.endAssumed
     ? '(前の出演の終了時刻が不明なので30分で計算)'
     : ''
@@ -36,9 +37,15 @@ function GapRow({ gap }: { gap: MyGap }) {
       <p className="border-l-4 border-amber-500 bg-amber-50 px-2 py-1 text-sm text-amber-950">
         <span className="font-semibold">間に合わない可能性</span>: 空き{' '}
         {formatDuration(gap.freeMinutes)}、
-        {gap.travelMinutes === null
-          ? `別会場(${from} から ${to}、移動時間は未登録)`
-          : `${from} から ${to} へ移動 ${formatDuration(gap.travelMinutes)}`}
+        {gap.travelMinutes === null ? (
+          <>
+            別会場({from} から {to}、移動時間は未登録)
+          </>
+        ) : (
+          <>
+            {from} から {to} へ移動 {formatDuration(gap.travelMinutes)}
+          </>
+        )}
         {assumed}
       </p>
     )
@@ -47,9 +54,15 @@ function GapRow({ gap }: { gap: MyGap }) {
     return (
       <p className="px-2 py-1 text-sm text-gray-700">
         空き {formatDuration(gap.freeMinutes)}。
-        {gap.travelMinutes === null
-          ? `会場移動あり(${from} から ${to})`
-          : `${from} から ${to} へ移動 ${formatDuration(gap.travelMinutes)}`}
+        {gap.travelMinutes === null ? (
+          <>
+            会場移動あり({from} から {to})
+          </>
+        ) : (
+          <>
+            {from} から {to} へ移動 {formatDuration(gap.travelMinutes)}
+          </>
+        )}
         {assumed}
       </p>
     )
@@ -101,7 +114,9 @@ export function MyView({
             <h3 className="flex flex-wrap items-baseline gap-x-3 border-b-2 border-gray-900 px-1 pb-0.5 text-base font-bold text-gray-900">
               {formatDateLabel(day.date)}
               {day.label && (
-                <span className="text-sm font-normal">{day.label}</span>
+                <span className="text-sm font-normal">
+                  <Txt text={day.label} />
+                </span>
               )}
               <span className="text-sm font-normal text-gray-700">
                 {items.length} 組
@@ -132,7 +147,7 @@ export function MyView({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-gray-900">
-                          {act.title}
+                          <Txt text={act.title} />
                         </p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
                           <span
@@ -142,16 +157,18 @@ export function MyView({
                               color: color.text,
                             }}
                           >
-                            {venue?.name ?? '会場不明'}
+                            {venue ? <Txt text={venue.name} /> : '会場不明'}
                           </span>
                           {act.subtitle && (
                             <span className="text-gray-700">
-                              {act.subtitle}
+                              <Txt text={act.subtitle} />
                             </span>
                           )}
                         </p>
                         {act.note && (
-                          <p className="text-xs text-amber-800">{act.note}</p>
+                          <p className="text-xs text-amber-800">
+                            <Txt text={act.note} />
+                          </p>
                         )}
                         <FriendTags names={names} />
                       </div>

@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { btn, btnDanger } from '../-lib/ui'
 
 interface ConfirmDialogProps {
   title: string
-  message: string
+  message: ReactNode
   confirmLabel: string
   onConfirm: () => void
   onCancel: () => void

@@ -1,3 +1,5 @@
+import { Txt } from '@/components/Txt'
+
 /** お気に入りの切り替え。状態は aria-pressed と ★/☆ の形で示す */
 export function FavButton({
   pressed,
@@ -35,7 +37,7 @@ export function FriendTags({ names }: { names: ReadonlyArray<string> }) {
           key={name}
           className="rounded-sm border border-dashed border-gray-800 px-1 text-[11px] leading-4 text-gray-900"
         >
-          {name}
+          <Txt text={name} />
         </span>
       ))}
     </span>

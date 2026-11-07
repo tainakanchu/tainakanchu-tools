@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseSetlistBuffer, parseSetlistText } from './parse'
 import { looksLikeM3u, parseM3u, titleFromPath } from './parse-m3u'
-import { pairScripts } from './script'
+import { pairScripts } from '@/lib/cjk/script'
 import m3u8 from './__fixtures__/rekordbox-playlist.m3u8?raw'
 
 const tracksOf = (text: string, fileName?: string) =>

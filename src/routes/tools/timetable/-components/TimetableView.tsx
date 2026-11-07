@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Txt } from '@/components/Txt'
 import { liveDay } from '../../../../lib/timetable/derive'
 import { remapActIds } from '../../../../lib/timetable/favorites'
 import {
@@ -194,7 +195,7 @@ export function TimetableView({
             className="min-w-0 flex-1 truncate text-base font-bold"
             title={doc.title}
           >
-            {doc.title}
+            <Txt text={doc.title} />
           </h1>
           <button
             type="button"
@@ -360,7 +361,12 @@ export function TimetableView({
       {confirmDelete && (
         <ConfirmDialog
           title="タイムテーブルを削除しますか"
-          message={`「${doc.title}」と、そのお気に入り・友達の選択をこの端末から消します。元に戻せません。`}
+          message={
+            <>
+              「<Txt text={doc.title} />
+              」と、そのお気に入り・友達の選択をこの端末から消します。元に戻せません。
+            </>
+          }
           confirmLabel="削除する"
           onConfirm={() => {
             setConfirmDelete(false)

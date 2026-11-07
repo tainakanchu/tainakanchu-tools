@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Txt } from '@/components/Txt'
 import { formatDateLabel } from '../../../../lib/timetable/time'
 import { btn, btnDanger, btnPrimary } from '../-lib/ui'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -69,7 +70,7 @@ export function LibraryView({
                   className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-cyan-600"
                 >
                   <span className="block truncate font-bold text-cyan-900 underline-offset-2 hover:underline">
-                    {entry.doc.title}
+                    <Txt text={entry.doc.title} />
                   </span>
                   <span className="block text-sm tabular-nums text-gray-700">
                     {summary(entry.doc)}
@@ -117,7 +118,12 @@ export function LibraryView({
       {deleting && (
         <ConfirmDialog
           title="タイムテーブルを削除しますか"
-          message={`「${deleting.doc.title}」と、そのお気に入り・友達の選択をこの端末から消します。元に戻せません。`}
+          message={
+            <>
+              「<Txt text={deleting.doc.title} />
+              」と、そのお気に入り・友達の選択をこの端末から消します。元に戻せません。
+            </>
+          }
           confirmLabel="削除する"
           onConfirm={() => {
             onDelete(deleting.id)

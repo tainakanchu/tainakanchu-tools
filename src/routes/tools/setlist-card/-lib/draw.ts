@@ -17,7 +17,7 @@ import {
   parseFont,
   withScript,
 } from './fonts'
-import { detectScript } from './script'
+import { detectScript } from '@/lib/cjk/script'
 import type { Measure, Rect } from './fit'
 import type { FontOpts } from './fonts'
 import type { FontFamily } from './layouts'

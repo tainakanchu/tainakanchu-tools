@@ -6,6 +6,7 @@
  */
 
 import { actTimeText } from '../../../../lib/timetable/derive'
+import { Txt } from '@/components/Txt'
 import { formatDateLabel } from '../../../../lib/timetable/time'
 import { FavButton, FriendTags } from './FavButton'
 import type {
@@ -43,15 +44,23 @@ export function ActDetail({
           <p className="text-xs text-gray-700" aria-live="polite">
             {fav ? 'お気に入りに入れました' : 'お気に入りではありません'}
           </p>
-          <p className="text-base font-bold leading-snug">{act.title}</p>
+          <p className="text-base font-bold leading-snug">
+            <Txt text={act.title} />
+          </p>
           <p className="text-sm tabular-nums text-gray-800">
             {day ? formatDateLabel(day.date) : ''} {actTimeText(act)}{' '}
-            {venue?.name}
+            <Txt text={venue?.name} />
           </p>
           {act.subtitle && (
-            <p className="text-sm text-gray-700">{act.subtitle}</p>
+            <p className="text-sm text-gray-700">
+              <Txt text={act.subtitle} />
+            </p>
           )}
-          {act.note && <p className="text-sm text-amber-800">{act.note}</p>}
+          {act.note && (
+            <p className="text-sm text-amber-800">
+              <Txt text={act.note} />
+            </p>
+          )}
           {act.url && (
             <a
               href={act.url}

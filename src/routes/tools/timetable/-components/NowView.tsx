@@ -4,6 +4,7 @@
  */
 
 import { venueColor } from '../../../../lib/timetable/colors'
+import { Txt } from '@/components/Txt'
 import {
   actSpan,
   actTimeText,
@@ -77,14 +78,14 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-gray-900">
-                    {item.act.title}
+                    <Txt text={item.act.title} />
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-gray-700">
                     <span
                       className="rounded-sm px-1 font-semibold"
                       style={{ background: color.fill, color: color.text }}
                     >
-                      {venueName.get(item.act.venueId)}
+                      <Txt text={venueName.get(item.act.venueId)} />
                     </span>
                     <span className="tabular-nums">
                       {formatDateLabel(item.day.date)} {actTimeText(item.act)}
@@ -121,8 +122,8 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
           {formatDuration(wait)}
         </p>
         <p className="text-sm text-gray-700">
-          最初の出演: {state.firstAct.title}(
-          {venueName.get(state.firstAct.venueId)})
+          最初の出演: <Txt text={state.firstAct.title} />(
+          <Txt text={venueName.get(state.firstAct.venueId)} />)
         </p>
         <p className="mt-1 text-xs text-gray-600">
           時刻は {doc.timezone}{' '}
@@ -182,7 +183,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                       className="inline-block rounded-sm px-1 text-xs font-bold"
                       style={{ background: color.fill, color: color.text }}
                     >
-                      {venue.name}
+                      <Txt text={venue.name} />
                     </span>
                   </th>
                   {finished ? (
@@ -202,7 +203,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                               }
                             >
                               {favorites.has(current.id) && '★ '}
-                              {current.title}
+                              <Txt text={current.title} />
                             </span>
                             <span className="block text-xs whitespace-nowrap tabular-nums text-gray-700">
                               残り{' '}
@@ -224,7 +225,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                               }
                             >
                               {favorites.has(next.id) && '★ '}
-                              {next.title}
+                              <Txt text={next.title} />
                             </span>
                             <span className="block text-xs tabular-nums text-gray-700">
                               <span className="whitespace-nowrap">

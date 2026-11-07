@@ -35,6 +35,46 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+ * 中国語・韓国語の文字列（lang 付きの要素）は、その言語の書体を先頭に回す。
+ * ページは lang="ja" なので、日本語の書体に無い字（簡体字の 乐 队 动 など）だけが
+ * 1 文字ずつ別の書体に置き換わり、同じ名前の中で字のデザインが混ざってしまう。
+ * 欧文は先頭の欧文書体のまま、漢字・ハングルは文字列ごとに 1 つの書体で描く。
+ * lang 属性の付いた要素だけに当て、子孫には font-family の継承で伝える
+ * （code など独自の書体を持つ子孫はそのまま）。lang の無い日本語の表示は変えない。
+ */
+[lang]:lang(zh),
+[lang]:lang(zh-Hans),
+[lang]:lang(zh-CN),
+[lang]:lang(zh-SG) {
+  font-family:
+    'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', 'Source Han Sans SC',
+    sans-serif;
+}
+
+[lang]:lang(zh-Hant),
+[lang]:lang(zh-TW),
+[lang]:lang(zh-HK),
+[lang]:lang(zh-MO) {
+  font-family:
+    'Helvetica Neue', Arial, 'PingFang TC', 'Microsoft JhengHei',
+    'Noto Sans TC', 'Noto Sans CJK TC', 'Source Han Sans TC', sans-serif;
+}
+
+[lang]:lang(ko) {
+  font-family:
+    'Helvetica Neue', Arial, 'Apple SD Gothic Neo', 'Malgun Gothic',
+    'Noto Sans KR', 'Noto Sans CJK KR', 'Source Han Sans K', sans-serif;
+}
+
+/* 中国語・韓国語の中に戻した日本語は、body と同じ日本語の書体に戻す */
+body [lang]:lang(ja) {
+  font-family:
+    'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+    'Noto Sans JP', Meiryo, sans-serif;
+}
+
 code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
