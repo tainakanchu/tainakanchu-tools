@@ -1,0 +1,148 @@
+[
+  {
+    "id": "legacy-taichung",
+    "name": "Legacy Taichung 傳音樂空間",
+    "nameZh": "傳音樂空間",
+    "city": "taichung",
+    "location": {
+      "lat": 24.17664,
+      "lng": 120.62309
+    },
+    "categories": ["music"],
+    "tags": ["ライブハウス"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Legacy%20Taichung%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%B1%AF%E5%8D%80%E5%AE%89%E5%92%8C%E8%B7%AF117%E8%99%9F"
+  },
+  {
+    "id": "miyahara",
+    "name": "宮原眼科",
+    "city": "taichung",
+    "area": "taichung-station",
+    "location": {
+      "lat": 24.13785,
+      "lng": 120.68357
+    },
+    "categories": ["food", "shopping"],
+    "tags": ["アイス", "お土産"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%AE%AE%E5%8E%9F%E7%9C%BC%E7%A7%91%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E4%B8%AD%E5%8D%80%E4%B8%AD%E5%B1%B1%E8%B7%AF20%E8%99%9F",
+    "officialUrl": "https://www.miyahara.com.tw/"
+  },
+  {
+    "id": "fourth-credit-union",
+    "name": "第四信用合作社",
+    "city": "taichung",
+    "area": "taichung-station",
+    "location": {
+      "lat": 24.13899,
+      "lng": 120.68199
+    },
+    "categories": ["food"],
+    "tags": ["アイス"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E7%AC%AC%E5%9B%9B%E4%BF%A1%E7%94%A8%E5%90%88%E4%BD%9C%E7%A4%BE%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E4%B8%AD%E5%8D%80"
+  },
+  {
+    "id": "taichung-second-market",
+    "name": "台中第二市場",
+    "nameZh": "第二市場",
+    "city": "taichung",
+    "area": "taichung-station",
+    "location": {
+      "lat": 24.14238,
+      "lng": 120.67872
+    },
+    "categories": ["food"],
+    "tags": ["市場"],
+    "status": "visited",
+    "summary": "（TODO: かんちゅのコメント未記入）",
+    "visitedAt": "2023-12",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%8F%B0%E4%B8%AD%E7%AC%AC%E4%BA%8C%E5%B8%82%E5%A0%B4%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E4%B8%AD%E5%8D%80%E4%B8%89%E6%B0%91%E8%B7%AF%E4%BA%8C%E6%AE%B587%E8%99%9F"
+  },
+  {
+    "id": "coffee-stopover",
+    "name": "Coffee Stopover",
+    "city": "taichung",
+    "area": "qinmei-west",
+    "location": {
+      "lat": 24.14795,
+      "lng": 120.66804
+    },
+    "categories": ["drink"],
+    "tags": ["カフェ", "コーヒー", "台湾産の豆"],
+    "status": "visited",
+    "summary": "台湾産の豆も扱っているコーヒー屋さん。",
+    "visitedAt": "2026-04",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Coffee%20Stopover%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E6%B0%91%E6%AC%8A%E8%B7%AF217%E5%B7%B724%E8%99%9F"
+  },
+  {
+    "id": "shiyun-stone-hotpot",
+    "name": "食芸石頭火鍋",
+    "city": "taichung",
+    "area": "qinmei-west",
+    "location": {
+      "lat": 24.14812,
+      "lng": 120.66982
+    },
+    "categories": ["food"],
+    "tags": ["石頭火鍋", "火鍋"],
+    "status": "visited",
+    "summary": "好きな具材を自分で取って作れる石頭火鍋。何人かで行くときにおすすめ。",
+    "visitedAt": "2024-11",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%A3%9F%E8%8A%B8%E7%9F%B3%E9%A0%AD%E7%81%AB%E9%8D%8B%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E5%BE%8C%E9%BE%8D%E9%87%8C%E6%B0%91%E6%AC%8A%E8%B7%AF215%E8%99%9F2%E6%A8%93"
+  },
+  {
+    "id": "yuri-neiren-lurou-fan",
+    "name": "魚日內人炸蛋魯肉飯便當專賣店",
+    "city": "taichung",
+    "area": "qinmei-west",
+    "location": {
+      "lat": 24.1467,
+      "lng": 120.66757
+    },
+    "categories": ["food"],
+    "tags": ["魯肉飯", "弁当"],
+    "status": "visited",
+    "summary": "揚げ卵がのったルーローハンのお弁当屋さん。",
+    "visitedAt": "2025-05",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E9%AD%9A%E6%97%A5%E5%85%A7%E4%BA%BA%E7%82%B8%E8%9B%8B%E9%AD%AF%E8%82%89%E9%A3%AF%E4%BE%BF%E7%95%B6%E5%B0%88%E8%B3%A3%E5%BA%97%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E9%9B%99%E9%BE%8D%E9%87%8C%E5%90%91%E4%B8%8A%E8%B7%AF%E4%B8%80%E6%AE%B524%E8%99%9F"
+  },
+  {
+    "id": "capucine-patisserie",
+    "name": "橙花 Capucine Patisserie",
+    "city": "taichung",
+    "area": "qinmei-west",
+    "location": {
+      "lat": 24.15063,
+      "lng": 120.66477
+    },
+    "categories": ["food"],
+    "tags": ["ケーキ", "カフェ"],
+    "status": "visited",
+    "summary": "友達がやっているケーキ屋さん。",
+    "visitedAt": "2026-04",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E6%A9%99%E8%8A%B1%20Capucine%20Patisserie%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E9%9B%99%E9%BE%8D%E9%87%8C%E6%A8%A1%E7%AF%84%E8%A1%9734%E5%B7%B710%E8%99%9F1%E6%A8%93"
+  },
+  {
+    "id": "small-juancun-beef-noodles-meicun",
+    "name": "小眷村牛肉麵 美村店",
+    "city": "taichung",
+    "area": "qinmei-west",
+    "location": {
+      "lat": 24.15028,
+      "lng": 120.66158
+    },
+    "categories": ["food"],
+    "tags": ["牛肉麵", "眷村"],
+    "status": "visited",
+    "summary": "牛肉麺がおいしい。",
+    "visitedAt": "2023-12",
+    "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=%E5%B0%8F%E7%9C%B7%E6%9D%91%E7%89%9B%E8%82%89%E9%BA%B5%20%E7%BE%8E%E6%9D%91%E5%BA%97%20%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%8D%80%E7%BE%8E%E6%9D%91%E8%B7%AF%E4%B8%80%E6%AE%B5164%E5%B7%B714%E8%99%9F"
+  }
+]

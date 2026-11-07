@@ -7,6 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { ogPagesPlugin } from './scripts/vite-plugin-og-pages'
+import { taiwanMapDataPlugin } from './scripts/vite-plugin-taiwan-map-data.ts'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -17,6 +18,8 @@ export default defineConfig({
     }),
     viteReact(),
     tailwindcss(),
+    // 台湾マップの配信用 JSON を src/data/taiwan/ から生成する（dev は監視つき）
+    taiwanMapDataPlugin(),
     VitePWA({
       // 新しいデプロイを開いたら黙って更新する。「更新があります」バナーを
       // 出す手もあるが、このツール集には通知 UI の仕組みが無く、そのために
@@ -61,6 +64,25 @@ export default defineConfig({
         // 旅のしおりのデータは最初から localStorage にあってネットワークに
         // 出ないので、本体さえキャッシュできれば機内モードや圏外でも開ける。
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        // ただし「かんちゅの台湾マップ」の地図まわりは precache から外す。
+        // - assets/maplibre-*: maplibre-gl 本体（JS 約 1MB + CSS）。下の
+        //   build.rolldownOptions で決まった名前のチャンクにしている。
+        //   precache に入れると、このサイトを一度開いただけの人（台湾マップを
+        //   使わない人、台北の一覧しか見ない人）にまで地図ライブラリを裏で
+        //   落とさせてしまう。地図を実際に表示したときだけ取りに行けば十分で、
+        //   そもそも地図タイルはオフラインでは取れないので、JS だけキャッシュ
+        //   しても圏外では役に立たない。
+        // - assets/MapView-*: maplibre を包む React 部品の小さな遅延チャンク。
+        //   単体では使い道が無いので一緒に外す。
+        // - data/taiwan/**: 都市ごとに分けた配信用 JSON。見る都市のぶんだけ
+        //   読む設計なので、全都市ぶんを precache したら分けた意味が無くなる
+        //   （json は globPatterns に入っていないが、意図を明示しておく）。
+        //   見たことのある都市は下の runtimeCaching でオフラインでも開ける。
+        globIgnores: [
+          'assets/maplibre-*',
+          'assets/MapView-*',
+          'data/taiwan/**',
+        ],
         // Web会議レコーダーの書き出しワーカー (export.worker-*.js) も js なのでここで
         // precache される。MP3 エンコーダー (LAME の WASM を base64 で埋め込んだ JS) を
         // 同梱していて約 510KB (gzip 約 180KB) あるが、既定の上限
@@ -73,7 +95,18 @@ export default defineConfig({
         // autoUpdate で precache が入れ替わったとき、古い世代のキャッシュを
         // 残さない。
         cleanupOutdatedCaches: true,
-        // 外部から読むのはセトリ画像メーカーの Web フォント (Google Fonts) だけ。
+        // 実行時キャッシュは 2 種類。
+        //
+        // 1) 台湾マップの配信用 JSON。旅行中（圏外や不安定な回線）でも
+        // 「一度見た都市」はもう一度開けるようにする。NetworkFirst にしているのは、
+        // データを更新したのに古いコメントが出続けるのを避けたいから。回線が遅い
+        // ときは 3 秒で見切ってキャッシュを返す。正規表現は URL の途中にマッチする
+        // ので、別オリジンの URL には workbox の仕様上マッチしない（同一オリジンの
+        // /data/taiwan/ だけ）。地図タイル（tiles.openfreemap.org）はあえて
+        // キャッシュしない。量が読めない上に、利用規約上もブラウザの通常の HTTP
+        // キャッシュに任せるのが無難なため。
+        //
+        // 2) セトリ画像メーカーの Web フォント (Google Fonts)。
         // canvas の出力を端末の標準フォントに左右されないようにするために読む。
         // 一度読んだものはキャッシュに残して、オフラインでも同じ書体で描けるようにする
         // (読めないときは OS の書体に落ちる)。CSS は更新を拾えるよう
@@ -82,6 +115,15 @@ export default defineConfig({
         // 前後に分かれ (書体ごと)、中国語・韓国語の CSS は使うときだけ読むので、
         // 件数の上限は多めに取る。
         runtimeCaching: [
+          {
+            urlPattern: /\/data\/taiwan\/[a-z0-9-]+\.json$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'taiwan-map-data',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 16 },
+            },
+          },
           {
             urlPattern: ({ url }) =>
               url.origin === 'https://fonts.googleapis.com',
@@ -135,6 +177,24 @@ export default defineConfig({
     // オフライン時のツール URL 直開きは navigateFallback (/index.html) が拾う。
     ogPagesPlugin(),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          // maplibre-gl（JS と CSS）を必ず maplibre-*.js / maplibre-*.css という
+          // 名前のチャンクに隔離する。PWA の precache から名指しで外す
+          // （workbox.globIgnores）ために、読み込み元のファイル名に左右されない
+          // 決まった名前が要る。
+          groups: [
+            {
+              name: 'maplibre',
+              test: /node_modules[\\/]maplibre-gl[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
   optimizeDeps: {
     // mediabunny は Web会議レコーダーの書き出しワーカーからしか import されないので、
     // 開発サーバーの依存スキャンが初回の書き出し時まで気づかない。そのとき
