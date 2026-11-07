@@ -19,6 +19,7 @@
     "name": "鐵花村",
     "nameZh": "鐵花村",
     "city": "other",
+    "area": "taitung",
     "location": {
       "lat": 22.7535,
       "lng": 121.14634
@@ -35,6 +36,7 @@
     "name": "Mese Coffee 草月咖啡館",
     "nameZh": "草月咖啡館",
     "city": "other",
+    "area": "taitung",
     "location": {
       "lat": 22.75773,
       "lng": 121.15474
@@ -51,6 +53,7 @@
     "name": "東河包子 站前店",
     "nameZh": "東河包子",
     "city": "other",
+    "area": "taitung",
     "location": {
       "lat": 22.79355,
       "lng": 121.12331
@@ -82,6 +85,7 @@
     "name": "阿莫咖啡 A-more coffee",
     "nameZh": "阿莫咖啡",
     "city": "other",
+    "area": "hualien-city",
     "location": {
       "lat": 23.98761,
       "lng": 121.60185
@@ -97,6 +101,7 @@
     "id": "daduyu-noodles",
     "name": "大肚魚麵店",
     "city": "other",
+    "area": "hualien-city",
     "location": {
       "lat": 23.9734,
       "lng": 121.60754

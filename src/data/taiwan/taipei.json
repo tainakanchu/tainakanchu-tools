@@ -4,7 +4,7 @@
     "name": "SIDOLI RADIO 小島裡",
     "nameZh": "小島裡",
     "city": "taipei",
-    "area": "dadaocheng",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.05217,
       "lng": 121.51128
@@ -69,7 +69,7 @@
     "id": "lin-mao-sen-tea",
     "name": "林茂森茶行",
     "city": "taipei",
-    "area": "dadaocheng",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.06043,
       "lng": 121.5138
@@ -85,7 +85,7 @@
     "id": "lin-hua-tai-tea",
     "name": "林華泰茶行",
     "city": "taipei",
-    "area": "dadaocheng",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.06012,
       "lng": 121.51377
@@ -100,6 +100,7 @@
     "id": "stop-by-tea-house",
     "name": "串門子茶館",
     "city": "taipei",
+    "area": "yongkang-dongmen",
     "location": {
       "lat": 25.03023,
       "lng": 121.52935
@@ -117,6 +118,7 @@
     "name": "小白兔唱片 White Wabbit Records",
     "nameZh": "小白兔唱片",
     "city": "taipei",
+    "area": "shida-gongguan",
     "location": {
       "lat": 25.02429,
       "lng": 121.52716
@@ -134,6 +136,7 @@
     "name": "佳佳唱片 漢口店",
     "nameZh": "佳佳唱片",
     "city": "taipei",
+    "area": "taipei-station",
     "location": {
       "lat": 25.04525,
       "lng": 121.51466
@@ -151,6 +154,7 @@
     "name": "佳佳唱片 西門店",
     "nameZh": "佳佳唱片",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.04388,
       "lng": 121.50838
@@ -168,6 +172,7 @@
     "name": "Legacy Taipei 傳音樂展演空間",
     "nameZh": "傳音樂展演空間",
     "city": "taipei",
+    "area": "huashan-guanghua",
     "location": {
       "lat": 25.04501,
       "lng": 121.52941
@@ -183,6 +188,7 @@
     "id": "revolver",
     "name": "Revolver",
     "city": "taipei",
+    "area": "yongkang-dongmen",
     "location": {
       "lat": 25.03427,
       "lng": 121.51744
@@ -199,6 +205,7 @@
     "id": "guanghua-digital-plaza",
     "name": "光華數位新天地",
     "city": "taipei",
+    "area": "huashan-guanghua",
     "location": {
       "lat": 25.04513,
       "lng": 121.5321
@@ -215,6 +222,7 @@
     "id": "syntrend",
     "name": "三創生活園區",
     "city": "taipei",
+    "area": "huashan-guanghua",
     "location": {
       "lat": 25.0455,
       "lng": 121.5313
@@ -230,6 +238,7 @@
     "id": "huashan-1914",
     "name": "華山1914文化創意產業園區",
     "city": "taipei",
+    "area": "huashan-guanghua",
     "location": {
       "lat": 25.0441,
       "lng": 121.52934
@@ -245,6 +254,7 @@
     "id": "songshan-cultural-park",
     "name": "松山文創園區",
     "city": "taipei",
+    "area": "songshan-xinyi",
     "location": {
       "lat": 25.0441,
       "lng": 121.561
@@ -260,6 +270,7 @@
     "id": "eslite-nanxi",
     "name": "誠品生活南西",
     "city": "taipei",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.05212,
       "lng": 121.52065
@@ -275,6 +286,7 @@
     "id": "ningxia-night-market",
     "name": "寧夏夜市",
     "city": "taipei",
+    "area": "dadaocheng",
     "location": {
       "lat": 25.0565,
       "lng": 121.5154
@@ -290,6 +302,7 @@
     "id": "nanjichang-night-market",
     "name": "南機場夜市",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.0291,
       "lng": 121.5059
@@ -306,6 +319,7 @@
     "name": "城中市場 老牌牛肉拉麵大王",
     "nameZh": "老牌牛肉拉麵大王",
     "city": "taipei",
+    "area": "taipei-station",
     "location": {
       "lat": 25.04451,
       "lng": 121.51261
@@ -321,6 +335,7 @@
     "id": "fuhong-beef-noodles",
     "name": "富宏牛肉麵",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.04759,
       "lng": 121.50771
@@ -351,6 +366,7 @@
     "id": "jinfeng-braised-pork-rice",
     "name": "金峰魯肉飯",
     "city": "taipei",
+    "area": "yongkang-dongmen",
     "location": {
       "lat": 25.03203,
       "lng": 121.51851
@@ -366,6 +382,7 @@
     "id": "rufous-coffee",
     "name": "RUFOUS COFFEE ROASTERS",
     "city": "taipei",
+    "area": "daan-dongqu",
     "location": {
       "lat": 25.0235,
       "lng": 121.54359
@@ -382,6 +399,7 @@
     "name": "野獸國 西門店",
     "nameZh": "野獸國",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.04526,
       "lng": 121.50577
@@ -397,6 +415,7 @@
     "id": "corner-max",
     "name": "CORNER MAX 大角落多功能展演館",
     "city": "taipei",
+    "area": "songshan-xinyi",
     "location": {
       "lat": 25.04338,
       "lng": 121.55752
@@ -427,6 +446,7 @@
     "id": "waiting-room",
     "name": "Waiting Room",
     "city": "taipei",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.04934,
       "lng": 121.52
@@ -442,6 +462,7 @@
     "id": "29studio-chifeng",
     "name": "29 studio 赤峰店",
     "city": "taipei",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.05703,
       "lng": 121.52011
@@ -457,6 +478,7 @@
     "id": "29studio-yongji",
     "name": "29 studio 五分埔",
     "city": "taipei",
+    "area": "songshan-xinyi",
     "location": {
       "lat": 25.04615,
       "lng": 121.57966
@@ -471,6 +493,7 @@
     "id": "par-store",
     "name": "PAR STORE",
     "city": "taipei",
+    "area": "zhongshan-chifeng",
     "location": {
       "lat": 25.05332,
       "lng": 121.5197
@@ -486,6 +509,7 @@
     "id": "kamaroan-house",
     "name": "Kamaro'an House",
     "city": "taipei",
+    "area": "shida-gongguan",
     "location": {
       "lat": 25.02532,
       "lng": 121.53586
@@ -501,6 +525,7 @@
     "id": "bei-bei-che-lurou-fan",
     "name": "北北車魯肉飯",
     "city": "taipei",
+    "area": "taipei-station",
     "location": {
       "lat": 25.04516,
       "lng": 121.51664
@@ -517,6 +542,7 @@
     "name": "路境行旅 府前館",
     "nameZh": "Finders Hotel Fuqian",
     "city": "taipei",
+    "area": "taipei-station",
     "location": {
       "lat": 25.04315,
       "lng": 121.51304
@@ -533,6 +559,7 @@
     "name": "正旅館 藍",
     "nameZh": "The Blue by Just Inn",
     "city": "taipei",
+    "area": "taipei-station",
     "location": {
       "lat": 25.04508,
       "lng": 121.51485
@@ -549,6 +576,7 @@
     "name": "雅香石頭火鍋 西門總店",
     "nameZh": "雅香自助火鍋城",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.04374,
       "lng": 121.50282
@@ -565,6 +593,7 @@
     "name": "永富冰淇淋",
     "nameZh": "永富冰淇淋",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.03966,
       "lng": 121.50404
@@ -581,6 +610,7 @@
     "name": "山海豆花",
     "nameZh": "MATA Tofu Pudding",
     "city": "taipei",
+    "area": "yongkang-dongmen",
     "location": {
       "lat": 25.03039,
       "lng": 121.52952
@@ -597,6 +627,7 @@
     "name": "未央咖啡店",
     "nameZh": "Weiyang Coffee",
     "city": "taipei",
+    "area": "daan-dongqu",
     "location": {
       "lat": 25.02627,
       "lng": 121.5474
@@ -612,6 +643,7 @@
     "id": "zhenghao-xiaolongbao",
     "name": "正好鮮肉小籠湯包",
     "city": "taipei",
+    "area": "daan-dongqu",
     "location": {
       "lat": 25.03041,
       "lng": 121.5548
@@ -628,6 +660,7 @@
     "name": "宵夜牛肉麵大王 大安店",
     "nameZh": "NIGHT BEEF NOODLES KING DAAN",
     "city": "taipei",
+    "area": "daan-dongqu",
     "location": {
       "lat": 25.03022,
       "lng": 121.55154
@@ -643,6 +676,7 @@
     "name": "樂家康超市 台北四維店",
     "nameZh": "Uni-PROSPERiTY",
     "city": "taipei",
+    "area": "daan-dongqu",
     "location": {
       "lat": 25.02722,
       "lng": 121.54584
@@ -659,6 +693,7 @@
     "name": "波士頓理髮廳のあたり",
     "nameZh": "波士頓理髮廳",
     "city": "taipei",
+    "area": "yongkang-dongmen",
     "location": {
       "lat": 25.02937,
       "lng": 121.52957
@@ -689,6 +724,7 @@
     "name": "Wang's Broth 小王煮瓜",
     "nameZh": "小王煮瓜",
     "city": "taipei",
+    "area": "ximending-wanhua",
     "location": {
       "lat": 25.03928,
       "lng": 121.49859

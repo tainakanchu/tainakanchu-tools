@@ -29,6 +29,7 @@ import { MapErrorBoundary } from './-components/MapErrorBoundary'
 import { Landing } from './-components/Landing'
 import { SpotCard } from './-components/SpotCard'
 import { copyText, shareUrl } from './-lib/copy'
+import { loadMapView, prefetchMapViewOnIdle } from './-lib/loadMapView'
 import {
   actionButtonClass,
   cardClass,
@@ -45,10 +46,10 @@ import type { ResultsData } from './-lib/useTaiwanMapData'
 // head() と静的 OG HTML で同じ文言を使うため site-meta を単一ソースにする
 const tool = getToolMeta('taiwan-map')!
 
-// 地図（maplibre-gl）は実際に地図を出す画面でだけ読む。
-// 詳しくは MapView.tsx 冒頭のコメント参照。読み込みに失敗したときは
+// 地図（maplibre-gl）は別チャンク。いつ読むかは -lib/loadMapView.ts、
+// 分けている理由は MapView.tsx 冒頭のコメント参照。読み込みに失敗したときは
 // MapErrorBoundary が地図の枠の中だけで受け止める
-const MapView = lazy(() => import('./-components/MapView'))
+const MapView = lazy(loadMapView)
 
 // モジュールに 1 つだけ持つ。Promise キャッシュを画面遷移をまたいで効かせるため
 const repository = createStaticRepository()
@@ -76,6 +77,17 @@ export const Route = createFileRoute('/tools/taiwan-map/')({
       { title: toolPageTitle(tool.name) },
       { name: 'description', content: tool.description },
     ],
+    // 地図の style・タイル・フォントはすべて tiles.openfreemap.org から来る。
+    // 地図チャンクを読み終えてから接続（DNS・TLS）を始めると往復ぶん遅れるので、
+    // このページに来た時点で先につないでおく。maplibre は fetch（CORS）で
+    // 取りに行くので crossorigin を付けないと、この接続が使い回されない
+    links: [
+      {
+        rel: 'preconnect',
+        href: 'https://tiles.openfreemap.org',
+        crossOrigin: 'anonymous',
+      },
+    ],
   }),
   component: TaiwanMapPage,
 })
@@ -87,6 +99,7 @@ function TaiwanMapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const data = useTaiwanMapData(repository, search)
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
 
   const onNavigate = useCallback(
     (patch: Partial<TaiwanMapSearch>, replace = true) =>
@@ -110,40 +123,39 @@ function TaiwanMapPage() {
     }
   }, [search.city, resolvedSpotCity, onNavigate])
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-8 text-gray-900">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">
-          {data.mode === 'landing' ? (
-            tool.name
-          ) : (
-            // 絞り込み中はタイトルをトップへの戻り口にする
-            <Link
-              to="/tools/taiwan-map"
-              className="hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-            >
-              {tool.name}
-            </Link>
-          )}
-        </h1>
-      </div>
+  // デスクトップのトップから都市を選ぶと、次の画面ではすぐ地図を出す。
+  // トップを見ているあいだに地図チャンクを先読みしておく
+  const isLanding = data.mode === 'landing'
+  useEffect(() => {
+    if (isLanding && isDesktop) return prefetchMapViewOnIdle()
+  }, [isLanding, isDesktop])
 
-      {data.mode === 'landing' ? (
+  if (data.mode === 'landing') {
+    // トップは地図を出さない読み物なので、行が長くなりすぎない幅に収める
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-8 text-gray-900">
+        <h1 className="mb-6 text-2xl font-bold sm:text-3xl">{tool.name}</h1>
         <Landing
           manifest={data.manifest}
           error={data.error}
           onRetry={data.retry}
         />
-      ) : (
-        <Results
-          search={search}
-          data={data.data}
-          loading={data.loading}
-          error={data.error}
-          onRetry={data.retry}
-          onNavigate={onNavigate}
-        />
-      )}
+      </main>
+    )
+  }
+
+  // 一覧・地図の画面は、地図を大きく見せるため画面幅いっぱいを使う
+  return (
+    <main className="text-gray-900">
+      <Results
+        search={search}
+        data={data.data}
+        loading={data.loading}
+        error={data.error}
+        isDesktop={isDesktop}
+        onRetry={data.retry}
+        onNavigate={onNavigate}
+      />
     </main>
   )
 }
@@ -153,6 +165,7 @@ type ResultsProps = {
   data: ResultsData | null
   loading: boolean
   error: string | null
+  isDesktop: boolean
   onRetry: () => void
   onNavigate: (patch: Partial<TaiwanMapSearch>, replace?: boolean) => void
 }
@@ -162,10 +175,10 @@ function Results({
   data,
   loading,
   error,
+  isDesktop,
   onRetry,
   onNavigate,
 }: ResultsProps) {
-  const isDesktop = useMediaQuery(DESKTOP_QUERY)
   const [flyRequest, setFlyRequest] = useState<FlyRequest | null>(null)
   const [copied, setCopied] = useState(false)
   const clearFlyRequest = useCallback(() => setFlyRequest(null), [])
@@ -191,6 +204,16 @@ function Results({
   // （地図を開き直したときに、昔押したスポットへ勝手に飛ばないように）
   useEffect(() => {
     if (!showMap) setFlyRequest(null)
+  }, [showMap])
+
+  // 地図を出す画面では、都市 JSON を待たずに地図チャンクを取りに行く。
+  // スマホの一覧表示では、暇になったときに先読みしておく（loadMapView.ts 参照）
+  useEffect(() => {
+    if (showMap) {
+      void loadMapView().catch(() => {})
+      return
+    }
+    return prefetchMapViewOnIdle()
   }, [showMap])
 
   const handleFilterChange = useCallback(
@@ -244,111 +267,31 @@ function Results({
 
   const conditionText = describeConditions(search, selectedArea?.name)
 
-  return (
-    <div className="space-y-5">
-      <section className={cardClass} aria-label="絞り込み">
-        <FilterBar
-          search={search}
-          areas={cityAreas}
-          onChange={handleFilterChange}
-        />
-      </section>
+  const title = (
+    <h1
+      // スマホの地図表示では地図を画面いっぱいに出すため、見出しは
+      // 読み上げ用にだけ残す（見出しの階層 h1 → h2 → h3 は保つ）
+      className={showList ? 'text-xl font-bold sm:text-2xl' : 'sr-only'}
+    >
+      {/* 絞り込み中はタイトルをトップへの戻り口にする */}
+      <Link
+        to="/tools/taiwan-map"
+        className="hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+      >
+        {tool.name}
+      </Link>
+    </h1>
+  )
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" aria-live="polite">
-          {conditionText && (
-            <span className="font-medium text-gray-800">{conditionText}</span>
-          )}
-          {conditionText && ' ・ '}
-          {data
-            ? `${spots.length} 件`
-            : error
-              ? '読み込めませんでした'
-              : '読み込み中…'}
-          {loading && data && (
-            <span className="ml-2 text-gray-400">更新中…</span>
-          )}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleCopyView}
-            className={actionButtonClass}
-          >
-            {copied ? (
-              <Check size={14} aria-hidden />
-            ) : (
-              <Link2 size={14} aria-hidden />
-            )}
-            {copied ? 'コピーしました' : 'この条件のリンクをコピー'}
-          </button>
-          <Link to="/tools/taiwan-map" className={actionButtonClass}>
-            <X size={14} aria-hidden />
-            条件をクリア
-          </Link>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
-        >
-          <p>データを読み込めませんでした: {error}</p>
-          <button type="button" onClick={onRetry} className={actionButtonClass}>
-            <RotateCw size={14} aria-hidden />
-            再試行
-          </button>
-        </div>
-      )}
-
-      {spotStatus === 'missing' && (
-        <p
-          role="status"
-          className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
-        >
-          リンクのスポットが見つかりませんでした。削除されたか、id
-          が変わった可能性があります。
-        </p>
-      )}
-      {spotStatus === 'filtered' && (
-        <p
-          role="status"
-          className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
-        >
-          リンクのスポットは、今の絞り込み条件には含まれていません。
-        </p>
-      )}
-
-      {selectedArea && (
-        <section className="rounded-2xl border-l-4 border-cyan-500 bg-cyan-50/60 px-4 py-3">
-          <h2 className="font-semibold text-gray-900">
-            {selectedArea.name}
-            {selectedArea.nameZh && (
-              <span
-                lang="zh-Hant-TW"
-                className="ml-2 text-sm font-normal text-gray-500"
-              >
-                {selectedArea.nameZh}
-              </span>
-            )}
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-700">
-            {selectedArea.summary}
-          </p>
-          {selectedArea.note && (
-            <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
-              {selectedArea.note}
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* スマホだけの切り替え。既定は一覧で、地図を最初の画面にはしない */}
+  const viewToggle = (
+    // スマホだけの切り替え。既定は一覧で、地図を最初の画面にはしない。
+    // 一覧をどこまでスクロールしても地図へ切り替えられるよう、サイトの
+    // ヘッダー（h-16）の下に貼り付ける
+    <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-2 backdrop-blur lg:hidden">
       <div
         role="group"
         aria-label="表示の切り替え"
-        className="flex rounded-xl bg-gray-100 p-1 lg:hidden"
+        className="flex rounded-xl bg-gray-100 p-1"
       >
         <button
           type="button"
@@ -359,6 +302,9 @@ function Results({
           <span className="inline-flex items-center gap-1.5">
             <List size={14} aria-hidden />
             一覧
+            {data && (
+              <span className="text-xs text-gray-500">{spots.length}</span>
+            )}
           </span>
         </button>
         <button
@@ -373,8 +319,133 @@ function Results({
           </span>
         </button>
       </div>
+    </div>
+  )
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+  return (
+    // デスクトップ: 左に固定幅の一覧（ページと一緒に縦スクロール）、右の残り
+    // 全幅に地図（ヘッダーの下から画面の下まで貼り付く）。
+    // スマホ: 一覧 / 地図を切り替え。地図は画面の高さいっぱい近くに出す
+    <div className="lg:grid lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[460px_minmax(0,1fr)]">
+      <div
+        className={`min-w-0 space-y-4 px-4 lg:border-r lg:border-gray-200 lg:px-5 lg:py-6 ${
+          showList ? 'pt-5 pb-8' : ''
+        }`}
+      >
+        {title}
+
+        {showList && (
+          <section aria-label="絞り込み">
+            <FilterBar
+              search={search}
+              areas={cityAreas}
+              cityCounts={data?.cityCounts ?? null}
+              areaCounts={data?.areaCounts ?? EMPTY_COUNTS}
+              onChange={handleFilterChange}
+            />
+          </section>
+        )}
+
+        {showList && (
+          <div className="space-y-2 border-t border-gray-200 pt-3">
+            <p className="text-sm text-gray-600" aria-live="polite">
+              {conditionText && (
+                <span className="font-medium text-gray-800">
+                  {conditionText}
+                </span>
+              )}
+              {conditionText && ' ・ '}
+              {data
+                ? `${spots.length} 件`
+                : error
+                  ? '読み込めませんでした'
+                  : '読み込み中…'}
+              {loading && data && (
+                <span className="ml-2 text-gray-400">更新中…</span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleCopyView}
+                className={actionButtonClass}
+              >
+                {copied ? (
+                  <Check size={14} aria-hidden />
+                ) : (
+                  <Link2 size={14} aria-hidden />
+                )}
+                {copied ? 'コピーしました' : 'この条件のリンクをコピー'}
+              </button>
+              <Link to="/tools/taiwan-map" className={actionButtonClass}>
+                <X size={14} aria-hidden />
+                条件をクリア
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          >
+            <p>データを読み込めませんでした: {error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className={actionButtonClass}
+            >
+              <RotateCw size={14} aria-hidden />
+              再試行
+            </button>
+          </div>
+        )}
+
+        {spotStatus === 'missing' && (
+          <p
+            role="status"
+            className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            リンクのスポットが見つかりませんでした。削除されたか、id
+            が変わった可能性があります。
+          </p>
+        )}
+        {spotStatus === 'filtered' && (
+          <p
+            role="status"
+            className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            リンクのスポットは、今の絞り込み条件には含まれていません。
+          </p>
+        )}
+
+        {showList && selectedArea && (
+          <section className="rounded-2xl border-l-4 border-cyan-500 bg-cyan-50/60 px-4 py-3">
+            <h2 className="font-semibold text-gray-900">
+              {selectedArea.name}
+              {selectedArea.nameZh && (
+                <span
+                  lang="zh-Hant-TW"
+                  className="ml-2 text-sm font-normal text-gray-500"
+                >
+                  {selectedArea.nameZh}
+                </span>
+              )}
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-700">
+              {selectedArea.summary}
+            </p>
+            {selectedArea.note && (
+              <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
+                {selectedArea.note}
+              </p>
+            )}
+          </section>
+        )}
+
+        {viewToggle}
+
         {showList && (
           <section aria-labelledby="tw-spot-list">
             {/* 見出しの階層（h1 → h2 → カードの h3）を保つための見出し。
@@ -387,7 +458,7 @@ function Results({
                 この条件の場所はまだ記録していません。
               </p>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {spots.map((spot) => (
                   <li key={spot.id}>
                     <SpotCard
@@ -406,88 +477,106 @@ function Results({
           </section>
         )}
 
-        {/* 地図は「表示するスポットがあるとき」だけ読む。0 件なのに
-            maplibre（約 1MB）を落とさせても、何も無い地図が出るだけなので */}
-        {showMap && data && spots.length === 0 && isDesktop && (
-          <aside
-            className="hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500 lg:sticky lg:top-20 lg:block"
-            aria-label="地図"
-          >
-            地図に出す場所がありません。
-          </aside>
-        )}
         {showMap && data && spots.length === 0 && !isDesktop && (
           <p className="rounded-2xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
             この条件の場所はまだ記録していません。
           </p>
         )}
-        {showMap && data && spots.length > 0 && (
-          <aside className="space-y-2 lg:sticky lg:top-20" aria-label="地図">
-            <div className="h-[65vh] overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm lg:h-[calc(100vh-7rem)]">
-              <MapErrorBoundary>
-                <Suspense
-                  fallback={
-                    <p className="flex h-full items-center justify-center text-sm text-gray-500">
-                      地図を読み込み中…
-                    </p>
-                  }
-                >
-                  <MapView
-                    spots={spots}
-                    fallbackCity={search.city ?? data.cities.at(0) ?? 'taipei'}
-                    selectedId={search.spot}
-                    flyRequest={flyRequest}
-                    onFlyDone={clearFlyRequest}
-                    onSelect={handleSelect}
-                    activeCategory={search.category}
-                    categoryCounts={data.categoryCounts}
-                    onCategoryChange={handleCategoryChange}
-                  />
-                </Suspense>
-              </MapErrorBoundary>
-            </div>
-            <MapLegend />
-            {/* スマホの地図表示では一覧が見えないので、選んだ場所の要点を地図の下に出す */}
-            {!isDesktop && selectedSpot && (
-              <div className={`${cardClass} space-y-2`}>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="font-semibold text-gray-900">
-                    {selectedSpot.name}
-                  </p>
-                  <StatusBadge status={selectedSpot.status} />
-                  {selectedSpot.categories.map((c) => (
-                    <CategoryChip key={c} category={c} />
-                  ))}
-                </div>
-                <p className="line-clamp-3 text-sm text-gray-700">
-                  {selectedSpot.summary}
-                </p>
-                <button
-                  type="button"
-                  className={actionButtonClass}
-                  // 一覧に戻ると選択中のカードがマウントされ、SpotCard 側の
-                  // effect がそのカードへスクロールしてフォーカスを移す
-                  onClick={() => {
-                    setFocusOnSelect(true)
-                    onNavigate({ view: undefined })
-                  }}
-                >
-                  <List size={14} aria-hidden />
-                  一覧でくわしく見る
-                </button>
-              </div>
-            )}
-          </aside>
-        )}
       </div>
+
+      {/* 地図は「表示するスポットがあるとき」だけ描く。0 件なのに
+          何も無い地図を出しても仕方が無いので */}
+      {showMap && isDesktop && (!data || spots.length === 0) && (
+        <aside
+          className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50 px-4 text-center text-sm text-gray-500"
+          aria-label="地図"
+        >
+          {data
+            ? '地図に出す場所がありません。'
+            : error
+              ? '地図を出せませんでした。'
+              : '地図を読み込み中…'}
+        </aside>
+      )}
+      {showMap && data && spots.length > 0 && (
+        <aside
+          aria-label="地図"
+          // スマホ: サイトのヘッダー（4rem）と切り替え（3.25rem）を除いた高さ
+          className="relative h-[calc(100dvh-7.25rem)] bg-gray-100 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)]"
+        >
+          <MapErrorBoundary>
+            <Suspense
+              fallback={
+                <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                  地図を読み込み中…
+                </p>
+              }
+            >
+              <MapView
+                spots={spots}
+                fallbackCity={search.city ?? data.cities.at(0) ?? 'taipei'}
+                selectedId={search.spot}
+                flyRequest={flyRequest}
+                onFlyDone={clearFlyRequest}
+                onSelect={handleSelect}
+                activeCategory={search.category}
+                categoryCounts={data.categoryCounts}
+                onCategoryChange={handleCategoryChange}
+              />
+            </Suspense>
+          </MapErrorBoundary>
+          {/* スマホの地図表示では一覧が見えないので、選んだ場所の要点を地図の下端に重ねる。
+              右下の maplibre の帰属ボタンを隠さないよう、下は少し空ける */}
+          {!isDesktop && selectedSpot ? (
+            <div
+              className={`${cardClass} absolute inset-x-2 bottom-10 z-20 space-y-2 shadow-lg`}
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="font-semibold text-gray-900">
+                  {selectedSpot.name}
+                </p>
+                <StatusBadge status={selectedSpot.status} />
+                {selectedSpot.categories.map((c) => (
+                  <CategoryChip key={c} category={c} />
+                ))}
+              </div>
+              <p className="line-clamp-2 text-sm text-gray-700">
+                {selectedSpot.summary}
+              </p>
+              <button
+                type="button"
+                className={actionButtonClass}
+                // 一覧に戻ると選択中のカードがマウントされ、SpotCard 側の
+                // effect がそのカードへスクロールしてフォーカスを移す
+                onClick={() => {
+                  setFocusOnSelect(true)
+                  onNavigate({ view: undefined })
+                }}
+              >
+                <List size={14} aria-hidden />
+                一覧でくわしく見る
+              </button>
+            </div>
+          ) : (
+            <MapLegend />
+          )}
+        </aside>
+      )}
     </div>
   )
 }
 
+const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
+
+/**
+ * 凡例と帰属表示。地図の左下に重ねる（右下は maplibre の帰属ボタン）。
+ * style が読めない（オフライン）と maplibre 側の帰属表示も出ないので、
+ * ここにも常に出す。
+ */
 function MapLegend() {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-xs text-gray-500">
-      <ul className="flex flex-wrap gap-x-3 gap-y-1">
+    <div className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-lg bg-white/90 px-2.5 py-1.5 text-[0.7rem] leading-relaxed text-gray-600 shadow-sm backdrop-blur">
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
@@ -498,14 +587,13 @@ function MapLegend() {
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full border border-dashed border-gray-500 bg-white"
+            className="inline-block h-2.5 w-2.5 rounded-full border-2 border-gray-500 bg-white"
           />
           未訪問・気になる
         </li>
-        <li>色はジャンル（地図上のチップを参照）</li>
+        <li>色はジャンル（上のチップ）</li>
       </ul>
-      {/* style が読めない（オフライン）と maplibre 側の帰属表示も出ないので、ここにも常に出す */}
-      <p>
+      <p className="pointer-events-auto">
         地図:{' '}
         <a
           href="https://openfreemap.org"

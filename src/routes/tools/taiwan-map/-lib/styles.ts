@@ -15,9 +15,13 @@ export const cardClass =
 
 export const sectionTitleClass = 'text-sm font-semibold text-gray-700'
 
-/** 絞り込みチップ。aria-pressed と見た目を必ずセットで切り替える */
+/**
+ * 絞り込みチップ。aria-pressed と見た目を必ずセットで切り替える。
+ * デスクトップでは一覧カラム（約 440px）に収まるよう一段小さくする。
+ * スマホは指で押すので小さくしない
+ */
 export function chipClass(pressed: boolean): string {
-  return `inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition ${focusRing} ${
+  return `inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition lg:px-2.5 lg:py-1 lg:text-[0.8125rem] ${focusRing} ${
     pressed
       ? 'border-cyan-500 bg-cyan-50 font-semibold text-cyan-800'
       : 'border-gray-300 bg-white text-gray-700 hover:border-cyan-400 hover:bg-cyan-50/50'

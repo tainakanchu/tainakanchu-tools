@@ -13,7 +13,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   citiesWithMatches,
+  countByArea,
   countByCategory,
+  countByCity,
   filterSpots,
   hasAnyFilter,
 } from '../../../../lib/taiwan-map/filter'
@@ -26,6 +28,7 @@ import type {
 } from '../../../../lib/taiwan-map/filter'
 import type { TaiwanMapSearch } from '../../../../lib/taiwan-map/query'
 import type {
+  AreaId,
   CityId,
   SpotCategory,
   TaiwanArea,
@@ -58,6 +61,15 @@ export type ResultsData = {
    * 他のジャンルに切り替えたときの件数が正しく出るようにするため。
    */
   categoryCounts: ReadonlyMap<SpotCategory, number>
+  /**
+   * 都市ごとの総数（絞り込みバーで 0 件の都市を隠す用）。新しく何かを
+   * 読むことはしない: 都市なしならもう読んでいるインデックスから数え、
+   * 都市指定ならトップで読んだ（= リポジトリにキャッシュ済みのことが多い）
+   * manifest の件数を使う。manifest が読めなかったときは null（全都市を出す）。
+   */
+  cityCounts: ReadonlyMap<CityId, number> | null
+  /** 読んだ都市のエリアごとの総数（0 件のエリアを隠す用） */
+  areaCounts: ReadonlyMap<AreaId, number>
 }
 
 export type TaiwanMapData =
@@ -85,9 +97,18 @@ export async function loadResults(
   let resolvedSpotCity: CityId | undefined
   /** カテゴリ件数を数える母集団。都市なしのときはインデックス */
   let countSource: ReadonlyArray<FilterableSpot> | undefined
+  let cityCounts: Promise<ReadonlyMap<CityId, number> | null>
 
   if (filter.city !== undefined) {
     cities = [filter.city]
+    // 都市 JSON と並行して取る。トップから来ていればキャッシュ済みで
+    // リクエストは増えない。数百バイトの目次なので、URL 直打ちで
+    // 1 本増えても都市 JSON の読み込みを待たせることはまず無い。
+    // 失敗しても一覧は出したいので握りつぶす（チップを全都市ぶん出すだけ）
+    cityCounts = repo.getManifest().then(
+      (m) => new Map(m.cities.map((c) => [c.id, c.count])),
+      () => null,
+    )
   } else {
     const index = await repo.getSpotIndex()
     for (const e of index) knownSpotIds.add(e.id)
@@ -102,9 +123,13 @@ export async function loadResults(
       if (resolvedSpotCity) hit.add(resolvedSpotCity)
     }
     cities = CITY_IDS.filter((id) => hit.has(id))
+    cityCounts = Promise.resolve(countByCity(index))
   }
 
-  const loaded = await Promise.all(cities.map((id) => repo.getCity(id)))
+  const [loaded, resolvedCityCounts] = await Promise.all([
+    Promise.all(cities.map((id) => repo.getCity(id))),
+    cityCounts,
+  ])
   const allSpots = loaded.flatMap((c) => c.spots)
   for (const s of allSpots) knownSpotIds.add(s.id)
 
@@ -115,6 +140,8 @@ export async function loadResults(
     knownSpotIds,
     resolvedSpotCity,
     categoryCounts: countByCategory(countSource ?? allSpots, filter),
+    cityCounts: resolvedCityCounts,
+    areaCounts: countByArea(allSpots),
   }
 }
 

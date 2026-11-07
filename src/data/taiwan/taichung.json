@@ -19,6 +19,7 @@
     "id": "miyahara",
     "name": "宮原眼科",
     "city": "taichung",
+    "area": "taichung-station",
     "location": {
       "lat": 24.13785,
       "lng": 120.68357
@@ -35,6 +36,7 @@
     "id": "fourth-credit-union",
     "name": "第四信用合作社",
     "city": "taichung",
+    "area": "taichung-station",
     "location": {
       "lat": 24.13899,
       "lng": 120.68199
@@ -51,6 +53,7 @@
     "name": "台中第二市場",
     "nameZh": "第二市場",
     "city": "taichung",
+    "area": "taichung-station",
     "location": {
       "lat": 24.14238,
       "lng": 120.67872
@@ -66,6 +69,7 @@
     "id": "coffee-stopover",
     "name": "Coffee Stopover",
     "city": "taichung",
+    "area": "qinmei-west",
     "location": {
       "lat": 24.14795,
       "lng": 120.66804
@@ -81,6 +85,7 @@
     "id": "shiyun-stone-hotpot",
     "name": "食芸石頭火鍋",
     "city": "taichung",
+    "area": "qinmei-west",
     "location": {
       "lat": 24.14812,
       "lng": 120.66982
@@ -96,6 +101,7 @@
     "id": "yuri-neiren-lurou-fan",
     "name": "魚日內人炸蛋魯肉飯便當專賣店",
     "city": "taichung",
+    "area": "qinmei-west",
     "location": {
       "lat": 24.1467,
       "lng": 120.66757
@@ -111,6 +117,7 @@
     "id": "capucine-patisserie",
     "name": "橙花 Capucine Patisserie",
     "city": "taichung",
+    "area": "qinmei-west",
     "location": {
       "lat": 24.15063,
       "lng": 120.66477
@@ -126,6 +133,7 @@
     "id": "small-juancun-beef-noodles-meicun",
     "name": "小眷村牛肉麵 美村店",
     "city": "taichung",
+    "area": "qinmei-west",
     "location": {
       "lat": 24.15028,
       "lng": 120.66158

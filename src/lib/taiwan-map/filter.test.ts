@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   citiesWithMatches,
+  countByArea,
   countByCategory,
+  countByCity,
   filterSpots,
   hasAnyFilter,
   matchesFilter,
+  visibleByCount,
 } from './filter.ts'
 import type { FilterableSpot } from './filter.ts'
 
@@ -110,5 +113,59 @@ describe('countByCategory', () => {
       { city: 'taipei', categories: ['food', 'food'], status: 'visited' },
     ]
     expect(countByCategory(dup, {}).get('food')).toBe(1)
+  })
+})
+
+describe('countByCity', () => {
+  it('全都市のキーを CITIES の順（北から南・その他）で持ち、該当なしは 0', () => {
+    const counts = countByCity(spots)
+    expect([...counts.keys()]).toEqual([
+      'taipei',
+      'taichung',
+      'tainan',
+      'kaohsiung',
+      'other',
+    ])
+    expect(Object.fromEntries(counts)).toEqual({
+      taipei: 2,
+      taichung: 0,
+      tainan: 1,
+      kaohsiung: 1,
+      other: 0,
+    })
+  })
+})
+
+describe('countByArea', () => {
+  it('エリアごとに数え、エリア未設定は数えない', () => {
+    const more: Array<FilterableSpot> = [
+      ...spots,
+      { city: 'taipei', area: 'dadaocheng', categories: [], status: 'visited' },
+    ]
+    const counts = countByArea(more)
+    expect(Object.fromEntries(counts)).toEqual({ dadaocheng: 2 })
+  })
+})
+
+describe('visibleByCount', () => {
+  const items = [{ id: 'x' }, { id: 'y' }, { id: 'z' }]
+  const counts = new Map([
+    ['x', 3],
+    ['y', 0],
+  ])
+
+  it('0 件（と件数の無いもの）を除き、元の順を保つ', () => {
+    expect(visibleByCount(items, counts, undefined)).toEqual([{ id: 'x' }])
+  })
+
+  it('選択中なら 0 件でも残す', () => {
+    expect(visibleByCount(items, counts, 'z')).toEqual([
+      { id: 'x' },
+      { id: 'z' },
+    ])
+  })
+
+  it('件数が分からないときは全部出す', () => {
+    expect(visibleByCount(items, null, undefined)).toEqual(items)
   })
 })

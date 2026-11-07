@@ -2,9 +2,10 @@
  * maplibre-gl + OpenFreeMap の地図。
  *
  * ■ このファイルは必ず React.lazy 経由で読むこと
- *   maplibre-gl は JS だけで 800KB 近くある。トップページやスマホの一覧表示
- *   （= 地図を出さない画面）で読まされるのは無駄なので、このモジュールごと
- *   動的 import にして「地図を実際に表示するときだけ」取りに行く。
+ *   maplibre-gl は JS だけで 800KB 近くある。トップページ（= 地図を出さない
+ *   画面）の読み込みに混ぜると最初の表示が遅くなるので、このモジュールごと
+ *   動的 import にして、台湾マップの一覧・地図の画面に来てから取りに行く
+ *   （いつ取りに行くかは -lib/loadMapView.ts に 1 箇所でまとめてある）。
  *   CSS もここで import しているので、同じチャンクと一緒に遅延される。
  *   ビルド後の sw.js で precache から外している理由も同じ（vite.config.ts 参照）。
  *
@@ -15,17 +16,31 @@
  *   v5 はワーカーを 1 ファイルに内包していて追加設定なしで動く。
  *
  * ■ タイル
- *   OpenFreeMap（キー不要・無料）のベクタタイル。帰属表示は style の
- *   attribution を maplibre の AttributionControl がそのまま出すが、
- *   オフラインで style 自体が読めないと何も出なくなるので、地図の外にも
- *   静的な帰属表示を置いている（index.tsx 側）。
+ *   OpenFreeMap（キー不要・無料）のベクタタイル。ピンが主役になるよう、
+ *   淡色で情報の少ない positron を使い、さらに細かい交通系のラベルを
+ *   隠している（-lib/mapFeatures.ts の HIDDEN_BASE_LAYERS）。
+ *   帰属表示は style の attribution を maplibre の AttributionControl が
+ *   そのまま出すが、オフラインで style 自体が読めないと何も出なくなるので、
+ *   地図の外にも静的な帰属表示を置いている（index.tsx 側）。
+ *
+ * ■ ピンは DOM のマーカーではなく GeoJSON ソース + circle レイヤー
+ *   以前は maplibregl.Marker（1 件 = 1 つの <button>）で描いていたが、
+ *   地図を動かすたびに全マーカーの transform を JS で書き換えるので、
+ *   件数に比例してパン・ズームが重くなる。circle レイヤーなら WebGL が
+ *   まとめて描き、件数が増えても DOM は増えない。
+ *   代わりに失う「ピン 1 つ 1 つがキーボードで押せるボタン」は、地図の
+ *   横に視覚的に隠したボタンの一覧（SpotKeyboardList）で補う。フォーカスが
+ *   当たったピンは地図上でも枠で示し、見えていなければそこへ寄せる。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getCity } from '../../../../lib/taiwan-map/types'
-import { categoryColor, pinCategory } from '../-lib/categoryColors'
+import {
+  HIDDEN_BASE_LAYERS,
+  spotsToFeatureCollection,
+} from '../-lib/mapFeatures'
 import { categoryName } from './Badges'
 import { MapCategoryChips } from './MapCategoryChips'
 import type {
@@ -34,16 +49,42 @@ import type {
   TaiwanSpot,
 } from '../../../../lib/taiwan-map/types'
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
 /** 1 件だけ・flyTo のときのズーム。路地の店が見分けられる程度 */
 const SPOT_ZOOM = 16
+
+/** ピンのクリック判定の半径（px）。指でも押せるよう、描いた丸より広く取る */
+const HIT_RADIUS = 14
+
+const SOURCE_ID = 'tw-spots'
+const LAYER = {
+  shadow: 'tw-spot-shadow',
+  pins: 'tw-spot-pins',
+  selectedHalo: 'tw-spot-selected-halo',
+  selected: 'tw-spot-selected',
+  focus: 'tw-spot-focus',
+} as const
+
+/** 選択の操作色（styles.ts の cyan-500 と同じ）。ジャンル色には使っていない */
+const SELECT_COLOR = '#06b6d4'
 
 export type FlyRequest = { id: string; nonce: number }
 
 /** ピンを作り直す必要があるかの判定用。中身の id 列が同じなら同じ地図 */
 function spotsKeyOf(spots: ReadonlyArray<TaiwanSpot>): string {
   return spots.map((s) => s.id).join('\n')
+}
+
+function statusText(spot: TaiwanSpot): string {
+  return spot.status === 'visited' ? '行った' : '未訪問・気になる'
+}
+
+/** id が一致するものだけを描くフィルタ。null なら何も描かない */
+function idFilter(
+  id: string | null | undefined,
+): maplibregl.FilterSpecification {
+  return ['==', ['get', 'id'], id ?? '']
 }
 
 type Props = {
@@ -63,32 +104,82 @@ type Props = {
 }
 
 /**
- * ピンの見た目。色はジャンル（categoryColors.ts）、形は訪問状況。
- * visited はジャンル色で塗りつぶした白縁の丸、want_to_go は白地に
- * ジャンル色の破線の小さめの丸。一覧のバッジと同じく「形」でも区別し、
- * 未訪問の場所が行った場所と同じ重みで地図に並ばないようにする。
+ * ピンのレイヤー一式を足す。見た目は以前の DOM マーカーと同じ考え方で、
+ * 色はジャンル（categoryColors.ts）、形は訪問状況:
+ * - visited     … ジャンル色で塗りつぶした白縁の丸
+ * - want_to_go  … 白地にジャンル色の縁の、ひと回り小さい丸
+ * 一覧のバッジと同じく「塗り / 白抜き」でも区別し、未訪問の場所が
+ * 行った場所と同じ重みで地図に並ばないようにする。選択中は cyan の輪つきで
+ * 大きく、いちばん上に描く。
  */
-function styleMarker(
-  el: HTMLElement,
-  spot: TaiwanSpot,
-  selected: boolean,
-  activeCategory: SpotCategory | undefined,
-) {
-  const visited = spot.status === 'visited'
-  const color = categoryColor(pinCategory(spot.categories, activeCategory))
-  const size = (visited ? 18 : 14) + (selected ? 8 : 0)
-  Object.assign(el.style, {
-    width: `${size}px`,
-    height: `${size}px`,
-    borderRadius: '9999px',
-    border: visited ? '3px solid #ffffff' : `2.5px dashed ${color}`,
-    background: visited ? color : '#ffffff',
-    boxShadow: selected
-      ? '0 0 0 3px #06b6d4, 0 2px 6px rgba(15,23,42,.45)'
-      : '0 1px 4px rgba(15,23,42,.4)',
-    cursor: 'pointer',
-    padding: '0',
-    zIndex: selected ? '2' : visited ? '1' : '0',
+function addSpotLayers(map: maplibregl.Map) {
+  map.addSource(SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  })
+  const visited: maplibregl.ExpressionSpecification = ['get', 'visited']
+  const color: maplibregl.ExpressionSpecification = ['get', 'color']
+  // 影。白縁の丸が淡い地図に溶けないよう、少しぼかした濃い丸を下に敷く
+  map.addLayer({
+    id: LAYER.shadow,
+    type: 'circle',
+    source: SOURCE_ID,
+    paint: {
+      'circle-radius': ['case', visited, 10, 8],
+      'circle-color': '#0f172a',
+      'circle-opacity': 0.28,
+      'circle-blur': 0.6,
+      'circle-translate': [0, 1],
+    },
+  })
+  map.addLayer({
+    id: LAYER.pins,
+    type: 'circle',
+    source: SOURCE_ID,
+    layout: { 'circle-sort-key': ['get', 'sortKey'] },
+    paint: {
+      'circle-radius': ['case', visited, 6.5, 5],
+      'circle-color': ['case', visited, color, '#ffffff'],
+      'circle-stroke-width': 2.5,
+      'circle-stroke-color': ['case', visited, '#ffffff', color],
+    },
+  })
+  map.addLayer({
+    id: LAYER.selectedHalo,
+    type: 'circle',
+    source: SOURCE_ID,
+    filter: idFilter(null),
+    paint: {
+      'circle-radius': 14,
+      'circle-color': SELECT_COLOR,
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#ffffff',
+    },
+  })
+  map.addLayer({
+    id: LAYER.selected,
+    type: 'circle',
+    source: SOURCE_ID,
+    filter: idFilter(null),
+    paint: {
+      'circle-radius': ['case', visited, 9, 7.5],
+      'circle-color': ['case', visited, color, '#ffffff'],
+      'circle-stroke-width': 3,
+      'circle-stroke-color': ['case', visited, '#ffffff', color],
+    },
+  })
+  // キーボードでフォーカス中のピン。選択とは別の「今ここ」を示す白抜きの輪
+  map.addLayer({
+    id: LAYER.focus,
+    type: 'circle',
+    source: SOURCE_ID,
+    filter: idFilter(null),
+    paint: {
+      'circle-radius': 18,
+      'circle-color': 'rgba(0,0,0,0)',
+      'circle-stroke-width': 3,
+      'circle-stroke-color': SELECT_COLOR,
+    },
   })
 }
 
@@ -105,14 +196,14 @@ export default function MapView({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  const markersRef = useRef(
-    new Map<string, { marker: maplibregl.Marker; spot: TaiwanSpot }>(),
-  )
   const onSelectRef = useRef(onSelect)
   const onFlyDoneRef = useRef(onFlyDone)
   const spotsRef = useRef(spots)
   const activeCategoryRef = useRef(activeCategory)
+  /** style を読み終え、ピンのソースとレイヤーを足し終えたか */
+  const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [focusedId, setFocusedId] = useState<string | null>(null)
 
   useEffect(() => {
     onSelectRef.current = onSelect
@@ -122,10 +213,10 @@ export default function MapView({
   })
 
   /**
-   * ピンの張り替えと表示範囲の合わせ直しは、表示するスポットの顔ぶれが
-   * 変わったときだけにする。選択（selectedId）が変わっただけ、あるいは
-   * 同じ中身の配列が作り直されただけで作り直すと、ピンを押すたびに
-   * 地図が初期範囲へ跳ね戻って、見ていた場所を見失う。
+   * 表示範囲の合わせ直しは、表示するスポットの顔ぶれが変わったときだけに
+   * する。選択（selectedId）が変わっただけ、あるいは同じ中身の配列が
+   * 作り直されただけで合わせ直すと、ピンを押すたびに地図が初期範囲へ
+   * 跳ね戻って、見ていた場所を見失う。
    */
   const spotsKey = spotsKeyOf(spots)
 
@@ -150,21 +241,57 @@ export default function MapView({
     // 知らせるのは「style（地図の定義）そのものが読めなかった」ときだけ。
     // タイル 1 枚・グリフ 1 つの失敗は地図の端が欠ける程度なので黙っておく
     // （そのたびに帯が出ると、ほぼ使えている地図に不安な表示が居座る）。
-    // style の読み込み完了（load）より前に、ソースに紐づかない error が
+    // style の読み込み完了より前に、ソースに紐づかない error が
     // 来たら style の失敗とみなす。
     let styleLoaded = false
-    map.on('load', () => {
+    // 'load'（最初のタイルまで描き終えたとき）ではなく 'style.load' で
+    // ピンを足す。タイルを待たずにピンが出るのと、隠すレイヤーを最初の
+    // 描画より前に消せる（一瞬だけ細かいラベルが見える、が起きない）ため
+    // （setStyle は呼ばないので、style.load は 1 度しか来ない）
+    map.on('style.load', () => {
       styleLoaded = true
       setLoadError(false)
+      for (const id of HIDDEN_BASE_LAYERS) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none')
+      }
+      addSpotLayers(map)
+      setReady(true)
     })
     map.on('error', (e) => {
       if (styleLoaded || 'sourceId' in e || 'tile' in e) return
       setLoadError(true)
     })
+
+    // クリック（タップ）はピンの丸より少し広い範囲で拾い、いちばん近いものを選ぶ
+    const pinsAt = (point: maplibregl.Point) =>
+      map.queryRenderedFeatures(
+        [
+          [point.x - HIT_RADIUS, point.y - HIT_RADIUS],
+          [point.x + HIT_RADIUS, point.y + HIT_RADIUS],
+        ],
+        { layers: [LAYER.pins] },
+      )
+    map.on('click', (e) => {
+      if (!map.getLayer(LAYER.pins)) return
+      const hits = pinsAt(e.point)
+      let best: { id: string; d: number } | null = null
+      for (const f of hits) {
+        const id: unknown = f.properties.id
+        const spot = spotsRef.current.find((s) => s.id === id)
+        if (!spot) continue
+        const p = map.project([spot.location.lng, spot.location.lat])
+        const d = Math.hypot(p.x - e.point.x, p.y - e.point.y)
+        if (best === null || d < best.d) best = { id: spot.id, d }
+      }
+      if (best) onSelectRef.current(best.id)
+    })
+    map.on('mousemove', (e) => {
+      if (!map.getLayer(LAYER.pins)) return
+      map.getCanvas().style.cursor = pinsAt(e.point).length > 0 ? 'pointer' : ''
+    })
+
     mapRef.current = map
-    const markers = markersRef.current
     return () => {
-      markers.clear()
       map.remove()
       mapRef.current = null
     }
@@ -172,58 +299,62 @@ export default function MapView({
     // oxlint-disable-next-line react/exhaustive-deps
   }, [])
 
-  // ピンを張り替え、表示範囲を絞り込み結果に合わせる
+  // ピンの中身を差し替える（ジャンルを切り替えたら色も塗り直す）
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    map
+      .getSource<maplibregl.GeoJSONSource>(SOURCE_ID)
+      ?.setData(spotsToFeatureCollection(spotsRef.current, activeCategory))
+  }, [ready, spotsKey, activeCategory])
+
+  // 表示範囲を絞り込み結果に合わせる（style を待たずに合わせてよい）
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const current = spotsRef.current
-    const markers = markersRef.current
-    for (const { marker } of markers.values()) marker.remove()
-    markers.clear()
-
-    for (const spot of current) {
-      const el = document.createElement('button')
-      el.type = 'button'
-      el.setAttribute(
-        'aria-label',
-        `${spot.name}（${spot.categories.map(categoryName).join('・')}／${spot.status === 'visited' ? '行った' : '未訪問・気になる'}）`,
-      )
-      el.addEventListener('click', (e) => {
-        e.stopPropagation()
-        onSelectRef.current(spot.id)
-      })
-      styleMarker(el, spot, false, activeCategoryRef.current)
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([spot.location.lng, spot.location.lat])
-        .addTo(map)
-      markers.set(spot.id, { marker, spot })
-    }
-
     if (current.length === 1) {
       const { lat, lng } = current[0].location
       map.jumpTo({ center: [lng, lat], zoom: SPOT_ZOOM })
     } else if (current.length > 1) {
       const bounds = new maplibregl.LngLatBounds()
       for (const s of current) bounds.extend([s.location.lng, s.location.lat])
-      map.fitBounds(bounds, { padding: 48, maxZoom: SPOT_ZOOM, duration: 0 })
+      // 上は地図に重ねたジャンルチップの列のぶん広めに空ける
+      map.fitBounds(bounds, {
+        padding: { top: 72, bottom: 48, left: 48, right: 48 },
+        maxZoom: SPOT_ZOOM,
+        duration: 0,
+      })
     }
   }, [spotsKey])
 
-  // 選択中のピンだけ大きく・枠つきにする。ジャンルを切り替えたら色も塗り直す
+  // 選択中のピンだけ大きく・輪つきで上に描く
   useEffect(() => {
-    for (const [id, { marker, spot }] of markersRef.current) {
-      styleMarker(marker.getElement(), spot, id === selectedId, activeCategory)
-    }
-  }, [selectedId, spotsKey, activeCategory])
+    const map = mapRef.current
+    if (!map || !ready) return
+    map.setFilter(LAYER.selectedHalo, idFilter(selectedId))
+    map.setFilter(LAYER.selected, idFilter(selectedId))
+  }, [ready, selectedId])
+
+  // キーボードでフォーカスしたピンに輪を出し、画面外ならそこへ寄せる
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    map.setFilter(LAYER.focus, idFilter(focusedId))
+    const spot = spotsRef.current.find((s) => s.id === focusedId)
+    if (!spot) return
+    const lngLat: [number, number] = [spot.location.lng, spot.location.lat]
+    if (!map.getBounds().contains(lngLat)) map.easeTo({ center: lngLat })
+  }, [ready, focusedId])
 
   // 一覧の「地図で見る」→ そのピンへ飛ぶ
   useEffect(() => {
     if (!flyRequest) return
-    const entry = markersRef.current.get(flyRequest.id)
+    const spot = spotsRef.current.find((s) => s.id === flyRequest.id)
     const map = mapRef.current
-    if (entry && map) {
+    if (spot && map) {
       map.flyTo({
-        center: [entry.spot.location.lng, entry.spot.location.lat],
+        center: [spot.location.lng, spot.location.lat],
         zoom: Math.max(map.getZoom(), SPOT_ZOOM),
         essential: true,
       })
@@ -240,12 +371,67 @@ export default function MapView({
         counts={categoryCounts}
         onChange={onCategoryChange}
       />
+      <SpotKeyboardList
+        spots={spots}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onFocusChange={setFocusedId}
+      />
       {loadError && (
         <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow">
           地図を読み込めませんでした（圏外かもしれません）。一覧と Google Maps
           のリンクはそのまま使えます。
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * 地図上のピンのキーボード・スクリーンリーダー向けの代わり。
+ * ピンは canvas に描いているのでフォーカスできない。そこで「ピン 1 つ =
+ * ボタン 1 つ」の一覧を視覚的に隠して置き、Tab で順にたどれるようにする。
+ * フォーカスが入ったボタンだけは地図の左上（ジャンルチップの下）に名前つきで見せ、地図上の
+ * 該当ピンにも輪を出す（onFocusChange → MapView の focus レイヤー）。
+ */
+function SpotKeyboardList({
+  spots,
+  selectedId,
+  onSelect,
+  onFocusChange,
+}: {
+  spots: ReadonlyArray<TaiwanSpot>
+  selectedId: string | undefined
+  onSelect: (id: string) => void
+  onFocusChange: (id: string | null) => void
+}) {
+  const labelId = useId()
+  return (
+    <div>
+      <p id={labelId} className="sr-only">
+        地図上の場所（{spots.length} 件）
+      </p>
+      <ul
+        aria-labelledby={labelId}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) onFocusChange(null)
+        }}
+      >
+        {spots.map((spot) => (
+          <li key={spot.id}>
+            <button
+              type="button"
+              aria-pressed={spot.id === selectedId}
+              onFocus={() => onFocusChange(spot.id)}
+              onClick={() => onSelect(spot.id)}
+              className="sr-only focus:not-sr-only focus:absolute focus:top-12 focus:left-2 focus:z-20 focus:max-w-[calc(100%-1rem)] focus:rounded-lg focus:border focus:border-cyan-500 focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-gray-900 focus:shadow focus:outline-none"
+            >
+              {spot.name}（{spot.categories.map(categoryName).join('・')}／
+              {statusText(spot)}）
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

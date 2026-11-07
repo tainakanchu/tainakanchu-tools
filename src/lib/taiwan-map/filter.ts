@@ -109,3 +109,51 @@ export function countByCategory(
   }
   return counts
 }
+
+/**
+ * 都市ごとの件数（条件はかけない、その都市にあるスポットの総数）。
+ * 0 件の都市も CITIES の順でキーを持たせる。
+ * 絞り込みバーの都市チップを「トップの都市から探すと同じ顔ぶれ・同じ順」で
+ * 出すのに使う（件数 0 の都市は押しても何も出ないので出さない）。
+ */
+export function countByCity(
+  spots: ReadonlyArray<Pick<FilterableSpot, 'city'>>,
+): ReadonlyMap<CityId, number> {
+  const counts = new Map<CityId, number>(CITY_IDS.map((id) => [id, 0]))
+  for (const spot of spots)
+    counts.set(spot.city, (counts.get(spot.city) ?? 0) + 1)
+  return counts
+}
+
+/**
+ * エリアごとの件数（条件はかけない総数）。エリア未設定のスポットは数えない。
+ * 絞り込みバーで 0 件のエリアを隠すのに使う。ジャンルなど他の条件で
+ * 数え直さないのは、条件を切り替えるたびにエリアのチップが出たり消えたり
+ * して、押そうとした場所がずれるのを避けるため。
+ */
+export function countByArea(
+  spots: ReadonlyArray<Pick<FilterableSpot, 'area'>>,
+): ReadonlyMap<AreaId, number> {
+  const counts = new Map<AreaId, number>()
+  for (const spot of spots) {
+    if (spot.area === undefined) continue
+    counts.set(spot.area, (counts.get(spot.area) ?? 0) + 1)
+  }
+  return counts
+}
+
+/**
+ * 件数ぶんだけ並べるチップの顔ぶれ。0 件のものは出さないが、選択中のものは
+ * （URL 直打ちなどで 0 件でも）解除できるよう残す。並びは items の順のまま。
+ * counts が null（件数が分からない）のときは全部出す。
+ */
+export function visibleByCount<T extends { id: string }>(
+  items: ReadonlyArray<T>,
+  counts: ReadonlyMap<string, number> | null,
+  selected: string | undefined,
+): Array<T> {
+  if (counts === null) return [...items]
+  return items.filter(
+    (item) => (counts.get(item.id) ?? 0) > 0 || item.id === selected,
+  )
+}

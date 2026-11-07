@@ -11,12 +11,21 @@
  * の 2 つを同じ定義で済ませるため。
  */
 
+// 並びは北から南（台北 → 台中 → 台南 → 高雄）、最後に「その他」。
+// トップの「都市から探す」・絞り込みチップ・manifest の出力順がすべてこれに従う
 export const CITIES = [
   {
     id: 'taipei',
     name: '台北',
     nameZh: '臺北',
     center: { lat: 25.0478, lng: 121.5319 },
+    zoom: 12,
+  },
+  {
+    id: 'taichung',
+    name: '台中',
+    nameZh: '臺中',
+    center: { lat: 24.1477, lng: 120.6736 },
     zoom: 12,
   },
   {
@@ -31,13 +40,6 @@ export const CITIES = [
     name: '高雄',
     nameZh: '高雄',
     center: { lat: 22.6273, lng: 120.3014 },
-    zoom: 12,
-  },
-  {
-    id: 'taichung',
-    name: '台中',
-    nameZh: '臺中',
-    center: { lat: 24.1477, lng: 120.6736 },
     zoom: 12,
   },
   {

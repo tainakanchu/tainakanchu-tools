@@ -5,13 +5,14 @@
  * summary を名前の次に大きく置く。星や点数は出さない（主観の記録であって
  * 評価サイトではないため）。
  *
- * 詳しいメモ（note / 食べたもの / タグ / 公式サイト）は折りたたむ。
- * 一覧をざっと流し読みするときに長文で縦に伸びないようにするためで、
- * ?spot= で開かれたカードだけは最初から開いておく。
+ * 以前は note / 食べたもの / タグ / 公式サイトを「くわしく」で折りたたんで
+ * いたが、開いても 1〜2 行しか無いことが多く、押す手間に見合わなかった。
+ * 今は開閉を無くし、タグは小さく常に出す・公式サイトは Google Maps の隣の
+ * ボタンにする・note と食べたものはあるときだけそのまま出す、にしている。
  */
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { Check, ChevronDown, ExternalLink, Link2, MapPin } from 'lucide-react'
+import { memo, useEffect, useId, useRef, useState } from 'react'
+import { Check, ExternalLink, Globe, Link2, MapPin } from 'lucide-react'
 import {
   formatVisitedAt,
   googleMapsSearchUrl,
@@ -19,7 +20,7 @@ import {
 import { serializeTaiwanMapSearch } from '../../../../lib/taiwan-map/query'
 import { getCity } from '../../../../lib/taiwan-map/types'
 import { copyText, shareUrl } from '../-lib/copy'
-import { actionButtonClass, linkClass } from '../-lib/styles'
+import { actionButtonClass } from '../-lib/styles'
 import { CategoryChip, LabelBadge, StatusBadge } from './Badges'
 import type { TaiwanArea, TaiwanSpot } from '../../../../lib/taiwan-map/types'
 
@@ -43,7 +44,12 @@ export function spotElementId(id: string): string {
   return `spot-${id}`
 }
 
-export function SpotCard({
+/**
+ * memo しているのは、カードを 1 枚選ぶたびに全カード（数十枚）を描き直さない
+ * ため。親（index.tsx）から渡す関数は useCallback、area は Map から引いた
+ * 同じオブジェクトなので、変わるのは selected が切り替わった 2 枚だけになる。
+ */
+export const SpotCard = memo(function SpotCard({
   spot,
   area,
   showCity,
@@ -54,18 +60,11 @@ export function SpotCard({
 }: Props) {
   const detailId = useId()
   const ref = useRef<HTMLElement>(null)
-  const [open, setOpen] = useState(selected)
   const [copied, setCopied] = useState(false)
   const wantToGo = spot.status === 'want_to_go'
 
-  const hasDetails =
-    spot.note !== undefined ||
-    (spot.tried?.length ?? 0) > 0 ||
-    (spot.tags?.length ?? 0) > 0 ||
-    spot.officialUrl !== undefined
-
   // 地図のピン・共有リンク・地図からの「一覧でくわしく見る」で選ばれたら、
-  // 開いて見える位置まで寄せ、フォーカスもカードへ移す（スクリーンリーダーで
+  // 見える位置まで寄せ、フォーカスもカードへ移す（スクリーンリーダーで
   // 「どのカードが選ばれたか」が伝わるように）。
   // block: 'nearest' にしているのは、デスクトップで地図のピンを押したときに
   // 一覧が毎回大きく飛ぶと、今どこを見ていたか分からなくなるため。
@@ -74,7 +73,6 @@ export function SpotCard({
   // フォーカスを残す（押した場所からフォーカスを奪わない）。
   useEffect(() => {
     if (!selected) return
-    setOpen(true)
     const el = ref.current
     if (!el) return
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
@@ -101,8 +99,9 @@ export function SpotCard({
       // 地図から一覧へ戻ったときにフォーカスを移せるように
       tabIndex={-1}
       aria-labelledby={`${detailId}-name`}
-      // scroll-mt はスティッキーなサイトヘッダー（h-16）の下に隠れないように
-      className={`scroll-mt-20 rounded-2xl focus:outline-none border p-4 shadow-sm transition sm:p-5 ${
+      // scroll-mt はスティッキーなサイトヘッダー（h-16）と、スマホでその下に
+      // 貼り付く一覧 / 地図の切り替え（index.tsx）の下に隠れないように
+      className={`scroll-mt-36 lg:scroll-mt-20 rounded-2xl focus:outline-none border p-4 shadow-sm transition sm:p-5 ${
         wantToGo
           ? 'border-dashed border-slate-300 bg-slate-50/70'
           : 'border-gray-200 bg-white'
@@ -156,13 +155,44 @@ export function SpotCard({
         {spot.summary}
       </p>
 
-      {spot.visitedAt && (
-        <p className="mt-2 text-xs text-gray-500">
-          訪問：{formatVisitedAt(spot.visitedAt)}
+      {spot.note && (
+        <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
+          {spot.note}
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      {spot.tried && spot.tried.length > 0 && (
+        <div className="mt-2 text-sm text-gray-700">
+          <p className="text-xs font-semibold text-gray-500">
+            食べたもの・飲んだもの
+          </p>
+          <ul className="mt-0.5 list-inside list-disc space-y-0.5">
+            {spot.tried.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(spot.visitedAt || (spot.tags && spot.tags.length > 0)) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+          {spot.visitedAt && <p>訪問：{formatVisitedAt(spot.visitedAt)}</p>}
+          {spot.tags && spot.tags.length > 0 && (
+            <ul className="flex flex-wrap gap-1" aria-label="タグ">
+              {spot.tags.map((t) => (
+                <li
+                  key={t}
+                  className="rounded bg-gray-100 px-1.5 py-px text-[0.7rem] text-gray-600"
+                >
+                  #{t}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => onShowOnMap(spot.id)}
@@ -180,6 +210,17 @@ export function SpotCard({
           <ExternalLink size={14} aria-hidden />
           Google Maps
         </a>
+        {spot.officialUrl && (
+          <a
+            href={spot.officialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={actionButtonClass}
+          >
+            <Globe size={14} aria-hidden />
+            公式サイト
+          </a>
+        )}
         <button
           type="button"
           onClick={handleCopy}
@@ -193,71 +234,7 @@ export function SpotCard({
           )}
           {copied ? 'コピーしました' : 'リンク'}
         </button>
-        {hasDetails && (
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-controls={`${detailId}-detail`}
-            className={actionButtonClass}
-          >
-            <ChevronDown
-              size={14}
-              aria-hidden
-              className={`transition ${open ? 'rotate-180' : ''}`}
-            />
-            {open ? '閉じる' : 'くわしく'}
-          </button>
-        )}
       </div>
-
-      {hasDetails && open && (
-        <div
-          id={`${detailId}-detail`}
-          className="mt-4 space-y-3 border-t border-gray-200 pt-4 text-sm text-gray-700"
-        >
-          {spot.note && (
-            <p className="leading-relaxed whitespace-pre-line">{spot.note}</p>
-          )}
-          {spot.tried && spot.tried.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500">
-                食べたもの・飲んだもの
-              </p>
-              <ul className="mt-1 list-inside list-disc space-y-0.5">
-                {spot.tried.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {spot.tags && spot.tags.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5" aria-label="タグ">
-              {spot.tags.map((t) => (
-                <li
-                  key={t}
-                  className="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600"
-                >
-                  #{t}
-                </li>
-              ))}
-            </ul>
-          )}
-          {spot.officialUrl && (
-            <p>
-              <a
-                href={spot.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${linkClass} inline-flex items-center gap-1`}
-              >
-                公式サイト
-                <ExternalLink size={12} aria-hidden />
-              </a>
-            </p>
-          )}
-        </div>
-      )}
     </article>
   )
-}
+})

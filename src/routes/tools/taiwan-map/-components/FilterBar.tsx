@@ -4,8 +4,14 @@
  * 状態は URL にしか持たない（index.tsx の onChange が navigate する）。
  * チップは aria-pressed つきの button にして、スクリーンリーダーでも
  * 「押されている / いない」が読まれるようにしている。
+ *
+ * 都市・エリアのチップは、トップの「都市から探す」と同じく件数 0 のものを
+ * 出さない（選択中のものは解除できるよう残す）。並びは CITIES の順
+ * （北から南）とエリア定義の順。エリアは都市によって 10 前後まで増えるので、
+ * 行の見出しを上に置いてチップは幅いっぱいに折り返す。
  */
 
+import { visibleByCount } from '../../../../lib/taiwan-map/filter'
 import {
   CITIES,
   SPOT_CATEGORIES,
@@ -15,35 +21,56 @@ import {
 import { chipClass, sectionTitleClass } from '../-lib/styles'
 import type { ReactNode } from 'react'
 import type { TaiwanMapSearch } from '../../../../lib/taiwan-map/query'
-import type { TaiwanArea } from '../../../../lib/taiwan-map/types'
+import type {
+  AreaId,
+  CityId,
+  TaiwanArea,
+} from '../../../../lib/taiwan-map/types'
 
 type Props = {
   search: TaiwanMapSearch
   /** 都市が 1 つに決まっているときのその都市のエリア */
   areas: ReadonlyArray<TaiwanArea>
+  /** 都市ごとの総数。null（分からない）なら全都市を出す */
+  cityCounts: ReadonlyMap<CityId, number> | null
+  /** エリアごとの総数 */
+  areaCounts: ReadonlyMap<AreaId, number>
   onChange: (patch: Partial<TaiwanMapSearch>) => void
 }
 
 function Row({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div
-      role="group"
-      aria-label={title}
-      className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3"
-    >
-      <p className={`${sectionTitleClass} shrink-0 sm:w-24 sm:pt-1.5`}>
-        {title}
-      </p>
+    <div role="group" aria-label={title} className="space-y-1.5">
+      <p className={sectionTitleClass}>{title}</p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   )
 }
 
-export function FilterBar({ search, areas, onChange }: Props) {
+/** チップの中の件数。読み上げでは「台北 27 件」になるよう単位を隠して添える */
+function Count({ n }: { n: number | undefined }) {
+  if (n === undefined) return null
+  return (
+    <span className="text-[0.7rem] font-normal text-gray-500 tabular-nums">
+      {n}
+      <span className="sr-only"> 件</span>
+    </span>
+  )
+}
+
+export function FilterBar({
+  search,
+  areas,
+  cityCounts,
+  areaCounts,
+  onChange,
+}: Props) {
+  const cities = visibleByCount(CITIES, cityCounts, search.city)
+  const visibleAreas = visibleByCount(areas, areaCounts, search.area)
   return (
     <div className="space-y-3">
       <Row title="都市">
-        {CITIES.map((city) => {
+        {cities.map((city) => {
           const pressed = search.city === city.id
           return (
             <button
@@ -60,14 +87,15 @@ export function FilterBar({ search, areas, onChange }: Props) {
               }
             >
               {city.name}
+              <Count n={cityCounts?.get(city.id)} />
             </button>
           )
         })}
       </Row>
 
-      {search.city !== undefined && areas.length > 0 && (
+      {search.city !== undefined && visibleAreas.length > 0 && (
         <Row title="エリア">
-          {areas.map((area) => {
+          {visibleAreas.map((area) => {
             const pressed = search.area === area.id
             return (
               <button
@@ -80,6 +108,7 @@ export function FilterBar({ search, areas, onChange }: Props) {
                 }
               >
                 {area.name}
+                <Count n={areaCounts.get(area.id) ?? 0} />
               </button>
             )
           })}

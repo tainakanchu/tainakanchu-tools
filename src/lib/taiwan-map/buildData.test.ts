@@ -91,9 +91,9 @@ describe('buildTaiwanMapData', () => {
   it('都市ファイルはその都市のエリアとスポットだけを持ち、全都市ぶん作る', () => {
     expect(built.cities.map((c) => c.city)).toEqual([
       'taipei',
+      'taichung',
       'tainan',
       'kaohsiung',
-      'taichung',
       'other',
     ])
     const tainan = built.cities.find((c) => c.city === 'tainan')!

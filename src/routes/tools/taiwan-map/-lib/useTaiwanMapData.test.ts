@@ -51,7 +51,15 @@ const index: Array<SpotIndexEntry> = Object.values(cityData).flatMap((c) =>
 
 function fakeRepo() {
   const repo = {
-    getManifest: vi.fn(),
+    getManifest: vi.fn(() =>
+      Promise.resolve({
+        cities: [
+          { id: 'taipei' as const, name: '台北', count: 2 },
+          { id: 'tainan' as const, name: '台南', count: 1 },
+        ],
+        categories: [],
+      }),
+    ),
     getSpotIndex: vi.fn(() => Promise.resolve(index)),
     getCity: vi.fn((id: CityId) => Promise.resolve(cityData[id]!)),
   } satisfies TaiwanMapRepository
@@ -109,6 +117,56 @@ describe('loadResults の categoryCounts', () => {
     expect(r.cities).toEqual(['taipei'])
     expect(r.categoryCounts.get('drink')).toBe(2)
     expect(r.categoryCounts.get('food')).toBe(1)
+  })
+})
+
+describe('loadResults の cityCounts / areaCounts', () => {
+  it('都市指定なら manifest の件数を使う', async () => {
+    const repo = fakeRepo()
+    const r = await loadResults(repo, { city: 'taipei' }, undefined)
+    expect(repo.getManifest).toHaveBeenCalledTimes(1)
+    expect(Object.fromEntries(r.cityCounts!)).toEqual({ taipei: 2, tainan: 1 })
+  })
+
+  it('都市なしなら読んだインデックスから数え、manifest は読まない', async () => {
+    const repo = fakeRepo()
+    const r = await loadResults(repo, { category: 'food' }, undefined)
+    expect(repo.getManifest).not.toHaveBeenCalled()
+    expect(r.cityCounts?.get('taipei')).toBe(2)
+    expect(r.cityCounts?.get('tainan')).toBe(1)
+    expect(r.cityCounts?.get('kaohsiung')).toBe(0)
+  })
+
+  it('manifest が読めなくても一覧は出し、cityCounts は null', async () => {
+    const repo = fakeRepo()
+    repo.getManifest.mockImplementation(() =>
+      Promise.reject(new Error('offline')),
+    )
+    const r = await loadResults(repo, { city: 'taipei' }, undefined)
+    expect(r.spots).toHaveLength(2)
+    expect(r.cityCounts).toBeNull()
+  })
+
+  it('エリアの件数は読んだ都市の全件から数える', async () => {
+    const repo = fakeRepo()
+    repo.getCity.mockImplementation(() =>
+      Promise.resolve({
+        city: 'taipei' as const,
+        areas: [],
+        spots: [
+          { ...spot('a', 'taipei', ['food']), area: 'dadaocheng' },
+          { ...spot('b', 'taipei', ['drink']), area: 'dadaocheng' },
+          spot('c', 'taipei', ['drink']),
+        ],
+      }),
+    )
+    const r = await loadResults(
+      repo,
+      { city: 'taipei', category: 'food' },
+      undefined,
+    )
+    expect(r.spots.map((s) => s.id)).toEqual(['a'])
+    expect(Object.fromEntries(r.areaCounts)).toEqual({ dadaocheng: 2 })
   })
 })
 
