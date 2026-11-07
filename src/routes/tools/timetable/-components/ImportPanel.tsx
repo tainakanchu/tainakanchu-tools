@@ -113,7 +113,8 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
           <h3 className={sectionTitle}>2. AI の返答を貼り付ける</h3>
           <p className="mt-1 text-sm text-gray-700">
             返ってきた JSON
-            をそのまま貼ります。前後に説明文が付いていても構いません。
+            をそのまま貼ります。前後に説明文が付いていても構いません。 AI
+            の返答はコードブロックのコピーボタンでコピーすると確実です。
           </p>
           <textarea
             value={text}
