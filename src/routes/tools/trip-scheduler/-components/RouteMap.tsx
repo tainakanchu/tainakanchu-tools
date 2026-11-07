@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { INK, PAPER } from '../../../../components/ui'
 import { cityCatalog, cityName } from '../../../../lib/trip-scheduler/cities'
 import {
   buildRouteNodes,
@@ -39,8 +38,14 @@ const catalogPoints = projectCities(
   MAP_PADDING,
 )
 
-/** 罫の色（候補都市の点、地図に無い区間の線）。styles.css の --color-rule と同じ値 */
-const RULE = '#CDD4E5'
+/*
+ * 地図は画面の部品なので、色はトークン（CSS 変数）で塗る。ダークでは紙と淡いインクに入れ替わる。
+ * SVG の fill / stroke 属性は var() をそのまま受け付ける
+ */
+const INK = 'var(--color-ink)'
+const PAPER = 'var(--color-paper)'
+/** 罫の色（候補都市の点、地図に無い区間の線） */
+const RULE = 'var(--color-rule)'
 
 interface LineStyle {
   stroke: string
@@ -220,7 +225,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
               <g>
                 {nodes.map((node) => {
                   const color = colors.get(node.cityId) ?? fallbackCityColor
-                  const fill = color.hex
+                  const fill = color.fill
                   const badge = node.orders.join('/')
                   const wide = badge.length > 1
                   const badgeWidth = wide ? 12 + badge.length * 5 : 18
@@ -259,7 +264,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                         dominantBaseline="central"
                         fontSize="10"
                         fontWeight="700"
-                        fill={color.textHex}
+                        fill={color.textFill}
                       >
                         {badge}
                       </text>

@@ -3,7 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="theme-color"
+      content="#ffffff"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#141b3d"
+      media="(prefers-color-scheme: dark)"
+    />
+    <!-- 配色（自動 / ライト / ダーク）を最初の描画より前に当てる。src/lib/theme.ts と同じキー・値 -->
+    <script>
+      try {
+        var t = localStorage.getItem('theme')
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.setAttribute('data-theme', t)
+          var c = t === 'dark' ? '#141b3d' : '#ffffff'
+          document
+            .querySelectorAll('meta[name="theme-color"]')
+            .forEach(function (m) {
+              m.content = c
+            })
+        }
+      } catch (e) {}
+    </script>
     <meta
       name="description"
       content="かんちゅが作る日常の小さな便利ツール集。原寸レイアウトメーカーなど、原寸レイアウトにこだわったユーティリティを公開中。"

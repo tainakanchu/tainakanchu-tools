@@ -95,7 +95,7 @@ export function StayRow({
           >
             <GripVertical size={16} aria-hidden />
           </button>
-          <Swatch color={color.hex} size={14} />
+          <Swatch color={color.fill} size={14} />
           <span className="text-sm font-bold tabular-nums text-ink-muted">
             {index + 1}
           </span>
@@ -222,7 +222,7 @@ export function StayRowPreview({ stay, color }: StayRowPreviewProps) {
   return (
     <div className="misreg flex cursor-grabbing items-center gap-3 rounded-ui p-3">
       <GripVertical size={16} className="text-ink-muted" aria-hidden />
-      <Swatch color={color.hex} size={14} />
+      <Swatch color={color.fill} size={14} />
       <span className="text-base font-bold">{city?.name ?? stay.cityId}</span>
       <span className="text-xs text-ink-muted">{city?.country}</span>
       <span className="ml-auto text-lg font-bold tabular-nums">

@@ -16,13 +16,40 @@
 | pink-tint    | `#FFCCE9`           | 主要ボタン・選択中チップの面                 | `bg-pink-tint`              |
 | pink-wash    | `#FFE9F6`           | エラー中の入力欄の地                         | `bg-pink-wash`              |
 | riso-*       | 下表                | カテゴリ色                                   | `bg-riso-teal`              |
+| on-riso      | `#1D3A8A`           | Riso インクのベタに載せる濃い文字            | `text-on-riso`              |
 | font-sans    | Zen Kaku Gothic New | 本文・UI（body の既定）                      | —                           |
 | font-display | Dela Gothic One     | ページタイトルとワードマークだけ             | `font-display`              |
 | radius-ui    | 3px                 | 入力・チップ・ボタン                         | `rounded-ui`                |
 
 線は青インク 1.5px: `ink-line`（四辺）/ `ink-line-t` / `ink-line-b`。細い区切りは `border-t border-rule`（1px）。
 
-TS から値が要るとき（canvas / SVG）は `INK` `PAPER` `PINK` `RISO_INKS`（`src/components/ui/inks.ts`）。
+TS から値が要るとき（canvas など出力に描くとき）は `INK` `PAPER` `PINK` `RISO_INKS`（`src/components/ui/inks.ts`）。これはライトの実際の値なので、画面の部品（SVG のアイコン・地図など）には CSS 変数（`var(--color-ink)`）を使う（下の「ダーク」）。
+
+## ダーク
+
+ダークは「同じノートを、濃い藍の色紙に淡いインクで刷ったもの」。真っ黒や灰色のダークモードにはしない。
+ヘッダー右端（スマホは目次の中）の「自動・ライト・ダーク」で切り替え、選んだものは localStorage（`theme`）に残す。自動は OS の設定に従う。
+
+- 仕組み: html の `data-theme`（`light` / `dark`、自動なら付けない）。`src/lib/theme.ts` が付け替え、`index.html` の head の小さなスクリプトが最初の描画より前に当てる（白く光らない）。CSS は `src/styles.css` の「配色の切り替え」で、ダークの値はそこに 1 回だけ書き、`@variant theme-dark`（明示のダーク／自動で OS がダーク）で展開する。
+- 部品もツールもトークン（`bg-paper` `text-ink` `var(--color-rule)` など）で塗っていれば何もしなくてよい。`bg-white` や `#1D3A8A` の直書き、`INK` / `PAPER` 定数を画面の部品に使うと切り替わらない。SVG は `fill="var(--color-ink)"` のように CSS 変数を渡す。
+- 印刷は常にライト（ダークは `@media screen` の中だけ）。
+- 実物の紙や出力を見せる面は `theme-light` を付けてライトのまま（原寸レイアウトの A4 用紙、ドラムロールの濃紺のステージ）。canvas に描く出力（セトリ画像・リソの合成と版）は値を直接使っているので変わらない。
+- 実際のインクの色見本（`RISO_INKS` の hex、リソのインク選び、セトリの配色）は実際の値のまま。カテゴリ色として使う `riso-*` トークンだけ、濃い地で沈む色を明るく刷り直す。
+
+| 名前      | ダークの値 | 確認したコントラスト              |
+| --------- | ---------- | --------------------------------- |
+| paper     | `#141B3D`  | —                                 |
+| ink       | `#E8ECF7`  | paper 上 14.2:1、wash 上 12.4:1   |
+| ink-muted | `#A3AFD3`  | paper 上 7.7:1、wash 上 6.7:1     |
+| rule      | `#34407A`  | —（罫のみ）                       |
+| wash      | `#1C2550`  | —                                 |
+| pink      | `#FF5DBB`  | paper 上 6.0:1                    |
+| pink-tint | `#6B2457`  | ink の文字 8.8:1                  |
+| pink-wash | `#3A1C45`  | ink の文字 12.4:1                 |
+| on-riso   | `#141B3D`  | 明るくしたインクの上で 5.5:1 以上 |
+
+riso-* のダーク: blue `#8BA4E6` / teal `#2FB7BE` / purple `#A68BDB` / brick `#D98487` / grey `#A9AAAB` / pink `#FF5DBB`（yellow・orange・green はそのまま）。
+ダークではインクのベタの上の文字はすべて紙の藍（`text-paper` / `text-on-riso`）になる。`mark-pink` は濃い地では multiply せずそのまま刷る。
 
 ## 形
 
@@ -163,7 +190,7 @@ import { Button, buttonClass, Chip, Field, TextInput, Select, Textarea, Checkbox
 
 ## 共通クローム
 
-- ヘッダー: 白地、左に Dela Gothic One のワードマーク、下に青インクの細罫 1 本。高さは 64px 固定（ツール側の `top-16` / `calc(100dvh-4rem)` がこれを前提にしている）。PC は「目次・旅行・デスク・イベント」の文字リンク（現在地にピンクの下線）、スマホは「目次」ボタンで一覧を開く。
+- ヘッダー: 紙の地、左に Dela Gothic One のワードマーク、下に青インクの細罫 1 本。高さは 64px 固定（ツール側の `top-16` / `calc(100dvh-4rem)` がこれを前提にしている）。PC は「目次・旅行・デスク・イベント」の文字リンク（現在地にピンクの下線）、スマホは「目次」ボタンで一覧を開く。右端に配色の切り替え（自動・ライト・ダーク。スマホは目次の一番下）。
 - トップはノートの目次（番号付きの一覧）。カードの格子にはしない。
 
 ## アクセシビリティ
@@ -172,4 +199,4 @@ import { Button, buttonClass, Chip, Field, TextInput, Select, Textarea, Checkbox
 - 青インクのベタ面の上では `on-ink` を付ける（フォーカスの線が紙の白になる）。
 - `prefers-reduced-motion: reduce` ではトランジションを止める（全体で設定済み）。ツール固有のアニメーションはツール側で止める。
 - スマホ 390px で横スクロールが出ないこと。タップできるものは高さ 44px 前後（チップは 34px まで可）。
-- ink-muted は白地で 5.2:1、wash 地で 4.7:1。それより薄い色を文字に使わない。
+- ink-muted は白地で 5.2:1、wash 地で 4.7:1（ダークは 7.7:1 / 6.7:1）。それより薄い色を文字に使わない。

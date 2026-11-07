@@ -526,7 +526,7 @@ function TripNotesPage() {
             {/* 未確保の夜があることは、どのタブにいても分かるようにする */}
             {item.id === 'progress' && summary.uncoveredNights > 0 && (
               <span
-                className="absolute right-1/4 top-1.5 inline-flex h-4 min-w-4 items-center justify-center bg-pink px-1 text-xs font-bold text-ink"
+                className="absolute right-1/4 top-1.5 inline-flex h-4 min-w-4 items-center justify-center bg-pink px-1 text-xs font-bold text-on-riso"
                 aria-label={`寝る場所が未確保の夜が ${summary.uncoveredNights} 泊`}
               >
                 {summary.uncoveredNights}

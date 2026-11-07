@@ -138,7 +138,8 @@ function DrumRollPage() {
         </PageTitle>
       </div>
 
-      {/* 演出の面だけは暗いインクで刷って、ステージらしくする */}
+      {/* 演出の面だけは暗いインクで刷って、ステージらしくする。
+          ダークでも淡いインクのベタにはせず、ライトと同じ濃紺のステージのまま（theme-light） */}
       <div
         role="button"
         tabIndex={0}
@@ -150,7 +151,7 @@ function DrumRollPage() {
         onPointerUp={release}
         onPointerCancel={cancel}
         onContextMenu={(event) => event.preventDefault()}
-        className="relative flex flex-1 cursor-pointer touch-none flex-col items-center justify-center gap-8 on-ink border-t-[1.5px] border-ink p-8 text-center select-none focus-visible:-outline-offset-6"
+        className="relative flex flex-1 cursor-pointer touch-none flex-col items-center justify-center gap-8 theme-light on-ink border-t-[1.5px] border-ink p-8 text-center select-none focus-visible:-outline-offset-6"
       >
         {mode === 'crashed' ? (
           <>

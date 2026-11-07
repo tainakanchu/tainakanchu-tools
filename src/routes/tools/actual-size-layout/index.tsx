@@ -382,7 +382,8 @@ function ActualSizeLayoutPage() {
             </p>
           </div>
           <div className="mt-4 overflow-x-auto border-[1.5px] border-ink bg-wash p-4 print:m-0 print:overflow-visible print:border-0 print:bg-transparent print:p-0">
-            <div className="relative mx-auto flex items-center justify-center overflow-visible border border-rule bg-paper print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
+            {/* A4 の用紙そのもの。実物の紙なのでダークでも白いまま（theme-light） */}
+            <div className="theme-light relative mx-auto flex items-center justify-center overflow-visible border border-rule bg-paper print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
               <div
                 className="relative flex h-full w-full flex-col items-center justify-start bg-paper print:m-0 print:border-0"
                 style={a4Style}

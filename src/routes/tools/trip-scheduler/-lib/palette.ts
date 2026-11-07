@@ -11,25 +11,22 @@ import type { RisoInkId } from '../../../../components/ui'
 export interface CityColor {
   /** ブロック・丸・色帯の地（bg-riso-*） */
   bar: string
-  /** 地の上に載せる文字色（text-paper / text-ink） */
+  /** 地の上に載せる文字色（text-paper / text-on-riso） */
   text: string
-  /** SVG 用の地の色 */
-  hex: string
-  /** SVG 用の文字の色 */
-  textHex: string
+  /** SVG・色の丸用の地の色（CSS の色。ダークでは明るく刷り直した値になる） */
+  fill: string
+  /** SVG 用の文字の色（CSS の色） */
+  textFill: string
 }
-
-const PAPER_HEX = '#FFFFFF'
-const INK_HEX = '#1D3A8A'
 
 function inkColor(id: RisoInkId, bar: string): CityColor {
   const ink = RISO_INKS.find((item) => item.id === id)
   const onPaper = ink?.textOnInk === 'paper'
   return {
     bar,
-    text: onPaper ? 'text-paper' : 'text-ink',
-    hex: ink?.hex ?? '#88898A',
-    textHex: onPaper ? PAPER_HEX : INK_HEX,
+    text: onPaper ? 'text-paper' : 'text-on-riso',
+    fill: `var(--color-riso-${id})`,
+    textFill: onPaper ? 'var(--color-paper)' : 'var(--color-on-riso)',
   }
 }
 
@@ -63,8 +60,8 @@ export function buildCityColorMap(
 export const fallbackCityColor: CityColor = {
   bar: 'bg-rule',
   text: 'text-ink',
-  hex: '#CDD4E5',
-  textHex: INK_HEX,
+  fill: 'var(--color-rule)',
+  textFill: 'var(--color-ink)',
 }
 
 /**

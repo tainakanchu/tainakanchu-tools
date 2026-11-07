@@ -1,6 +1,7 @@
 /**
  * Riso インクのカテゴリ色。CSS では `bg-riso-teal` などのユーティリティか
- * `var(--color-riso-teal)` を使う。canvas / SVG などで値そのものが要るときだけここを使う。
+ * `var(--color-riso-teal)` を使う。canvas など出力に値そのものが要るときと、実際のインクの色見本だけここを使う。
+ * hex はライト（白い紙）の実際の値。画面の部品で使うとダークで切り替わらない（docs/design.md「ダーク」）。
  * 並びはカテゴリに順番に割り当てるときの推奨順（隣り合っても見分けやすい順）。
  */
 export const RISO_INKS = [

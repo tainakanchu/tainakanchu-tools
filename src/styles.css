@@ -1,5 +1,24 @@
 @import 'tailwindcss';
 
+/* ダークのとき（明示のダーク、または自動で OS がダーク）。印刷には効かない。
+ * :root に付けてトークンを差し替えるのに使う（下の「配色の切り替え」）。
+ * ユーティリティの theme-dark: は .theme-light の中でも効いてしまうので、なるべくトークンで済ませる */
+@custom-variant theme-dark {
+  @media screen {
+    &:where([data-theme='dark'], [data-theme='dark'] *) {
+      @slot;
+    }
+  }
+  @media screen and (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme='light']),
+      :root:not([data-theme='light']) *
+    ) {
+      @slot;
+    }
+  }
+}
+
 /*
  * デザインの決まりごとは docs/design.md にまとめている。
  * 「自分で riso 印刷した文具・ノート」: 白い紙に青インク 1 色で刷り、
@@ -7,7 +26,7 @@
  */
 
 @theme {
-  /* 紙とインク */
+  /* 紙とインク（ここはライトの値。ダークの値は下の「配色の切り替え」にまとめてある） */
   --color-paper: #ffffff;
   /* 主インク Riso Medium Blue 系の濃紺。本文もこれで刷る（黒は使わない） */
   --color-ink: #1d3a8a;
@@ -24,7 +43,8 @@
   /* ピンクの薄網（エラー中の入力欄の地など） */
   --color-pink-wash: #ffe9f6;
 
-  /* Riso インク（カテゴリ色）。イエローの上に文字を載せるときは青インクの文字にする */
+  /* Riso インク（カテゴリ色）。イエローの上に文字を載せるときは青インクの文字にする。
+   * 実際のインクの色見本（risograph のインク選び・セトリの配色）はここを使わず実際の値を使う */
   --color-riso-pink: #ff48b0;
   --color-riso-blue: #3255a4;
   --color-riso-yellow: #ffe800;
@@ -34,6 +54,9 @@
   --color-riso-green: #00a95c;
   --color-riso-brick: #a75154;
   --color-riso-grey: #88898a;
+  /* Riso インクのベタに載せる濃い文字（RISO_INKS の textOnInk: 'ink'）。
+   * ライトは青インク。ダークは紙の藍（明るく刷り直したインクの上では淡いインクが読めないため） */
+  --color-on-riso: #1d3a8a;
 
   /* 書体: 本文・UI は Zen Kaku Gothic New、ページタイトルとワードマークだけ Dela Gothic One */
   --font-sans:
@@ -85,8 +108,72 @@
 }
 
 @layer base {
-  html {
+  /* ---------- 配色の切り替え（ライト / ダーク） ----------
+   * html の data-theme は src/lib/theme.ts と index.html の先読みスクリプトが付ける。
+   *   data-theme なし（自動）: OS の設定に従う / "light": ライト固定 / "dark": ダーク固定
+   * ダークは「同じノートを、濃い藍の色紙に淡いインクで刷ったもの」（docs/design.md「ダーク」）。
+   * ダークの値はここに 1 回だけ書き、2 つの条件（明示のダーク・自動で OS がダーク）へは
+   * @variant theme-dark（ファイル先頭の @custom-variant）で展開している。
+   * 印刷は常にライト（theme-dark は @media screen の中だけ）。 */
+  :root,
+  .theme-light {
     color-scheme: light;
+    /* 蛍光ペンの重ね方。白い紙では multiply、濃い色紙では重ねると沈むのでそのまま刷る */
+    --mark-blend: multiply;
+    /* ダイアログの背後に敷く青インクの薄網 */
+    --backdrop: rgb(29 58 138 / 0.4);
+    /* SVG の印は値に色を含むので変数で持つ */
+    --img-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231D3A8A' stroke-width='1.6'/%3E%3C/svg%3E");
+    --img-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1.5 5l3.2 3.2L10.5 1.8' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E");
+  }
+  :root {
+    @variant theme-dark {
+      color-scheme: dark;
+      --color-paper: #141b3d;
+      --color-ink: #e8ecf7;
+      --color-ink-muted: #a3afd3;
+      --color-rule: #34407a;
+      --color-wash: #1c2550;
+      --color-pink: #ff5dbb;
+      --color-pink-tint: #6b2457;
+      --color-pink-wash: #3a1c45;
+      /* 濃い地で沈むインクだけ明るく刷り直す（イエロー・オレンジ・グリーンはそのまま） */
+      --color-riso-pink: #ff5dbb;
+      --color-riso-blue: #8ba4e6;
+      --color-riso-teal: #2fb7be;
+      --color-riso-purple: #a68bdb;
+      --color-riso-brick: #d98487;
+      --color-riso-grey: #a9aaab;
+      --color-on-riso: #141b3d;
+      --mark-blend: normal;
+      /* 濃い地では青の網が見えないので、紙より暗い藍を敷く */
+      --backdrop: rgb(6 10 30 / 0.6);
+      --img-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23E8ECF7' stroke-width='1.6'/%3E%3C/svg%3E");
+      --img-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1.5 5l3.2 3.2L10.5 1.8' fill='none' stroke='%23141B3D' stroke-width='2'/%3E%3C/svg%3E");
+    }
+  }
+  /* 実物の紙や出力を見せる面（印刷プレビュー・ドラムロールのステージなど）は、
+   * 外がダークでもライトの値に戻す。値は @theme から引く */
+  .theme-light {
+    --color-paper: --theme(--color-paper inline);
+    --color-ink: --theme(--color-ink inline);
+    --color-ink-muted: --theme(--color-ink-muted inline);
+    --color-rule: --theme(--color-rule inline);
+    --color-wash: --theme(--color-wash inline);
+    --color-pink: --theme(--color-pink inline);
+    --color-pink-tint: --theme(--color-pink-tint inline);
+    --color-pink-wash: --theme(--color-pink-wash inline);
+    --color-riso-pink: --theme(--color-riso-pink inline);
+    --color-riso-blue: --theme(--color-riso-blue inline);
+    --color-riso-yellow: --theme(--color-riso-yellow inline);
+    --color-riso-teal: --theme(--color-riso-teal inline);
+    --color-riso-orange: --theme(--color-riso-orange inline);
+    --color-riso-purple: --theme(--color-riso-purple inline);
+    --color-riso-green: --theme(--color-riso-green inline);
+    --color-riso-brick: --theme(--color-riso-brick inline);
+    --color-riso-grey: --theme(--color-riso-grey inline);
+    --color-on-riso: --theme(--color-on-riso inline);
+    color: var(--color-ink);
   }
 
   /* ページ枠の最大幅（.page / .page-wide とヘッダーで共有） */
@@ -385,7 +472,7 @@
   select.input {
     appearance: none;
     padding-right: 36px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231D3A8A' stroke-width='1.6'/%3E%3C/svg%3E");
+    background-image: var(--img-select-arrow);
     background-repeat: no-repeat;
     background-position: right 13px center;
     cursor: pointer;
@@ -415,7 +502,7 @@
    * 横に並べたときに縦位置がずれる */
   .checkbox input:checked {
     background-color: var(--color-ink);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1.5 5l3.2 3.2L10.5 1.8' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E");
+    background-image: var(--img-check);
   }
   .checkbox input:focus-visible {
     outline: 2px solid var(--color-ink);
@@ -729,7 +816,7 @@
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background: rgb(29 58 138 / 0.4);
+    background: var(--backdrop);
   }
   .dialog {
     display: flex;
@@ -877,8 +964,8 @@
   .mark-pink {
     padding: 0 0.35em;
     background: var(--color-pink);
-    color: var(--color-ink);
-    mix-blend-mode: multiply;
+    color: var(--color-on-riso);
+    mix-blend-mode: var(--mark-blend);
   }
 }
 
@@ -917,6 +1004,11 @@
 }
 
 @media print {
+  /* 印刷は常にライト（ダークの指定は @media screen の中だけなので、ここは念のため） */
+  :root {
+    color-scheme: light !important;
+  }
+
   body {
     background: #fff;
   }

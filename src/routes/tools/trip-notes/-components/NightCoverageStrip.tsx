@@ -85,12 +85,16 @@ function diagonalStripe(colorA: string, colorB: string): CSSProperties {
   }
 }
 
+// 色はトークンで指定する（ダークでは淡いインクの斜線・暗いピンクの網になる）
 const OVERNIGHT_STRIPE = diagonalStripe(
-  'rgba(29,58,138,0)',
-  'rgba(29,58,138,0.14)',
+  'transparent',
+  'color-mix(in srgb, var(--color-ink) 14%, transparent)',
 )
 // 未確保はピンクの網に斜線を重ねて、遠目でも抜けている夜だと分かるようにする
-const UNCOVERED_STRIPE = diagonalStripe('#ffcce9', '#ff48b0')
+const UNCOVERED_STRIPE = diagonalStripe(
+  'var(--color-pink-tint)',
+  'var(--color-pink)',
+)
 
 function cellButtonClass(state: CellState, snapStart: boolean): string {
   const base = `flex h-14 items-center justify-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
