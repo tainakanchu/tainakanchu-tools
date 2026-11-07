@@ -413,7 +413,7 @@ describe('buildImportPrompt: 統合プロンプトと穴の載せ分け', () => 
   })
 
   it('識別に使う kind / title / start だけを識別情報として渡す', () => {
-    const payload = payloadFromPrompt(buildImportPrompt(state([flight()]))!)
+    const payload = payloadFromPrompt(buildImportPrompt(state([flight()])))
     expect(payload).toHaveLength(1)
     expect(payload[0].kind).toBe('flight')
     expect(payload[0].title).toBe('AF276 HND→CDG')
@@ -434,7 +434,7 @@ describe('buildImportPrompt: 統合プロンプトと穴の載せ分け', () => 
       place: { name: 'パリ', latinName: 'Paris' },
     })
     const payload = payloadFromPrompt(
-      buildImportPrompt(state([flight(), filled]))!,
+      buildImportPrompt(state([flight(), filled])),
     )
     expect(payload).toHaveLength(1)
     expect(payload[0].title).toBe('AF276 HND→CDG')
@@ -444,7 +444,7 @@ describe('buildImportPrompt: 統合プロンプトと穴の載せ分け', () => 
     const payload = payloadFromPrompt(
       buildImportPrompt(
         state([flight({ from: { name: '羽田空港', latinName: 'Tokyo' } })]),
-      )!,
+      ),
     )
     expect(payload[0].missing).toEqual([
       'onlineCheckInOpensMinutesBefore',
@@ -458,7 +458,7 @@ describe('buildImportPrompt: 統合プロンプトと穴の載せ分け', () => 
     const allDay = flight({
       start: { zdt: '2026-09-12T00:00:00+09:00[Asia/Tokyo]', allDay: true },
     })
-    const payload = payloadFromPrompt(buildImportPrompt(state([allDay]))!)
+    const payload = payloadFromPrompt(buildImportPrompt(state([allDay])))
     expect(payload[0].start.time).toBeNull()
   })
 
@@ -632,7 +632,7 @@ describe('buildImportPrompt → parseImportedJson → planImport の往復', () 
 
   it('既存の予約が増えずに更新される', () => {
     const existing = [flight(), lodging({ place: { name: 'パリ' } })]
-    const prompt = buildImportPrompt(state(existing))!
+    const prompt = buildImportPrompt(state(existing))
     const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
     expect(result.bookings).toHaveLength(2)
 
@@ -647,7 +647,7 @@ describe('buildImportPrompt → parseImportedJson → planImport の往復', () 
 
   it('欠けていた項目が埋まり、既存の項目は消えない', () => {
     const existing = [flight()]
-    const prompt = buildImportPrompt(state(existing))!
+    const prompt = buildImportPrompt(state(existing))
     const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
     const merged = planImport(existing, result.bookings).entries[0].booking
 
@@ -666,7 +666,7 @@ describe('buildImportPrompt → parseImportedJson → planImport の往復', () 
 
   it('穴埋めを取り込んだあとは、同じ穴が再び対象にならない', () => {
     const existing = [flight()]
-    const prompt = buildImportPrompt(state(existing))!
+    const prompt = buildImportPrompt(state(existing))
     const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
     const merged = planImport(existing, result.bookings).entries.map(
       (entry) => entry.booking,
@@ -682,7 +682,7 @@ describe('buildImportPrompt → parseImportedJson → planCountryInfoImport の�
 
   it('登録済みの国が増えずに更新され、id が保たれる', () => {
     const existing = [country()]
-    const prompt = buildImportPrompt(state([], existing))!
+    const prompt = buildImportPrompt(state([], existing))
     const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
     expect(result.countryInfos).toHaveLength(1)
     // 国のパッチが予約に化けていないこと(判別が効いていることの確認)
@@ -705,7 +705,7 @@ describe('buildImportPrompt → parseImportedJson → planCountryInfoImport の�
 
   it('埋まっていた欄はパッチに載らず、既存の値が残る', () => {
     const existing = [country({ plugTypes: 'F' })]
-    const prompt = buildImportPrompt(state([], existing))!
+    const prompt = buildImportPrompt(state([], existing))
     const patches = countryPatches(prompt)
     expect(patches[0]).not.toHaveProperty('plugTypes')
 
@@ -718,7 +718,7 @@ describe('buildImportPrompt → parseImportedJson → planCountryInfoImport の�
 
   it('取り込んだあとは、同じ穴が再び対象にならない', () => {
     const existing = [country()]
-    const prompt = buildImportPrompt(state([], existing))!
+    const prompt = buildImportPrompt(state([], existing))
     const result = parseImportedJson(respond(prompt), 'Asia/Tokyo')
     const merged = planCountryInfoImport(
       existing,
@@ -733,9 +733,7 @@ describe('buildImportPrompt → parseImportedJson → planCountryInfoImport の�
     // 判別規則(kind / start があるか、name があるか)がそのとおり効くことを固定する
     const existingBookings = [flight()]
     const existingCountries = [country()]
-    const prompt = buildImportPrompt(
-      state(existingBookings, existingCountries),
-    )!
+    const prompt = buildImportPrompt(state(existingBookings, existingCountries))
     const mixed = [...countryPatches(prompt), ...bookingPatches(prompt)]
 
     const result = parseImportedJson(fence(mixed), 'Asia/Tokyo')

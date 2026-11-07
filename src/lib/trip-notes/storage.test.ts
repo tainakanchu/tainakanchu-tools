@@ -773,7 +773,7 @@ describe('荷物枠(baggage)', () => {
           title: 'survives',
           baggage: {
             cabin: { pieces: -1 },
-            checked: 'bad' as unknown as { pieces: number },
+            checked: 'bad',
           },
         },
       ],

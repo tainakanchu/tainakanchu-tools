@@ -44,10 +44,6 @@ import {
   isCheckInOpensMinutesBefore,
   isDeadlineMinutesBefore,
 } from '../../../../lib/trip-notes/storage'
-import type {
-  BaggageAllowance,
-  BookingBaggage,
-} from '../../../../lib/trip-notes/types'
 import { useDialogFocus } from '../-lib/focusTrap'
 import {
   fieldClass,
@@ -68,7 +64,9 @@ import { BOOKING_STATUS_LABELS, PAYMENT_STATUS_LABELS } from './StatusBadge'
 import type { FormEvent, ReactNode } from 'react'
 import type { ImportResult } from '../../../../lib/trip-notes/aiImport'
 import type {
+  BaggageAllowance,
   Booking,
+  BookingBaggage,
   BookingKind,
   BookingStatus,
   FieldKey,
