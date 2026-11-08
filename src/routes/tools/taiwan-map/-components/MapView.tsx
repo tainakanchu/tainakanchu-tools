@@ -2,18 +2,34 @@
  * maplibre-gl + OpenFreeMap の地図。
  *
  * ■ このファイルは必ず React.lazy 経由で読むこと
- *   maplibre-gl は JS だけで 800KB 近くある。トップページ（= 地図を出さない
- *   画面）の読み込みに混ぜると最初の表示が遅くなるので、このモジュールごと
- *   動的 import にして、台湾マップの一覧・地図の画面に来てから取りに行く
+ *   maplibre-gl は本体の JS だけで 900KB ほどある（ワーカーは別に約 470KB）。
+ *   トップページ（= 地図を出さない画面）の読み込みに混ぜると最初の表示が
+ *   遅くなるので、このモジュールごと動的 import にして、台湾マップの
+ *   一覧・地図の画面に来てから取りに行く
  *   （いつ取りに行くかは -lib/loadMapView.ts に 1 箇所でまとめてある）。
  *   CSS もここで import しているので、同じチャンクと一緒に遅延される。
  *   ビルド後の sw.js で precache から外している理由も同じ（vite.config.ts 参照）。
  *
- * ■ maplibre-gl を v5 に留めている理由
- *   v6 は Web Worker を「ライブラリ自身の import.meta.url からの相対パス」で
- *   読みに行くため、Vite でバンドルするとワーカーのファイルが dist に
- *   出力されず、setWorkerUrl と ?worker 取り込みの設定が別途要る。
- *   v5 はワーカーを 1 ファイルに内包していて追加設定なしで動く。
+ * ■ maplibre-gl のワーカー（v6）
+ *   v5 はワーカーを本体の JS に内包していて設定なしで動いたが、v5 には
+ *   DOM.sanitize の XSS の脆弱性（GHSA-jrc7-96c5-q579）の修正が出ず、
+ *   直ったのは 6.4.1 からなので v6 に上げた。
+ *   v6 はワーカーを別ファイル（dist/maplibre-gl-worker.mjs）として読み、
+ *   場所は「ライブラリ自身の import.meta.url からの相対パス」で決める。
+ *   Vite でバンドルするとその相対パスの先にファイルが出力されないので
+ *   （SPA なので 404 ではなく index.html が返り、ワーカーが起動しない）、
+ *   maplibre の公式ドキュメントの Vite 向けの手順どおり、
+ *   `?worker&url` で取り込んだ URL を setWorkerUrl に渡す。
+ *   `?url` だけにしないのは、このワーカーが隣の maplibre-gl-shared.mjs を
+ *   import していて、`?url` だとワーカーのファイルがそのまま 1 つだけ
+ *   コピーされ、本番ビルドで import 先が無くなるため。`?worker&url` なら
+ *   Vite のワーカー用のビルドを通り、依存ごと 1 ファイルにまとまる
+ *   （assets/maplibre-gl-worker-*.js。precache から外す名前は vite.config.ts）。
+ *   取り込むのは URL の文字列だけで、ワーカーの JS を取りに行くのは
+ *   new Map で地図を作ったとき。このモジュール自体が遅延チャンクなので、
+ *   トップページなど地図を出さない画面ではワーカーも読まない。
+ *   ワーカーは同じオリジンから読むので、CSP を足すとしても
+ *   worker-src 'self' で足りる（blob: は要らない）。
  *
  * ■ タイル
  *   OpenFreeMap（キー不要・無料）のベクタタイル。ピンが主役になるよう、
@@ -103,7 +119,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './mapDark.css'
 import { Crosshair } from 'lucide-react'
@@ -138,6 +155,9 @@ import type {
 import type { GeoFix, GeolocationStatus } from '../-lib/useGeolocation'
 import type { BasemapPaintEntry, SpotLayerColors } from '../-lib/mapTheme'
 import type { ResolvedTheme } from '../../../../lib/theme/theme'
+
+// ワーカーの場所は new Map より前に決めておく（理由は冒頭の「ワーカー」）
+maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
@@ -503,7 +523,7 @@ function setSpotLayerColors(map: maplibregl.Map, c: SpotLayerColors) {
 /** ベース地図の色の差し替え表と、style を読んだときの元の値（ライトに戻す用） */
 type BasemapPaint = {
   plan: ReadonlyArray<BasemapPaintEntry>
-  original: ReadonlyArray<unknown>
+  original: ReadonlyArray<BasemapPaintEntry['dark']>
 }
 
 /** ベース地図をダークの色にする / style の元の色（ライト）に戻す */
@@ -854,7 +874,9 @@ export default function MapView({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
-    map
+    // v6 の setData は Promise を返すが、失敗は maplibre が error イベントで
+    // 知らせて Promise 自体は reject しないので待たない（下の drawUser も同じ）
+    void map
       .getSource<maplibregl.GeoJSONSource>(SOURCE_ID)
       ?.setData(
         spotsToFeatureCollection(spotsRef.current, activeCategory, theme),
@@ -916,7 +938,7 @@ export default function MapView({
     if (!map || !map.getSource(USER_SOURCE_ID)) return
     const pos = userPositionRef.current
     const heading = headingRef.current
-    map.getSource<maplibregl.GeoJSONSource>(USER_SOURCE_ID)?.setData({
+    void map.getSource<maplibregl.GeoJSONSource>(USER_SOURCE_ID)?.setData({
       type: 'FeatureCollection',
       features: pos
         ? [
@@ -928,7 +950,7 @@ export default function MapView({
           ]
         : [],
     })
-    map.getSource<maplibregl.GeoJSONSource>(ACCURACY_SOURCE_ID)?.setData({
+    void map.getSource<maplibregl.GeoJSONSource>(ACCURACY_SOURCE_ID)?.setData({
       type: 'FeatureCollection',
       features:
         pos && pos.accuracy > 0

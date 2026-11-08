@@ -21,8 +21,14 @@
  *   - ここに無い id のレイヤー（positron 側で増えたものなど）は、種類ごとの
  *     控えめな色（DARK_FALLBACK_PAINT）で塗る。白いまま残って暗い地図の中で
  *     光らないように
+ *
+ * ■ paint の名前と値の型
+ *   maplibre-gl から読むのは型だけ（import type。実行時には何も読まない）。
+ *   v6 の setPaintProperty は paint の名前ごとに値の型を決めているので、
+ *   表もその型で書いておくと、名前の書き間違いや値の形の誤りが型検査で分かる。
  */
 
+import type { AllPaintProperties, ExpressionSpecification } from 'maplibre-gl'
 import type { ResolvedTheme } from '../../../../lib/theme/theme'
 
 /** ダークのベース地図の基本色 */
@@ -49,8 +55,10 @@ export const DARK_BASEMAP = {
   waterLabel: '#93c5fd',
 } as const
 
-type PaintValue = string | number | ReadonlyArray<unknown>
-export type PaintOverrides = Readonly<Record<string, PaintValue>>
+type PaintName = keyof AllPaintProperties
+export type PaintOverrides = {
+  readonly [K in PaintName]?: AllPaintProperties[K]
+}
 
 const B = DARK_BASEMAP
 
@@ -59,7 +67,7 @@ const labelPaint = (text: string): PaintOverrides => ({
   'text-halo-color': B.labelHalo,
 })
 
-const motorwayInner = [
+const motorwayInner: ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
@@ -67,7 +75,7 @@ const motorwayInner = [
   'rgba(74, 88, 109, 0.53)',
   6,
   B.roadMotorway,
-] as const
+]
 
 /** positron のレイヤー id ごとの、ダークで差し替える paint */
 export const DARK_BASEMAP_PAINT: Readonly<
@@ -139,8 +147,8 @@ export const DARK_FALLBACK_PAINT: Readonly<
 
 export type BasemapPaintEntry = {
   layerId: string
-  property: string
-  dark: PaintValue
+  property: PaintName
+  dark: AllPaintProperties[PaintName]
 }
 
 /**
@@ -159,8 +167,10 @@ export function basemapPaintPlan(
     const paint =
       DARK_BASEMAP_PAINT[layer.id] ?? DARK_FALLBACK_PAINT[layer.type]
     if (!paint) continue
-    for (const [property, dark] of Object.entries(paint)) {
-      plan.push({ layerId: layer.id, property, dark })
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Object.keys は string[] になるが、キーは型付きの表（PaintOverrides）のものだけ
+    for (const property of Object.keys(paint) as Array<PaintName>) {
+      const dark = paint[property]
+      if (dark !== undefined) plan.push({ layerId: layer.id, property, dark })
     }
   }
   return plan
