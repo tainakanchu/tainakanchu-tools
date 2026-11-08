@@ -7,10 +7,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode'
+import { useTheme } from '@/components/theme/ThemeScope'
 import { langOf } from '@/lib/cjk/lang'
 import { buildFavoritesIcs, safeFileName } from '../../../../lib/timetable/ics'
 import { buildShareUrl } from '../../../../lib/timetable/share'
 import { shareImageFileName } from '../../../../lib/timetable/shareImage'
+import { formatDateLabel } from '../../../../lib/timetable/time'
+import { renderGridTimetableImage } from '../-lib/shareGridImage'
 import { renderMyTimetableImage } from '../-lib/shareImage'
 import {
   btn,
@@ -21,6 +24,7 @@ import {
   field,
   sectionTitle,
 } from '../-lib/ui'
+import type { ResolvedTheme } from '@/lib/theme/theme'
 import type { FriendPick, TimetableDoc } from '../../../../lib/timetable/types'
 
 const NAME_KEY = 'tainakanchu-tools:timetable:v1:myname'
@@ -91,7 +95,7 @@ function ShareQr({ url }: { url: string }) {
 
   if (qr.phase === 'tooLong') {
     return (
-      <p className="mt-2 text-xs text-amber-800">
+      <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
         URL が長すぎて QR コードにできません。URL をコピーして送ってください。
       </p>
     )
@@ -138,34 +142,55 @@ type ImageState =
   | { phase: 'ready'; file: File; url: string }
   | { phase: 'error' }
 
+/** 画像の形。リスト = お気に入りだけの縦の一覧、タイムテーブル = 1 日分のグリッド */
+type ImageFormat = 'list' | 'grid'
+
+const IMAGE_FORMATS: Array<{ id: ImageFormat; label: string }> = [
+  { id: 'list', label: 'リスト' },
+  { id: 'grid', label: 'タイムテーブル' },
+]
+
 /**
- * マイタイムテーブルの画像。パネルを開いた時点で作っておく
+ * 共有する画像。パネルを開いた時点(形や日を変えた時点)で作っておく
  * (ボタンを押してから作ると、描画を待つ間に操作の有効期限が切れて
  * iOS の共有シートが開けないことがあるため)
  */
-function useMyImage(
+function useShareImage(
   doc: TimetableDoc,
   favorites: ReadonlySet<string>,
+  format: ImageFormat,
+  dayId: string,
+  theme: ResolvedTheme,
 ): ImageState {
   const [state, setState] = useState<ImageState>({ phase: 'empty' })
   useEffect(() => {
-    if (favorites.size === 0) {
+    if (format === 'list' && favorites.size === 0) {
       setState({ phase: 'empty' })
       return
     }
     let cancelled = false
     let url: string | undefined
     setState({ phase: 'rendering' })
-    renderMyTimetableImage(doc, favorites)
+    const day = doc.days.find((d) => d.id === dayId)
+    const render =
+      format === 'list'
+        ? renderMyTimetableImage(doc, favorites)
+        : renderGridTimetableImage(doc, dayId, favorites, theme)
+    const fileName =
+      format === 'list'
+        ? shareImageFileName(doc.title)
+        : shareImageFileName(
+            doc.title,
+            `${day ? day.date.replaceAll('-', '') : dayId}-timetable`,
+          )
+    render
       .then((blob) => {
         if (cancelled) return
         if (blob === null) {
           setState({ phase: 'empty' })
           return
         }
-        const file = new File([blob], shareImageFileName(doc.title), {
-          type: 'image/png',
-        })
+        const file = new File([blob], fileName, { type: 'image/png' })
         url = URL.createObjectURL(file)
         setState({ phase: 'ready', file, url })
       })
@@ -176,7 +201,7 @@ function useMyImage(
       cancelled = true
       if (url) URL.revokeObjectURL(url)
     }
-  }, [doc, favorites])
+  }, [doc, favorites, format, dayId, theme])
   return state
 }
 
@@ -194,14 +219,32 @@ function canShareFile(file: File): boolean {
   return 'canShare' in navigator && navigator.canShare({ files: [file] })
 }
 
+/** 小さな切り替え(画像の形・日付)。いまの選択は aria-pressed で示す */
+function segmentClass(active: boolean): string {
+  return `rounded-md px-2 py-1 text-sm whitespace-nowrap tabular-nums ${
+    active
+      ? 'bg-gray-900 font-bold text-white dark:bg-gray-100 dark:text-gray-900'
+      : 'border border-gray-300 text-gray-800 dark:border-gray-600 dark:text-gray-200'
+  }`
+}
+
 function ImageShare({
   doc,
   favorites,
+  initialDayId,
 }: {
   doc: TimetableDoc
   favorites: ReadonlySet<string>
+  initialDayId: string
 }) {
-  const image = useMyImage(doc, favorites)
+  const { theme } = useTheme()
+  const [format, setFormat] = useState<ImageFormat>('list')
+  const [dayId, setDayId] = useState(() =>
+    doc.days.some((d) => d.id === initialDayId)
+      ? initialDayId
+      : (doc.days[0]?.id ?? ''),
+  )
+  const image = useShareImage(doc, favorites, format, dayId, theme)
   const [status, setStatus] = useState('')
 
   const handleShare = async () => {
@@ -221,12 +264,57 @@ function ImageShare({
     download(file, url)
   }
 
+  const day = doc.days.find((d) => d.id === dayId)
   return (
     <div>
       <h3 className={sectionTitle}>画像で共有</h3>
-      <p className="mt-1 text-sm text-gray-700">
-        マイタイムテーブル(お気に入り)を PNG
-        画像にします。下のプレビューを長押しして保存することもできます。
+      <div
+        className="mt-2 flex flex-wrap gap-1"
+        role="group"
+        aria-label="画像の形"
+      >
+        {IMAGE_FORMATS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={format === f.id}
+            className={segmentClass(format === f.id)}
+            onClick={() => {
+              setStatus('')
+              setFormat(f.id)
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      {format === 'grid' && doc.days.length > 1 && (
+        <div
+          className="mt-2 flex flex-wrap gap-1"
+          role="group"
+          aria-label="画像にする日"
+        >
+          {doc.days.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              aria-pressed={d.id === dayId}
+              className={segmentClass(d.id === dayId)}
+              onClick={() => {
+                setStatus('')
+                setDayId(d.id)
+              }}
+            >
+              {formatDateLabel(d.date)}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+        {format === 'list'
+          ? 'マイタイムテーブル(お気に入り)を時間順に並べた PNG 画像にします。'
+          : `${day ? formatDateLabel(day.date) : 'その日'} の全出演を会場ごとの列に並べ、お気に入りを塗りと ★ で目立たせた PNG 画像にします(いまの配色で描きます)。`}
+        下のプレビューを長押しして保存することもできます。
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button
@@ -247,8 +335,14 @@ function ImageShare({
           </button>
         )}
       </div>
-      <p className="mt-1 text-xs text-gray-600" role="status">
-        {image.phase === 'empty' && 'マイに追加すると画像にできます。'}
+      <p
+        className="mt-1 text-xs text-gray-600 dark:text-gray-400"
+        role="status"
+      >
+        {image.phase === 'empty' &&
+          (format === 'list'
+            ? 'マイに追加すると画像にできます。'
+            : 'この日の出演はありません。')}
         {image.phase === 'rendering' && '画像を作っています…'}
         {image.phase === 'error' && '画像を作れませんでした。'}
         {status}
@@ -256,8 +350,12 @@ function ImageShare({
       {image.phase === 'ready' && (
         <img
           src={image.url}
-          alt={`${doc.title} のマイタイムテーブル`}
-          className="mt-2 w-full max-w-sm border border-gray-300"
+          alt={
+            format === 'list'
+              ? `${doc.title} のマイタイムテーブル`
+              : `${doc.title} ${day ? formatDateLabel(day.date) : ''} のタイムテーブル`
+          }
+          className="mt-2 w-full max-w-sm border border-gray-300 dark:border-gray-700"
         />
       )}
     </div>
@@ -268,6 +366,8 @@ interface SharePanelProps {
   doc: TimetableDoc
   favorites: ReadonlySet<string>
   friends: ReadonlyArray<FriendPick>
+  /** いま画面で見ている日(タイムテーブル形式の画像の既定の日) */
+  dayId: string
   onFriendsChange: (friends: Array<FriendPick>) => void
   onClose: () => void
 }
@@ -276,6 +376,7 @@ export function SharePanel({
   doc,
   favorites,
   friends,
+  dayId,
   onFriendsChange,
   onClose,
 }: SharePanelProps) {
@@ -321,11 +422,14 @@ export function SharePanel({
 
   return (
     <section
-      className="space-y-5 border-b border-gray-300 pb-4"
+      className="space-y-5 border-b border-gray-300 dark:border-gray-700 pb-4"
       aria-labelledby="tt-share-title"
     >
       <div className="flex items-baseline justify-between">
-        <h2 id="tt-share-title" className="text-lg font-bold text-gray-900">
+        <h2
+          id="tt-share-title"
+          className="text-lg font-bold text-gray-900 dark:text-gray-100"
+        >
           共有と書き出し
         </h2>
         <button type="button" className={btn} onClick={onClose}>
@@ -335,7 +439,7 @@ export function SharePanel({
 
       <div>
         <h3 className={sectionTitle}>URL で共有</h3>
-        <p className="mt-1 text-sm text-gray-700">
+        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
           タイムテーブル全体を URL
           に入れて渡します。サーバには保存されません。開いた人は自分の一覧に保存できます。
         </p>
@@ -371,7 +475,10 @@ export function SharePanel({
             </button>
           )}
         </div>
-        <p className="mt-1 text-xs text-gray-600" role="status">
+        <p
+          className="mt-1 text-xs text-gray-600 dark:text-gray-400"
+          role="status"
+        >
           {status} URL の長さ {share.url.length.toLocaleString()} 文字
         </p>
         <textarea
@@ -384,7 +491,7 @@ export function SharePanel({
         <ShareQr url={share.url} />
       </div>
 
-      <ImageShare doc={doc} favorites={favorites} />
+      <ImageShare doc={doc} favorites={favorites} initialDayId={dayId} />
 
       <div>
         <h3 className={sectionTitle}>書き出し</h3>
@@ -418,7 +525,7 @@ export function SharePanel({
           </button>
         </div>
         {favorites.size === 0 && (
-          <p className="mt-1 text-xs text-gray-600">
+          <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
             .ics はお気に入りを選ぶと書き出せます。
           </p>
         )}
@@ -427,12 +534,12 @@ export function SharePanel({
       <div>
         <h3 className={sectionTitle}>友達の選択</h3>
         {friends.length === 0 ? (
-          <p className="mt-1 text-sm text-gray-700">
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
             友達から「お気に入り付き」の共有 URL
             をもらって開くと、ここに追加され、グリッドに破線の枠で重なります。
           </p>
         ) : (
-          <ul className="mt-1 divide-y divide-gray-200">
+          <ul className="mt-1 divide-y divide-gray-200 dark:divide-gray-800">
             {friends.map((friend) => (
               <li
                 key={friend.id}
@@ -448,7 +555,7 @@ export function SharePanel({
                     updateFriend(friend.id, { name: event.target.value })
                   }
                 />
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
                   {friend.actIds.length} 組
                 </span>
                 <label className="flex items-center gap-1 text-sm">

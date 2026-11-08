@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+/*
+ * dark: は OS の設定(prefers-color-scheme)ではなく、data-theme="dark" の要素の
+ * 内側だけで効かせる。設定(自動 / ライト / ダーク)の解決は ThemeScope が行い、
+ * 「自動」のときだけ OS に従う。ダークの配色を用意したツールだけを ThemeScope で
+ * 包むので、まだ用意していないツールが OS の設定で中途半端に暗くなることもない。
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
   --animate-drum-shake: drum-shake 0.26s ease-in-out infinite;
   --animate-drum-pop: drum-pop 0.5s cubic-bezier(0.22, 1.61, 0.36, 1) both;

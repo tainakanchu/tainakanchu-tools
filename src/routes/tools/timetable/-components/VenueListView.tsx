@@ -1,5 +1,6 @@
 import { venueColor } from '../../../../lib/timetable/colors'
 import { Txt } from '@/components/Txt'
+import { useTheme } from '@/components/theme/ThemeScope'
 import {
   actTimeText,
   actsOfDay,
@@ -33,18 +34,19 @@ export function VenueListView({
   query,
   onToggle,
 }: VenueListViewProps) {
+  const { theme } = useTheme()
   const acts = actsOfDay(doc, dayId).filter((act) => matchesQuery(act, query))
   const sections = doc.venues
     .map((venue, index) => ({
       venue,
-      color: venueColor(index),
+      color: venueColor(index, theme),
       acts: acts.filter((act) => act.venueId === venue.id),
     }))
     .filter((section) => section.acts.length > 0)
 
   if (sections.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-gray-600">
+      <p className="py-8 text-center text-sm text-gray-600 dark:text-gray-400">
         {query.trim().length > 0
           ? `「${query}」に当てはまる出演はこの日にありません。別の日も確かめてください。`
           : 'この日の出演はありません。'}
@@ -68,21 +70,21 @@ export function VenueListView({
             )}
           </h3>
           {(venue.note || venue.mapUrl) && (
-            <p className="px-2 pt-1 text-xs text-gray-600">
+            <p className="px-2 pt-1 text-xs text-gray-600 dark:text-gray-400">
               <Txt text={venue.note} />
               {venue.mapUrl && (
                 <a
                   href={venue.mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-2 text-cyan-800 underline"
+                  className="ml-2 text-cyan-800 dark:text-cyan-300 underline"
                 >
                   地図
                 </a>
               )}
             </p>
           )}
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-gray-200 dark:divide-gray-800">
             {list.map((act) => {
               const fav = favorites.has(act.id)
               const names = friends
@@ -91,29 +93,29 @@ export function VenueListView({
               return (
                 <li
                   key={act.id}
-                  className={`flex items-start gap-2 px-2 py-1.5 ${fav ? 'bg-amber-50' : ''}`}
+                  className={`flex items-start gap-2 px-2 py-1.5 ${fav ? 'bg-amber-50 dark:bg-amber-950/50' : ''}`}
                 >
-                  <span className="w-[5.5rem] shrink-0 pt-0.5 text-sm tabular-nums text-gray-700">
+                  <span className="w-[5.5rem] shrink-0 pt-0.5 text-sm tabular-nums text-gray-700 dark:text-gray-300">
                     {actTimeText(act)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p
-                      className={`text-sm ${fav ? 'font-bold' : 'font-medium'} text-gray-900`}
+                      className={`text-sm ${fav ? 'font-bold' : 'font-medium'} text-gray-900 dark:text-gray-100`}
                     >
                       {act.kind && act.kind !== 'live' && (
-                        <span className="mr-1 text-xs text-gray-600">
+                        <span className="mr-1 text-xs text-gray-600 dark:text-gray-400">
                           [{KIND_LABEL[act.kind]}]
                         </span>
                       )}
                       <Txt text={act.title} />
                     </p>
                     {act.subtitle && (
-                      <p className="text-xs text-gray-700">
+                      <p className="text-xs text-gray-700 dark:text-gray-300">
                         <Txt text={act.subtitle} />
                       </p>
                     )}
                     {act.note && (
-                      <p className="text-xs text-amber-800">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
                         <Txt text={act.note} />
                       </p>
                     )}

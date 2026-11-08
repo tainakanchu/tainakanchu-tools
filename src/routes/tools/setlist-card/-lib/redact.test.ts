@@ -465,41 +465,51 @@ describe('canvas に届くものは本当の文字によらない', () => {
     { count: 30, longText: 'condense', split: false, hideMeta: false },
   ]
 
+  // 1 件で 4 ケース × 秘密の文字列の数だけ全ページを描くので重い(photo は
+  // 手元でも 1 件 4 秒前後)。既定の 5 秒では CI の混み具合で落ちるため長めにとる
+  const HEAVY_TIMEOUT_MS = 30_000
+
   for (const { id: layout } of LAYOUTS) {
     for (const { id: style } of REDACT_STYLES) {
-      it(`${layout} / ${style}`, () => {
-        for (const c of cases) {
-          const base =
-            c.count === 14
-              ? createSampleSetlist()
-              : createStressSetlist(c.count)
-          // 開始時刻・曲の ID 以外が同じになるよう、同じ元から作る
-          const redact: RedactOptions = {
-            style,
-            custom: 'Forthcoming',
-            hideMeta: c.hideMeta,
+      it(
+        `${layout} / ${style}`,
+        () => {
+          for (const c of cases) {
+            const base =
+              c.count === 14
+                ? createSampleSetlist()
+                : createStressSetlist(c.count)
+            // 開始時刻・曲の ID 以外が同じになるよう、同じ元から作る
+            const redact: RedactOptions = {
+              style,
+              custom: 'Forthcoming',
+              hideMeta: c.hideMeta,
+            }
+            const runs = SECRETS.map((secret) => {
+              const setlist = withSecret(base, secret)
+              // hideMeta でないときは BPM・Key が出るのが正しいので、本当の値をそろえる
+              const fixed = c.hideMeta
+                ? setlist
+                : {
+                    ...setlist,
+                    tracks: setlist.tracks.map((t, i) =>
+                      HIDES.some(([at]) => at === i)
+                        ? { ...t, bpm: 128, key: 'Am' }
+                        : t,
+                    ),
+                  }
+              return record(
+                inputFor(fixed, layout, redact, c.longText, c.split),
+              )
+            })
+            for (const r of runs.slice(1)) expect(r).toEqual(runs[0])
+            const all = runs.flat().join('\n')
+            for (const word of SECRET_WORDS) expect(all).not.toContain(word)
+            expect(all).not.toMatch(SECRET_SCRIPT_FONT)
           }
-          const runs = SECRETS.map((secret) => {
-            const setlist = withSecret(base, secret)
-            // hideMeta でないときは BPM・Key が出るのが正しいので、本当の値をそろえる
-            const fixed = c.hideMeta
-              ? setlist
-              : {
-                  ...setlist,
-                  tracks: setlist.tracks.map((t, i) =>
-                    HIDES.some(([at]) => at === i)
-                      ? { ...t, bpm: 128, key: 'Am' }
-                      : t,
-                  ),
-                }
-            return record(inputFor(fixed, layout, redact, c.longText, c.split))
-          })
-          for (const r of runs.slice(1)) expect(r).toEqual(runs[0])
-          const all = runs.flat().join('\n')
-          for (const word of SECRET_WORDS) expect(all).not.toContain(word)
-          expect(all).not.toMatch(SECRET_SCRIPT_FONT)
-        }
-      })
+        },
+        HEAVY_TIMEOUT_MS,
+      )
     }
   }
 

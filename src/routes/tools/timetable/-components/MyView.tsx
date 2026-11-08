@@ -5,6 +5,7 @@
 
 import { venueColor } from '../../../../lib/timetable/colors'
 import { Txt } from '@/components/Txt'
+import { useTheme } from '@/components/theme/ThemeScope'
 import { actTimeText, buildMyTimeline } from '../../../../lib/timetable/derive'
 import { formatDateLabel, formatDuration } from '../../../../lib/timetable/time'
 import { FavButton, FriendTags } from './FavButton'
@@ -27,14 +28,14 @@ function GapRow({ gap }: { gap: MyGap }) {
     : ''
   if (gap.kind === 'overlap') {
     return (
-      <p className="border-l-4 border-rose-600 bg-rose-50 px-2 py-1 text-sm font-semibold text-rose-800">
+      <p className="border-l-4 border-rose-600 bg-rose-50 dark:bg-rose-950/60 px-2 py-1 text-sm font-semibold text-rose-800 dark:text-rose-200">
         時間が {formatDuration(-gap.freeMinutes)} 重なっています{assumed}
       </p>
     )
   }
   if (gap.kind === 'tight') {
     return (
-      <p className="border-l-4 border-amber-500 bg-amber-50 px-2 py-1 text-sm text-amber-950">
+      <p className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-sm text-amber-950 dark:text-amber-100">
         <span className="font-semibold">間に合わない可能性</span>: 空き{' '}
         {formatDuration(gap.freeMinutes)}、
         {gap.travelMinutes === null ? (
@@ -52,7 +53,7 @@ function GapRow({ gap }: { gap: MyGap }) {
   }
   if (gap.kind === 'move') {
     return (
-      <p className="px-2 py-1 text-sm text-gray-700">
+      <p className="px-2 py-1 text-sm text-gray-700 dark:text-gray-300">
         空き {formatDuration(gap.freeMinutes)}。
         {gap.travelMinutes === null ? (
           <>
@@ -68,7 +69,7 @@ function GapRow({ gap }: { gap: MyGap }) {
     )
   }
   return (
-    <p className="px-2 py-1 text-sm text-gray-600">
+    <p className="px-2 py-1 text-sm text-gray-600 dark:text-gray-400">
       空き {formatDuration(gap.freeMinutes)}(同じ会場){assumed}
     </p>
   )
@@ -81,20 +82,21 @@ export function MyView({
   onToggle,
   onGoGrid,
 }: MyViewProps) {
+  const { theme } = useTheme()
   const days = buildMyTimeline(doc, favorites)
   const venueIndex = new Map(doc.venues.map((venue, i) => [venue.id, i]))
 
   if (days.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-gray-700">
+      <div className="py-8 text-center text-sm text-gray-700 dark:text-gray-300">
         <p>お気に入りはまだありません。</p>
         <p className="mt-1">
-          グリッドで見たい出演をタップすると、ここに時間順で並びます。
+          グリッドで見たい出演の右上の ☆ を押すと、ここに時間順で並びます。
         </p>
         <button
           type="button"
           onClick={onGoGrid}
-          className="mt-3 text-cyan-800 underline"
+          className="mt-3 text-cyan-800 dark:text-cyan-300 underline"
         >
           グリッドを開く
         </button>
@@ -111,42 +113,45 @@ export function MyView({
         const tights = items.filter((i) => i.gapBefore?.kind === 'tight').length
         return (
           <section key={day.id} aria-label={formatDateLabel(day.date)}>
-            <h3 className="flex flex-wrap items-baseline gap-x-3 border-b-2 border-gray-900 px-1 pb-0.5 text-base font-bold text-gray-900">
+            <h3 className="flex flex-wrap items-baseline gap-x-3 border-b-2 border-gray-900 dark:border-gray-300 px-1 pb-0.5 text-base font-bold text-gray-900 dark:text-gray-100">
               {formatDateLabel(day.date)}
               {day.label && (
                 <span className="text-sm font-normal">
                   <Txt text={day.label} />
                 </span>
               )}
-              <span className="text-sm font-normal text-gray-700">
+              <span className="text-sm font-normal text-gray-700 dark:text-gray-300">
                 {items.length} 組
               </span>
               {overlaps > 0 && (
-                <span className="text-sm font-semibold text-rose-700">
+                <span className="text-sm font-semibold text-rose-700 dark:text-rose-300">
                   重なり {overlaps}
                 </span>
               )}
               {tights > 0 && (
-                <span className="text-sm font-semibold text-amber-800">
+                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
                   移動が厳しい {tights}
                 </span>
               )}
             </h3>
             <ol>
               {items.map(({ act, venue, gapBefore }) => {
-                const color = venueColor(venueIndex.get(act.venueId) ?? 0)
+                const color = venueColor(
+                  venueIndex.get(act.venueId) ?? 0,
+                  theme,
+                )
                 const names = friends
                   .filter((f) => f.actIds.includes(act.id))
                   .map((f) => f.name)
                 return (
                   <li key={act.id}>
                     {gapBefore && <GapRow gap={gapBefore} />}
-                    <div className="flex items-start gap-2 border-b border-gray-200 py-1.5 pl-1">
-                      <span className="w-[5.5rem] shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                    <div className="flex items-start gap-2 border-b border-gray-200 dark:border-gray-800 py-1.5 pl-1">
+                      <span className="w-[5.5rem] shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                         {actTimeText(act)}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-gray-900">
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           <Txt text={act.title} />
                         </p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
@@ -160,13 +165,13 @@ export function MyView({
                             {venue ? <Txt text={venue.name} /> : '会場不明'}
                           </span>
                           {act.subtitle && (
-                            <span className="text-gray-700">
+                            <span className="text-gray-700 dark:text-gray-300">
                               <Txt text={act.subtitle} />
                             </span>
                           )}
                         </p>
                         {act.note && (
-                          <p className="text-xs text-amber-800">
+                          <p className="text-xs text-amber-800 dark:text-amber-300">
                             <Txt text={act.note} />
                           </p>
                         )}

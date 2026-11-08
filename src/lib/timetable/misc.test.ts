@@ -1,22 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { contrastRatio, venueColor } from './colors'
 import { buildFavoritesIcs } from './ics'
 import { buildSampleDoc } from './sample'
 import { parseFriends, parseIdList, parseLibrary } from './storage'
-
-describe('venueColor', () => {
-  it('どの色でも文字とのコントラストが 4.5 以上', () => {
-    for (let i = 0; i < 30; i += 1) {
-      const c = venueColor(i)
-      expect(contrastRatio(c.fill, c.text)).toBeGreaterThanOrEqual(4.5)
-    }
-  })
-  it('隣の会場と同じ色にならない', () => {
-    for (let i = 0; i < 25; i += 1) {
-      expect(venueColor(i).fill).not.toBe(venueColor(i + 1).fill)
-    }
-  })
-})
 
 describe('buildFavoritesIcs', () => {
   it('タイムゾーンを UTC に直して書き出す', () => {

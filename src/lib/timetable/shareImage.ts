@@ -235,8 +235,11 @@ export function wrapText(
   return kept
 }
 
-/** 画像のファイル名。タイトルを使い、ファイル名に使えない字と空白は - にする */
-export function shareImageFileName(title: string): string {
+/**
+ * 画像のファイル名。タイトルを使い、ファイル名に使えない字と空白は - にする。
+ * suffix はリストの画像なら my、タイムテーブル形式なら 日付-timetable など
+ */
+export function shareImageFileName(title: string, suffix = 'my'): string {
   const slug = title
     .normalize('NFKC')
     .replace(/[\\/:*?"<>|#%&{}$!'@`+=]+/gu, ' ')
@@ -245,5 +248,5 @@ export function shareImageFileName(title: string): string {
     .replace(/-+/gu, '-')
     .slice(0, 60)
     .replace(/^-|-$/gu, '')
-  return `${slug || 'timetable'}-my.png`
+  return `${slug || 'timetable'}-${suffix}.png`
 }
