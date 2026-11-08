@@ -64,6 +64,11 @@ describe('dates', () => {
 
   it('isValidISODate', () => {
     expect(isValidISODate('2026-06-12')).toBe(true)
+    expect(isValidISODate('2024-02-29')).toBe(true)
+    expect(isValidISODate('2026-02-30')).toBe(false)
+    expect(isValidISODate('2026-04-31')).toBe(false)
+    expect(isValidISODate('2026-13-01')).toBe(false)
+    expect(isValidISODate('2025-02-29')).toBe(false)
     expect(isValidISODate('2026-6-12')).toBe(false)
     expect(isValidISODate('')).toBe(false)
     expect(isValidISODate('not-a-date')).toBe(false)
