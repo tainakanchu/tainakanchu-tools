@@ -39,8 +39,8 @@ export const iconButtonClass =
  * 公式の選択肢リストに無い値が入っている欄に引く黄色い下線。
  * 「そのままでは TWAC 側で弾かれるかもしれない値」であることを、
  * 値そのものを隠さずに伝える。
- * ダークは fieldClass の dark:bg / dark:border と同じ段で並ぶので、! で確実に勝たせる
- * (ライトの border-amber-400 は fieldClass の border-gray-300 に負けて下線が出ていない)。
+ * fieldClass の枠色(border-gray-300 / dark:border-*)と同じ段で並び、CSS の並び順次第で
+ * 負けて下線が出なくなるため、下線の色はライト・ダークとも ! で確実に勝たせる。
  */
 export const unverifiedFieldClass =
-  'border-b-2 border-amber-400 bg-amber-50/60 dark:border-b-amber-500! dark:bg-amber-950/40!'
+  'border-b-2 border-b-amber-400! bg-amber-50/60 dark:border-b-amber-500! dark:bg-amber-950/40!'
