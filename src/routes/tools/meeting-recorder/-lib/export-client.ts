@@ -93,11 +93,16 @@ async function freeName(
     const candidate = numberedFileName(fileName, n)
     try {
       await dir.getFileHandle(candidate)
-    } catch {
-      return candidate
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotFoundError') {
+        return candidate
+      }
+      throw error
     }
   }
-  return fileName
+  throw new Error(
+    `空いているファイル名が見つかりません: ${fileName}（99 件確認済み）`,
+  )
 }
 
 export type ExportJob = {
