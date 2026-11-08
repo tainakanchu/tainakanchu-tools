@@ -13,7 +13,13 @@ export function parseISODate(iso: string): number {
 
 export function isValidISODate(iso: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false
-  return !Number.isNaN(parseISODate(iso))
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(parseISODate(iso))
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === m - 1 &&
+    date.getUTCDate() === d
+  )
 }
 
 /** from から to までの日数差(to - from)。同日は 0 */
