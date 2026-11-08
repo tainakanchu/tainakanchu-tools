@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react'
 
 import Header from '../components/Header'
 import PwaHeadSync from '../components/PwaHeadSync'
+import { ThemeProvider } from '../components/theme/ThemeScope'
 
 const Devtools = import.meta.env.DEV
   ? lazy(() => import('../components/Devtools'))
@@ -12,8 +13,9 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [{ title: 'かんちゅツールズ | tainakanchu tools' }],
   }),
+  // 配色はサイト全体で 1 つ。ヘッダーの切り替えもツールの中身も同じ状態を見る
   component: () => (
-    <>
+    <ThemeProvider>
       <HeadContent />
       <PwaHeadSync />
       <Header />
@@ -23,6 +25,6 @@ export const Route = createRootRoute({
           <Devtools />
         </Suspense>
       ) : null}
-    </>
+    </ThemeProvider>
   ),
 })

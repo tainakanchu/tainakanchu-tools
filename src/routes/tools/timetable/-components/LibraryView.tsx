@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Txt } from '@/components/Txt'
-import { ThemeSwitch } from '@/components/theme/ThemeSwitch'
 import { formatDateLabel } from '../../../../lib/timetable/time'
 import { btn, btnDanger, btnPrimary } from '../-lib/ui'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -36,10 +35,7 @@ export function LibraryView({
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 text-gray-900 dark:text-gray-100">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">マイタイムテーブル</h1>
-        <ThemeSwitch />
-      </div>
+      <h1 className="text-xl font-bold">マイタイムテーブル</h1>
       <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
         フェスやイベントの公式タイムテーブルを自分の AI
         に読ませて取り込み、見たい出演だけの自分用タイムテーブルを作ります。データはこの端末の中だけに保存されます。

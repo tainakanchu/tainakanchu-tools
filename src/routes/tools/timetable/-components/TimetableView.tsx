@@ -5,7 +5,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Txt } from '@/components/Txt'
-import { ThemeSwitch } from '@/components/theme/ThemeSwitch'
 import { liveDay } from '../../../../lib/timetable/derive'
 import { remapActIds } from '../../../../lib/timetable/favorites'
 import {
@@ -449,10 +448,6 @@ function MoreMenu({
           >
             このタイムテーブルを削除
           </button>
-          <div className="mt-1 border-t border-gray-200 px-3 pb-1 pt-2 dark:border-gray-700">
-            <p className="text-xs text-gray-700 dark:text-gray-300">配色</p>
-            <ThemeSwitch className="mt-1" />
-          </div>
         </div>
       )}
     </div>

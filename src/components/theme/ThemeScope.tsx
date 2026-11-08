@@ -1,20 +1,34 @@
 /**
- * 配色を切り替える範囲(スコープ)。
+ * サイト全体の配色(ライト・ダーク)。__root.tsx で 1 度だけ ThemeProvider を置く。
  *
- * 中身を data-theme="light|dark" の要素で包み、styles.css の dark: バリアントは
- * この属性の内側だけで効く。いまはマイタイムテーブルだけを包んでいるが、
- * ルートで包めばサイト全体に広がるように、ツール固有のことはここに書かない。
+ * 解決した配色は <html> の data-theme="light|dark" と color-scheme に書く。
+ * styles.css の dark: バリアントはこの属性を見るので、どのツールでも dark:
+ * クラスを書けばそのまま効く。ページの背景・文字色・スクロールバーやフォーム部品
+ * (color-scheme)も <html> 側で決まるので、ツール側でページ全体を包む必要は無い。
  *
- * 属性は <html> ではなくスコープの要素に付ける。ほかのツールはまだダークの
- * 配色を持たないので、<html> に付けると移動した先のツールまで暗くなりうる。
- * ただしページの背景(iOS の引っ張りすぎで見える部分・中身が短いときの下側)と
- * ページのスクロールバーは <html> 側の色になるため、マウント中だけ <html> の
- * background と color-scheme を合わせ、外れたら元に戻す。
+ * 初回の描画前に index.html のインライン script が同じ判定で data-theme を
+ * 付けている(読み込み時に白く光らないように)。ここの初期値も同じ保存値と
+ * OS の設定から決めるので、マウントしても配色は変わらない。判定を変えるときは
+ * index.html の script も合わせる(theme.test.ts が両者の一致を確かめる)。
+ *
+ * ツール側の使い方:
+ * - 色はなるべく Tailwind の dark: クラスで付ける(配色の約束は styles.css の先頭)
+ * - canvas やインライン style など JS で色を決めるときは
+ *   `const { theme } = useTheme()` の theme('light' | 'dark')で分ける
+ * - 書き出す画像・PDF・印刷は、ツールが明示的に配色を選ばない限りライトのまま
  */
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 import {
+  THEME_STORAGE_KEY,
   loadThemeSetting,
   resolveTheme,
   saveThemeSetting,
@@ -22,7 +36,9 @@ import {
 import type { ResolvedTheme, ThemeSetting } from '../../lib/theme/theme'
 
 export interface ThemeState {
+  /** 利用者の設定(自動 / ライト / ダーク) */
   setting: ThemeSetting
+  /** 実際に使う配色。自動なら OS の設定で決まる */
   theme: ResolvedTheme
   setSetting: (setting: ThemeSetting) => void
 }
@@ -33,7 +49,7 @@ const ThemeContext = createContext<ThemeState>({
   setSetting: () => {},
 })
 
-/** いまの配色。ThemeScope の外ではライト */
+/** いまの配色。ThemeProvider の外ではライト */
 export function useTheme(): ThemeState {
   return useContext(ThemeContext)
 }
@@ -65,6 +81,17 @@ function useThemeController(): ThemeState {
     return () => query.removeEventListener('change', onChange)
   }, [])
 
+  // 別のタブで切り替えたら、開いているほかのタブも揃える
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY || event.key === null) {
+        setSettingState(loadThemeSetting())
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   return useMemo(
     () => ({
       setting,
@@ -78,46 +105,19 @@ function useThemeController(): ThemeState {
   )
 }
 
-/** ページ背景に使う色。スコープの背景(bg-white / dark:bg-gray-950)と揃える */
-const PAGE_BACKGROUND: Record<ResolvedTheme, string> = {
-  light: '#ffffff',
-  dark: '#030712',
-}
-
-export function ThemeScope({
-  children,
-  className = '',
-}: {
-  children: ReactNode
-  className?: string
-}) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const state = useThemeController()
   const { theme } = state
 
-  useEffect(() => {
+  // 描画と同じフレームで <html> を切り替える(useEffect だと、JS で色を
+  // 決めている部分とクラスで色を付けている部分が 1 フレームずれうる)
+  useLayoutEffect(() => {
     const root = document.documentElement
-    const prev = {
-      background: root.style.backgroundColor,
-      colorScheme: root.style.colorScheme,
-    }
-    root.style.backgroundColor = PAGE_BACKGROUND[theme]
+    root.dataset.theme = theme
+    // フォーム部品・スクロールバーなど、ブラウザが描く部分も配色に合わせる。
+    // 印刷では styles.css がライトに戻す
     root.style.colorScheme = theme
-    return () => {
-      root.style.backgroundColor = prev.background
-      root.style.colorScheme = prev.colorScheme
-    }
   }, [theme])
 
-  return (
-    <ThemeContext.Provider value={state}>
-      <div
-        data-theme={theme}
-        // フォームの部品・スクロールバーなど、ブラウザが描く部分も配色に合わせる
-        style={{ colorScheme: theme }}
-        className={`bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100 ${className}`}
-      >
-        {children}
-      </div>
-    </ThemeContext.Provider>
-  )
+  return <ThemeContext.Provider value={state}>{children}</ThemeContext.Provider>
 }

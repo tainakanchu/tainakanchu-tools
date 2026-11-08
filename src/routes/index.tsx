@@ -7,27 +7,29 @@ export const Route = createFileRoute('/')({
 })
 
 const cardClassName =
-  'group block h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-cyan-400 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+  'group block h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-cyan-400 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:border-gray-800 dark:bg-gray-900 dark:shadow-none dark:hover:border-cyan-400 dark:focus-visible:outline-cyan-400'
 
 function App() {
   // ツール一覧と OG 用 meta を二重管理しないため、カタログは site-meta から導出
   const categories = getCatalogByCategory()
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12 text-gray-900">
+    <main className="mx-auto max-w-4xl px-4 py-12 text-gray-900 dark:text-gray-100">
       <section className="space-y-6">
         <h2 className="text-3xl font-bold">かんちゅツールズ</h2>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-gray-600 dark:text-gray-300">
           個人用の小さなツールを集めたハブページです。用途に合わせてアプリを選んでください。
         </p>
       </section>
 
       <section className="mt-10 space-y-10">
-        <h3 className="text-2xl font-semibold text-gray-800">アプリ一覧</h3>
+        <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+          アプリ一覧
+        </h3>
 
         {categories.map((category) => (
           <div key={category.id}>
-            <h4 className="text-lg font-semibold text-gray-700">
+            <h4 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
               {category.name}
             </h4>
             <ul className="mt-4 grid gap-6 sm:grid-cols-2">
@@ -35,10 +37,10 @@ function App() {
                 <li key={item.slug}>
                   {item.kind === 'internal' ? (
                     <Link to={item.path} className={cardClassName}>
-                      <h5 className="text-xl font-semibold text-gray-900 group-hover:text-cyan-600">
+                      <h5 className="text-xl font-semibold text-gray-900 group-hover:text-cyan-600 dark:text-gray-100 dark:group-hover:text-cyan-300">
                         {item.name}
                       </h5>
-                      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                      <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                         {item.description}
                       </p>
                     </Link>
@@ -49,9 +51,9 @@ function App() {
                       rel="noopener noreferrer"
                       className={cardClassName}
                     >
-                      <h5 className="flex items-center gap-2 text-xl font-semibold text-gray-900 group-hover:text-cyan-600">
+                      <h5 className="flex items-center gap-2 text-xl font-semibold text-gray-900 group-hover:text-cyan-600 dark:text-gray-100 dark:group-hover:text-cyan-300">
                         <span>{item.name}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-500">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
                           外部
                           <ExternalLink
                             size={12}
@@ -60,7 +62,7 @@ function App() {
                           />
                         </span>
                       </h5>
-                      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                      <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                         {item.description}
                       </p>
                     </a>

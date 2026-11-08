@@ -14,14 +14,20 @@ import {
   MapPinned,
   Menu,
   Mic,
+  Monitor,
+  Moon,
   PlaneLanding,
   Printer,
   Sparkles,
+  Sun,
   X,
   ZoomIn,
 } from 'lucide-react'
 import { getCatalogByCategory } from '../lib/site-meta'
 import type { CatalogItem } from '../lib/site-meta'
+import { THEME_SETTING_LABELS } from '../lib/theme/theme'
+import type { ThemeSetting } from '../lib/theme/theme'
+import { useTheme } from './theme/ThemeScope'
 import {
   getLaunchedToolAppSlug,
   isStandaloneDisplay,
@@ -56,48 +62,53 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:bg-gray-900/60 print:hidden">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 text-white">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 text-white">
+          <div className="flex min-w-0 items-center gap-3">
             {/* ツール単体アプリではツール一覧を開くボタンを出さない（そのツール専用の
                 アプリなので）。ドロワーはボタンが無ければ開かないので触らない。
                 ロゴのトップへのリンクは残し、他のツールへはそこから行ける。 */}
             {isToolApp ? null : (
               <button
                 onClick={() => setIsOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
                 aria-label="メニューを開く"
               >
                 <Menu size={20} />
               </button>
             )}
-            <Link to="/" className="flex items-center gap-3">
+            <Link to="/" className="flex min-w-0 items-center gap-3">
               <BrandBadge />
-              <div className="leading-tight">
+              <div className="min-w-0 leading-tight">
                 <span className="block text-base font-semibold tracking-wide">
                   かんちゅツールズ
                 </span>
-                <span className="block text-xs text-cyan-200">
+                <span className="block truncate text-xs text-cyan-200">
                   Daily helpers crafted by tainakanchu
                 </span>
               </div>
             </Link>
           </div>
 
-          <a
-            href="https://x.com/tainakanchu"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition hover:border-cyan-400/60 hover:text-white md:flex"
-          >
-            <span className="inline-flex h-2 w-2 rounded-full bg-cyan-400" />
-            @tainakanchu
-          </a>
+          <div className="flex shrink-0 items-center gap-3">
+            <a
+              href="https://x.com/tainakanchu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition hover:border-cyan-400/60 hover:text-white md:flex"
+            >
+              <span className="inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+              @tainakanchu
+            </a>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
+      {/* 影は開いているときだけ。閉じて画面の左外に退けていても、影が画面の
+          左端に薄くはみ出して見えるため */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[320px] flex-col bg-gray-950 text-white shadow-2xl transition-transform duration-300 ease-in-out print:hidden ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[320px] flex-col border-r border-white/10 bg-gray-950 text-white transition-transform duration-300 ease-in-out print:hidden ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -167,6 +178,48 @@ export default function Header() {
         </footer>
       </aside>
     </>
+  )
+}
+
+/** 押すたびに 自動 → ライト → ダーク → 自動 と進む */
+const NEXT_THEME_SETTING: Record<ThemeSetting, ThemeSetting> = {
+  auto: 'light',
+  light: 'dark',
+  dark: 'auto',
+}
+
+const THEME_ICONS: Record<ThemeSetting, ComponentType<{ size?: number }>> = {
+  auto: Monitor,
+  light: Sun,
+  dark: Moon,
+}
+
+/**
+ * 配色の切り替え。ドロワーの中ではなくヘッダーの帯に置くのは、ツール単体アプリでは
+ * ドロワーを開くボタンが無く、どのページからでも 1 タップで変えられるようにするため。
+ * 3 択を並べるとスマホ幅でロゴと名前が収まらないので、1 つのボタンで順に回す。
+ * アイコンだけでは今どれか・押すと何になるかが分からないので、aria-label と
+ * title にどちらも書く。
+ */
+function ThemeToggle() {
+  const { setting, setSetting } = useTheme()
+  const next = NEXT_THEME_SETTING[setting]
+  const Icon = THEME_ICONS[setting]
+  const current =
+    setting === 'auto'
+      ? `${THEME_SETTING_LABELS.auto}(端末の設定に合わせる)`
+      : THEME_SETTING_LABELS[setting]
+  const label = `配色: ${current}。押すと${THEME_SETTING_LABELS[next]}にする`
+  return (
+    <button
+      type="button"
+      onClick={() => setSetting(next)}
+      aria-label={label}
+      title={label}
+      className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+    >
+      <Icon size={20} />
+    </button>
   )
 }
 
@@ -257,7 +310,7 @@ function BrandBadge({ size = 'md' }: { size?: 'md' | 'sm' }) {
 
   return (
     <span
-      className={`relative inline-flex ${dimension} overflow-hidden bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 shadow-lg`}
+      className={`relative inline-flex shrink-0 ${dimension} overflow-hidden bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-500 shadow-lg`}
     >
       <span className="absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.45),rgba(255,255,255,0)_55%)] opacity-70 mix-blend-screen" />
       {failedToLoad ? (
