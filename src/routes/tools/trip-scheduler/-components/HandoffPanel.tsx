@@ -81,21 +81,21 @@ export function HandoffPanel({ state }: HandoffPanelProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <NotebookPen size={18} className="text-cyan-600" />
+        <NotebookPen size={18} className="text-cyan-600 dark:text-cyan-400" />
         旅のしおりへ引き継ぐ
       </h2>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
         行き先が決まったら、この骨組みを旅のしおりの新しい旅程にします。
         滞在は「検討中の宿」、都市間は「手段未定の移動」として入るので、あとは向こうで実際の予約に育てていきます。
       </p>
 
       {preview !== null ? (
-        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
+        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200">
           「{preview.tripTitle}」として、宿 {lodgingCount} 件・移動 {moveCount}{' '}
           件を作ります。
         </p>
       ) : (
-        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500">
+        <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           滞在を 1 つ以上入れると引き継げます。
         </p>
       )}
@@ -113,7 +113,7 @@ export function HandoffPanel({ state }: HandoffPanelProps) {
       </div>
 
       {error !== null ? (
-        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/50 dark:text-red-300">
           {error}
         </p>
       ) : null}

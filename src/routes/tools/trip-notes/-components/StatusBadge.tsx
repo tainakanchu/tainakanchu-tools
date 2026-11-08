@@ -56,19 +56,22 @@ const BOOKING_STATUS_STYLES: Record<BookingStatus, BadgeStyle> = {
   idea: {
     // 破線ボーダーで「まだ決まっていない」感を形で出す
     className:
-      'bg-slate-100 text-slate-700 border border-dashed border-slate-300',
+      'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-dashed border-slate-300 dark:border-slate-600',
     icon: CircleDashed,
   },
   held: {
-    className: 'bg-amber-100 text-amber-800 border border-amber-300',
+    className:
+      'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800',
     icon: Clock,
   },
   confirmed: {
-    className: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    className:
+      'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800',
     icon: CheckCircle2,
   },
   cancelled: {
-    className: 'bg-rose-50 text-rose-600 border border-rose-200',
+    className:
+      'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800',
     icon: XCircle,
     strike: true,
   },
@@ -76,22 +79,26 @@ const BOOKING_STATUS_STYLES: Record<BookingStatus, BadgeStyle> = {
 
 const PAYMENT_STATUS_STYLES: Record<PaymentStatus, BadgeStyle> = {
   unpaid: {
-    className: 'bg-white text-rose-700 border border-rose-300',
+    className:
+      'bg-white dark:bg-gray-900 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
     icon: Ban,
   },
   deposit: {
-    className: 'bg-white text-amber-700 border border-amber-300',
+    className:
+      'bg-white dark:bg-gray-900 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800',
     icon: PiggyBank,
   },
   paid: {
     // 予約確定の CheckCircle2 とアイコンを変えて、2 つ並んだときに混同させない
-    className: 'bg-white text-emerald-700 border border-emerald-300',
+    className:
+      'bg-white dark:bg-gray-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800',
     icon: CheckCheck,
   },
   onsite: {
     // 「現地払い」は良し悪しのある状態ではなく単なる情報なので、
     // 警告色を当てずに sky で中立に置く
-    className: 'bg-white text-sky-700 border border-sky-300',
+    className:
+      'bg-white dark:bg-gray-900 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800',
     icon: Banknote,
   },
 }
@@ -105,19 +112,19 @@ export const TRAVEL_DOC_STATUS_LABELS: Record<TravelDocStatus, string> = {
 const TRAVEL_DOC_STATUS_STYLES: Record<TravelDocStatus, BadgeStyle> = {
   todo: {
     className:
-      'bg-white text-slate-600 border border-slate-300 border-l-4 border-l-slate-400',
+      'bg-white dark:bg-gray-900 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 border-l-4 border-l-slate-400 dark:border-l-slate-500',
     icon: CircleDashed,
   },
   applied: {
     // 「申請したまま発給待ち」の待ちを表すのに、乗り継ぎ待ちで使っている
     // Hourglass と同じアイコンを流用する(別画面なので混同はしない)
     className:
-      'bg-white text-amber-700 border border-amber-300 border-l-4 border-l-amber-500',
+      'bg-white dark:bg-gray-900 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 border-l-4 border-l-amber-500',
     icon: Hourglass,
   },
   done: {
     className:
-      'bg-white text-emerald-700 border border-emerald-300 border-l-4 border-l-emerald-500',
+      'bg-white dark:bg-gray-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 border-l-4 border-l-emerald-500',
     icon: BadgeCheck,
   },
 }

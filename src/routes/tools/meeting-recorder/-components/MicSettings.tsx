@@ -47,7 +47,7 @@ export function MicSettings({ options, devices, disabled, onChange }: Props) {
         {TOGGLES.map((toggle) => (
           <label
             key={toggle.key}
-            className="inline-flex items-center gap-2 text-sm text-gray-700"
+            className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
           >
             <input
               type="checkbox"
@@ -61,7 +61,7 @@ export function MicSettings({ options, devices, disabled, onChange }: Props) {
             <span>
               {toggle.label}
               {toggle.note && (
-                <span className="ml-1 text-xs text-gray-500">
+                <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                   （{toggle.note}）
                 </span>
               )}

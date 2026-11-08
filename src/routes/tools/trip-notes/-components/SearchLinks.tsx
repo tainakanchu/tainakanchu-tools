@@ -26,14 +26,16 @@ export function SearchLinks({ links, label = '探す:' }: SearchLinksProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] font-medium text-gray-500">{label}</span>
+      <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+        {label}
+      </span>
       {links.map((link) => (
         <a
           key={link.label}
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:text-gray-200 transition hover:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <ExternalLink size={11} aria-hidden="true" />
           {link.label}

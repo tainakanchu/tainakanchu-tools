@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { ThemeScope } from '../../../components/theme/ThemeScope'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { remapActIds } from '../../../lib/timetable/favorites'
 import { decodeShareHash, hasShareHash } from '../../../lib/timetable/share'
@@ -71,15 +70,15 @@ export const Route = createFileRoute('/tools/timetable/')({
 })
 
 /**
- * ダークの配色はいまはこのツールだけが持つので、ツール全体を ThemeScope で包む。
- * 高さはサイトのヘッダー(中身 4rem + 下罫線 1px)を除いた画面いっぱいにして、
- * 中身が短い画面(一覧が空のときなど)でも下まで同じ地の色にする
+ * 配色はサイト全体の ThemeProvider(__root.tsx)が <html> に付け、ページの地も
+ * そちらで塗る。ここでは中身の既定の文字色だけを決める(ライトの既定は黒なので、
+ * 以前のスコープと同じ gray-900 に揃える)
  */
 function ThemedTimetablePage() {
   return (
-    <ThemeScope className="min-h-[calc(100dvh-4rem-1px)]">
+    <div className="text-gray-900 dark:text-gray-100">
       <TimetablePage />
-    </ThemeScope>
+    </div>
   )
 }
 

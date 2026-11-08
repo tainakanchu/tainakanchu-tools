@@ -40,7 +40,7 @@ export class MapErrorBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center text-sm text-gray-600"
+        className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center text-sm text-gray-600 dark:text-gray-300"
       >
         <p>地図を読み込めませんでした。一覧はそのまま使えます。</p>
         <button

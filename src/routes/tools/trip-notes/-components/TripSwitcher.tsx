@@ -44,7 +44,7 @@ function rangeLabel(startDate: string, endDate: string): string | null {
 }
 
 const menuItemClass =
-  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500'
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400'
 
 export function TripSwitcher({
   library,
@@ -115,7 +115,7 @@ export function TripSwitcher({
           id={menuId}
           role="menu"
           aria-label="旅程の切り替えと操作"
-          className="absolute left-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg"
         >
           {/*
             role="menu" の子は menuitem 系でなければならないので、
@@ -133,18 +133,18 @@ export function TripSwitcher({
                     role="menuitemradio"
                     aria-checked={isActive}
                     onClick={() => runAndClose(() => onSelect(trip.id))}
-                    className={`${menuItemClass} ${isActive ? 'font-semibold text-cyan-800' : ''}`}
+                    className={`${menuItemClass} ${isActive ? 'font-semibold text-cyan-800 dark:text-cyan-200' : ''}`}
                   >
                     <Check
                       size={14}
                       aria-hidden="true"
-                      className={`shrink-0 ${isActive ? 'text-cyan-600' : 'invisible'}`}
+                      className={`shrink-0 ${isActive ? 'text-cyan-600 dark:text-cyan-300' : 'invisible'}`}
                     />
                     <span className="min-w-0 flex-1 truncate">
                       {tripLabel(trip.state.tripTitle)}
                     </span>
                     {range !== null ? (
-                      <span className="shrink-0 text-xs font-normal text-gray-500">
+                      <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
                         {range}
                       </span>
                     ) : null}
@@ -154,7 +154,7 @@ export function TripSwitcher({
             })}
           </ul>
 
-          <hr className="my-1 border-gray-200" />
+          <hr className="my-1 border-gray-200 dark:border-gray-800" />
 
           <button
             type="button"
@@ -178,13 +178,13 @@ export function TripSwitcher({
             type="button"
             role="menuitem"
             onClick={() => runAndClose(onDelete)}
-            className={`${menuItemClass} text-rose-700 hover:bg-rose-50`}
+            className={`${menuItemClass} text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60`}
           >
             <Trash2 size={14} aria-hidden="true" className="shrink-0" />
             削除
           </button>
 
-          <hr className="my-1 border-gray-200" />
+          <hr className="my-1 border-gray-200 dark:border-gray-800" />
 
           <button
             type="button"

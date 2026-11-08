@@ -1,12 +1,61 @@
 @import 'tailwindcss';
 
 /*
- * dark: は OS の設定(prefers-color-scheme)ではなく、data-theme="dark" の要素の
- * 内側だけで効かせる。設定(自動 / ライト / ダーク)の解決は ThemeScope が行い、
- * 「自動」のときだけ OS に従う。ダークの配色を用意したツールだけを ThemeScope で
- * 包むので、まだ用意していないツールが OS の設定で中途半端に暗くなることもない。
+ * ダークモード(サイト全体)
+ *
+ * dark: は OS の設定(prefers-color-scheme)ではなく、<html data-theme="dark"> の
+ * 内側で効かせる。設定(自動 / ライト / ダーク)の解決は ThemeProvider
+ * (src/components/theme/ThemeScope.tsx)が行い、「自動」のときだけ OS に従う。
+ * 初回の描画前には index.html のインライン script が同じ属性を付ける。
+ *
+ * 印刷では dark: を一切効かせない。印刷するツール(原寸レイアウト・セトリ・
+ * 旅のしおりなど)は紙に合わせた配色なので、画面がダークでも紙はライトで出す。
+ *
+ * 配色の約束(ツールごとに dark: を足すときはこれに揃える)。
+ * 数字は Tailwind の gray などの段階。本文の文字は地に対して 4.5:1 以上を保つ。
+ * - ページの地: gray-950(<html> に付けてあるので、ツールで塗り直さない)
+ * - 一段上がった面(カード・パネル・ダイアログ・メニュー): gray-900
+ * - 入力欄・へこんだ面: gray-900(面の上なら gray-800)
+ * - 罫線: gray-700(控えめな区切り・カードの枠は gray-800)
+ * - 文字: 本文 gray-100 / 補足 gray-300 / 控えめ gray-400(gray-500 以下は本文に使わない)
+ * - 押せるもの(主ボタン): ライトの cyan-700 地 + 白字 → ダークは cyan-400 地 + gray-950 字
+ *   (hover は cyan-300)。白地の副ボタンは gray-900 地 + gray-600 枠 + gray-200 字
+ * - リンク・強調の文字: cyan-300 / cyan-400。フォーカスの輪は cyan-400
+ * - 危険(削除など): 文字は rose-300 / rose-400、枠は rose-800、hover の地は rose-950
+ * - 状態の色(成功・注意・エラー): 文字は -300 / -400、地は -950 か -900 を薄く(/50 など)
+ * - canvas・PNG・PDF に書き出す絵は、ツールが明示的に配色を選ばない限りライトのまま。
+ *   JS で色を決めるときは useTheme() の theme を見る
  */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@custom-variant dark {
+  @media not print {
+    &:where([data-theme='dark'], [data-theme='dark'] *) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * ページの地と文字色。<html> に付けると iOS の引っ張りすぎで見える部分や、
+ * 中身が短いときの下側まで同じ色になる。ライトはこれまでどおりブラウザ既定
+ * (白地・黒字)のまま変えない。
+ */
+@media not print {
+  html[data-theme='dark'] {
+    background-color: var(--color-gray-950);
+    color: var(--color-gray-100);
+    color-scheme: dark;
+  }
+}
+
+/*
+ * 印刷は常にライト。color-scheme は ThemeProvider が <html> のインライン style に
+ * 書くので、!important で上書きしてフォーム部品などもライトで刷る
+ */
+@media print {
+  html {
+    color-scheme: light !important;
+  }
+}
 
 @theme {
   --animate-drum-shake: drum-shake 0.26s ease-in-out infinite;

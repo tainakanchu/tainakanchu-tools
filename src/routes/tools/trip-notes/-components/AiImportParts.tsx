@@ -94,7 +94,10 @@ export function PromptCopyBlock({
           )}
         </button>
         {status === 'failed' && (
-          <span role="alert" className="text-xs text-rose-600">
+          <span
+            role="alert"
+            className="text-xs text-rose-600 dark:text-rose-300"
+          >
             コピーに失敗しました。テキストを選択して手動でコピーしてください
           </span>
         )}
@@ -118,7 +121,7 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
             href={service.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 transition hover:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
           >
             <ExternalLink size={12} aria-hidden="true" />
             {service.label}
@@ -136,13 +139,13 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
           href={service.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col gap-0.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className="flex flex-col gap-0.5 rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <span className="inline-flex items-center gap-1.5">
             <ExternalLink size={14} aria-hidden="true" />
             {service.label} を開く
           </span>
-          <span className="text-xs font-normal text-gray-500">
+          <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
             {service.hint}
           </span>
         </a>
@@ -160,7 +163,7 @@ export function AiServiceLinks({ compact = false }: { compact?: boolean }) {
 export function ImportIssueDetails({ issues }: { issues: Array<ImportIssue> }) {
   if (issues.length === 0) return null
   return (
-    <details className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+    <details className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
       <summary className="cursor-pointer font-medium">
         問題の詳細({issues.length}件)
       </summary>
@@ -168,14 +171,14 @@ export function ImportIssueDetails({ issues }: { issues: Array<ImportIssue> }) {
         {issues.map((issue, i) => (
           <li
             key={i}
-            className="border-t border-amber-200 pt-2 first:border-t-0 first:pt-0"
+            className="border-t border-amber-200 dark:border-amber-800 pt-2 first:border-t-0 first:pt-0"
           >
             <p>
               {issue.index !== null ? `${issue.index + 1}件目: ` : ''}
               {issue.message}
             </p>
             {issue.raw !== undefined && (
-              <blockquote className="mt-1 border-l-4 border-amber-300 pl-2 text-xs text-amber-700">
+              <blockquote className="mt-1 border-l-4 border-amber-300 dark:border-amber-800 pl-2 text-xs text-amber-700 dark:text-amber-300">
                 {issue.raw}
               </blockquote>
             )}

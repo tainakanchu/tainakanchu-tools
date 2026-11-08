@@ -8,6 +8,7 @@
 
 import { categoryColor, pinCategory } from './categoryColors'
 import type { SpotCategory, TaiwanSpot } from '../../../../lib/taiwan-map/types'
+import type { ResolvedTheme } from '../../../../lib/theme/theme'
 
 export type SpotFeatureProps = {
   id: string
@@ -39,6 +40,8 @@ export type SpotFeatureCollection = {
 export function spotsToFeatureCollection(
   spots: ReadonlyArray<TaiwanSpot>,
   activeCategory: SpotCategory | undefined,
+  /** ピンの色の明るさ。ダークの地図では一段明るいジャンル色にする */
+  theme: ResolvedTheme = 'light',
 ): SpotFeatureCollection {
   return {
     type: 'FeatureCollection',
@@ -51,7 +54,10 @@ export function spotsToFeatureCollection(
       properties: {
         id: spot.id,
         name: spot.name,
-        color: categoryColor(pinCategory(spot.categories, activeCategory)),
+        color: categoryColor(
+          pinCategory(spot.categories, activeCategory),
+          theme,
+        ),
         visited: spot.status === 'visited',
         sortKey: spot.status === 'visited' ? 1 : 0,
       },

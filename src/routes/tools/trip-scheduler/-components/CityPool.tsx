@@ -28,22 +28,28 @@ const chipClass =
   'flex items-center gap-1 rounded-full border py-1 pl-1 pr-1 text-sm transition'
 
 /** 未配置のチップ。ここからどう置くかを考える主役なのではっきり見せる */
-const chipIdleClass = 'border-gray-200 bg-gray-50'
+const chipIdleClass =
+  'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'
 
 /** 配置済みのチップ。用は済んでいるので薄く。再訪のためにプールには残しておく */
-const chipPlacedClass = 'border-gray-200/70 bg-white'
+const chipPlacedClass =
+  'border-gray-200/70 bg-white dark:border-gray-800 dark:bg-gray-900'
 
 const chipGripClass =
-  'inline-flex h-6 w-5 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-full text-gray-300 transition hover:bg-gray-200 hover:text-gray-600 active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+  'inline-flex h-6 w-5 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-full text-gray-300 transition hover:bg-gray-200 hover:text-gray-600 active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300 dark:focus-visible:outline-cyan-400'
 
 /** ドラッグ中にカーソルへ追従するチップ(操作はできない見た目だけの複製) */
 export function CityChipPreview({ cityId }: { cityId: string }) {
   const city = getCity(cityId)
   return (
-    <span className="inline-flex cursor-grabbing items-center gap-1.5 rounded-full border border-cyan-300 bg-white py-1.5 pl-2 pr-3 text-sm shadow-lg ring-2 ring-cyan-200">
-      <GripVertical size={14} className="text-gray-400" />
-      <span className="font-medium text-gray-800">{city?.name ?? cityId}</span>
-      <span className="text-xs text-gray-500">{city?.country}</span>
+    <span className="inline-flex cursor-grabbing items-center gap-1.5 rounded-full border border-cyan-300 bg-white py-1.5 pl-2 pr-3 text-sm shadow-lg ring-2 ring-cyan-200 dark:border-cyan-500 dark:bg-gray-800 dark:shadow-black/40 dark:ring-cyan-800">
+      <GripVertical size={14} className="text-gray-400 dark:text-gray-500" />
+      <span className="font-medium text-gray-800 dark:text-gray-100">
+        {city?.name ?? cityId}
+      </span>
+      <span className="text-xs text-gray-500 dark:text-gray-400">
+        {city?.country}
+      </span>
     </span>
   )
 }
@@ -83,13 +89,19 @@ function PoolCityChip({ cityId, placedCount, dispatch }: PoolCityChipProps) {
       >
         <GripVertical size={14} />
       </button>
-      <span className={placed ? 'text-gray-500' : 'font-medium text-gray-800'}>
+      <span
+        className={
+          placed
+            ? 'text-gray-500 dark:text-gray-400'
+            : 'font-medium text-gray-800 dark:text-gray-100'
+        }
+      >
         {cityLabel}
       </span>
       <span className="text-xs text-gray-400">{city?.country}</span>
       {placed ? (
         <span
-          className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+          className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
           title={`日程に ${placedCount} 回入っています`}
         >
           <Check size={10} />
@@ -102,8 +114,8 @@ function PoolCityChip({ cityId, placedCount, dispatch }: PoolCityChipProps) {
         onClick={() => dispatch({ type: 'placeFromPool', cityId })}
         className={
           placed
-            ? 'ml-1 inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-white px-2 py-1 text-xs font-medium text-cyan-700 transition hover:bg-cyan-50'
-            : 'ml-1 inline-flex items-center gap-1 rounded-full bg-cyan-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700'
+            ? 'ml-1 inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-white px-2 py-1 text-xs font-medium text-cyan-700 transition hover:bg-cyan-50 dark:border-cyan-800 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-cyan-950/50'
+            : 'ml-1 inline-flex items-center gap-1 rounded-full bg-cyan-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700 dark:bg-cyan-400 dark:text-gray-950 dark:hover:bg-cyan-300'
         }
       >
         {placed ? (
@@ -121,7 +133,7 @@ function PoolCityChip({ cityId, placedCount, dispatch }: PoolCityChipProps) {
       <button
         type="button"
         onClick={() => dispatch({ type: 'removeFromPool', cityId })}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
         aria-label={`${cityLabel} を候補から削除`}
         title="候補から外します(日程に入れた滞在はそのまま残ります)"
       >
@@ -160,22 +172,22 @@ export function CityPool({ state, dispatch }: CityPoolProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <MapPin size={18} className="text-cyan-600" />
+        <MapPin size={18} className="text-cyan-600 dark:text-cyan-400" />
         行きたい都市の候補
       </h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         気になる都市をためておく場所です。「日程に入れる」で
         {DEFAULT_STAY_NIGHTS}
         泊からOUT都市の手前に並びます。ハンドル(⠿)を掴んで滞在リストの好きな位置へドラッグしても入れられます。
       </p>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         入れたあともチップは残ります。同じ都市は何度でも置けるので、パリIN・パリOUTのように「最初にパリ→周遊→最後にまたパリ」も組めます。
       </p>
 
       <div className="relative mt-4">
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
         />
         <input
           type="search"
@@ -198,23 +210,26 @@ export function CityPool({ state, dispatch }: CityPoolProps) {
                     dispatch({ type: 'addToPool', cityId: city.id })
                     setQuery('')
                   }}
-                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-cyan-50"
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-gray-700 dark:hover:border-cyan-400 dark:hover:bg-cyan-950/40"
                 >
                   <span>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
                       {city.name}
                     </span>
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                       {city.country}
                     </span>
                   </span>
-                  <Plus size={16} className="shrink-0 text-cyan-600" />
+                  <Plus
+                    size={16}
+                    className="shrink-0 text-cyan-600 dark:text-cyan-400"
+                  />
                 </button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500">
+          <p className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             該当する都市が見つかりません(すでに候補に入っているかもしれません)。
           </p>
         )
@@ -222,7 +237,7 @@ export function CityPool({ state, dispatch }: CityPoolProps) {
 
       <div className="mt-4">
         {state.poolCityIds.length === 0 ? (
-          <p className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500">
+          <p className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             候補はまだ空です。上の検索から追加してください。
           </p>
         ) : (

@@ -75,13 +75,13 @@ export function TravelerCard({
   }
 
   return (
-    <li className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+    <li className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-gray-700 dark:bg-gray-900 dark:shadow-none">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-800">
+        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
           <User
             size={16}
             aria-hidden="true"
-            className="shrink-0 text-cyan-600"
+            className="shrink-0 text-cyan-600 dark:text-cyan-400"
           />
           <span className="truncate">{heading}</span>
         </h3>

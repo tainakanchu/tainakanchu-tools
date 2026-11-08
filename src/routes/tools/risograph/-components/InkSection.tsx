@@ -101,7 +101,7 @@ export function InkSection({ inkIds, onChange }: Props) {
               />
               <span className="min-w-0 flex-1 truncate text-sm text-gray-100">
                 {preset?.name ?? id}
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                   {preset?.hex}
                 </span>
               </span>

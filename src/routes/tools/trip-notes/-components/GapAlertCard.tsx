@@ -81,24 +81,26 @@ function PrimaryCard({
   return (
     <div
       role="alert"
-      className="flex flex-col gap-3 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex items-start gap-2.5">
         <AlertTriangle
           size={18}
-          className="mt-0.5 shrink-0 text-amber-600"
+          className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300"
           aria-hidden="true"
         />
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-amber-900">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
             宿泊先が未定
-            <span className="font-medium text-amber-800">— {stayLabel}</span>
-            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
+            <span className="font-medium text-amber-800 dark:text-amber-200">
+              — {stayLabel}
+            </span>
+            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white dark:bg-amber-400 dark:text-gray-950">
               要対応
             </span>
           </p>
           {rangeLabel !== null ? (
-            <p className="mt-1 text-sm font-medium text-amber-800">
+            <p className="mt-1 text-sm font-medium text-amber-800 dark:text-amber-200">
               {rangeLabel}
             </p>
           ) : null}
@@ -112,7 +114,7 @@ function PrimaryCard({
       <button
         type="button"
         onClick={onAddLodging}
-        className={`${primaryButtonClass} shrink-0 self-start bg-amber-600 hover:bg-amber-700 focus-visible:outline-amber-500 sm:self-center`}
+        className={`${primaryButtonClass} shrink-0 self-start bg-amber-600 hover:bg-amber-700 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-400 sm:self-center`}
         aria-label={`${ariaDate}の宿泊予約を追加`}
       >
         <Plus size={15} aria-hidden="true" />
@@ -136,10 +138,13 @@ function ContinuationRow({
   return (
     <div
       role="status"
-      className="flex items-center justify-between gap-2 rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-1.5 text-xs text-amber-800"
+      className="flex items-center justify-between gap-2 rounded-lg border border-amber-200/80 dark:border-amber-800/80 bg-amber-50/60 dark:bg-amber-950/36 px-3 py-1.5 text-xs text-amber-800 dark:text-amber-200"
     >
       <p className="min-w-0 truncate">
-        <span className="mr-1.5 text-amber-500" aria-hidden="true">
+        <span
+          className="mr-1.5 text-amber-500 dark:text-amber-400"
+          aria-hidden="true"
+        >
           ・
         </span>
         {label}
@@ -147,7 +152,7 @@ function ContinuationRow({
       <button
         type="button"
         onClick={onAddLodging}
-        className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium text-amber-700 underline-offset-2 hover:bg-amber-100 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500"
+        className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-300 underline-offset-2 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-400"
         aria-label={`${label}の宿泊予約を追加`}
       >
         <Plus size={12} aria-hidden="true" />

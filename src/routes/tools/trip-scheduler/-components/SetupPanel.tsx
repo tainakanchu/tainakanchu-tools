@@ -30,17 +30,17 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <PlaneLanding size={18} className="text-cyan-600" />
+        <PlaneLanding size={18} className="text-cyan-600 dark:text-cyan-400" />
         航空券(確定している前提条件)
       </h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         往復の航空券が取れている前提で、期間と発着都市を先に固定します。ここを基準に泊数を配っていきます。
       </p>
 
       {/* 全幅レイアウトでは 4 項目を1行に並べて、前提条件を横一列の帯として見せる */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <label className="space-y-1">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             ヨーロッパ到着日
           </span>
           <input
@@ -53,7 +53,7 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
           />
         </label>
         <label className="space-y-1">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             ヨーロッパ出発日(帰国便)
           </span>
           <input
@@ -67,8 +67,11 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
         </label>
 
         <label className="space-y-1">
-          <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-            <PlaneLanding size={14} className="text-gray-400" />
+          <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <PlaneLanding
+              size={14}
+              className="text-gray-400 dark:text-gray-500"
+            />
             IN(到着都市)
           </span>
           <CitySelect
@@ -79,8 +82,11 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
           />
         </label>
         <label className="space-y-1">
-          <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-            <PlaneTakeoff size={14} className="text-gray-400" />
+          <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <PlaneTakeoff
+              size={14}
+              className="text-gray-400 dark:text-gray-500"
+            />
             OUT(出発都市)
           </span>
           <CitySelect
@@ -93,17 +99,17 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
       </div>
 
       {rangeOk ? (
-        <p className="mt-4 rounded-xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+        <p className="mt-4 rounded-xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-100">
           <span className="font-semibold">
             {nights}泊{nights + 1}日
           </span>
-          <span className="ml-2 text-cyan-800/80">
+          <span className="ml-2 text-cyan-800/80 dark:text-cyan-200/90">
             <DateLabel iso={state.startDate} /> 〜{' '}
             <DateLabel iso={state.endDate} />
           </span>
         </p>
       ) : (
-        <p className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/50 dark:text-red-300">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <span>
             帰国日は到着日より後の日付にしてください。期間が決まらないと泊数を配れません。
@@ -112,8 +118,11 @@ export function SetupPanel({ state, dispatch }: SetupPanelProps) {
       )}
 
       {roundTripCityId !== null ? (
-        <p className="mt-2 flex items-start gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          <Repeat size={16} className="mt-0.5 shrink-0 text-gray-400" />
+        <p className="mt-2 flex items-start gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          <Repeat
+            size={16}
+            className="mt-0.5 shrink-0 text-gray-400 dark:text-gray-500"
+          />
           <span>
             {cityName(roundTripCityId)}
             の往復なので、最初と最後の両方に{cityName(roundTripCityId)}

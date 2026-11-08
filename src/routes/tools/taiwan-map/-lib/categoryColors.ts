@@ -10,9 +10,15 @@
  *   選択中のピンの cyan の輪とジャンル色が混ざらないようにするため。
  * - 隣り合う色相が近くなりすぎないよう、橙・黄土・桃・青・れんが・紫・青緑・緑・灰に
  *   散らしている。色だけに頼らず、チップには必ずジャンル名の文字も出す。
+ * - ダーク（暗い地図）では同じ色相のまま一段明るい 400〜500 にする
+ *   （CATEGORY_COLORS_DARK）。600〜700 のままだと暗い地に沈み、未訪問の
+ *   白抜きのピン（暗い地に色の縁だけ）が見えにくくなるため。
+ *   暗い地図の地・ピンの中の色に対して 3:1 以上あることを
+ *   mapTheme.test.ts で確かめている。
  */
 
 import type { SpotCategory } from '../../../../lib/taiwan-map/types'
+import type { ResolvedTheme } from '../../../../lib/theme/theme'
 
 export const CATEGORY_COLORS: Record<SpotCategory, string> = {
   food: '#ea580c', // orange-600
@@ -24,6 +30,19 @@ export const CATEGORY_COLORS: Record<SpotCategory, string> = {
   stay: '#0d9488', // teal-600
   outdoor: '#16a34a', // green-600
   other: '#64748b', // slate-500
+}
+
+/** ダーク（暗い地図・暗いチップ）でのジャンル色。色相は CATEGORY_COLORS と同じ */
+export const CATEGORY_COLORS_DARK: Record<SpotCategory, string> = {
+  food: '#f97316', // orange-500
+  drink: '#eab308', // yellow-500
+  shopping: '#f472b6', // pink-400
+  culture: '#60a5fa', // blue-400
+  townscape: '#f87171', // red-400（れんが色を明るく）
+  music: '#a78bfa', // violet-400
+  stay: '#2dd4bf', // teal-400
+  outdoor: '#4ade80', // green-400
+  other: '#94a3b8', // slate-400
 }
 
 /**
@@ -40,6 +59,9 @@ export function pinCategory(
   return categories.at(0) ?? 'other'
 }
 
-export function categoryColor(category: SpotCategory): string {
-  return CATEGORY_COLORS[category]
+export function categoryColor(
+  category: SpotCategory,
+  theme: ResolvedTheme = 'light',
+): string {
+  return (theme === 'dark' ? CATEGORY_COLORS_DARK : CATEGORY_COLORS)[category]
 }

@@ -23,6 +23,7 @@ import {
 } from '../-lib/options'
 import {
   cardClass,
+  fieldClass,
   labelClass,
   sectionTitleClass,
   subtleButtonClass,
@@ -95,7 +96,7 @@ function LegFields({
           onChange={(event) => {
             if (isMode(event.target.value)) onModeChange(event.target.value)
           }}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+          className={fieldClass}
         >
           {MODE_OF_TRAVEL_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -167,10 +168,10 @@ function PastTripPicker({
       </button>
 
       {open && (
-        <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-          <p className="text-xs text-gray-600">
+        <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+          <p className="text-xs text-gray-600 dark:text-gray-300">
             便名・渡航目的・宿泊先などをコピーします。
-            <strong className="font-semibold text-gray-800">
+            <strong className="font-semibold text-gray-800 dark:text-gray-100">
               入国日と出国予定日はコピーしません。
             </strong>
             前回の日付がそのまま残ったまま書き出されるのを防ぐためです。
@@ -184,12 +185,12 @@ function PastTripPicker({
                     onApply(past)
                     setOpen(false)
                   }}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:border-gray-600 dark:bg-gray-900 dark:hover:bg-cyan-950/50 dark:focus-visible:outline-cyan-400"
                 >
-                  <span className="block font-medium text-gray-800">
+                  <span className="block font-medium text-gray-800 dark:text-gray-100">
                     {summarizePastTrip(past)}
                   </span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
                     {formatSavedAt(past.savedAt)} に保存
                   </span>
                 </button>
@@ -236,17 +237,21 @@ export function TripForm({
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <PlaneLanding size={18} aria-hidden="true" className="text-cyan-600" />
+        <PlaneLanding
+          size={18}
+          aria-hidden="true"
+          className="text-cyan-600 dark:text-cyan-400"
+        />
         旅程(同行者全員で共通)
       </h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         同じ便で入国し、同じ宿に泊まる前提です。書き出すときに全員の行へ同じ値が入ります。
       </p>
 
       <PastTripPicker pastTrips={pastTrips} onApply={onApplyPastTrip} />
 
-      <fieldset className="mt-4 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
+      <fieldset className="mt-4 space-y-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
           <PlaneLanding size={15} aria-hidden="true" />
           台湾に入る
         </legend>
@@ -277,8 +282,8 @@ export function TripForm({
         <SubmissionWindowBanner entryDate={trip.dateOfEntry} />
       </fieldset>
 
-      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
+      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
           <PlaneTakeoff size={15} aria-hidden="true" />
           台湾から出る
         </legend>
@@ -322,7 +327,7 @@ export function TripForm({
         毎回考えることになり、関係ないのに埋めてしまう人が出る
       */}
       {trip.purpose === PURPOSE_VISIT_RELATIVE && (
-        <div className="mt-3 grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+        <div className="mt-3 grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2 dark:border-gray-700">
           <TextField
             label="親族の氏名"
             value={trip.relativesName}
@@ -338,7 +343,7 @@ export function TripForm({
       )}
 
       {trip.purpose === PURPOSE_OTHERS && (
-        <div className="mt-3 rounded-xl border border-gray-200 p-3">
+        <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
           <TextField
             label="理由"
             value={trip.reason}
@@ -348,8 +353,8 @@ export function TripForm({
         </div>
       )}
 
-      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3">
-        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700">
+      <fieldset className="mt-3 space-y-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
           <MapPin size={15} aria-hidden="true" />
           台湾での滞在先
         </legend>
@@ -363,7 +368,7 @@ export function TripForm({
                   handleAccommodationChange(event.target.value)
                 }
               }}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+              className={fieldClass}
             >
               {ACCOMMODATION_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -387,7 +392,7 @@ export function TripForm({
           )}
         </div>
         {trip.accommodation === 'Transfer' && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             乗り継ぎのみの場合、住所やホテル名の入力は不要です。
           </p>
         )}

@@ -27,11 +27,13 @@ type Props = {
 export function Landing({ manifest, error, onRetry }: Props) {
   return (
     <div className="space-y-8">
-      <section className={`${cardClass} space-y-3 text-gray-700`}>
+      <section
+        className={`${cardClass} space-y-3 text-gray-700 dark:text-gray-200`}
+      >
         <p className="leading-relaxed">
           台湾で実際に行った場所を中心に、個人的に記録しているマップです。
         </p>
-        <p className="text-sm leading-relaxed text-gray-500">
+        <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
           {/* JSX の改行は空白になり日本語の文中に隙間が出るので、文ごとに式で渡す */}
           {
             'コメントはすべてかんちゅの主観です。点数やランキングは付けていません。'
@@ -46,7 +48,7 @@ export function Landing({ manifest, error, onRetry }: Props) {
       {error && (
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
         >
           <p>データを読み込めませんでした: {error}</p>
           <button type="button" onClick={onRetry} className={actionButtonClass}>
@@ -61,7 +63,9 @@ export function Landing({ manifest, error, onRetry }: Props) {
           都市から探す
         </h2>
         {manifest === null && !error ? (
-          <p className="text-sm text-gray-500">読み込み中…</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            読み込み中…
+          </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {manifest?.cities.map((city) => (
@@ -71,10 +75,10 @@ export function Landing({ manifest, error, onRetry }: Props) {
                   search={{ city: city.id }}
                   className={bigChoiceClass}
                 >
-                  <span className="text-lg font-semibold text-gray-900">
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {city.name}
                   </span>
-                  <span className="flex items-center gap-1 text-sm text-gray-500">
+                  <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                     {city.count} 件
                     <ChevronRight size={16} aria-hidden />
                   </span>
@@ -97,10 +101,12 @@ export function Landing({ manifest, error, onRetry }: Props) {
                 search={{ category: cat.id }}
                 className={`${bigChoiceClass} py-2`}
               >
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-900 dark:text-gray-100">
                   {categoryName(cat.id)}
                 </span>
-                <span className="text-sm text-gray-500">{cat.count} 件</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {cat.count} 件
+                </span>
               </Link>
             </li>
           ))}

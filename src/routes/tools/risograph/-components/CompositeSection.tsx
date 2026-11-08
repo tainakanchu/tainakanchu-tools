@@ -199,7 +199,7 @@ export function CompositeSection({
                     <span className="min-w-0 flex-1 truncate text-xs text-gray-300">
                       {index + 1}版目 {preset?.name ?? id}
                     </span>
-                    <span className="text-[11px] text-gray-500 tabular-nums">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
                       x {reg.offsetMm.x.toFixed(2)} / y{' '}
                       {reg.offsetMm.y.toFixed(2)} mm /{' '}
                       {reg.rotationDeg.toFixed(2)}°

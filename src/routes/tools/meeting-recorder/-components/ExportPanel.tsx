@@ -42,7 +42,7 @@ type Props = {
   durationSeconds: number
 }
 
-const radioClass = 'h-4 w-4 accent-cyan-600'
+const radioClass = 'h-4 w-4 accent-cyan-600 dark:accent-cyan-400'
 
 export function ExportPanel({ meta, durationSeconds }: Props) {
   const [mode, setMode] = useState<ExportMode>(DEFAULT_EXPORT_MODE)
@@ -132,7 +132,7 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950">
       <fieldset className="space-y-2">
         <legend className={labelClass}>書き出し方</legend>
         {EXPORT_MODES.map((option) => (
@@ -146,8 +146,12 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
               onChange={() => setMode(option.id)}
             />
             <span>
-              <span className="font-medium text-gray-800">{option.label}</span>
-              <span className="block text-xs text-gray-500">{option.note}</span>
+              <span className="font-medium text-gray-800 dark:text-gray-100">
+                {option.label}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">
+                {option.note}
+              </span>
             </span>
           </label>
         ))}
@@ -167,9 +171,11 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
                 onChange={() => setFormat(option.id)}
               />
               <span>
-                <span className="text-gray-800">{option.label}</span>
+                <span className="text-gray-800 dark:text-gray-100">
+                  {option.label}
+                </span>
                 {option.note && (
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
                     {option.note}
                   </span>
                 )}
@@ -201,7 +207,7 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
       </div>
 
       {mode === 'stereo' && format !== 'wav' && (
-        <p className="text-xs leading-relaxed text-gray-500">
+        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
           低いビットレートのステレオ圧縮では左右の音が少し混ざることがあります。
           話者を完全に分けて文字起こししたいときは「別ファイル」が確実です。
         </p>
@@ -227,7 +233,7 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
             中止
           </button>
         )}
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {targets.map((t) => t.fileName).join(' / ')}（約{' '}
           {formatBytes(estimate * targets.length)}）
         </span>
@@ -235,14 +241,14 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
 
       {progress !== null && (
         <div
-          className="h-2 overflow-hidden rounded-full bg-gray-200"
+          className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(progress * 100)}
         >
           <div
-            className="h-full bg-cyan-500 transition-[width]"
+            className="h-full bg-cyan-500 dark:bg-cyan-400 transition-[width]"
             style={{ width: `${(progress * 100).toFixed(1)}%` }}
           />
         </div>
@@ -257,7 +263,7 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
       {result && (
         <div
           role="status"
-          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
         >
           <p>
             書き出しました（{(result.elapsedMs / 1000).toFixed(1)}{' '}
@@ -275,7 +281,7 @@ export function ExportPanel({ meta, durationSeconds }: Props) {
             ))}
           </ul>
           {result.encoderNote && (
-            <p className="mt-1 text-xs text-emerald-800/70">
+            <p className="mt-1 text-xs text-emerald-800/70 dark:text-emerald-300/80">
               {result.encoderNote}
             </p>
           )}

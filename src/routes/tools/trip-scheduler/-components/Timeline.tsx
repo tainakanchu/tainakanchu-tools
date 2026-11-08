@@ -4,7 +4,7 @@ import { cityName } from '../../../../lib/trip-scheduler/cities'
 import { travelModeLabel } from '../../../../lib/trip-scheduler/travel'
 import { formatDays } from '../-lib/format'
 import { fallbackCityColor } from '../-lib/palette'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { cardClass, emptyStateClass, sectionTitleClass } from '../-lib/styles'
 import { DateLabel } from './DateLabel'
 import { DayStrip } from './DayStrip'
 import type { CityColor } from '../-lib/palette'
@@ -95,12 +95,12 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <CalendarRange size={18} className="text-cyan-600" />
+        <CalendarRange size={18} className="text-cyan-600 dark:text-cyan-400" />
         タイムライン
       </h2>
 
       {segments.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className={`mt-4 ${emptyStateClass}`}>
           滞在を追加するとここに横棒で並びます。
         </p>
       ) : (
@@ -121,7 +121,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                   {segment.kind === 'stay' ? (
                     <DateLabel
                       iso={segment.arriveDate}
-                      className="block truncate text-[10px] text-gray-500"
+                      className="block truncate text-[10px] text-gray-500 dark:text-gray-400"
                     />
                   ) : null}
                 </div>
@@ -140,7 +140,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                       title={`${cityName(segment.cityId)} ${segment.nights}泊 / 実質観光 ${formatDays(segment.effectiveDays)}日`}
                       className={`flex min-w-0 flex-col justify-center rounded-lg px-2 py-3 text-white ${color.bar} ${
                         segment.violated
-                          ? 'ring-2 ring-red-500 ring-offset-1'
+                          ? 'ring-2 ring-red-500 ring-offset-1 dark:ring-red-400 dark:ring-offset-gray-900'
                           : ''
                       }`}
                     >
@@ -160,7 +160,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                       <div
                         key={segment.key}
                         title={`${segment.title}(夜行・泊を1消費)`}
-                        className="flex w-6 shrink-0 grow-0 items-center justify-center rounded-lg bg-indigo-900 text-indigo-100"
+                        className="flex w-6 shrink-0 grow-0 items-center justify-center rounded-lg bg-indigo-900 text-indigo-100 dark:bg-indigo-800"
                       >
                         <Moon size={14} />
                       </div>
@@ -181,7 +181,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                     key={segment.key}
                     style={{ flexGrow: segment.grow, flexBasis: 0 }}
                     title={`未割り当て ${segment.nights}泊`}
-                    className="flex min-w-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-2 py-3 text-xs text-gray-500"
+                    className="flex min-w-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-2 py-3 text-xs text-gray-500 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400"
                   >
                     <span className="truncate">
                       未割り当て {segment.nights}泊
@@ -191,7 +191,7 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
               })}
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
               <span>
                 到着 <DateLabel iso={state.startDate} />
               </span>
@@ -201,7 +201,10 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
                   移動
                 </span>
                 <span className="flex items-center gap-1">
-                  <Moon size={12} className="text-indigo-700" />
+                  <Moon
+                    size={12}
+                    className="text-indigo-700 dark:text-indigo-300"
+                  />
                   夜行
                 </span>
               </span>
@@ -214,8 +217,8 @@ export function Timeline({ state, derived, colors }: TimelineProps) {
       )}
 
       {/* 日ごと(曜日つき)。横棒より粒度が細かく、モバイルでもここだけは見える */}
-      <div className="mt-4 md:mt-5 md:border-t md:border-gray-100 md:pt-4">
-        <h3 className="text-xs font-semibold text-gray-500">
+      <div className="mt-4 md:mt-5 md:border-t md:border-gray-100 md:pt-4 dark:border-gray-800">
+        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">
           日ごと(曜日つき)
         </h3>
         <div className="mt-2">

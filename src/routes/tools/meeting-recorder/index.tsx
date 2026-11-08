@@ -282,27 +282,27 @@ function MeetingRecorderPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 sm:px-6">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 dark:text-gray-100 sm:px-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-bold sm:text-3xl">{tool.name}</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-300">
           イヤホンで会議に出たまま、
-          <strong className="font-semibold text-gray-800">
+          <strong className="font-semibold text-gray-800 dark:text-gray-100">
             相手の音声（タブ / システム音声）と自分のマイクを左右別のチャンネル
           </strong>
           で録音します。書き出しは NotebookLM
           などの文字起こしサービスにそのまま渡せる MP3 が既定です（より軽量な
           Opus や WAV も選べます）。
         </p>
-        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
           <ShieldCheck
             size={14}
             aria-hidden="true"
-            className="mt-0.5 shrink-0 text-gray-500"
+            className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400"
           />
           <span>
             録音・書き出しはすべて
-            <strong className="font-semibold text-gray-800">
+            <strong className="font-semibold text-gray-800 dark:text-gray-100">
               このブラウザの中だけ
             </strong>
             で行い、音声がサーバーへ送られることはありません。

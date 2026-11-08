@@ -73,7 +73,9 @@ function FieldShell({ label, hint, children }: FieldShellProps) {
       <span className={labelClass}>{label}</span>
       {children}
       {hint !== undefined && (
-        <span className="block text-xs text-gray-500">{hint}</span>
+        <span className="block text-xs text-gray-500 dark:text-gray-400">
+          {hint}
+        </span>
       )}
     </label>
   )
@@ -183,13 +185,15 @@ export function ListField({
         className={`${fieldClass} ${unknown ? unverifiedFieldClass : ''}`}
       />
       {unknown ? (
-        <span className="block text-xs text-amber-700">
+        <span className="block text-xs text-amber-700 dark:text-amber-300">
           公式の選択肢にない値です。このままでは TWAC
           側で弾かれる可能性があります
         </span>
       ) : (
         hint !== undefined && (
-          <span className="block text-xs text-gray-500">{hint}</span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
+            {hint}
+          </span>
         )
       )}
     </label>

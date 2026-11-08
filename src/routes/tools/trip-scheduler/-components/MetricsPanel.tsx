@@ -25,21 +25,26 @@ export function MetricsPanel({ derived }: MetricsPanelProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <BarChart3 size={18} className="text-cyan-600" />
+        <BarChart3 size={18} className="text-cyan-600 dark:text-cyan-400" />
         この案の指標
       </h2>
       <dl className="mt-4 grid grid-cols-2 gap-3">
         {items.map((item) => (
-          <div key={item.label} className="rounded-xl bg-gray-50 px-3 py-2">
-            <dt className="text-xs text-gray-500">{item.label}</dt>
-            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900">
+          <div
+            key={item.label}
+            className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800"
+          >
+            <dt className="text-xs text-gray-500 dark:text-gray-400">
+              {item.label}
+            </dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
               {item.value}
             </dd>
           </div>
         ))}
       </dl>
       {metrics.oneNightStayCount > 0 ? (
-        <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
           <Zap size={15} className="mt-0.5 shrink-0" />
           <span>
             駆け足注意: 1泊しかしない都市が {metrics.oneNightStayCount}

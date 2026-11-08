@@ -67,21 +67,21 @@ function WindowStrip({
 
         let base: string
         if (tone === 'past') {
-          base = 'bg-gray-200 text-gray-500'
+          base = 'bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
         } else if (tone === 'open') {
           base = isToday
-            ? 'bg-emerald-500 text-white shadow-sm'
-            : 'bg-emerald-100 text-emerald-800'
+            ? 'bg-emerald-500 text-white shadow-sm dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-none'
+            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
         } else {
           // waiting: まだ開いていない。開始日だけ目印、他は薄い枠
           base = isStart
-            ? 'bg-amber-200 text-amber-950 ring-1 ring-amber-400'
-            : 'bg-white text-gray-400 ring-1 ring-dashed ring-gray-200'
+            ? 'bg-amber-200 text-amber-950 ring-1 ring-amber-400 dark:bg-amber-400 dark:text-amber-950 dark:ring-amber-300'
+            : 'bg-white text-gray-400 ring-1 ring-dashed ring-gray-200 dark:bg-gray-900 dark:ring-gray-700'
         }
 
         const ring =
           isToday && tone === 'open'
-            ? 'ring-2 ring-emerald-600 ring-offset-1'
+            ? 'ring-2 ring-emerald-600 ring-offset-1 dark:ring-emerald-300 dark:ring-offset-gray-900'
             : ''
 
         return (
@@ -125,10 +125,10 @@ function StatusHero({
 }) {
   const shell =
     tone === 'open'
-      ? 'border-emerald-200 bg-emerald-50'
+      ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40'
       : tone === 'waiting'
-        ? 'border-amber-200 bg-amber-50'
-        : 'border-gray-200 bg-gray-50'
+        ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'
+        : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50'
   return (
     <div
       className={`mt-3 overflow-hidden rounded-xl border ${shell}`}
@@ -148,7 +148,7 @@ function CalendarActions({ opensOn }: { opensOn: string }) {
           href={googleUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 transition hover:bg-amber-100"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 transition hover:bg-amber-100 dark:bg-gray-900 dark:text-amber-200 dark:shadow-none dark:ring-amber-800 dark:hover:bg-amber-900/50"
         >
           <CalendarPlus size={14} aria-hidden="true" />
           {formatMonthDay(opensOn)} を登録
@@ -157,7 +157,7 @@ function CalendarActions({ opensOn }: { opensOn: string }) {
       <button
         type="button"
         onClick={() => downloadIcs(opensOn)}
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-amber-800/80 underline-offset-2 hover:underline"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-amber-800/80 underline-offset-2 hover:underline dark:text-amber-300/90"
       >
         .ics
       </button>
@@ -179,7 +179,7 @@ function BannerBody({
       <StatusHero tone="waiting">
         <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-amber-100 text-amber-900">
+            <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
               <span className="text-2xl font-bold tabular-nums leading-none">
                 {status.daysUntilOpen}
               </span>
@@ -188,19 +188,23 @@ function BannerBody({
               </span>
             </div>
             <div className="min-w-0">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-950">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-950 dark:text-amber-100">
                 <Hourglass size={14} aria-hidden="true" className="shrink-0" />
                 申請開始まで
               </p>
-              <p className="mt-0.5 text-xs text-amber-800/90">
+              <p className="mt-0.5 text-xs text-amber-800/90 dark:text-amber-300/90">
                 <span className="font-semibold tabular-nums">
                   {formatMonthDay(status.opensOn)}
                 </span>
-                <span className="mx-1 text-amber-700/60">→</span>
+                <span className="mx-1 text-amber-700/60 dark:text-amber-400/60">
+                  →
+                </span>
                 <span className="tabular-nums">
                   {formatMonthDay(status.entryDate)}
                 </span>
-                <span className="ml-1 text-amber-700/70">の 7 日間</span>
+                <span className="ml-1 text-amber-700/70 dark:text-amber-400/80">
+                  の 7 日間
+                </span>
               </p>
             </div>
           </div>
@@ -208,7 +212,7 @@ function BannerBody({
             <CalendarActions opensOn={status.opensOn} />
           </div>
         </div>
-        <div className="border-t border-amber-100 px-3 pb-3 pt-2">
+        <div className="border-t border-amber-100 px-3 pb-3 pt-2 dark:border-amber-900/60">
           <WindowStrip
             windowDays={status.windowDays}
             today={today}
@@ -224,14 +228,14 @@ function BannerBody({
       <StatusHero tone="open">
         <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm dark:bg-emerald-600 dark:shadow-none">
               <CheckCircle2 size={28} aria-hidden="true" strokeWidth={2.25} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-emerald-950">
+              <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-100">
                 今日は申請できます
               </p>
-              <p className="mt-0.5 text-xs text-emerald-800/90">
+              <p className="mt-0.5 text-xs text-emerald-800/90 dark:text-emerald-300/90">
                 入国日まで
                 <span className="mx-1 font-semibold tabular-nums">
                   {status.daysUntilEntry === 0
@@ -246,13 +250,13 @@ function BannerBody({
             target="_blank"
             rel="noopener noreferrer"
             title={TWAC_SCAM_NOTE}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:ml-auto"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:ml-auto dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-none dark:hover:bg-emerald-300"
           >
             TWAC 公式
             <ExternalLink size={13} aria-hidden="true" />
           </a>
         </div>
-        <div className="border-t border-emerald-100 px-3 pb-3 pt-2">
+        <div className="border-t border-emerald-100 px-3 pb-3 pt-2 dark:border-emerald-900/60">
           <WindowStrip
             windowDays={status.windowDays}
             today={today}
@@ -267,17 +271,19 @@ function BannerBody({
   return (
     <StatusHero tone="past">
       <div className="flex items-center gap-3 p-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-500">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           <PlaneLanding size={18} aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-700">申請期間外</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+            申請期間外
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             入国日 {formatMonthDay(status.entryDate)} まで
           </p>
         </div>
       </div>
-      <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+      <div className="border-t border-gray-100 px-3 pb-3 pt-2 dark:border-gray-800">
         <WindowStrip windowDays={status.windowDays} today={today} tone="past" />
       </div>
     </StatusHero>

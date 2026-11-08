@@ -40,14 +40,14 @@ export function StatusBadge({ status }: { status: VisitStatus }) {
     return (
       // 塗りは「選んでいる絞り込み条件」専用なので、バッジは枠だけにする
       // （styles.ts のチップの約束）
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-white px-2 py-0.5 text-xs font-semibold text-emerald-700">
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-white px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-500 dark:bg-gray-900 dark:text-emerald-300">
         <CheckCircle2 size={12} aria-hidden />
         {statusName(status)}
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 dark:border-slate-500 dark:bg-gray-900 dark:text-slate-300">
       <CircleDashed size={12} aria-hidden />
       {statusName(status)}
     </span>
@@ -57,7 +57,7 @@ export function StatusBadge({ status }: { status: VisitStatus }) {
 export function LabelBadge({ label }: { label: SpotLabel }) {
   const def = labelDef(label)
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2 py-0.5 text-xs font-medium text-rose-700">
+    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2 py-0.5 text-xs font-medium text-rose-700 dark:border-rose-800 dark:bg-gray-900 dark:text-rose-300">
       <span aria-hidden>{def.mark}</span>
       {def.name}
     </span>
@@ -66,7 +66,7 @@ export function LabelBadge({ label }: { label: SpotLabel }) {
 
 export function CategoryChip({ category }: { category: SpotCategory }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700">
+    <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300">
       {categoryName(category)}
     </span>
   )

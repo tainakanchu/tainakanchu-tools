@@ -86,6 +86,13 @@
  *   positron の地名・道路名は「ローマ字 + 中国語」の 2 段組みで、台湾では
  *   台湾語のローマ字が混ざって読みにくい。style を読んだ時点で text-field を
  *   中国語（現地表記）だけに差し替える（-lib/mapFeatures.ts の localizedTextField）。
+ *
+ * ■ ダーク
+ *   サイトの配色がダークのときは、positron の各レイヤーの色を暗い色に
+ *   差し替える（style は読み直さない。理由と色は -lib/mapTheme.ts）。
+ *   ピン・現在地・ピンの名前など自前のレイヤーも同じく paint だけ替え、
+ *   ジャンル色は一段明るいもの（categoryColors.ts の CATEGORY_COLORS_DARK）に
+ *   する。ズームボタン・帰属表示など maplibre の部品は mapDark.css で暗くする。
  */
 
 import {
@@ -98,6 +105,7 @@ import {
 } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import './mapDark.css'
 import { Crosshair } from 'lucide-react'
 import {
   circleRing,
@@ -113,6 +121,8 @@ import {
 } from '../-lib/mapFeatures'
 import { requestCompassPermission, watchCompass } from '../-lib/compass'
 import { MAP_LOCALE_JA } from '../-lib/mapLocale'
+import { SPOT_LAYER_COLORS, basemapPaintPlan } from '../-lib/mapTheme'
+import { useTheme } from '../../../../components/theme/ThemeScope'
 import { placePopup } from '../-lib/popupPlacement'
 import { categoryName } from './Badges'
 import { MapCategoryChips } from './MapCategoryChips'
@@ -126,6 +136,8 @@ import type {
   TaiwanSpot,
 } from '../../../../lib/taiwan-map/types'
 import type { GeoFix, GeolocationStatus } from '../-lib/useGeolocation'
+import type { BasemapPaintEntry, SpotLayerColors } from '../-lib/mapTheme'
+import type { ResolvedTheme } from '../../../../lib/theme/theme'
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
@@ -167,11 +179,6 @@ const LAYER = {
   selected: 'tw-spot-selected',
   focus: 'tw-spot-focus',
 } as const
-
-/** 選択の操作色（styles.ts の cyan-500 と同じ）。ジャンル色には使っていない */
-const SELECT_COLOR = '#06b6d4'
-/** 現在地の点の色。ピンのジャンル色・選択の cyan と取り違えない青 */
-const USER_COLOR = '#2563eb'
 
 /** 精度の円はこれより大きければ打ち切る（数 km の円で地図が青く覆われないように） */
 const MAX_ACCURACY_M = 2000
@@ -293,7 +300,7 @@ type Props = {
  * 行った場所と同じ重みで地図に並ばないようにする。選択中は cyan の輪つきで
  * 大きく、いちばん上に描く。
  */
-function addSpotLayers(map: maplibregl.Map) {
+function addSpotLayers(map: maplibregl.Map, c: SpotLayerColors) {
   map.addSource(SOURCE_ID, {
     type: 'geojson',
     data: { type: 'FeatureCollection', features: [] },
@@ -307,8 +314,8 @@ function addSpotLayers(map: maplibregl.Map) {
     source: SOURCE_ID,
     paint: {
       'circle-radius': ['case', visited, 10, 8],
-      'circle-color': '#0f172a',
-      'circle-opacity': 0.28,
+      'circle-color': c.shadow,
+      'circle-opacity': c.shadowOpacity,
       'circle-blur': 0.6,
       'circle-translate': [0, 1],
     },
@@ -320,9 +327,9 @@ function addSpotLayers(map: maplibregl.Map) {
     layout: { 'circle-sort-key': ['get', 'sortKey'] },
     paint: {
       'circle-radius': ['case', visited, 6.5, 5],
-      'circle-color': ['case', visited, color, '#ffffff'],
+      'circle-color': ['case', visited, color, c.hollowFill],
       'circle-stroke-width': 2.5,
-      'circle-stroke-color': ['case', visited, '#ffffff', color],
+      'circle-stroke-color': ['case', visited, c.pinEdge, color],
     },
   })
   map.addLayer({
@@ -332,9 +339,9 @@ function addSpotLayers(map: maplibregl.Map) {
     filter: idFilter(null),
     paint: {
       'circle-radius': 14,
-      'circle-color': SELECT_COLOR,
+      'circle-color': c.select,
       'circle-stroke-width': 1,
-      'circle-stroke-color': '#ffffff',
+      'circle-stroke-color': c.selectEdge,
     },
   })
   map.addLayer({
@@ -344,9 +351,9 @@ function addSpotLayers(map: maplibregl.Map) {
     filter: idFilter(null),
     paint: {
       'circle-radius': ['case', visited, 9, 7.5],
-      'circle-color': ['case', visited, color, '#ffffff'],
+      'circle-color': ['case', visited, color, c.hollowFill],
       'circle-stroke-width': 3,
-      'circle-stroke-color': ['case', visited, '#ffffff', color],
+      'circle-stroke-color': ['case', visited, c.pinEdge, color],
     },
   })
   // キーボードでフォーカス中のピン。選択とは別の「今ここ」を示す白抜きの輪
@@ -359,7 +366,7 @@ function addSpotLayers(map: maplibregl.Map) {
       'circle-radius': 18,
       'circle-color': 'rgba(0,0,0,0)',
       'circle-stroke-width': 3,
-      'circle-stroke-color': SELECT_COLOR,
+      'circle-stroke-color': c.select,
     },
   })
   // 寄ったときだけピンの横に名前。重なる名前は maplibre が間引く。
@@ -380,8 +387,8 @@ function addSpotLayers(map: maplibregl.Map) {
       'symbol-sort-key': ['-', 1, ['get', 'sortKey']],
     },
     paint: {
-      'text-color': '#111827',
-      'text-halo-color': '#ffffff',
+      'text-color': c.label,
+      'text-halo-color': c.labelHalo,
       'text-halo-width': 1.6,
     },
   })
@@ -395,7 +402,10 @@ function addSpotLayers(map: maplibregl.Map) {
       id: LAYER.accuracy,
       type: 'fill',
       source: ACCURACY_SOURCE_ID,
-      paint: { 'fill-color': USER_COLOR, 'fill-opacity': 0.1 },
+      paint: {
+        'fill-color': c.user,
+        'fill-opacity': c.accuracyFillOpacity,
+      },
     },
     LAYER.shadow,
   )
@@ -405,8 +415,8 @@ function addSpotLayers(map: maplibregl.Map) {
       type: 'line',
       source: ACCURACY_SOURCE_ID,
       paint: {
-        'line-color': USER_COLOR,
-        'line-opacity': 0.35,
+        'line-color': c.user,
+        'line-opacity': c.accuracyLineOpacity,
         'line-width': 1,
       },
     },
@@ -441,10 +451,74 @@ function addSpotLayers(map: maplibregl.Map) {
     source: USER_SOURCE_ID,
     paint: {
       'circle-radius': 6.5,
-      'circle-color': USER_COLOR,
+      'circle-color': c.user,
       'circle-stroke-width': 2.5,
-      'circle-stroke-color': '#ffffff',
+      'circle-stroke-color': c.userEdge,
     },
+  })
+}
+
+/**
+ * 自前のレイヤーの色を配色に合わせて塗り直す（addSpotLayers と同じ値）。
+ * ジャンル色はソースのデータ（spotsToFeatureCollection）側で替える
+ */
+function setSpotLayerColors(map: maplibregl.Map, c: SpotLayerColors) {
+  const visited: maplibregl.ExpressionSpecification = ['get', 'visited']
+  const color: maplibregl.ExpressionSpecification = ['get', 'color']
+  const fill: maplibregl.ExpressionSpecification = [
+    'case',
+    visited,
+    color,
+    c.hollowFill,
+  ]
+  const edge: maplibregl.ExpressionSpecification = [
+    'case',
+    visited,
+    c.pinEdge,
+    color,
+  ]
+  map.setPaintProperty(LAYER.shadow, 'circle-color', c.shadow)
+  map.setPaintProperty(LAYER.shadow, 'circle-opacity', c.shadowOpacity)
+  for (const id of [LAYER.pins, LAYER.selected]) {
+    map.setPaintProperty(id, 'circle-color', fill)
+    map.setPaintProperty(id, 'circle-stroke-color', edge)
+  }
+  map.setPaintProperty(LAYER.selectedHalo, 'circle-color', c.select)
+  map.setPaintProperty(LAYER.selectedHalo, 'circle-stroke-color', c.selectEdge)
+  map.setPaintProperty(LAYER.focus, 'circle-stroke-color', c.select)
+  map.setPaintProperty(LAYER.labels, 'text-color', c.label)
+  map.setPaintProperty(LAYER.labels, 'text-halo-color', c.labelHalo)
+  map.setPaintProperty(LAYER.accuracy, 'fill-color', c.user)
+  map.setPaintProperty(LAYER.accuracy, 'fill-opacity', c.accuracyFillOpacity)
+  map.setPaintProperty(LAYER.accuracyLine, 'line-color', c.user)
+  map.setPaintProperty(
+    LAYER.accuracyLine,
+    'line-opacity',
+    c.accuracyLineOpacity,
+  )
+  map.setPaintProperty(LAYER.user, 'circle-color', c.user)
+  map.setPaintProperty(LAYER.user, 'circle-stroke-color', c.userEdge)
+}
+
+/** ベース地図の色の差し替え表と、style を読んだときの元の値（ライトに戻す用） */
+type BasemapPaint = {
+  plan: ReadonlyArray<BasemapPaintEntry>
+  original: ReadonlyArray<unknown>
+}
+
+/** ベース地図をダークの色にする / style の元の色（ライト）に戻す */
+function setBasemapTheme(
+  map: maplibregl.Map,
+  basemap: BasemapPaint,
+  theme: ResolvedTheme,
+) {
+  basemap.plan.forEach((entry, i) => {
+    if (!map.getLayer(entry.layerId)) return
+    map.setPaintProperty(
+      entry.layerId,
+      entry.property,
+      theme === 'dark' ? entry.dark : basemap.original[i],
+    )
   })
 }
 
@@ -489,6 +563,11 @@ export default function MapView({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const { theme } = useTheme()
+  /** style.load の中で読む今の配色（地図はマウント時に 1 度だけ作るので ref で渡す） */
+  const themeRef = useRef(theme)
+  /** ベース地図の色の差し替え表と元の値。style を読み終えるまでは null */
+  const basemapRef = useRef<BasemapPaint | null>(null)
   const onSelectRef = useRef(onSelect)
   const onFlyDoneRef = useRef(onFlyDone)
   const spotsRef = useRef(spots)
@@ -537,6 +616,7 @@ export default function MapView({
     activeCategoryRef.current = activeCategory
     onClearSelectionRef.current = onClearSelection
     userPositionRef.current = userPosition
+    themeRef.current = theme
   })
 
   /**
@@ -639,7 +719,16 @@ export default function MapView({
         )
         if (next) map.setLayoutProperty(layer.id, 'text-field', next)
       }
-      addSpotLayers(map)
+      // ダークの色に差し替える前に、ライトに戻すための元の値を控える。
+      // 最初の描画より前なので、ダークでも一瞬白い地図が見えることはない
+      const plan = basemapPaintPlan(map.getStyle().layers)
+      const basemap: BasemapPaint = {
+        plan,
+        original: plan.map((e) => map.getPaintProperty(e.layerId, e.property)),
+      }
+      basemapRef.current = basemap
+      setBasemapTheme(map, basemap, themeRef.current)
+      addSpotLayers(map, SPOT_LAYER_COLORS[themeRef.current])
       setReady(true)
     })
     // maplibre の compact な帰属表示は、最初は開いた状態（全文）で出る。
@@ -761,14 +850,26 @@ export default function MapView({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [popupOpen, closePopup])
 
-  // ピンの中身を差し替える（ジャンルを切り替えたら色も塗り直す）
+  // ピンの中身を差し替える（ジャンル・配色を切り替えたら色も塗り直す）
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
     map
       .getSource<maplibregl.GeoJSONSource>(SOURCE_ID)
-      ?.setData(spotsToFeatureCollection(spotsRef.current, activeCategory))
-  }, [ready, spotsKey, activeCategory])
+      ?.setData(
+        spotsToFeatureCollection(spotsRef.current, activeCategory, theme),
+      )
+  }, [ready, spotsKey, activeCategory, theme])
+
+  // 地図を開いたまま配色を切り替えたら、ベース地図と自前のレイヤーを塗り直す
+  // （開いたときの配色は style.load で塗ってある）
+  useEffect(() => {
+    const map = mapRef.current
+    const basemap = basemapRef.current
+    if (!map || !ready || !basemap) return
+    setBasemapTheme(map, basemap, theme)
+    setSpotLayerColors(map, SPOT_LAYER_COLORS[theme])
+  }, [ready, theme])
 
   // 表示範囲を絞り込み結果に合わせる（style を待たずに合わせてよい）
   useEffect(() => {
@@ -1013,7 +1114,7 @@ export default function MapView({
   }, [flyRequest])
 
   return (
-    <div className="relative h-full w-full">
+    <div className="tw-map relative h-full w-full">
       {/* ランドマークは親の <aside aria-label="地図"> が担うので、ここには role を付けない */}
       <div ref={containerRef} className="h-full w-full" />
       {/* ポップアップをチップの下に置くため、チップの高さを測る入れ物 */}
@@ -1029,7 +1130,7 @@ export default function MapView({
           ref={tooltipRef}
           aria-hidden
           style={{ visibility: 'hidden' }}
-          className="pointer-events-none absolute top-0 left-0 z-10 max-w-60 truncate rounded-md bg-gray-900/85 px-2 py-0.5 text-xs font-medium text-white shadow"
+          className="pointer-events-none absolute top-0 left-0 z-10 max-w-60 truncate rounded-md bg-gray-900/85 px-2 py-0.5 text-xs font-medium text-white shadow dark:bg-gray-800/95 dark:text-gray-100 dark:ring-1 dark:ring-gray-600"
         >
           {hoverSpot.name}
         </div>
@@ -1071,7 +1172,7 @@ export default function MapView({
               className={`rounded-full px-3 py-1.5 text-xs font-medium shadow ${
                 toast.tone === 'error'
                   ? 'bg-rose-600 text-white'
-                  : 'bg-gray-900/85 text-white'
+                  : 'bg-gray-900/85 text-white dark:bg-gray-800/95 dark:text-gray-100 dark:ring-1 dark:ring-gray-600'
               }`}
             >
               {toast.text}
@@ -1086,10 +1187,10 @@ export default function MapView({
           }
           title={locateStatus === 'ready' ? '現在地へ移動' : '現在地を表示'}
           // 位置を追っている・取りに行っているあいだは塗る（現在地の点と同じ青）
-          className={`pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+          className={`pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 ${
             tracking
               ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800'
           } ${locateStatus === 'locating' ? 'animate-pulse' : ''}`}
         >
           <Crosshair size={20} aria-hidden />
@@ -1099,7 +1200,7 @@ export default function MapView({
         )}
       </div>
       {loadError && (
-        <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow">
+        <p className="pointer-events-none absolute inset-x-2 bottom-8 rounded-lg bg-white/90 px-3 py-2 text-xs text-gray-600 shadow dark:bg-gray-900/90 dark:text-gray-300">
           地図を読み込めませんでした（圏外かもしれません）。一覧と Google Maps
           のリンクはそのまま使えます。
         </p>
@@ -1147,7 +1248,7 @@ function SpotKeyboardList({
               aria-pressed={spot.id === selectedId}
               onFocus={() => onFocusChange(spot.id)}
               onClick={(e) => onActivate(spot.id, e.currentTarget)}
-              className="sr-only focus:not-sr-only focus:absolute focus:top-12 focus:left-2 focus:z-20 focus:max-w-[calc(100%-1rem)] focus:rounded-lg focus:border focus:border-cyan-500 focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-gray-900 focus:shadow focus:outline-none"
+              className="sr-only focus:not-sr-only focus:absolute focus:top-12 focus:left-2 focus:z-20 focus:max-w-[calc(100%-1rem)] focus:rounded-lg focus:border focus:border-cyan-500 focus:bg-white focus:px-3 focus:py-1.5 focus:text-sm focus:text-gray-900 focus:shadow focus:outline-none dark:focus:border-cyan-400 dark:focus:bg-gray-900 dark:focus:text-gray-100"
             >
               {spot.name}（{spot.categories.map(categoryName).join('・')}／
               {statusText(spot)}）

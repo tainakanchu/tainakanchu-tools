@@ -115,7 +115,7 @@ function PlateCard({
               </option>
             ))}
           </select>
-          <span className="block text-[11px] leading-relaxed text-gray-500">
+          <span className="block text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
             {METHODS.find((m) => m.value === setting.method)?.note}
           </span>
         </label>
@@ -133,7 +133,7 @@ function PlateCard({
               onChange({ ...setting, density: Number(event.target.value) })
             }
           />
-          <span className="block text-[11px] leading-relaxed text-gray-500">
+          <span className="block text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
             実機のドラム濃度設定に相当。3
             が標準で、上げるほどインクが厚く乗った見えになります。
           </span>

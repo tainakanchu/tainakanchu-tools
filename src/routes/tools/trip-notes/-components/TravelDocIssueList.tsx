@@ -50,16 +50,16 @@ const SEVERITY_CLASSES: Record<
   { box: string; icon: string; title: string; body: string }
 > = {
   warning: {
-    box: 'border-amber-200 bg-amber-50',
-    icon: 'text-amber-600',
-    title: 'text-amber-900',
-    body: 'text-amber-800',
+    box: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40',
+    icon: 'text-amber-600 dark:text-amber-300',
+    title: 'text-amber-900 dark:text-amber-200',
+    body: 'text-amber-800 dark:text-amber-200',
   },
   info: {
-    box: 'border-sky-200 bg-sky-50',
-    icon: 'text-sky-600',
-    title: 'text-sky-900',
-    body: 'text-sky-800',
+    box: 'border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40',
+    icon: 'text-sky-600 dark:text-sky-300',
+    title: 'text-sky-900 dark:text-sky-200',
+    body: 'text-sky-800 dark:text-sky-200',
   },
 }
 
@@ -78,7 +78,7 @@ function IssueSection({
 
   return (
     <div className="mt-4">
-      <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+      <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400">
         <HeadingIcon size={13} aria-hidden="true" />
         {title}
         <span className="tabular-nums">{issues.length}件</span>

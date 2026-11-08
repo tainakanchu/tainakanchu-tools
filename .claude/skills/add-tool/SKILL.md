@@ -78,6 +78,8 @@ export const Route = createFileRoute('/tools/<slug>/')({
 
 `src/routeTree.gen.ts` は dev/build 時に自動再生成される。手で編集しないこと（ただし生成された差分のコミットは必要）。
 
+ダークモードはサイト全体で効く（`<html data-theme>` を `__root.tsx` の `ThemeProvider` が付ける）。ツールの UI には最初から `dark:` クラスを付けること。色の約束は `src/styles.css` 先頭のコメントにある。canvas などで JS から色を決めるときは `useTheme()`（`@/components/theme/ThemeScope`）の `theme` を見る。印刷は常にライト。
+
 ### 4. ヘッダーナビに追加する — `src/components/Header.tsx`（忘れやすい）
 
 ドロワーの `tools` 配列は `TOOL_META` から導出されていない。lucide-react のアイコンと短い説明文を添えて手動で 1 エントリ追加する。ここを忘れると「トップページには出るのにメニューに出ない」ツールになる。
@@ -137,6 +139,7 @@ build 後に `dist/tools/<slug>.html` の og:title / og:image がツール別の
 - [ ] `TOOL_META` に追加した（slug / name / description / path / ogImagePath）
 - [ ] `src/routes/tools/<slug>/index.tsx` を作り、`head()` が site-meta を参照している
 - [ ] `Header.tsx` の `tools` 配列に追加した
+- [ ] ダーク（ヘッダーの配色ボタンで切り替え）でも読める配色になっている（`dark:` クラス）
 - [ ] `CARDS` に CardDef を追加し `pnpm og:images` を実行、`public/assets/og/<slug>.png` が生成された
 - [ ] `README.md` にエントリを追加した
 - [ ] （ツール単体 PWA にする場合）`pwa` と `ICON_DEFS` を足し、`pnpm pwa:icons` の PNG をコミットした

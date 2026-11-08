@@ -64,10 +64,12 @@ export function LevelMeter({ label, analyser, silentHint }: Props) {
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium text-gray-700">{label}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
+          {label}
+        </span>
         {analyser ? (
           <span
-            className={`text-xs ${silent ? 'text-amber-700' : 'text-emerald-700'}`}
+            className={`text-xs ${silent ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}
           >
             {silent ? `無音 — ${silentHint}` : '音声あり'}
           </span>
@@ -76,7 +78,7 @@ export function LevelMeter({ label, analyser, silentHint }: Props) {
         )}
       </div>
       <div
-        className="relative h-3 overflow-hidden rounded-full bg-gray-100"
+        className="relative h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
         role="meter"
         aria-label={`${label}の音量`}
         aria-valuemin={FLOOR_DB}
@@ -88,7 +90,7 @@ export function LevelMeter({ label, analyser, silentHint }: Props) {
         />
         <div
           ref={peakRef}
-          className="absolute inset-y-0 w-0.5 bg-gray-500"
+          className="absolute inset-y-0 w-0.5 bg-gray-500 dark:bg-gray-300"
           style={{ left: '0%' }}
         />
       </div>

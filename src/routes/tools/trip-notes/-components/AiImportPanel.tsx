@@ -71,10 +71,12 @@ type WizardStep = 1 | 2 | 3
 function StepHeading({ step, title }: { step: WizardStep; title: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold tracking-wide text-cyan-700">
+      <p className="text-xs font-semibold tracking-wide text-cyan-700 dark:text-cyan-300">
         ステップ {step} / 3
       </p>
-      <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+      <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+        {title}
+      </h3>
     </div>
   )
 }
@@ -87,7 +89,7 @@ function StepHeading({ step, title }: { step: WizardStep; title: string }) {
 function UpdateBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700"
+      className="inline-flex items-center gap-1 rounded-full border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300"
       aria-label="既存の予約を更新します"
     >
       <RefreshCw size={11} aria-hidden="true" />
@@ -122,9 +124,12 @@ function BookingPreviewCard({
   return (
     <li className={cardClass}>
       <div className="flex flex-wrap items-center gap-2">
-        <KindIcon kind={booking.kind} className="shrink-0 text-gray-500" />
+        <KindIcon
+          kind={booking.kind}
+          className="shrink-0 text-gray-500 dark:text-gray-400"
+        />
         <span
-          className={`font-semibold text-gray-800 ${isUnverified('title') ? unverifiedFieldClass : ''}`}
+          className={`font-semibold text-gray-800 dark:text-gray-100 ${isUnverified('title') ? unverifiedFieldClass : ''}`}
         >
           {booking.title}
         </span>
@@ -132,7 +137,7 @@ function BookingPreviewCard({
         {willUpdate && <UpdateBadge />}
       </div>
       <p
-        className={`mt-1 inline-block text-sm text-gray-600 ${
+        className={`mt-1 inline-block text-sm text-gray-600 dark:text-gray-300 ${
           isUnverified('start') || isUnverified('end')
             ? unverifiedFieldClass
             : ''
@@ -142,7 +147,7 @@ function BookingPreviewCard({
       </p>
       {booking.confirmationNumber !== undefined && (
         <p
-          className={`mt-1 inline-block text-xs text-gray-500 ${
+          className={`mt-1 inline-block text-xs text-gray-500 dark:text-gray-400 ${
             isUnverified('confirmationNumber') ? unverifiedFieldClass : ''
           }`}
         >
@@ -233,21 +238,25 @@ function backfillScopeText(gaps: BackfillGaps): string {
  */
 function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-        <ClipboardList size={16} aria-hidden="true" className="text-cyan-600" />
+    <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+        <ClipboardList
+          size={16}
+          aria-hidden="true"
+          className="text-cyan-600 dark:text-cyan-300"
+        />
         登録済みの内容に空いている欄があります
       </h3>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
         {backfillScopeText(gaps)}には、空のままの欄があります。上のプロンプト 1
         本で、
-        <strong className="font-semibold text-gray-800">
+        <strong className="font-semibold text-gray-800 dark:text-gray-100">
           予約確認書を添付しても、しなくても
         </strong>
         実行できます。書類が無いときは、一般知識で埋められる項目(締切・ラテン文字表記・国の基本情報など)だけが対象です。荷物枠のように書類にしか無い項目は捏造しません。
       </p>
 
-      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+      <ul className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-200">
         {gaps.countsByField.map((count) => (
           <li key={count.field.id}>
             ・{count.field.label}: {count.bookingCount}件
@@ -259,7 +268,7 @@ function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
       </ul>
 
       {gaps.bookingCount > 0 && (
-        <details className="mt-2 text-sm text-gray-600">
+        <details className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           <summary className="cursor-pointer">
             対象の予約({gaps.bookingCount}件)
           </summary>
@@ -275,7 +284,7 @@ function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
       )}
 
       {gaps.countries.length > 0 && (
-        <details className="mt-2 text-sm text-gray-600">
+        <details className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           <summary className="cursor-pointer">
             対象の国・地域({gaps.countries.length}件)
           </summary>
@@ -291,27 +300,27 @@ function GapsInfoSection({ gaps }: { gaps: BackfillGaps }) {
       )}
 
       {gaps.countryCount === 0 && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
           国・地域はまだ登録されていません。設定タブの「国・地域の情報」に訪問先の国名を入れておくと、
           プラグ形状・電圧・チップの文化・緊急通報番号も同じプロンプトで埋められます。
         </p>
       )}
 
-      <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
+      <p className="mt-3 flex items-start gap-1.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
         <ShieldCheck
           size={14}
           aria-hidden="true"
-          className="mt-0.5 shrink-0 text-gray-500"
+          className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400"
         />
         <span>
           空き欄の埋めだけを頼むとき、AI
           に送られる登録済みデータの中身はプロンプト内の
           「登録済みで空いている欄」に書いてある
-          <strong className="font-semibold text-gray-800">
+          <strong className="font-semibold text-gray-800 dark:text-gray-100">
             種別・タイトル・開始日時・場所の名前
           </strong>
           と国名だけです。
-          <strong className="font-semibold text-gray-800">
+          <strong className="font-semibold text-gray-800 dark:text-gray-100">
             確認番号は含まれません。
           </strong>
         </span>
@@ -468,10 +477,14 @@ export function AiImportPanel({
   return (
     <section className={cardClass}>
       <div className={sectionTitleClass}>
-        <Sparkles size={18} aria-hidden="true" className="text-cyan-600" />
+        <Sparkles
+          size={18}
+          aria-hidden="true"
+          className="text-cyan-600 dark:text-cyan-300"
+        />
         AI インポート
       </div>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         予約確認メールや PDF を AI
         に読み取らせて予約を取り込みます。同じプロンプトで、
         登録済みの空き欄(締切・国の基本情報など)も埋められます。返ってきた JSON
@@ -481,7 +494,7 @@ export function AiImportPanel({
       {successMessage !== null && (
         <div
           role="status"
-          className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+          className="mt-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200"
         >
           <div className="flex items-start justify-between gap-2">
             <span>{successMessage}</span>
@@ -489,7 +502,7 @@ export function AiImportPanel({
               type="button"
               onClick={() => setSuccessMessage(null)}
               aria-label="このメッセージを閉じる"
-              className="shrink-0 rounded p-0.5 text-emerald-700 transition hover:bg-emerald-100"
+              className="shrink-0 rounded p-0.5 text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
             >
               <X size={14} aria-hidden="true" />
             </button>
@@ -531,9 +544,9 @@ export function AiImportPanel({
             <StepHeading step={1} title="プロンプトをコピー" />
             <PromptCopyBlock prompt={prompt} alwaysShowPrompt rows={10} />
 
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               コピーしたプロンプトを、下のいずれかで開いた新しい会話に貼り付けて実行してください。
-              <strong className="font-semibold text-gray-800">
+              <strong className="font-semibold text-gray-800 dark:text-gray-100">
                 予約確認メールや PDF があれば添付
               </strong>
               してください。添付が無くても、登録済みの空き欄は一般知識で埋められます。
@@ -559,7 +572,7 @@ export function AiImportPanel({
         {step === 2 && (
           <div className="space-y-3">
             <StepHeading step={2} title="結果を貼り付ける" />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               AI が返した JSON
               をそのまま貼り付けてください。前後に説明文が付いていたり、 ```json
               のようなフェンスが付いたままでも構いません。
@@ -595,7 +608,7 @@ export function AiImportPanel({
           <div className="space-y-3">
             <StepHeading step={3} title="レビューして取り込み" />
 
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
               {summarizeResult(importResult)}
             </p>
 
@@ -611,7 +624,7 @@ export function AiImportPanel({
               ここで保証するのは「何が増えるのかが取り込む前に分かること」だけでよい。
             */}
             {importResult.countryInfos.length > 0 && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 国・地域の基本情報を{importResult.countryInfos.length}
                 件取り込みます(
                 {importResult.countryInfos.map((info) => info.name).join('、')}

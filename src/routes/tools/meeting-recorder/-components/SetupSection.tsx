@@ -62,7 +62,7 @@ export function SetupSection({
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <span className="text-cyan-600">1.</span> 準備
+        <span className="text-cyan-600 dark:text-cyan-400">1.</span> 準備
       </h2>
       <p className={`${noteClass} mt-1`}>
         マイクと録音の質を選んでから、会議のタブ（または画面）を共有します。
@@ -95,7 +95,7 @@ export function SetupSection({
               </option>
             ))}
           </select>
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
             {prepared
               ? '変更するには「共有をやめる」で準備をやり直してください。'
               : `ブラウザ内の保存量は 1 時間あたり約 ${Math.round((sampleRate * 4 * 3600) / 1024 / 1024)} MB です。`}
@@ -147,7 +147,7 @@ export function SetupSection({
               : '会議タブ/画面を共有'}
           </button>
         )}
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           録音する場合は参加者の同意を得てください。
         </span>
       </div>
@@ -159,9 +159,9 @@ export function SetupSection({
       )}
 
       {prepared && (
-        <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4">
+        <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-950">
           {sourceLabel && (
-            <p className="truncate text-xs text-gray-500">
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
               共有中: {sourceLabel}
             </p>
           )}
@@ -178,8 +178,8 @@ export function SetupSection({
         </div>
       )}
 
-      <details className="mt-5 text-sm text-gray-600">
-        <summary className="cursor-pointer font-medium text-gray-700">
+      <details className="mt-5 text-sm text-gray-600 dark:text-gray-300">
+        <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
           相手の音声を取り込むには
         </summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">

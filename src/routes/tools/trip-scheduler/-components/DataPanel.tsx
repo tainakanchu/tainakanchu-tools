@@ -66,10 +66,10 @@ export function DataPanel({ state, dispatch }: DataPanelProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <Save size={18} className="text-cyan-600" />
+        <Save size={18} className="text-cyan-600 dark:text-cyan-400" />
         データ
       </h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         編集内容はこのブラウザに自動保存されます。
       </p>
 
@@ -95,7 +95,7 @@ export function DataPanel({ state, dispatch }: DataPanelProps) {
         <button
           type="button"
           onClick={handleReset}
-          className={`${subtleButtonClass} text-red-600 hover:bg-red-50`}
+          className={`${subtleButtonClass} text-red-600 hover:bg-red-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/60`}
         >
           <RotateCcw size={16} />
           最初からやり直す
@@ -106,8 +106,8 @@ export function DataPanel({ state, dispatch }: DataPanelProps) {
         <p
           className={`mt-3 rounded-xl px-3 py-2 text-sm ${
             message.tone === 'ok'
-              ? 'bg-emerald-50 text-emerald-800'
-              : 'bg-red-50 text-red-800'
+              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 dark:bg-red-950/50 dark:text-red-300'
           }`}
         >
           {message.text}

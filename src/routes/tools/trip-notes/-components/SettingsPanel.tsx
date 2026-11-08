@@ -145,9 +145,9 @@ function ContactRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             名称
             <input
               className={`${fieldClass} mt-1`}
@@ -155,7 +155,7 @@ function ContactRow({
               onChange={(e) => setLabel(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             連絡先
             <input
               className={`${fieldClass} mt-1`}
@@ -163,7 +163,7 @@ function ContactRow({
               onChange={(e) => setValue(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             メモ(任意)
             <input
               className={`${fieldClass} mt-1`}
@@ -193,14 +193,16 @@ function ContactRow({
   }
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-800">{contact.label}</p>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          {contact.label}
+        </p>
+        <p className="text-sm text-gray-700 dark:text-gray-200">
           {looksLikePhoneNumber(contact.value) ? (
             <a
               href={telHref(contact.value)}
-              className="text-cyan-700 underline"
+              className="text-cyan-700 dark:text-cyan-300 underline"
             >
               {contact.value}
             </a>
@@ -209,7 +211,9 @@ function ContactRow({
           )}
         </p>
         {contact.note !== undefined && contact.note.length > 0 ? (
-          <p className="text-xs text-gray-500">{contact.note}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {contact.note}
+          </p>
         ) : null}
       </div>
       <div className="flex shrink-0 gap-1">
@@ -374,7 +378,7 @@ function TravelDocFields({
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         種別
         <select
           className={`${fieldClass} mt-1`}
@@ -391,7 +395,7 @@ function TravelDocFields({
           ))}
         </select>
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         名称
         <input
           className={`${fieldClass} mt-1`}
@@ -400,7 +404,7 @@ function TravelDocFields({
           placeholder="例: シェンゲンビザ"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         対象の国・地域(任意)
         <input
           className={`${fieldClass} mt-1`}
@@ -409,7 +413,7 @@ function TravelDocFields({
           placeholder="例: マルタ"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         状況
         <select
           className={`${fieldClass} mt-1`}
@@ -426,7 +430,7 @@ function TravelDocFields({
           ))}
         </select>
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         申請期限(任意)
         <input
           type="date"
@@ -436,7 +440,7 @@ function TravelDocFields({
         />
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           有効期間・開始(任意)
           <input
             type="date"
@@ -445,7 +449,7 @@ function TravelDocFields({
             onChange={(e) => onChange('validFrom', e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           有効期間・終了(任意)
           <input
             type="date"
@@ -455,7 +459,7 @@ function TravelDocFields({
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         参照番号(任意)
         <input
           className={`${fieldClass} mt-1 font-mono`}
@@ -464,7 +468,7 @@ function TravelDocFields({
           placeholder="ビザ番号・eSIMのICCIDなど"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         申請サイト・マイページURL(任意)
         <input
           type="url"
@@ -475,7 +479,7 @@ function TravelDocFields({
         />
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           金額(任意)
           <input
             type="number"
@@ -486,7 +490,7 @@ function TravelDocFields({
             onChange={(e) => onChange('priceAmount', e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           通貨コード
           <input
             className={`${fieldClass} mt-1`}
@@ -497,7 +501,7 @@ function TravelDocFields({
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500 sm:col-span-2">
+      <label className="text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
         メモ(任意)
         <textarea
           rows={2}
@@ -553,7 +557,7 @@ function TravelDocRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
         <TravelDocFields form={form} onChange={set} />
         <div className="mt-2 flex gap-2">
           <button
@@ -580,25 +584,25 @@ function TravelDocRow({
     doc.validFrom !== undefined || doc.validUntil !== undefined
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <TravelDocIcon
             kind={doc.kind}
             size={16}
-            className="shrink-0 text-gray-500"
+            className="shrink-0 text-gray-500 dark:text-gray-400"
           />
-          <p className="text-sm font-semibold text-gray-800">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
             {doc.title}
             {doc.region !== undefined && doc.region.length > 0 ? (
-              <span className="ml-1 font-normal text-gray-500">
+              <span className="ml-1 font-normal text-gray-500 dark:text-gray-400">
                 ({doc.region})
               </span>
             ) : null}
           </p>
           <TravelDocStatusBadge status={doc.status} size="sm" />
         </div>
-        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+        <div className="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
           {doc.referenceNumber !== undefined ? (
             <p>
               参照番号: <span className="font-mono">{doc.referenceNumber}</span>
@@ -616,7 +620,7 @@ function TravelDocRow({
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-cyan-700 underline"
+                className="text-cyan-700 dark:text-cyan-300 underline"
               >
                 申請サイト・マイページを開く
               </a>
@@ -696,7 +700,7 @@ function AddTravelDocSection({ dispatch }: { dispatch: TripNotesDispatch }) {
   return (
     <form
       onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
+      className="rounded-xl border border-gray-200 dark:border-gray-800 p-3"
     >
       <TravelDocFields form={form} onChange={set} />
       <div className="mt-2 flex gap-2">
@@ -838,7 +842,7 @@ function CountryInfoFields({
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         国・地域名
         <input
           className={`${fieldClass} mt-1`}
@@ -848,7 +852,7 @@ function CountryInfoFields({
         />
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           警察(任意)
           <input
             className={`${fieldClass} mt-1`}
@@ -857,7 +861,7 @@ function CountryInfoFields({
             placeholder="例: 112"
           />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           救急・消防(任意)
           {/*
             placeholder を警察と別の番号にしてあるのは、両者が同じとは限らないことを
@@ -872,7 +876,7 @@ function CountryInfoFields({
           />
         </label>
       </div>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         ラテン文字表記(任意)
         <input
           className={`${fieldClass} mt-1`}
@@ -881,7 +885,7 @@ function CountryInfoFields({
           placeholder="例: Malta"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         プラグ形状(任意)
         <input
           className={`${fieldClass} mt-1`}
@@ -890,7 +894,7 @@ function CountryInfoFields({
           placeholder="例: G"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         電圧・周波数(任意)
         <input
           className={`${fieldClass} mt-1`}
@@ -899,7 +903,7 @@ function CountryInfoFields({
           placeholder="例: 230V 50Hz"
         />
       </label>
-      <label className="text-xs text-gray-500">
+      <label className="text-xs text-gray-500 dark:text-gray-400">
         チップの文化(任意)
         <input
           className={`${fieldClass} mt-1`}
@@ -908,7 +912,7 @@ function CountryInfoFields({
           placeholder="例: 基本は不要。高級店では5〜10%"
         />
       </label>
-      <label className="text-xs text-gray-500 sm:col-span-2">
+      <label className="text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
         メモ(任意)
         <textarea
           rows={2}
@@ -963,7 +967,7 @@ function CountryInfoRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
         <CountryInfoFields form={form} onChange={set} />
         <div className="mt-2 flex gap-2">
           <button
@@ -1000,17 +1004,17 @@ function CountryInfoRow({
     info.tipping === undefined
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-800">
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
           {info.name}
           {info.latinName !== undefined && info.latinName.length > 0 ? (
-            <span className="ml-1 font-normal text-gray-500">
+            <span className="ml-1 font-normal text-gray-500 dark:text-gray-400">
               ({info.latinName})
             </span>
           ) : null}
         </p>
-        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+        <div className="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
           {/*
             緊急通報番号を先頭に出す。入力欄の並びと同じ理由で、いざというときに
             探す順がそのまま上から下になる。
@@ -1032,7 +1036,7 @@ function CountryInfoRow({
           {info.tipping !== undefined ? <p>チップ: {info.tipping}</p> : null}
           {info.note !== undefined ? <p>{info.note}</p> : null}
           {nameOnly ? (
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               プラグ形状・電圧・チップ・緊急通報番号がまだ空です。上の「AI
               インポート」のプロンプトでまとめて埋められます。
             </p>
@@ -1107,7 +1111,7 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
   return (
     <form
       onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
+      className="rounded-xl border border-gray-200 dark:border-gray-800 p-3"
     >
       <CountryInfoFields form={form} onChange={set} />
       {/*
@@ -1116,7 +1120,7 @@ function AddCountryInfoSection({ dispatch }: { dispatch: TripNotesDispatch }) {
         国名の1行で足りる。空状態の案内を読んで開いた人が、ここで気を変えて
         閉じてしまうのを防ぐ
       */}
-      <p className="mt-2 text-xs text-gray-500">
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
         国・地域名だけ入れて追加してかまいません。残りの欄は、上の「AI
         インポート」のプロンプトでまとめて埋められます。
       </p>
@@ -1239,10 +1243,10 @@ function WishRow({
 
   if (editing) {
     return (
-      <li className="rounded-xl border border-gray-200 p-3">
+      <li className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
         <AreaOptions id={listId} options={areaOptions} />
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             やりたいこと
             <input
               className={`${fieldClass} mt-1`}
@@ -1250,11 +1254,11 @@ function WishRow({
               onChange={(e) => setTitle(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             場所(任意)
             <AreaField value={area} listId={listId} onChange={setArea} />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             メモ(任意)
             <input
               className={`${fieldClass} mt-1`}
@@ -1262,7 +1266,7 @@ function WishRow({
               onChange={(e) => setNote(e.target.value)}
             />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
             参考リンク(任意)
             <input
               className={`${fieldClass} mt-1`}
@@ -1293,33 +1297,35 @@ function WishRow({
   }
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 p-3">
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
       <label className="flex min-w-0 cursor-pointer items-start gap-2">
         <input
           type="checkbox"
           checked={wish.done}
           onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-600 text-cyan-600 dark:text-cyan-300 focus:ring-cyan-500 dark:focus:ring-cyan-400"
         />
         <span className="min-w-0">
           <span
             className={
               wish.done
-                ? 'text-sm text-gray-400 line-through'
-                : 'text-sm font-medium text-gray-800'
+                ? 'text-sm text-gray-400 line-through dark:text-gray-500'
+                : 'text-sm font-medium text-gray-800 dark:text-gray-100'
             }
           >
             {wish.title}
           </span>
           {wish.note !== undefined && wish.note.length > 0 ? (
-            <span className="block text-xs text-gray-500">{wish.note}</span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {wish.note}
+            </span>
           ) : null}
           {wish.url !== undefined && wish.url.length > 0 ? (
             <a
               href={wish.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block truncate text-xs text-cyan-700 underline"
+              className="block truncate text-xs text-cyan-700 dark:text-cyan-300 underline"
             >
               {wish.url}
             </a>
@@ -1412,11 +1418,11 @@ function AddWishSection({
   return (
     <form
       onSubmit={handleAdd}
-      className="rounded-xl border border-gray-200 p-3"
+      className="rounded-xl border border-gray-200 dark:border-gray-800 p-3"
     >
       <AreaOptions id={listId} options={areaOptions} />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           やりたいこと
           <input
             className={`${fieldClass} mt-1`}
@@ -1424,11 +1430,11 @@ function AddWishSection({
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           場所(任意)
           <AreaField value={area} listId={listId} onChange={setArea} />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           メモ(任意)
           <input
             className={`${fieldClass} mt-1`}
@@ -1436,7 +1442,7 @@ function AddWishSection({
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
-        <label className="text-xs text-gray-500">
+        <label className="text-xs text-gray-500 dark:text-gray-400">
           参考リンク(任意)
           <input
             className={`${fieldClass} mt-1`}
@@ -1446,7 +1452,7 @@ function AddWishSection({
           />
         </label>
       </div>
-      <p className="mt-2 text-xs text-gray-500">
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
         場所を書いておくと、その町にいる間だけ「今」タブの上に出ます。
         書かなくても「場所を決めていないもの」として残ります。
       </p>
@@ -1663,7 +1669,7 @@ export function SettingsPanel({
       {/* 1. 旅行の基本情報 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Plane size={18} className="text-cyan-600" />
+          <Plane size={18} className="text-cyan-600 dark:text-cyan-300" />
           旅行の基本情報
         </h2>
         <div className="mt-3 space-y-3">
@@ -1717,12 +1723,12 @@ export function SettingsPanel({
           {invalidRange ? (
             <p
               role="alert"
-              className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+              className="rounded-lg bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300"
             >
               終了日は開始日より後の日付にしてください。
             </p>
           ) : (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               {nights}泊{(nights ?? 0) + 1}日
             </p>
           )}
@@ -1732,11 +1738,11 @@ export function SettingsPanel({
       {/* 2. 表示タイムゾーン */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Globe size={18} className="text-cyan-600" />
+          <Globe size={18} className="text-cyan-600 dark:text-cyan-300" />
           表示タイムゾーン
         </h2>
         <div className="mt-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <input
               type="radio"
               name="pinnedTzMode"
@@ -1745,7 +1751,7 @@ export function SettingsPanel({
             />
             デバイスの時計に従う
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <input
               type="radio"
               name="pinnedTzMode"
@@ -1780,7 +1786,7 @@ export function SettingsPanel({
               </select>
             </div>
           ) : null}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             現在の表示タイムゾーン:{' '}
             <span className="font-mono">{displayTz}</span>
           </p>
@@ -1788,7 +1794,7 @@ export function SettingsPanel({
             この設定で日付が動くと思われると、日程が 1 日ずれて見えたときに
             ここを触って直そうとしてしまう。効く範囲を先に書いておく
           */}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             日程の日付はいつも現地の日付で並びます。この設定が効くのは、時刻の見せ方
             (日本時間を併記するかどうか)と、予約を追加するときの既定のタイムゾーンです。
           </p>
@@ -1806,10 +1812,10 @@ export function SettingsPanel({
       {/* 4. 共有・バックアップ */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Share2 size={18} className="text-cyan-600" />
+          <Share2 size={18} className="text-cyan-600 dark:text-cyan-300" />
           共有・バックアップ
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           同行者に旅程を渡したいときも、自分のスマホが壊れたときの保険にしたいときも、
           共有URLひとつで済みます。サーバーには保存されません。
         </p>
@@ -1830,11 +1836,11 @@ export function SettingsPanel({
           この節に置く。API 連携はせず、.ics を作って渡すところまでで手を引く
           (このツールは一切ネットワークに出ない)。
         */}
-        <div className="mt-4 border-t border-gray-200 pt-4">
-          <h3 className="text-sm font-semibold text-gray-800">
+        <div className="mt-4 border-t border-gray-200 dark:border-gray-800 pt-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
             カレンダーに書き出す
           </h3>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
             予約と申請期限を .ics
             ファイルにまとめます。パソコンのGoogleカレンダーの「設定 →
             インポート」から取り込めます。
@@ -1854,7 +1860,7 @@ export function SettingsPanel({
             スマホの制約のほうは、書き出したファイルをスマホで開こうとして
             初めて分かるので、その前に 1 件ずつ登録する道を案内しておく。
           */}
-          <ul className="mt-2 space-y-1 text-xs text-gray-500">
+          <ul className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
             <li>
               取り込み専用のカレンダーを1つ作って、そこへインポートするのがおすすめです。
               入れ直して予定が重複しても、そのカレンダーごと消せばやり直せます。
@@ -1871,10 +1877,10 @@ export function SettingsPanel({
       {/* 5. 印刷しおり */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Printer size={18} className="text-cyan-600" />
+          <Printer size={18} className="text-cyan-600 dark:text-cyan-300" />
           印刷しおり
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           スマホが壊れても電池が切れてもゼロにならない保険です。予定と緊急連絡先を
           1枚(複数ページになる場合もあります)にまとめて印刷し、紙でも持ち歩けるようにします。
         </p>
@@ -1891,10 +1897,10 @@ export function SettingsPanel({
       {/* 6. 緊急連絡先 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Phone size={18} className="text-cyan-600" />
+          <Phone size={18} className="text-cyan-600 dark:text-cyan-300" />
           緊急連絡先
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           大使館・カード紛失窓口・海外旅行保険会社の連絡先を登録しておきましょう。
         </p>
         <form
@@ -1944,7 +1950,7 @@ export function SettingsPanel({
         </form>
 
         {state.emergencyContacts.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
             緊急連絡先が未登録です。まずは大使館やクレジットカードの紛失窓口を1件登録しておくと安心です。
           </p>
         ) : (
@@ -1963,10 +1969,10 @@ export function SettingsPanel({
       {/* 7. 旅行前の手続き */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <IdCard size={18} className="text-cyan-600" />
+          <IdCard size={18} className="text-cyan-600 dark:text-cyan-300" />
           旅行前の手続き
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           ビザ・SIM/eSIM・海外旅行保険・入域許可など、出発前に済ませておく手続きを
           登録しておきましょう。期限や有効期間の抜けは進捗タブが教えてくれます。
         </p>
@@ -1974,7 +1980,7 @@ export function SettingsPanel({
         {travelDocs.length === 0 ? (
           // 上の説明文と同じことを繰り返さない。空のときに足す価値があるのは
           // 「まず何を 1 件入れればいいか」の具体例だけ
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
             まだ登録がありません。まずは行き先のビザの要否と、現地の通信手段
             (SIM・eSIM)を1件ずつ入れておくと、出発直前に慌てずに済みます。
           </p>
@@ -1994,10 +2000,10 @@ export function SettingsPanel({
       {/* 8. 国・地域の情報 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Plug size={18} className="text-cyan-600" />
+          <Plug size={18} className="text-cyan-600 dark:text-cyan-300" />
           国・地域の情報
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           訪問する国・地域のプラグ形状・電圧・チップの文化・緊急通報番号をまとめておけます。
           現地で「変換プラグはどれだったか」「救急は何番か」を調べ直さずに済みます。
         </p>
@@ -2017,9 +2023,9 @@ export function SettingsPanel({
             置いている。ただの空状態の説明ではないので、他のセクションの空状態と違って
             「まず何を入れるか」だけでなく「入れたあとに何が起きるか」まで書く。
           */
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
             まだ登録がありません。
-            <strong className="font-semibold text-gray-700">
+            <strong className="font-semibold text-gray-700 dark:text-gray-200">
               訪問する国・地域名を登録すると、プラグ形状・電圧・チップの文化・緊急通報番号を
               AI でまとめて埋められます。
             </strong>
@@ -2041,16 +2047,16 @@ export function SettingsPanel({
       {/* 9. やりたいこと */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <Heart size={18} className="text-cyan-600" />
+          <Heart size={18} className="text-cyan-600 dark:text-cyan-300" />
           やりたいこと
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           滞在先でやりたいことを町ごとに書いておけます。場所を書いておくと、
           その町にいる間だけ「今」タブの上に出ます。
         </p>
 
         {wishGroups.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
             まだ登録がありません。行きたい店や見たいものを、思い付いた順に
             1行ずつ足しておけば十分です。「今」タブからも足せます。
           </p>
@@ -2058,7 +2064,7 @@ export function SettingsPanel({
           <div className="mt-3 space-y-4">
             {wishGroups.map((group) => (
               <div key={group.area ?? ''}>
-                <h3 className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+                <h3 className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
                   <MapPin
                     size={14}
                     className="shrink-0 text-gray-400"
@@ -2099,10 +2105,13 @@ export function SettingsPanel({
       {aliases.length > 0 ? (
         <section className={cardClass}>
           <h2 className={sectionTitleClass}>
-            <MapPinCheck size={18} className="text-cyan-600" />
+            <MapPinCheck
+              size={18}
+              className="text-cyan-600 dark:text-cyan-300"
+            />
             同じ場所として扱う組
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             旅程の不整合で「同じ場所として扱う」を押した組です。この組は場所の食い違いとして
             警告されなくなります。押し間違えたときは削除すると元どおり警告が出ます。
           </p>
@@ -2110,9 +2119,9 @@ export function SettingsPanel({
             {aliases.map((alias) => (
               <li
                 key={alias.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3"
               >
-                <p className="min-w-0 text-sm text-gray-800">
+                <p className="min-w-0 text-sm text-gray-800 dark:text-gray-100">
                   <span className="font-semibold">{alias.names[0]}</span>
                   <span className="mx-1.5 text-gray-400" aria-hidden="true">
                     ＝
@@ -2138,10 +2147,10 @@ export function SettingsPanel({
       {/* 11. JSON入出力 */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <FileJson size={18} className="text-cyan-600" />
+          <FileJson size={18} className="text-cyan-600 dark:text-cyan-300" />
           JSON入出力
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           旅程データ全体をファイルやテキストでやり取りできます。共有URLが長すぎて
           QRコードが使えないときの代替手段としても使えます。
         </p>
@@ -2204,8 +2213,8 @@ export function SettingsPanel({
             role={ioMessage.tone === 'error' ? 'alert' : 'status'}
             className={`mt-3 rounded-lg px-3 py-2 text-sm ${
               ioMessage.tone === 'ok'
-                ? 'bg-emerald-50 text-emerald-800'
-                : 'bg-rose-50 text-rose-700'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
             }`}
           >
             {ioMessage.text}
@@ -2216,10 +2225,13 @@ export function SettingsPanel({
       {/* 12. いまの旅程を空にする */}
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <AlertTriangle size={18} className="text-rose-600" />
+          <AlertTriangle
+            size={18}
+            className="text-rose-600 dark:text-rose-300"
+          />
           いまの旅程を空にする
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
           いま開いている旅程の予約と緊急連絡先をすべて削除して、最初からやり直します。
           他の旅程は消えません。旅程そのものを消したいときは、画面上部の旅程セレクタから「削除」を選んでください。
           元に戻せないので、必要なら先にJSONで書き出しておいてください。

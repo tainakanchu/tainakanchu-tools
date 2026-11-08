@@ -44,7 +44,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4"
       onClick={onCancel}
     >
       <div
@@ -54,13 +54,19 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         tabIndex={-1}
-        className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl outline-none sm:p-5"
+        className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-4 shadow-xl outline-none dark:border dark:border-gray-700 sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="text-base font-semibold text-gray-800">
+        <h2
+          id={titleId}
+          className="text-base font-semibold text-gray-800 dark:text-gray-100"
+        >
           {title}
         </h2>
-        <p id={descriptionId} className="mt-2 text-sm text-gray-600">
+        <p
+          id={descriptionId}
+          className="mt-2 text-sm text-gray-600 dark:text-gray-300"
+        >
           {description}
         </p>
         <div className="mt-4 flex flex-wrap justify-end gap-2">

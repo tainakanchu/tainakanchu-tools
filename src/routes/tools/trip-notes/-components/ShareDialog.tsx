@@ -126,7 +126,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -137,10 +137,13 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 p-5 shadow-xl outline-none dark:border dark:border-gray-700"
       >
         <div className="flex items-center justify-between">
-          <h2 id={titleId} className="text-base font-semibold text-gray-800">
+          <h2
+            id={titleId}
+            className="text-base font-semibold text-gray-800 dark:text-gray-100"
+          >
             共有URL
           </h2>
           <button
@@ -154,7 +157,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
         </div>
 
         {result.status === 'loading' ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-gray-600">
+          <div className="flex items-center gap-2 py-8 text-sm text-gray-600 dark:text-gray-300">
             <Loader2 size={18} className="animate-spin" aria-hidden="true" />
             共有URLを作成しています…
           </div>
@@ -163,7 +166,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
         {result.status === 'error' ? (
           <p
             role="alert"
-            className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+            className="mt-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300"
           >
             共有URLの作成に失敗しました。時間をおいて再度お試しください。
           </p>
@@ -204,7 +207,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
                   alt="共有URLのQRコード"
                   className="h-48 w-48"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   同行者のスマホのカメラで読み取ってもらえます。
                 </p>
               </div>
@@ -213,7 +216,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
             {result.qrDataUrl === null && !kanji ? (
               <p
                 role="alert"
-                className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                className="rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-200"
               >
                 予約が多いためQRコードは使えません(
                 {result.size.toLocaleString('ja-JP')}文字)。
@@ -234,21 +237,21 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
               </button>
             ) : null}
 
-            <div className="rounded-lg border border-gray-200 px-3 py-2">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2">
               <label
                 htmlFor={kanjiToggleId}
-                className="flex items-center gap-2 text-sm text-gray-700"
+                className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
               >
                 <input
                   id={kanjiToggleId}
                   type="checkbox"
                   checked={kanji}
                   onChange={(e) => setKanji(e.currentTarget.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 dark:text-cyan-300 focus:ring-cyan-500 dark:focus:ring-cyan-400"
                 />
                 URLを漢字にする(ネタ)
               </label>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 同じ内容を漢字だけで書き表します。文字数は半分以下になりますが、
                 実際に送れる量が増えるわけではありません。
               </p>
@@ -257,7 +260,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
             {kanji ? (
               <ul
                 role="alert"
-                className="list-disc space-y-1 rounded-lg bg-amber-50 px-3 py-2 pl-7 text-xs text-amber-900"
+                className="list-disc space-y-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 pl-7 text-xs text-amber-900 dark:text-amber-200"
               >
                 <li>LINEなどでリンクが途中で切れることがあります。</li>
                 <li>
@@ -272,7 +275,7 @@ export function ShareDialog({ state, onClose }: ShareDialogProps) {
               </ul>
             ) : null}
 
-            <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-900">
+            <p className="rounded-lg bg-cyan-50 dark:bg-cyan-950/40 px-3 py-2 text-xs text-cyan-900 dark:text-cyan-200">
               このURLを自分にLINEやメールで送っておくと、端末のデータが消えても
               復元できます。iOSのSafariは7日間開かなかったサイトのデータを
               消すことがあるため、旅行直前に限らず今のうちに送っておくと安心です。
