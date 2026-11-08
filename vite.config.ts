@@ -84,6 +84,10 @@ export default defineConfig({
         //   落とさせてしまう。地図を実際に表示したときだけ取りに行けば十分で、
         //   そもそも地図タイルはオフラインでは取れないので、JS だけキャッシュ
         //   しても圏外では役に立たない。
+        //   v6 から別ファイルになった地図のワーカー
+        //   (assets/maplibre-gl-worker-*.js、約 470KB) も同じ理由で外す。
+        //   Vite のワーカー用のビルドが取り込み元のファイル名
+        //   (maplibre-gl-worker.mjs) から名前を付けるので、この glob に入る。
         // - assets/MapView-*: maplibre を包む React 部品の小さな遅延チャンク。
         //   単体では使い道が無いので一緒に外す。
         // - data/taiwan/**: 都市ごとに分けた配信用 JSON。見る都市のぶんだけ

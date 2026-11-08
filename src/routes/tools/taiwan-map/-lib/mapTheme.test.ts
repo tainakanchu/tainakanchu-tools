@@ -15,6 +15,12 @@ function rgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
+/** 文字色は式ではなく色の文字列で書いている前提。式なら失敗させる */
+function colorString(value: unknown, id: string): string {
+  if (typeof value !== 'string') throw new Error(`${id}: not a color string`)
+  return value
+}
+
 function luminance(hex: string): number {
   const [r, g, b] = rgb(hex).map((v) => {
     const c = v / 255
@@ -50,8 +56,8 @@ describe('ダークのベース地図', () => {
   it('地名・道路名の文字は縁取りと陸の色の両方に 4.5:1 以上', () => {
     expect(labels.length).toBeGreaterThan(5)
     for (const [id, paint] of labels) {
-      const text = String(paint['text-color'])
-      const halo = String(paint['text-halo-color'])
+      const text = colorString(paint['text-color'], id)
+      const halo = colorString(paint['text-halo-color'], id)
       expect(contrast(text, halo), id).toBeGreaterThanOrEqual(4.5)
       expect(contrast(text, DARK_BASEMAP.land), id).toBeGreaterThanOrEqual(4.5)
     }
