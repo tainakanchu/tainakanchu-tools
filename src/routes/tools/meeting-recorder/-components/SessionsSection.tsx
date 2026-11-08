@@ -29,19 +29,23 @@ const STATE_BADGES: Record<
 > = {
   complete: {
     label: '保存済み',
-    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    className:
+      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800',
   },
   interrupted: {
     label: '中断（復元可能）',
-    className: 'bg-amber-50 text-amber-800 border-amber-200',
+    className:
+      'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800',
   },
   active: {
     label: '録音中',
-    className: 'bg-rose-50 text-rose-700 border-rose-200',
+    className:
+      'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800',
   },
   broken: {
     label: '情報なし',
-    className: 'bg-gray-100 text-gray-600 border-gray-200',
+    className:
+      'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
   },
 }
 
@@ -68,7 +72,8 @@ export function SessionsSection({
     <section className={cardClass}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className={sectionTitleClass}>
-          <span className="text-cyan-600">3.</span> 録音一覧 / 書き出し
+          <span className="text-cyan-600 dark:text-cyan-400">3.</span> 録音一覧
+          / 書き出し
         </h2>
         <button type="button" className={subtleButtonClass} onClick={onRefresh}>
           <RefreshCw size={14} aria-hidden />
@@ -79,7 +84,7 @@ export function SessionsSection({
         録音はこのブラウザの中（OPFS）にだけ保存され、どこにも送信されません。
         ブラウザが落ちても途中までの録音は残り、「中断（復元可能）」として書き出せます。
         {storage && (
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
             使用中 {formatBytes(storage.usage)} / 上限 約{' '}
             {formatBytes(storage.quota)}
           </span>
@@ -87,9 +92,13 @@ export function SessionsSection({
       </p>
 
       {sessions === null ? (
-        <p className="mt-4 text-sm text-gray-500">読み込み中…</p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+          読み込み中…
+        </p>
       ) : sessions.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-500">まだ録音はありません。</p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+          まだ録音はありません。
+        </p>
       ) : (
         <ul className="mt-4 space-y-3">
           {sessions.map((session) => {
@@ -102,11 +111,11 @@ export function SessionsSection({
             return (
               <li
                 key={session.id}
-                className="rounded-xl border border-gray-200 p-3"
+                className="rounded-xl border border-gray-200 p-3 dark:border-gray-700"
               >
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-gray-900">
+                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                       {session.meta
                         ? dateFormatter.format(new Date(session.meta.createdAt))
                         : session.id}
@@ -116,7 +125,7 @@ export function SessionsSection({
                         {badge.label}
                       </span>
                     </p>
-                    <p className="mt-0.5 text-xs tabular-nums text-gray-500">
+                    <p className="mt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">
                       {formatDuration(session.durationSeconds)} ・{' '}
                       {formatBytes(session.bytes)}
                       {session.meta &&
@@ -146,7 +155,7 @@ export function SessionsSection({
                         <>
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 dark:bg-rose-500 dark:text-gray-950 dark:hover:bg-rose-400"
                             onClick={() => {
                               setConfirmId(null)
                               onDelete(session.id)

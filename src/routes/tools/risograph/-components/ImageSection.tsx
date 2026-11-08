@@ -65,7 +65,9 @@ export function ImageSection({ image, loading, error, onSelect }: Props) {
         >
           <ImageUp size={28} aria-hidden />
           <span>画像をドラッグ＆ドロップ</span>
-          <span className="text-xs text-gray-500">またはクリックして選択</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            またはクリックして選択
+          </span>
           <input
             ref={inputRef}
             type="file"
@@ -100,7 +102,9 @@ export function ImageSection({ image, loading, error, onSelect }: Props) {
               </button>
             </>
           ) : (
-            <p className="text-sm text-gray-500">まだ画像がありません</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              まだ画像がありません
+            </p>
           )}
         </div>
       </div>

@@ -203,28 +203,30 @@ function ActualSizeLayoutPage() {
   ]
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 text-gray-900 md:flex-row print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
-      <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur print:hidden md:w-80 md:shrink-0 md:sticky md:top-4">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 text-gray-900 md:flex-row dark:text-gray-100 print:mx-0 print:max-w-none print:flex-col print:gap-0 print:px-0 print:py-0">
+      <aside className="w-full max-w-md space-y-8 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/80 dark:shadow-none print:hidden md:w-80 md:shrink-0 md:sticky md:top-4">
         <header className="space-y-2">
           <h1 className="text-xl font-semibold whitespace-nowrap">
             原寸レイアウトメーカー
           </h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             免許証やパスポートなどの書類画像をアップロードして、原寸大でA4にレイアウトします。印刷またはPDF出力でそのまま利用できます。
           </p>
         </header>
 
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-gray-800">
+          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             ドキュメント設定
           </h2>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">種類</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              種類
+            </span>
             <select
               value={presetId}
               // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- option の value は documentPresets (PresetId 型) からのみ生成されるため実行時も安全
               onChange={(event) => setPresetId(event.target.value as PresetId)}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30"
             >
               {documentPresets.map((preset) => (
                 <option key={preset.id} value={preset.id}>
@@ -237,7 +239,7 @@ function ActualSizeLayoutPage() {
           {presetId === 'custom' ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   幅 (mm)
                 </span>
                 <input
@@ -249,11 +251,11 @@ function ActualSizeLayoutPage() {
                   onChange={(event) =>
                     setCustomWidthMm(Number(event.target.value))
                   }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   高さ (mm)
                 </span>
                 <input
@@ -265,12 +267,12 @@ function ActualSizeLayoutPage() {
                   onChange={(event) =>
                     setCustomHeightMm(Number(event.target.value))
                   }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30"
                 />
               </label>
             </div>
           ) : (
-            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-gray-950 dark:text-gray-300 dark:text-gray-300">
               {currentPreset?.description ??
                 `幅 ${currentPreset?.widthMm ?? '--'}mm × 高さ ${
                   currentPreset?.heightMm ?? '--'
@@ -280,7 +282,7 @@ function ActualSizeLayoutPage() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
+              <span className="text-sm font-medium whitespace-nowrap text-gray-700 dark:text-gray-200">
                 余白 (mm)
               </span>
               <input
@@ -292,11 +294,11 @@ function ActualSizeLayoutPage() {
                 onChange={(event) =>
                   setPageMarginMm(Number(event.target.value))
                 }
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium whitespace-nowrap text-gray-700">
+              <span className="text-sm font-medium whitespace-nowrap text-gray-700 dark:text-gray-200">
                 画像の間隔 (mm)
               </span>
               <input
@@ -306,31 +308,31 @@ function ActualSizeLayoutPage() {
                 step={1}
                 value={cardGapMm}
                 onChange={(event) => setCardGapMm(Number(event.target.value))}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30"
               />
             </label>
           </div>
 
-          <label className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <label className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
             <input
               type="checkbox"
               checked={cardCornersRounded}
               onChange={(event) => setCardCornersRounded(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-950 dark:accent-cyan-400"
             />
             <span>角を丸くする</span>
           </label>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-medium text-gray-800">
+          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             画像アップロード
           </h2>
           <label
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-sm text-gray-600 transition ${
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-sm text-gray-600 transition dark:text-gray-300 ${
               isDragOver
-                ? 'border-cyan-400 bg-cyan-50'
-                : 'border-gray-300 bg-gray-50 hover:border-cyan-400 hover:bg-cyan-50'
+                ? 'border-cyan-400 bg-cyan-50 dark:bg-cyan-950/50'
+                : 'border-gray-300 bg-gray-50 hover:border-cyan-400 hover:bg-cyan-50 dark:border-gray-600 dark:bg-gray-950 dark:hover:bg-cyan-950/50'
             }`}
             onDragOver={(e) => {
               e.preventDefault()
@@ -356,10 +358,10 @@ function ActualSizeLayoutPage() {
               onChange={handleFilesSelected}
               className="hidden"
             />
-            <span className="font-medium text-gray-800">
+            <span className="font-medium text-gray-800 dark:text-gray-100">
               画像を選択またはドラッグ&ドロップ（最大2枚）
             </span>
-            <span className="mt-1 text-xs text-gray-500">
+            <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               PNG / JPG / HEIC などに対応しています
             </span>
           </label>
@@ -369,10 +371,10 @@ function ActualSizeLayoutPage() {
               {images.map((image, index) => (
                 <li
                   key={image.id}
-                  className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 text-sm"
+                  className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 text-sm dark:bg-gray-800"
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-xs font-semibold text-white">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-xs font-semibold text-white dark:bg-cyan-400 dark:text-gray-950">
                       {index + 1}
                     </span>
                     <span className="truncate">{image.name}</span>
@@ -380,7 +382,7 @@ function ActualSizeLayoutPage() {
                   <button
                     type="button"
                     onClick={() => removeImage(image.id)}
-                    className="flex-shrink-0 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                    className="flex-shrink-0 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-300 dark:hover:text-cyan-200"
                   >
                     削除
                   </button>
@@ -388,19 +390,19 @@ function ActualSizeLayoutPage() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500">
+            <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-950 dark:text-gray-400">
               1枚または2枚の画像を選択してください。2枚の場合は同じ位置に縦並びで配置します。
             </p>
           )}
 
           {overflowsPrintableArea ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
               配置した画像の合計高さが印刷可能領域を超えています。余白や間隔を減らすか、画像を1枚にしてください。
             </p>
           ) : null}
 
           {overflowsPrintableWidth ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
               画像の幅が印刷可能領域（余白の内側）を超えています。余白を減らしてください。
             </p>
           ) : null}
@@ -410,20 +412,20 @@ function ActualSizeLayoutPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 dark:bg-cyan-400 dark:text-gray-950 dark:hover:bg-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
           >
             印刷 / PDF 出力
           </button>
           <button
             type="button"
             onClick={resetAll}
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500"
+            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500"
           >
             リセット
           </button>
         </div>
 
-        <section className="space-y-2 rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+        <section className="space-y-2 rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-100">
           <h3 className="text-sm font-semibold">印刷時のポイント</h3>
           <ul className="list-disc space-y-1 pl-5">
             {instructions.map((tip) => (
@@ -435,14 +437,14 @@ function ActualSizeLayoutPage() {
 
       <section className="min-w-0 flex-1 print:w-full print:px-0 print:py-0">
         <div className="space-y-4 print:hidden">
-          <h2 className="text-lg font-medium text-gray-800">
+          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             レイアウトプレビュー
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             下のプレビュー領域はA4サイズを再現しています。明るい部分が用紙、灰色の部分が余白です。
           </p>
         </div>
-        <div className="mt-4 overflow-x-auto rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 print:m-0 print:overflow-visible print:rounded-none print:border-0 print:bg-transparent print:p-0">
+        <div className="mt-4 overflow-x-auto rounded-3xl border border-gray-200 bg-slate-100/60 p-4 text-gray-900 dark:border-gray-800 dark:bg-gray-900 print:m-0 print:overflow-visible print:rounded-none print:border-0 print:bg-transparent print:p-0">
           <div className="relative mx-auto flex items-center justify-center overflow-visible rounded-2xl border border-dashed border-gray-300 bg-white print:mx-0 print:items-start print:justify-start print:border-0 print:bg-transparent">
             <div
               className="relative flex h-full w-full flex-col items-center justify-start rounded-2xl bg-white print:m-0 print:rounded-none print:border-0"

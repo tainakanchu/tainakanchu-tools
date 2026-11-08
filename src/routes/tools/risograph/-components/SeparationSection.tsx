@@ -63,7 +63,11 @@ function Stat({
     <div className="rounded-xl border border-white/10 bg-gray-950/60 px-3 py-2">
       <p className="text-xs text-gray-400">{label}</p>
       <p className={statValueClass}>{value}</p>
-      {note ? <p className="mt-0.5 text-[11px] text-gray-500">{note}</p> : null}
+      {note ? (
+        <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+          {note}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -115,7 +119,7 @@ export function SeparationSection({
               </option>
             ))}
           </select>
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
             {GAMUT_LABELS.find((g) => g.value === gamutMode)?.note}
           </span>
         </label>
@@ -132,7 +136,7 @@ export function SeparationSection({
             <option value={17}>下書き（17³ LUT・速い）</option>
             <option value={33}>高品質（33³ LUT・遅い）</option>
           </select>
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
             高品質は数十秒かかることがあります。
           </span>
         </label>
@@ -166,7 +170,7 @@ export function SeparationSection({
             )
           })}
         </ul>
-        <p className="text-xs leading-relaxed text-gray-500">
+        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
           紙の色は分版そのものに反映されます（暗い紙では出せる色が狭くなります）。
           変更すると分版はやり直しになります。
         </p>
@@ -183,7 +187,7 @@ export function SeparationSection({
           {running ? '分版中…' : '分版する'}
         </button>
         {!canRun && !running ? (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             画像を読み込むと実行できます。
           </span>
         ) : null}
@@ -257,7 +261,7 @@ export function SeparationSection({
           <h3 className="pt-2 text-sm font-semibold text-gray-200">
             参照色との ΔE00
           </h3>
-          <p className="text-xs leading-relaxed text-gray-500">
+          <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
             仮想インクのベタが、RISO
             公称色（参照色）からどれだけ離れているかの表示です。
             参照色は計算には使っておらず、値が大きいことは失敗を意味しません。

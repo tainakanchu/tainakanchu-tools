@@ -67,23 +67,23 @@ export function RecordingSection({
   const remaining = storage ? Math.max(0, storage.quota - storage.usage) : null
 
   return (
-    <section className={`${cardClass} border-rose-200`}>
+    <section className={`${cardClass} border-rose-200 dark:border-rose-800`}>
       <h2 className={sectionTitleClass}>
-        <span className="text-cyan-600">2.</span> 録音中
+        <span className="text-cyan-600 dark:text-cyan-400">2.</span> 録音中
         <span className="ml-1 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500" />
       </h2>
 
       <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
-          <p className="text-xs text-gray-500">経過時間</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">経過時間</p>
           <p
-            className="text-4xl font-bold tabular-nums text-gray-900"
+            className="text-4xl font-bold tabular-nums text-gray-900 dark:text-gray-100"
             aria-live="off"
           >
             {formatDuration(elapsed)}
           </p>
         </div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 dark:text-gray-300">
           <p>
             保存済み:{' '}
             <span className="tabular-nums">
@@ -91,7 +91,7 @@ export function RecordingSection({
             </span>
           </p>
           {remaining !== null && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               ブラウザの空き容量: 約 {formatBytes(remaining)}
               {storage?.persisted ? '' : '（永続化なし）'}
             </p>
@@ -99,7 +99,7 @@ export function RecordingSection({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4">
+      <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-950">
         <LevelMeter
           label="マイク（L）"
           analyser={micAnalyser}

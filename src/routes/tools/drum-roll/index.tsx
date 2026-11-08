@@ -135,7 +135,7 @@ function DrumRollPage() {
         onContextMenu={(event) => event.preventDefault()}
         className="relative flex flex-1 cursor-pointer touch-none select-none flex-col items-center justify-center gap-8 bg-gradient-to-b from-gray-900 via-gray-950 to-black p-8 text-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-cyan-500"
       >
-        <h2 className="absolute top-6 inset-x-0 text-sm font-semibold tracking-[0.3em] text-gray-500 uppercase">
+        <h2 className="absolute top-6 inset-x-0 text-sm font-semibold tracking-[0.3em] text-gray-400 uppercase">
           Drum Roll
         </h2>
 
