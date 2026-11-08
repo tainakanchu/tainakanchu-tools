@@ -54,7 +54,10 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
   return (
     <section className="space-y-5" aria-labelledby="tt-import-title">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="tt-import-title" className="text-lg font-bold text-gray-900">
+        <h2
+          id="tt-import-title"
+          className="text-lg font-bold text-gray-900 dark:text-gray-100"
+        >
           {isUpdate ? (
             <>
               「<Txt text={current.title} />
@@ -72,9 +75,9 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
       </div>
 
       <ol className="space-y-5">
-        <li className="border-l-2 border-gray-300 pl-3">
+        <li className="border-l-2 border-gray-300 dark:border-gray-700 pl-3">
           <h3 className={sectionTitle}>1. プロンプトを AI に渡す</h3>
-          <p className="mt-1 text-sm text-gray-700">
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
             {isUpdate
               ? 'プロンプトをコピーして AI に貼り、続けて新しい資料や「◯◯の時間を直して」のような指示を送ります。'
               : 'プロンプトをコピーして AI に貼り、公式タイムテーブルの画像・PDF・URL のどれかを一緒に送ります。'}
@@ -95,14 +98,17 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
               </a>
             ))}
           </div>
-          <p className="mt-1 text-xs text-gray-600" role="status">
+          <p
+            className="mt-1 text-xs text-gray-600 dark:text-gray-400"
+            role="status"
+          >
             {copied === 'ok' &&
               'コピーしました。AI の新しい会話に貼り付けてください。'}
             {copied === 'fail' &&
               'コピーできませんでした。下の「プロンプトを見る」から選択してコピーしてください。'}
           </p>
           <details className="mt-1 text-sm">
-            <summary className="cursor-pointer text-gray-700">
+            <summary className="cursor-pointer text-gray-700 dark:text-gray-300">
               プロンプトを見る
             </summary>
             <textarea
@@ -115,9 +121,9 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
           </details>
         </li>
 
-        <li className="border-l-2 border-gray-300 pl-3">
+        <li className="border-l-2 border-gray-300 dark:border-gray-700 pl-3">
           <h3 className={sectionTitle}>2. AI の返答を貼り付ける</h3>
-          <p className="mt-1 text-sm text-gray-700">
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
             返ってきた JSON
             をそのまま貼ります。前後に説明文が付いていても構いません。 AI
             の返答はコードブロックのコピーボタンでコピーすると確実です。
@@ -165,7 +171,7 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
         </li>
 
         {result !== null && (
-          <li className="border-l-2 border-gray-300 pl-3">
+          <li className="border-l-2 border-gray-300 dark:border-gray-700 pl-3">
             <h3 className={sectionTitle}>3. 確認して取り込む</h3>
             {result.doc !== null && <Preview doc={result.doc} />}
             <div className="mt-2">
@@ -185,7 +191,7 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
                       : '取り込む'}
                 </button>
                 {isUpdate && (
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
                     お気に入りは同じ出演に引き継ぎます。
                   </span>
                 )}
@@ -201,14 +207,20 @@ export function ImportPanel({ current, onImport, onCancel }: ImportPanelProps) {
 function Preview({ doc }: { doc: TimetableDoc }) {
   return (
     <div className="mt-2 text-sm">
-      <p className="font-semibold text-gray-900">
+      <p className="font-semibold text-gray-900 dark:text-gray-100">
         <Txt text={doc.title} />
       </p>
       <table className="mt-1 w-full max-w-md text-left text-sm">
         <tbody>
           {doc.days.map((day) => (
-            <tr key={day.id} className="border-t border-gray-200">
-              <th scope="row" className="py-1 pr-3 font-normal text-gray-700">
+            <tr
+              key={day.id}
+              className="border-t border-gray-200 dark:border-gray-800"
+            >
+              <th
+                scope="row"
+                className="py-1 pr-3 font-normal text-gray-700 dark:text-gray-300"
+              >
                 {formatDateLabel(day.date)}
                 {day.label && (
                   <>
@@ -222,8 +234,11 @@ function Preview({ doc }: { doc: TimetableDoc }) {
               </td>
             </tr>
           ))}
-          <tr className="border-t border-gray-200">
-            <th scope="row" className="py-1 pr-3 font-normal text-gray-700">
+          <tr className="border-t border-gray-200 dark:border-gray-800">
+            <th
+              scope="row"
+              className="py-1 pr-3 font-normal text-gray-700 dark:text-gray-300"
+            >
               会場・ステージ
             </th>
             <td className="py-1">
@@ -231,15 +246,21 @@ function Preview({ doc }: { doc: TimetableDoc }) {
             </td>
           </tr>
           {doc.travel && doc.travel.length > 0 && (
-            <tr className="border-t border-gray-200">
-              <th scope="row" className="py-1 pr-3 font-normal text-gray-700">
+            <tr className="border-t border-gray-200 dark:border-gray-800">
+              <th
+                scope="row"
+                className="py-1 pr-3 font-normal text-gray-700 dark:text-gray-300"
+              >
                 移動時間
               </th>
               <td className="py-1">{doc.travel.length} 組の会場間</td>
             </tr>
           )}
-          <tr className="border-t border-gray-200">
-            <th scope="row" className="py-1 pr-3 font-normal text-gray-700">
+          <tr className="border-t border-gray-200 dark:border-gray-800">
+            <th
+              scope="row"
+              className="py-1 pr-3 font-normal text-gray-700 dark:text-gray-300"
+            >
               タイムゾーン
             </th>
             <td className="py-1">{doc.timezone}</td>

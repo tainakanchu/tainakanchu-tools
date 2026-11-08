@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { ThemeScope } from '../../../components/theme/ThemeScope'
 import { getToolMeta, toolPageTitle } from '../../../lib/site-meta'
 import { remapActIds } from '../../../lib/timetable/favorites'
 import { decodeShareHash, hasShareHash } from '../../../lib/timetable/share'
@@ -66,8 +67,21 @@ export const Route = createFileRoute('/tools/timetable/')({
     ...viewParam(search.v),
     ...(typeof search.d === 'string' ? { d: search.d } : {}),
   }),
-  component: TimetablePage,
+  component: ThemedTimetablePage,
 })
+
+/**
+ * ダークの配色はいまはこのツールだけが持つので、ツール全体を ThemeScope で包む。
+ * 高さはサイトのヘッダー(中身 4rem + 下罫線 1px)を除いた画面いっぱいにして、
+ * 中身が短い画面(一覧が空のときなど)でも下まで同じ地の色にする
+ */
+function ThemedTimetablePage() {
+  return (
+    <ThemeScope className="min-h-[calc(100dvh-4rem-1px)]">
+      <TimetablePage />
+    </ThemeScope>
+  )
+}
 
 function clearHash() {
   window.history.replaceState(
@@ -214,13 +228,13 @@ function TimetablePage() {
   return (
     <>
       {shareBroken && (
-        <p className="mx-auto mt-3 max-w-3xl border-l-4 border-rose-600 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <p className="mx-auto mt-3 max-w-3xl border-l-4 border-rose-600 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/60 dark:text-rose-200">
           共有 URL を読み取れませんでした。URL
           が途中で切れていないか確かめ、送ってくれた人にもう一度コピーしてもらってください。
         </p>
       )}
       {search.t !== undefined && (
-        <p className="mx-auto mt-3 max-w-3xl border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm">
+        <p className="mx-auto mt-3 max-w-3xl border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/50">
           指定されたタイムテーブルはこの端末に保存されていません。一覧から選んでください。
         </p>
       )}

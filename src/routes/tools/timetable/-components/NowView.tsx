@@ -5,6 +5,7 @@
 
 import { venueColor } from '../../../../lib/timetable/colors'
 import { Txt } from '@/components/Txt'
+import { useTheme } from '@/components/theme/ThemeScope'
 import {
   actSpan,
   actTimeText,
@@ -30,6 +31,7 @@ function minutesUntil(targetMs: number, nowMs: number): number {
 }
 
 export function NowView({ doc, favorites, nowMs }: NowViewProps) {
+  const { theme } = useTheme()
   const state = computeNow(doc, nowMs)
   const upcoming = upcomingFavorites(doc, favorites, nowMs).slice(0, 4)
   const venueIndex = new Map(doc.venues.map((venue, i) => [venue.id, i]))
@@ -39,20 +41,23 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
     <section aria-labelledby="tt-next-fav" className="mt-4">
       <h3
         id="tt-next-fav"
-        className="border-b-2 border-gray-900 text-base font-bold"
+        className="border-b-2 border-gray-900 dark:border-gray-300 text-base font-bold"
       >
         次のお気に入り
       </h3>
       {upcoming.length === 0 ? (
-        <p className="py-2 text-sm text-gray-700">
+        <p className="py-2 text-sm text-gray-700 dark:text-gray-300">
           {favorites.size === 0
-            ? 'お気に入りがまだありません。グリッドで見たい出演をタップしてください。'
+            ? 'お気に入りがまだありません。グリッドで見たい出演の右上の ☆ を押してください。'
             : 'この先のお気に入りはありません。'}
         </p>
       ) : (
-        <ol className="divide-y divide-gray-200">
+        <ol className="divide-y divide-gray-200 dark:divide-gray-800">
           {upcoming.map((item, i) => {
-            const color = venueColor(venueIndex.get(item.act.venueId) ?? 0)
+            const color = venueColor(
+              venueIndex.get(item.act.venueId) ?? 0,
+              theme,
+            )
             const prev = i > 0 ? upcoming[i - 1].act : null
             const travel =
               prev === null || prev.venueId === item.act.venueId
@@ -62,25 +67,25 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
               <li key={item.act.id} className="flex items-start gap-3 py-2">
                 <div className="w-[7.5rem] shrink-0 text-right whitespace-nowrap tabular-nums">
                   {item.inProgress ? (
-                    <p className="text-sm font-bold text-rose-700">
+                    <p className="text-sm font-bold text-rose-700 dark:text-rose-300">
                       進行中
-                      <span className="block text-xs font-normal text-gray-700">
+                      <span className="block text-xs font-normal text-gray-700 dark:text-gray-300">
                         残り{' '}
                         {formatDuration(minutesUntil(item.endsAtMs, nowMs))}
                       </span>
                     </p>
                   ) : (
-                    <p className="text-sm font-bold tabular-nums text-gray-900">
+                    <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
                       あと{' '}
                       {formatDuration(minutesUntil(item.startsAtMs, nowMs))}
                     </p>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-900">
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                     <Txt text={item.act.title} />
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-gray-700">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-gray-700 dark:text-gray-300">
                     <span
                       className="rounded-sm px-1 font-semibold"
                       style={{ background: color.fill, color: color.text }}
@@ -105,7 +110,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
 
   if (state.phase === 'empty') {
     return (
-      <p className="py-8 text-center text-sm text-gray-700">
+      <p className="py-8 text-center text-sm text-gray-700 dark:text-gray-300">
         出演がありません。
       </p>
     )
@@ -115,17 +120,17 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
     const wait = minutesUntil(state.startsAtMs, nowMs)
     return (
       <div className="py-3">
-        <p className="text-sm text-gray-700">開催前です。</p>
-        <p className="mt-1 text-lg font-bold text-gray-900">
+        <p className="text-sm text-gray-700 dark:text-gray-300">開催前です。</p>
+        <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
           {formatDateLabel(state.day.date)}{' '}
           {formatHmShort(actSpan(state.firstAct).start)} 開始まで あと{' '}
           {formatDuration(wait)}
         </p>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-700 dark:text-gray-300">
           最初の出演: <Txt text={state.firstAct.title} />(
           <Txt text={venueName.get(state.firstAct.venueId)} />)
         </p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
           時刻は {doc.timezone}{' '}
           の現地時刻です。当日になると各会場のいまの出演が出ます。
         </p>
@@ -136,7 +141,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
 
   if (state.phase === 'after') {
     return (
-      <div className="py-8 text-center text-sm text-gray-700">
+      <div className="py-8 text-center text-sm text-gray-700 dark:text-gray-300">
         <p>このイベントは終了しました。</p>
         <p className="mt-1">最終日: {formatDateLabel(state.lastDay.date)}</p>
       </div>
@@ -145,12 +150,12 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
 
   return (
     <div className="py-3">
-      <p className="text-sm text-gray-700">
+      <p className="text-sm text-gray-700 dark:text-gray-300">
         {formatDateLabel(state.day.date)} 現在 {formatHmShort(state.minutes)}
       </p>
       <table className="mt-1 w-full text-left text-sm">
         <thead>
-          <tr className="border-b-2 border-gray-900 text-xs text-gray-700">
+          <tr className="border-b-2 border-gray-900 dark:border-gray-300 text-xs text-gray-700 dark:text-gray-300">
             <th scope="col" className="py-1 pr-2 font-semibold">
               会場
             </th>
@@ -171,12 +176,12 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                 Number(b.current === null && b.next === null),
             )
             .map(({ venue, current, next }) => {
-              const color = venueColor(venueIndex.get(venue.id) ?? 0)
+              const color = venueColor(venueIndex.get(venue.id) ?? 0, theme)
               const finished = current === null && next === null
               return (
                 <tr
                   key={venue.id}
-                  className="border-b border-gray-200 align-top"
+                  className="border-b border-gray-200 dark:border-gray-800 align-top"
                 >
                   <th scope="row" className="w-[34%] py-1.5 pr-2 font-normal">
                     <span
@@ -187,7 +192,10 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                     </span>
                   </th>
                   {finished ? (
-                    <td colSpan={2} className="py-1.5 text-gray-600">
+                    <td
+                      colSpan={2}
+                      className="py-1.5 text-gray-600 dark:text-gray-400"
+                    >
                       本日は終了
                     </td>
                   ) : (
@@ -205,7 +213,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                               {favorites.has(current.id) && '★ '}
                               <Txt text={current.title} />
                             </span>
-                            <span className="block text-xs whitespace-nowrap tabular-nums text-gray-700">
+                            <span className="block text-xs whitespace-nowrap tabular-nums text-gray-700 dark:text-gray-300">
                               残り{' '}
                               {formatDuration(
                                 actSpan(current).end - state.minutes,
@@ -213,7 +221,9 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                             </span>
                           </>
                         ) : (
-                          <span className="text-gray-600">転換・休み</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            転換・休み
+                          </span>
                         )}
                       </td>
                       <td className="py-1.5">
@@ -227,7 +237,7 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                               {favorites.has(next.id) && '★ '}
                               <Txt text={next.title} />
                             </span>
-                            <span className="block text-xs tabular-nums text-gray-700">
+                            <span className="block text-xs tabular-nums text-gray-700 dark:text-gray-300">
                               <span className="whitespace-nowrap">
                                 {formatHmShort(actSpan(next).start)} から
                               </span>{' '}
@@ -240,7 +250,9 @@ export function NowView({ doc, favorites, nowMs }: NowViewProps) {
                             </span>
                           </>
                         ) : (
-                          <span className="text-gray-600">この後なし</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            この後なし
+                          </span>
                         )}
                       </td>
                     </>

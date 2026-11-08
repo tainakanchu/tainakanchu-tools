@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Txt } from '@/components/Txt'
+import { ThemeSwitch } from '@/components/theme/ThemeSwitch'
 import { formatDateLabel } from '../../../../lib/timetable/time'
 import { btn, btnDanger, btnPrimary } from '../-lib/ui'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -34,15 +35,18 @@ export function LibraryView({
   const [deleting, setDeleting] = useState<SavedTimetable | null>(null)
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 text-gray-900">
-      <h1 className="text-xl font-bold">マイタイムテーブル</h1>
-      <p className="mt-1 text-sm text-gray-700">
+    <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold">マイタイムテーブル</h1>
+        <ThemeSwitch />
+      </div>
+      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
         フェスやイベントの公式タイムテーブルを自分の AI
         に読ませて取り込み、見たい出演だけの自分用タイムテーブルを作ります。データはこの端末の中だけに保存されます。
       </p>
 
       <section className="mt-5" aria-labelledby="tt-lib-title">
-        <div className="flex items-center justify-between border-b-2 border-gray-900 pb-1">
+        <div className="flex items-center justify-between border-b-2 border-gray-900 dark:border-gray-300 pb-1">
           <h2 id="tt-lib-title" className="text-base font-bold">
             保存したタイムテーブル
           </h2>
@@ -57,22 +61,22 @@ export function LibraryView({
           )}
         </div>
         {library.length === 0 ? (
-          <p className="py-3 text-sm text-gray-700">
+          <p className="py-3 text-sm text-gray-700 dark:text-gray-300">
             まだありません。下の手順で公式タイムテーブルを取り込むか、「サンプルを読み込む」で試せます。
           </p>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-gray-200 dark:divide-gray-800">
             {library.map((entry) => (
               <li key={entry.id} className="flex items-center gap-2 py-2">
                 <button
                   type="button"
                   onClick={() => onOpen(entry.id)}
-                  className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-cyan-600"
+                  className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-cyan-600 dark:focus-visible:outline-cyan-400"
                 >
-                  <span className="block truncate font-bold text-cyan-900 underline-offset-2 hover:underline">
+                  <span className="block truncate font-bold text-cyan-900 dark:text-cyan-200 underline-offset-2 hover:underline">
                     <Txt text={entry.doc.title} />
                   </span>
-                  <span className="block text-sm tabular-nums text-gray-700">
+                  <span className="block text-sm tabular-nums text-gray-700 dark:text-gray-300">
                     {summary(entry.doc)}
                   </span>
                 </button>

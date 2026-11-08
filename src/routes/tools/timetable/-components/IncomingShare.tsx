@@ -45,20 +45,23 @@ export function IncomingShare({
   const opts = { use, friendName: friendName.trim() || '友達' }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-16 pt-4 text-gray-900">
+    <main className="mx-auto max-w-2xl px-4 pb-16 pt-4 text-gray-900 dark:text-gray-100">
       <h1 className="text-xl font-bold">
         <Txt text={doc.title} />
       </h1>
-      <p className="mt-1 text-sm text-gray-700">
+      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
         このタイムテーブルが共有されました。保存すると自分の一覧に入り、お気に入りを付けられます。
       </p>
       <table className="mt-2 text-sm">
         <tbody>
           {doc.days.map((day) => (
-            <tr key={day.id} className="border-t border-gray-200">
+            <tr
+              key={day.id}
+              className="border-t border-gray-200 dark:border-gray-800"
+            >
               <th
                 scope="row"
-                className="py-1 pr-4 text-left font-normal text-gray-700"
+                className="py-1 pr-4 text-left font-normal text-gray-700 dark:text-gray-300"
               >
                 {formatDateLabel(day.date)}
                 {day.label && (
@@ -73,10 +76,10 @@ export function IncomingShare({
               </td>
             </tr>
           ))}
-          <tr className="border-t border-gray-200">
+          <tr className="border-t border-gray-200 dark:border-gray-800">
             <th
               scope="row"
-              className="py-1 pr-4 text-left font-normal text-gray-700"
+              className="py-1 pr-4 text-left font-normal text-gray-700 dark:text-gray-300"
             >
               会場
             </th>
@@ -88,7 +91,7 @@ export function IncomingShare({
       </table>
 
       {favorites && (
-        <fieldset className="mt-4 border-t border-gray-300 pt-3">
+        <fieldset className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-3">
           <legend className="text-base font-bold">
             {favorites.name ? (
               <>
@@ -166,7 +169,7 @@ export function IncomingShare({
           </button>
         </div>
         {sameTitle.length > 0 && (
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-gray-600 dark:text-gray-400">
             同じタイトルのタイムテーブルが保存されています。
             {favorites
               ? '重ねると、相手の選択だけが追加され、自分のお気に入りはそのまま残ります。'

@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Txt } from '@/components/Txt'
+import { ThemeSwitch } from '@/components/theme/ThemeSwitch'
 import { liveDay } from '../../../../lib/timetable/derive'
 import { remapActIds } from '../../../../lib/timetable/favorites'
 import {
@@ -53,8 +54,8 @@ interface TimetableViewProps {
 function tabClass(active: boolean): string {
   return `flex-1 border-b-[3px] px-2 py-1.5 text-sm whitespace-nowrap sm:flex-none sm:px-4 ${
     active
-      ? 'border-cyan-700 font-bold text-gray-900'
-      : 'border-transparent text-gray-600 hover:text-gray-900'
+      ? 'border-cyan-700 font-bold text-gray-900 dark:border-cyan-400 dark:text-gray-100'
+      : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
   }`
 }
 
@@ -117,9 +118,10 @@ export function TimetableView({
     commitFavorites(next)
   }
 
+  // 枠のタップは詳細を開くだけ(お気に入りは枠の ☆ と詳細の ☆ で切り替える)。
+  // 開いている出演をもう一度タップしたら閉じる
   const handleTapAct = (act: TimetableAct) => {
-    toggle(act.id)
-    setSelectedId(act.id)
+    setSelectedId((current) => (current === act.id ? null : act.id))
   }
 
   const handleFriendsChange = (next: Array<FriendPick>) => {
@@ -180,8 +182,8 @@ export function TimetableView({
   // ツールバーが折り返して高くなっても、グリッドは残りの高さに収まる(固定値で引かない)。
   // 詳細シートもフローの中に置くので、グリッドの最下段がシートに隠れない
   return (
-    <div className="flex h-[calc(100dvh-4rem-1px)] flex-col text-gray-900">
-      <div className="shrink-0 border-b border-gray-300 bg-white">
+    <div className="flex h-[calc(100dvh-4rem-1px)] flex-col text-gray-900 dark:text-gray-100">
+      <div className="shrink-0 border-b border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 pt-2">
           <button
             type="button"
@@ -236,7 +238,7 @@ export function TimetableView({
           ))}
         </div>
         {showDayTabs && panel === 'none' && (
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 border-t border-gray-200 px-3 py-1.5">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 border-t border-gray-200 px-3 py-1.5 dark:border-gray-800">
             {doc.days.length > 1 && (
               <div
                 className="flex flex-wrap gap-1"
@@ -251,8 +253,8 @@ export function TimetableView({
                     onClick={() => onChangeDay(day.id)}
                     className={`rounded-md px-2 py-1 text-sm whitespace-nowrap tabular-nums ${
                       day.id === activeDayId
-                        ? 'bg-gray-900 font-bold text-white'
-                        : 'border border-gray-300 text-gray-800'
+                        ? 'bg-gray-900 font-bold text-white dark:bg-gray-100 dark:text-gray-900'
+                        : 'border border-gray-300 text-gray-800 dark:border-gray-600 dark:text-gray-200'
                     }`}
                   >
                     {formatDateLabel(day.date)}
@@ -279,26 +281,27 @@ export function TimetableView({
           </div>
         )}
         {view === 'grid' && panel === 'none' && favorites.size === 0 && (
-          <p className="mx-auto max-w-6xl px-3 pb-1 text-xs text-gray-700">
-            出演をタップするとお気に入り(★・塗り)になります。破線の枠は友達の選択です。
+          <p className="mx-auto max-w-6xl px-3 pb-1 text-xs text-gray-700 dark:text-gray-300">
+            出演の右上の ☆
+            でお気に入り(★・塗り)、出演をタップすると詳細が出ます。破線の枠は友達の選択です。
           </p>
         )}
       </div>
 
       {saveFailed && (
-        <p className="shrink-0 border-l-4 border-rose-600 bg-rose-50 px-3 py-1 text-sm text-rose-800">
+        <p className="shrink-0 border-l-4 border-rose-600 bg-rose-50 px-3 py-1 text-sm text-rose-800 dark:bg-rose-950/60 dark:text-rose-200">
           お気に入りを端末に保存できませんでした。プライベートブラウズを使っている場合は通常のタブで開いてください。
         </p>
       )}
       {notice && (
         <p
-          className="flex shrink-0 items-start gap-2 border-l-4 border-cyan-700 bg-cyan-50 px-3 py-1 text-sm"
+          className="flex shrink-0 items-start gap-2 border-l-4 border-cyan-700 bg-cyan-50 px-3 py-1 text-sm dark:border-cyan-500 dark:bg-cyan-950/60"
           role="status"
         >
           <span className="flex-1">{notice}</span>
           <button
             type="button"
-            className="text-xs text-gray-700 underline"
+            className="text-xs text-gray-700 underline dark:text-gray-300"
             onClick={() => setNotice('')}
           >
             閉じる
@@ -314,6 +317,7 @@ export function TimetableView({
                 doc={doc}
                 favorites={favorites}
                 friends={friends}
+                dayId={activeDayId}
                 onFriendsChange={handleFriendsChange}
                 onClose={() => setPanel('none')}
               />
@@ -337,6 +341,7 @@ export function TimetableView({
             nowMs={nowMs}
             selectedId={selectedId}
             onTapAct={handleTapAct}
+            onToggleFav={toggle}
           />
         </main>
       ) : (
@@ -423,10 +428,10 @@ function MoreMenu({
         その他
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-1 w-52 border border-gray-300 bg-white py-1 text-sm">
+        <div className="absolute right-0 z-40 mt-1 w-52 border border-gray-300 bg-white py-1 text-sm dark:border-gray-700 dark:bg-gray-900">
           <button
             type="button"
-            className={`${item} hover:bg-gray-100`}
+            className={`${item} hover:bg-gray-100 dark:hover:bg-gray-800`}
             onClick={() => {
               setOpen(false)
               onEdit()
@@ -436,7 +441,7 @@ function MoreMenu({
           </button>
           <button
             type="button"
-            className={`${item} text-rose-700 hover:bg-rose-50`}
+            className={`${item} text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/60`}
             onClick={() => {
               setOpen(false)
               onDelete()
@@ -444,6 +449,10 @@ function MoreMenu({
           >
             このタイムテーブルを削除
           </button>
+          <div className="mt-1 border-t border-gray-200 px-3 pb-1 pt-2 dark:border-gray-700">
+            <p className="text-xs text-gray-700 dark:text-gray-300">配色</p>
+            <ThemeSwitch className="mt-1" />
+          </div>
         </div>
       )}
     </div>

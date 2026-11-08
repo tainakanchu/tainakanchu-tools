@@ -38,13 +38,16 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="tt-confirm-title"
         aria-describedby="tt-confirm-message"
-        className="w-full max-w-sm rounded-lg bg-white p-4 text-gray-900"
+        className="w-full max-w-sm rounded-lg bg-white dark:bg-gray-900 p-4 text-gray-900 dark:text-gray-100"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="tt-confirm-title" className="text-base font-bold">
           {title}
         </h2>
-        <p id="tt-confirm-message" className="mt-2 text-sm text-gray-700">
+        <p
+          id="tt-confirm-message"
+          className="mt-2 text-sm text-gray-700 dark:text-gray-300"
+        >
           {message}
         </p>
         <div className="mt-4 flex justify-end gap-2">

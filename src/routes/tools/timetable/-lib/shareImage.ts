@@ -49,17 +49,17 @@ const C = {
   amberText: '#78350f',
 }
 
-type Weight = 400 | 700
+export type Weight = 400 | 700
 type Op = (ctx: CanvasRenderingContext2D) => void
 
-interface TextStyle {
+export interface TextStyle {
   size: number
   weight?: Weight
   color: string
 }
 
 /** 位置を決めながら描画の手順を積む。高さが決まってから canvas を作って流す */
-class Painter {
+export class Painter {
   readonly ops: Array<Op> = []
   y = 0
 
@@ -287,12 +287,15 @@ function drawDays(p: Painter, model: ShareImageModel) {
   }
 }
 
+/** 画像の下端に入れるサイト名と URL(タイムテーブル形式の画像とも揃える) */
+export const FOOTER_CREDIT = `${siteName} マイタイムテーブル`
+export const FOOTER_URL = `${SITE_ORIGIN.replace(/^https?:\/\//, '')}/tools/timetable`
+
 function drawFooter(p: Painter) {
   p.y += 48
   const style: TextStyle = { size: 22, color: C.faint }
-  p.text(`${siteName} マイタイムテーブル`, PAD, p.y + 15, style)
-  const url = `${SITE_ORIGIN.replace(/^https?:\/\//, '')}/tools/timetable`
-  p.text(url, RIGHT, p.y + 15, style, { align: 'right' })
+  p.text(FOOTER_CREDIT, PAD, p.y + 15, style)
+  p.text(FOOTER_URL, RIGHT, p.y + 15, style, { align: 'right' })
   p.y += 30 + PAD - 16
 }
 
@@ -315,12 +318,24 @@ export async function renderMyTimetableImage(
   drawHeader(p, model)
   drawDays(p, model)
   drawFooter(p)
+  return paintToPng(canvas, p, WIDTH, Math.ceil(p.y), C.bg)
+}
 
-  canvas.width = WIDTH
-  canvas.height = Math.ceil(p.y)
+/** 積んだ描画の手順を、決まった大きさの canvas に流して PNG にする */
+export function paintToPng(
+  canvas: HTMLCanvasElement,
+  p: Painter,
+  width: number,
+  height: number,
+  background: string,
+): Promise<Blob> {
+  const ctx = canvas.getContext('2d')
+  if (ctx === null) throw new Error('canvas を使えません')
+  canvas.width = width
+  canvas.height = height
   // 大きさを変えると状態が初期化されるので、ここから描く
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, width, height)
   for (const op of p.ops) op(ctx)
 
   return new Promise((resolve, reject) =>
