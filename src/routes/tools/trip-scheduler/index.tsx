@@ -99,11 +99,11 @@ function TripSchedulerPage() {
   return (
     // 横に長いほど価値が出るツール(タイムライン / 日ごとのストリップ / 3カラム編集)なので
     // このページだけはビューポート幅いっぱいを使う
-    <main className="w-full px-4 py-8 text-gray-900 sm:px-6">
+    <main className="w-full px-4 py-8 text-gray-900 sm:px-6 dark:text-gray-100">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">旅程パズル</h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-gray-600">
+          <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             限られた泊数を、移動という見えないコストを見ながら2人で配り切るためのツールです。
             航空券で決まっている期間と発着都市を先に固定し、「残りの泊をどこに置くか」だけに集中します。
           </p>

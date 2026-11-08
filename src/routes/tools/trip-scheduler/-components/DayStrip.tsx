@@ -20,11 +20,13 @@ function cellSurfaceClass(iso: string, assigned: boolean): string {
   const border = assigned ? 'border-solid' : 'border-dashed'
   switch (weekdayIndex(iso)) {
     case 0:
-      return `${border} border-red-200 bg-red-50`
+      return `${border} border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50`
     case 6:
-      return `${border} border-blue-200 bg-blue-50`
+      return `${border} border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50`
     default:
-      return `${border} border-gray-200 ${assigned ? 'bg-white' : 'bg-gray-50'}`
+      return `${border} border-gray-200 dark:border-gray-700 ${
+        assigned ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'
+      }`
   }
 }
 
@@ -90,14 +92,17 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
               >
                 <span
                   className={`text-[10px] font-medium tabular-nums leading-none ${
-                    assigned ? 'text-gray-700' : 'text-gray-400'
+                    assigned
+                      ? 'text-gray-700 dark:text-gray-200'
+                      : 'text-gray-400'
                   }`}
                 >
                   {dayNumberLabel(cell)}
                 </span>
                 <span
                   className={`text-[10px] leading-none ${
-                    weekdayToneClass(weekdayIndex(cell.date)) || 'text-gray-500'
+                    weekdayToneClass(weekdayIndex(cell.date)) ||
+                    'text-gray-500 dark:text-gray-400'
                   }`}
                 >
                   {weekdayJa(cell.date)}
@@ -105,7 +110,10 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
                 {hasOvernight ? (
                   <span className="flex h-3 items-center justify-center">
                     {cell.overnight ? (
-                      <Moon size={10} className="text-indigo-500" />
+                      <Moon
+                        size={10}
+                        className="text-indigo-500 dark:text-indigo-300"
+                      />
                     ) : null}
                   </span>
                 ) : null}
@@ -120,7 +128,7 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
                       />
                     ))
                   ) : (
-                    <span className="h-full w-full rounded-full border border-dashed border-gray-400" />
+                    <span className="h-full w-full rounded-full border border-dashed border-gray-400 dark:border-gray-500" />
                   )}
                 </span>
               </div>
@@ -129,24 +137,24 @@ export function DayStrip({ startDate, derived, colors }: DayStripProps) {
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded-sm border border-blue-200 bg-blue-50" />
+          <span className="inline-block h-3 w-3 rounded-sm border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50" />
           土
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded-sm border border-red-200 bg-red-50" />
+          <span className="inline-block h-3 w-3 rounded-sm border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50" />
           日
         </span>
         <span>下の色帯 = その日いる都市(移動日は2色)</span>
         {hasOvernight ? (
           <span className="inline-flex items-center gap-1">
-            <Moon size={11} className="text-indigo-500" />
+            <Moon size={11} className="text-indigo-500 dark:text-indigo-300" />
             夜行
           </span>
         ) : null}
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-1.5 w-4 rounded-full border border-dashed border-gray-400" />
+          <span className="inline-block h-1.5 w-4 rounded-full border border-dashed border-gray-400 dark:border-gray-500" />
           未割り当て
         </span>
         {hiddenCount > 0 ? <span>(以降 {hiddenCount} 日は省略)</span> : null}

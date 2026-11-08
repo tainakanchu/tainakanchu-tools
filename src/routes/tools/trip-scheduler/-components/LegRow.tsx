@@ -47,10 +47,11 @@ function costLabel(option: TravelOption): string {
 }
 
 const externalLinkClass =
-  'inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+  'inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-400 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-300 dark:focus-visible:outline-cyan-400'
 
 /** リンク群の小見出し(何を基準に探すリンクなのかを一言で) */
-const linkGroupLabelClass = 'text-[11px] leading-relaxed text-gray-500'
+const linkGroupLabelClass =
+  'text-[11px] leading-relaxed text-gray-500 dark:text-gray-400'
 
 interface LegRowProps {
   leg: ResolvedLeg
@@ -123,12 +124,12 @@ export function LegRow({
       }`}
       aria-hidden={collapsed || undefined}
     >
-      <div className="absolute left-[7px] top-0 h-full w-px bg-gray-200" />
+      <div className="absolute left-[7px] top-0 h-full w-px bg-gray-200 dark:bg-gray-700" />
       <div
         className={`ml-4 rounded-xl border px-3 py-2 ${
           overnight
-            ? 'border-indigo-200 bg-indigo-50/60'
-            : 'border-gray-200 bg-gray-50'
+            ? 'border-indigo-200 bg-indigo-50/60 dark:border-indigo-800 dark:bg-indigo-950/50'
+            : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50'
         }`}
       >
         <button
@@ -138,35 +139,39 @@ export function LegRow({
           aria-expanded={expanded}
         >
           {/* 何曜日に移動するか(週末の混雑・月曜の休館日を避ける判断材料) */}
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             <DateLabel iso={travelDate} />
             {overnight ? ' 夜発' : ' 移動'}
           </span>
           <span
             className={`inline-flex items-center gap-1.5 text-sm font-medium ${
-              overnight ? 'text-indigo-700' : 'text-gray-700'
+              overnight
+                ? 'text-indigo-700 dark:text-indigo-300'
+                : 'text-gray-700 dark:text-gray-200'
             }`}
           >
             <ChosenIcon size={16} />
             {travelModeLabel[leg.chosen.mode]}
           </span>
-          <span className="text-sm tabular-nums text-gray-600">
+          <span className="text-sm tabular-nums text-gray-600 dark:text-gray-300">
             {formatMinutes(leg.chosen.doorToDoorMinutes)}
           </span>
-          <span className="text-xs text-gray-500">{costLabel(leg.chosen)}</span>
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {costLabel(leg.chosen)}
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700 dark:text-cyan-300">
             手段を変える
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
         </button>
 
         {/* 移動が食う時間を面積で見せる(夜行は日中を食わないので幅ゼロ) */}
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white">
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white dark:bg-gray-700">
           <div
             className={
               overnight
                 ? 'h-full bg-indigo-400'
-                : 'h-full bg-[repeating-linear-gradient(45deg,#9ca3af_0px,#9ca3af_4px,#e5e7eb_4px,#e5e7eb_8px)]'
+                : 'h-full bg-[repeating-linear-gradient(45deg,#9ca3af_0px,#9ca3af_4px,#e5e7eb_4px,#e5e7eb_8px)] dark:bg-[repeating-linear-gradient(45deg,#9ca3af_0px,#9ca3af_4px,#4b5563_4px,#4b5563_8px)]'
             }
             style={{
               width: overnight ? '100%' : `${leg.chosen.dayCost * 100}%`,
@@ -176,7 +181,7 @@ export function LegRow({
 
         {expanded ? (
           <div className="mt-3 space-y-2">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {cityName(leg.fromCityId)} → {cityName(leg.toCityId)} の移動手段
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -197,24 +202,24 @@ export function LegRow({
                     }
                     className={`rounded-xl border px-3 py-2 text-left transition ${
                       selected
-                        ? 'border-cyan-500 bg-cyan-50 ring-1 ring-cyan-300'
-                        : 'border-gray-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40'
+                        ? 'border-cyan-500 bg-cyan-50 ring-1 ring-cyan-300 dark:border-cyan-400 dark:bg-cyan-950/50 dark:ring-cyan-700'
+                        : 'border-gray-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-cyan-600 dark:hover:bg-cyan-950/30'
                     }`}
                   >
-                    <span className="flex items-center justify-between gap-2 text-sm font-medium text-gray-800">
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium text-gray-800 dark:text-gray-100">
                       <span className="inline-flex items-center gap-1.5">
                         <Icon size={15} />
                         {travelModeLabel[option.mode]}
                       </span>
-                      <span className="tabular-nums text-gray-600">
+                      <span className="tabular-nums text-gray-600 dark:text-gray-300">
                         {formatMinutes(option.doorToDoorMinutes)}
                       </span>
                     </span>
-                    <span className="mt-1 block text-xs text-gray-500">
+                    <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                       {costLabel(option)}
                     </span>
                     {option.nightCost > 0 ? (
-                      <span className="mt-1 block text-xs leading-relaxed text-indigo-700">
+                      <span className="mt-1 block text-xs leading-relaxed text-indigo-700 dark:text-indigo-300">
                         宿1泊分が列車泊になり、翌朝から丸1日使えます(そのぶん総泊数から1泊消費)
                       </span>
                     ) : null}
@@ -224,8 +229,8 @@ export function LegRow({
             </div>
 
             {fromCity && toCity ? (
-              <div className="border-t border-gray-200 pt-3">
-                <p className="text-xs font-medium text-gray-600">
+              <div className="border-t border-gray-200 pt-3 dark:border-gray-700">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
                   この区間を実際に探す
                 </p>
                 {hasDatedLinks ? (
@@ -313,7 +318,7 @@ export function LegRow({
                   </div>
                 </div>
 
-                <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
                   別タブで開きます。※検索サイトの結果は、ここで表示している目安の所要時間と異なることがあります。
                   {hasFlightLinks
                     ? ''

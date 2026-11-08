@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ListOrdered } from 'lucide-react'
 import { fallbackCityColor } from '../-lib/palette'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
+import { cardClass, emptyStateClass, sectionTitleClass } from '../-lib/styles'
 import {
   STAY_LIST_END_DROPPABLE_ID,
   isDragging,
@@ -36,8 +36,8 @@ function StayListEndDropZone() {
       ref={setNodeRef}
       className={`ml-8 rounded-xl border-2 border-dashed px-3 py-3 text-center text-xs transition ${
         isOver
-          ? 'border-cyan-500 bg-cyan-50 font-medium text-cyan-700'
-          : 'border-gray-300 bg-gray-50 text-gray-500'
+          ? 'border-cyan-500 bg-cyan-50 font-medium text-cyan-700 dark:border-cyan-400 dark:bg-cyan-950/50 dark:text-cyan-300'
+          : 'border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-400'
       }`}
     >
       ここに落とすと最後に入ります
@@ -99,17 +99,17 @@ export function StayList({ state, derived, colors, dispatch }: StayListProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <ListOrdered size={18} className="text-cyan-600" />
+        <ListOrdered size={18} className="text-cyan-600 dark:text-cyan-400" />
         滞在の並び
       </h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         順番は左のハンドル(⠿)を掴んでドラッグ、または▲▼で1つずつ。泊数は −/+
         で1泊ずつ。1泊のときに −
         を押すと日程から外れて候補に戻ります(取り消しは元に戻すボタンで)。同じ都市を2回置いた滞在には「再訪」が付きます。
       </p>
 
       {state.stays.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className={`mt-4 ${emptyStateClass}`}>
           まだ滞在がありません。「行きたい都市の候補」から日程に入れてください。
         </p>
       ) : (

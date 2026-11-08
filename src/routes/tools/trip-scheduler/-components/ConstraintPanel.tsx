@@ -109,14 +109,14 @@ export function ConstraintPanel({
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <ListChecks size={18} className="text-cyan-600" />
+        <ListChecks size={18} className="text-cyan-600 dark:text-cyan-400" />
         条件(2人の希望)
       </h2>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         「ここは3泊したい」「この日は誕生日だからパリ」のような希望を文で足していきます。
       </p>
 
-      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
         <select
           value={kind}
           onChange={(event) => {
@@ -135,7 +135,7 @@ export function ConstraintPanel({
         </select>
 
         {kind === 'mustVisit' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <CitySelect
               value={cityId}
               onChange={setCityId}
@@ -146,7 +146,7 @@ export function ConstraintPanel({
         ) : null}
 
         {kind === 'stayNights' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <CitySelect
               value={cityId}
               onChange={setCityId}
@@ -179,7 +179,7 @@ export function ConstraintPanel({
         ) : null}
 
         {kind === 'presenceOnDate' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <input
               type="date"
               value={date}
@@ -189,7 +189,10 @@ export function ConstraintPanel({
             />
             {isValidISODate(date) ? (
               // 入力欄だけだと曜日が見えないので、選んだ日の曜日をその場で出す
-              <DateLabel iso={date} className="text-xs text-gray-500" />
+              <DateLabel
+                iso={date}
+                className="text-xs text-gray-500 dark:text-gray-400"
+              />
             ) : null}
             <span>は</span>
             <CitySelect
@@ -202,7 +205,7 @@ export function ConstraintPanel({
         ) : null}
 
         {kind === 'order' ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <CitySelect
               value={cityId}
               onChange={setCityId}
@@ -240,12 +243,12 @@ export function ConstraintPanel({
                 key={constraint.id}
                 className={`rounded-xl border p-3 ${
                   !constraint.enabled
-                    ? 'border-gray-200 bg-gray-50 opacity-70'
+                    ? 'border-gray-200 bg-gray-50 opacity-70 dark:border-gray-700 dark:bg-gray-800/50'
                     : violated
                       ? constraint.severity === 'must'
-                        ? 'border-red-300 bg-red-50/60'
-                        : 'border-amber-300 bg-amber-50/60'
-                      : 'border-emerald-200 bg-emerald-50/40'
+                        ? 'border-red-300 bg-red-50/60 dark:border-red-800 dark:bg-red-950/40'
+                        : 'border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/40'
+                      : 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/30'
                 }`}
               >
                 <div className="flex items-start gap-2">
@@ -254,7 +257,7 @@ export function ConstraintPanel({
                     violated={violated}
                     severity={constraint.severity}
                   />
-                  <span className="min-w-0 flex-1 text-sm text-gray-800">
+                  <span className="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-100">
                     {constraintLabel(constraint)}
                   </span>
                   <button
@@ -262,7 +265,7 @@ export function ConstraintPanel({
                     onClick={() =>
                       dispatch({ type: 'toggleConstraint', id: constraint.id })
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                     aria-label={
                       constraint.enabled ? '無効にする' : '有効にする'
                     }
@@ -279,7 +282,7 @@ export function ConstraintPanel({
                     onClick={() =>
                       dispatch({ type: 'removeConstraint', id: constraint.id })
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-100 hover:text-red-600"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-rose-950/60 dark:hover:text-rose-300"
                     aria-label="条件を削除"
                   >
                     <Trash2 size={15} />
@@ -302,15 +305,17 @@ export function ConstraintPanel({
           })}
         </ul>
       ) : (
-        <p className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500">
+        <p className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           条件はまだありません。
         </p>
       )}
 
       <div className="mt-5">
-        <h3 className="text-sm font-semibold text-gray-800">気になるところ</h3>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          気になるところ
+        </h3>
         {derived.violations.length === 0 ? (
-          <p className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
             <CheckCircle2 size={15} />
             いまのところ条件はすべて満たしています。
           </p>
@@ -321,8 +326,8 @@ export function ConstraintPanel({
                 key={`${violation.constraintId}-${index}`}
                 className={`flex items-start gap-1.5 rounded-xl px-3 py-2 text-sm ${
                   violation.severity === 'must'
-                    ? 'bg-red-50 text-red-800'
-                    : 'bg-amber-50 text-amber-800'
+                    ? 'bg-red-50 text-red-800 dark:bg-red-950/50 dark:text-red-300'
+                    : 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
                 }`}
               >
                 {violation.severity === 'must' ? (
@@ -354,13 +359,22 @@ function ConstraintStatusIcon({
   }
   if (!violated) {
     return (
-      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+      <CheckCircle2
+        size={16}
+        className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+      />
     )
   }
   return severity === 'must' ? (
-    <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+    <AlertCircle
+      size={16}
+      className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+    />
   ) : (
-    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+    <AlertTriangle
+      size={16}
+      className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+    />
   )
 }
 
@@ -376,7 +390,7 @@ function SeverityChips({
     { value: 'want', label: 'できれば' },
   ]
   return (
-    <span className="inline-flex overflow-hidden rounded-full border border-gray-300 bg-white text-xs">
+    <span className="inline-flex overflow-hidden rounded-full border border-gray-300 bg-white text-xs dark:border-gray-600 dark:bg-gray-900">
       {options.map((option) => (
         <button
           key={option.value}
@@ -386,9 +400,9 @@ function SeverityChips({
           className={`px-3 py-1 font-medium transition ${
             value === option.value
               ? option.value === 'must'
-                ? 'bg-red-500 text-white'
-                : 'bg-amber-500 text-white'
-              : 'text-gray-500 hover:bg-gray-100'
+                ? 'bg-red-500 text-white dark:bg-red-400 dark:text-gray-950'
+                : 'bg-amber-500 text-white dark:bg-amber-400 dark:text-gray-950'
+              : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
           }`}
         >
           {option.label}

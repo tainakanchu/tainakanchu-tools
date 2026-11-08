@@ -97,7 +97,7 @@ function TwacOfficialLink({ label }: { label: string }) {
       href={TWAC_OFFICIAL_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 font-semibold text-cyan-700 underline decoration-cyan-300 underline-offset-2 transition hover:text-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+      className="inline-flex items-center gap-1 font-semibold text-cyan-700 underline decoration-cyan-300 underline-offset-2 transition hover:text-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-cyan-300 dark:decoration-cyan-700 dark:hover:text-cyan-200 dark:focus-visible:outline-cyan-400"
     >
       <ExternalLink size={13} aria-hidden="true" />
       {label}
@@ -351,30 +351,32 @@ function TaiwanArrivalCardPage() {
   }, [state])
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 sm:px-6">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 text-gray-900 sm:px-6 dark:text-gray-100">
       <DataLists />
 
       <header className="space-y-2">
         <h1 className="text-2xl font-bold sm:text-3xl">{tool.name}</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-300">
           <TwacOfficialLink label="TWAC 公式サイト" />
           (台湾のオンライン入国カード)の
-          <strong className="font-semibold text-gray-800">
+          <strong className="font-semibold text-gray-800 dark:text-gray-100">
             一括アップロード用 Excel
           </strong>
           を作ります。旅程は同行者全員で共有し、個人情報だけ人ごとに入力します(最大
           {MAX_TRAVELERS}名)。
         </p>
-        <p className="text-xs text-amber-700">{TWAC_SCAM_NOTE}</p>
-        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <p className="text-xs text-amber-700 dark:text-amber-300">
+          {TWAC_SCAM_NOTE}
+        </p>
+        <p className="flex items-start gap-1.5 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
           <ShieldCheck
             size={14}
             aria-hidden="true"
-            className="mt-0.5 shrink-0 text-gray-500"
+            className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400"
           />
           <span>
             入力内容(パスポート番号・住所を含む)は
-            <strong className="font-semibold text-gray-800">
+            <strong className="font-semibold text-gray-800 dark:text-gray-100">
               この端末のブラウザ内にのみ保存され、どこにも送信されません。
             </strong>
             Excel
@@ -383,21 +385,21 @@ function TaiwanArrivalCardPage() {
           </span>
         </p>
         {restored && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             前回の入力内容をこの端末から復元しました。
           </p>
         )}
         {rescued && (
           <p
             role="status"
-            className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
           >
             前回の入力内容を読み取れなかったため、空の状態で開いています。
             <strong className="font-semibold">
               読めなかったデータは消さずに
             </strong>
             このブラウザの保存領域(キー
-            <code className="mx-1 rounded bg-amber-100 px-1">
+            <code className="mx-1 rounded bg-amber-100 px-1 dark:bg-amber-900/60">
               taiwan-arrival-card:v1:backup
             </code>
             )へ退避してあります。「すべての入力内容を削除」を押すと、退避したぶんも
@@ -420,10 +422,14 @@ function TaiwanArrivalCardPage() {
 
         <section className={cardClass}>
           <h2 className={sectionTitleClass}>
-            <Users size={18} aria-hidden="true" className="text-cyan-600" />
+            <Users
+              size={18}
+              aria-hidden="true"
+              className="text-cyan-600 dark:text-cyan-400"
+            />
             旅行者({state.travelers.length} / {MAX_TRAVELERS}名)
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             パスポートの表記どおりに入力してください。次回の旅行でもそのまま使い回せます。
           </p>
           <ul className="mt-4 space-y-4">
@@ -458,26 +464,28 @@ function TaiwanArrivalCardPage() {
             <FileSpreadsheet
               size={18}
               aria-hidden="true"
-              className="text-cyan-600"
+              className="text-cyan-600 dark:text-cyan-400"
             />
             Excel を書き出す
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             書き出したファイルは、
             <TwacOfficialLink label="TWAC 公式サイト" />
             の一括アップロード(Excel
             の取り込み)にそのまま読み込めます。公式テンプレートの構造を一切変えずに、
             値だけを入れているためです。
           </p>
-          <p className="mt-1 text-xs text-amber-700">{TWAC_SCAM_NOTE}</p>
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+            {TWAC_SCAM_NOTE}
+          </p>
 
           {warnings.length > 0 && (
-            <details className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <details className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               <summary className="flex cursor-pointer items-center gap-1.5 font-medium">
                 <TriangleAlert size={15} aria-hidden="true" />
                 未入力・確認したい項目({warnings.length}件)
               </summary>
-              <p className="mt-2 text-xs text-amber-800">
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
                 書き出しは止めません。TWAC
                 側の検証規則をこのツールが完全に写せているとは限らないため、
                 最終的な判断は入力した本人に委ねています。
@@ -526,8 +534,8 @@ function TaiwanArrivalCardPage() {
               role="status"
               className={`mt-3 rounded-xl px-3 py-2 text-sm ${
                 download.tone === 'ok'
-                  ? 'bg-emerald-50 text-emerald-800'
-                  : 'bg-rose-50 text-rose-800'
+                  ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'bg-rose-50 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
               }`}
             >
               {download.text}

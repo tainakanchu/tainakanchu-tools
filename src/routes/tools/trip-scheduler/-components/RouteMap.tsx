@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Map as MapIcon } from 'lucide-react'
+import { useTheme } from '@/components/theme/ThemeScope'
 import { cityCatalog, cityName } from '../../../../lib/trip-scheduler/cities'
 import {
   buildRouteNodes,
@@ -11,8 +12,8 @@ import {
 } from '../../../../lib/trip-scheduler/geo'
 import { travelModeLabel } from '../../../../lib/trip-scheduler/travel'
 import { fallbackCityColor } from '../-lib/palette'
-import { cardClass, sectionTitleClass } from '../-lib/styles'
-import type { CityColor } from '../-lib/palette'
+import { cardClass, emptyStateClass, sectionTitleClass } from '../-lib/styles'
+import type { CityColor, PaletteTheme } from '../-lib/palette'
 import type {
   RouteSegment,
   RouteStop,
@@ -39,24 +40,6 @@ const catalogPoints = projectCities(
   MAP_PADDING,
 )
 
-/**
- * palette の Tailwind クラス → SVG 用の hex。
- * SVG は class では塗れないので、同じ色をここで hex に読み替える。
- */
-const cityHexByDotClass: Record<string, string> = {
-  'bg-sky-500': '#0ea5e9',
-  'bg-emerald-500': '#10b981',
-  'bg-amber-500': '#f59e0b',
-  'bg-violet-500': '#8b5cf6',
-  'bg-rose-500': '#f43f5e',
-  'bg-teal-500': '#14b8a6',
-  'bg-indigo-500': '#6366f1',
-  'bg-orange-500': '#f97316',
-  'bg-fuchsia-500': '#d946ef',
-  'bg-lime-600': '#65a30d',
-  'bg-gray-400': '#9ca3af',
-}
-
 interface LineStyle {
   stroke: string
   width: number
@@ -65,29 +48,75 @@ interface LineStyle {
   round?: boolean
 }
 
-/** 移動手段ごとの線種。鉄道=実線 / 飛行機=破線 / バス=点線 / 夜行=暗色の実線 */
-const lineStyleByMode: Record<TravelMode, LineStyle> = {
-  train: { stroke: '#475569', width: 2 },
-  flight: { stroke: '#0891b2', width: 2, dash: '8 5' },
-  bus: { stroke: '#64748b', width: 2, dash: '0.1 5', round: true },
-  nightTrain: { stroke: '#312e81', width: 2.5 },
+/**
+ * 移動手段ごとの線種。鉄道=実線 / 飛行機=破線 / バス=点線 / 夜行=暗色の実線。
+ * ダークでは暗い地の上で沈まないよう、同じ色相のまま明るい段に寄せる
+ * (夜行は「暗色」ではなく indigo の塗りで見分ける)。
+ */
+const lineStylesByTheme: Record<PaletteTheme, Record<TravelMode, LineStyle>> = {
+  light: {
+    train: { stroke: '#475569', width: 2 },
+    flight: { stroke: '#0891b2', width: 2, dash: '8 5' },
+    bus: { stroke: '#64748b', width: 2, dash: '0.1 5', round: true },
+    nightTrain: { stroke: '#312e81', width: 2.5 },
+  },
+  dark: {
+    train: { stroke: '#cbd5e1', width: 2 },
+    flight: { stroke: '#22d3ee', width: 2, dash: '8 5' },
+    bus: { stroke: '#94a3b8', width: 2, dash: '0.1 5', round: true },
+    nightTrain: { stroke: '#6366f1', width: 2.5 },
+  },
 }
 
 /** leg が解決できていない区間(カタログ外など)の線 */
-const unknownLineStyle: LineStyle = {
-  stroke: '#cbd5e1',
-  width: 2,
-  dash: '4 4',
+const unknownLineStyles: Record<PaletteTheme, LineStyle> = {
+  light: { stroke: '#cbd5e1', width: 2, dash: '4 4' },
+  dark: { stroke: '#4b5563', width: 2, dash: '4 4' },
+}
+
+/** 地図の地・点群・ラベルの色 */
+interface MapColors {
+  surface: string
+  border: string
+  catalogDot: string
+  label: string
+  /** ラベルの縁取り(地と同じ色で線から切り離す) */
+  halo: string
+  /** 都市の丸・夜行の月の縁取り */
+  nodeRing: string
+  /** 凡例(カードの上)の月の縁取り */
+  legendRing: string
+}
+
+const mapColorsByTheme: Record<PaletteTheme, MapColors> = {
+  light: {
+    surface: '#f8fafc',
+    border: '#e5e7eb',
+    catalogDot: '#cbd5e1',
+    label: '#334155',
+    halo: '#f8fafc',
+    nodeRing: '#ffffff',
+    legendRing: '#ffffff',
+  },
+  dark: {
+    surface: '#1f2937',
+    border: '#374151',
+    catalogDot: '#4b5563',
+    label: '#e5e7eb',
+    halo: '#1f2937',
+    nodeRing: '#1f2937',
+    legendRing: '#111827',
+  },
 }
 
 const legendModes: Array<TravelMode> = ['train', 'flight', 'bus', 'nightTrain']
 
-function lineStyleOf(mode: TravelMode | null): LineStyle {
-  return mode ? lineStyleByMode[mode] : unknownLineStyle
+function lineStyleOf(mode: TravelMode | null, theme: PaletteTheme): LineStyle {
+  return mode ? lineStylesByTheme[theme][mode] : unknownLineStyles[theme]
 }
 
-function cityHex(color: CityColor | undefined): string {
-  return cityHexByDotClass[(color ?? fallbackCityColor).dot] ?? '#9ca3af'
+function cityHex(color: CityColor | undefined, theme: PaletteTheme): string {
+  return (color ?? fallbackCityColor).fill[theme]
 }
 
 /** 進行方向の矢じり。線の途中に置くので、短すぎる線には載せない */
@@ -129,6 +158,9 @@ interface RouteMapProps {
  * 「行ったり来たりしていないか」を目で確かめられる程度の粒度にとどめる。
  */
 export function RouteMap({ state, derived, colors }: RouteMapProps) {
+  const { theme } = useTheme()
+  const mapColors = mapColorsByTheme[theme]
+  const lineStyleByMode = lineStylesByTheme[theme]
   const { segments, nodes } = useMemo(() => {
     const legByFromStayId = new Map(
       derived.legs.map((leg) => [leg.fromStayId, leg]),
@@ -147,15 +179,15 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <MapIcon size={18} className="text-cyan-600" />
+        <MapIcon size={18} className="text-cyan-600 dark:text-cyan-400" />
         ルートマップ
       </h2>
-      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+      <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
         訪問順に線でつないだ動線です。位置は緯度経度の概算なので、実際の線路や航路ではありません。
       </p>
 
       {state.stays.length < 2 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className={`mt-4 ${emptyStateClass}`}>
           滞在を2件以上追加すると、訪問順の動線がここに出ます。
         </p>
       ) : (
@@ -175,8 +207,8 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                 width={MAP_WIDTH - 1}
                 height={MAP_HEIGHT - 1}
                 rx="16"
-                fill="#f8fafc"
-                stroke="#e5e7eb"
+                fill={mapColors.surface}
+                stroke={mapColors.border}
               />
 
               {/* カタログ全都市。点群そのものがヨーロッパの形の手がかりになる */}
@@ -190,7 +222,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                       cx={point.x}
                       cy={point.y}
                       r="2.4"
-                      fill="#cbd5e1"
+                      fill={mapColors.catalogDot}
                     >
                       <title>{city.name}</title>
                     </circle>
@@ -201,7 +233,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
               {/* 動線 */}
               <g>
                 {segments.map((segment) => {
-                  const style = lineStyleOf(segment.mode)
+                  const style = lineStyleOf(segment.mode, theme)
                   const overnight = segment.mode === 'nightTrain'
                   const length = segmentLength(segment)
                   const mid = segmentMidpoint(segment)
@@ -229,7 +261,14 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                           fill={style.stroke}
                         />
                       ) : null}
-                      {overnight ? <MoonBadge cx={mid.x} cy={mid.y} /> : null}
+                      {overnight ? (
+                        <MoonBadge
+                          cx={mid.x}
+                          cy={mid.y}
+                          fill={lineStyleByMode.nightTrain.stroke}
+                          ring={mapColors.nodeRing}
+                        />
+                      ) : null}
                     </g>
                   )
                 })}
@@ -238,7 +277,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
               {/* 訪問都市: 都市色の丸 + 訪問順の番号 + 都市名 */}
               <g>
                 {nodes.map((node) => {
-                  const fill = cityHex(colors.get(node.cityId))
+                  const fill = cityHex(colors.get(node.cityId), theme)
                   const badge = node.orders.join('/')
                   const wide = badge.length > 1
                   const badgeWidth = wide ? 12 + badge.length * 5 : 18
@@ -257,7 +296,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                           height="18"
                           rx="9"
                           fill={fill}
-                          stroke="#ffffff"
+                          stroke={mapColors.nodeRing}
                           strokeWidth="2"
                         />
                       ) : (
@@ -266,7 +305,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                           cy={node.point.y}
                           r="9"
                           fill={fill}
-                          stroke="#ffffff"
+                          stroke={mapColors.nodeRing}
                           strokeWidth="2"
                         />
                       )}
@@ -287,8 +326,8 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                         textAnchor={label.anchor}
                         fontSize="11"
                         fontWeight="600"
-                        fill="#334155"
-                        stroke="#f8fafc"
+                        fill={mapColors.label}
+                        stroke={mapColors.halo}
                         strokeWidth="3"
                         paintOrder="stroke"
                       >
@@ -301,7 +340,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
             </svg>
           </div>
 
-          <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-gray-500">
+          <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-gray-500 dark:text-gray-400">
             {legendModes.map((mode) => {
               const style = lineStyleByMode[mode]
               return (
@@ -318,7 +357,13 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
                       strokeLinecap={style.round ? 'round' : 'butt'}
                     />
                     {mode === 'nightTrain' ? (
-                      <MoonBadge cx={14} cy={7} r={6} />
+                      <MoonBadge
+                        cx={14}
+                        cy={7}
+                        r={6}
+                        fill={style.stroke}
+                        ring={mapColors.legendRing}
+                      />
                     ) : null}
                   </svg>
                   {travelModeLabel[mode]}
@@ -326,7 +371,7 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
               )
             })}
             <li className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-gray-600" />
               候補都市
             </li>
           </ul>
@@ -340,7 +385,21 @@ export function RouteMap({ state, derived, colors }: RouteMapProps) {
  * 夜行区間の目印。線の中点と凡例で使う。
  * 月の形はサイト内で見慣れた lucide の Moon と同じパスをそのまま置く。
  */
-function MoonBadge({ cx, cy, r = 8 }: { cx: number; cy: number; r?: number }) {
+function MoonBadge({
+  cx,
+  cy,
+  r = 8,
+  fill,
+  ring,
+}: {
+  cx: number
+  cy: number
+  r?: number
+  /** 丸の塗り(夜行の線と同じ色) */
+  fill: string
+  /** 丸の縁取り。ライトは白、ダークは下の地の色 */
+  ring: string
+}) {
   const glyph = r * 1.5
   return (
     <g>
@@ -348,8 +407,8 @@ function MoonBadge({ cx, cy, r = 8 }: { cx: number; cy: number; r?: number }) {
         cx={cx}
         cy={cy}
         r={r}
-        fill={lineStyleByMode.nightTrain.stroke}
-        stroke="#ffffff"
+        fill={fill}
+        stroke={ring}
         strokeWidth={r / 5.3}
       />
       <g

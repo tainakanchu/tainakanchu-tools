@@ -38,7 +38,7 @@ interface StayRowProps {
 }
 
 const gripClass =
-  'inline-flex h-8 w-6 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-lg text-gray-300 transition hover:bg-gray-100 hover:text-gray-500 active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500'
+  'inline-flex h-8 w-6 shrink-0 cursor-grab touch-manipulation items-center justify-center rounded-lg text-gray-300 transition hover:bg-gray-100 hover:text-gray-500 active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300 dark:focus-visible:outline-cyan-400'
 
 /**
  * 滞在1件分の行。ハンドルを掴んでドラッグ並べ替えできるが、
@@ -78,16 +78,16 @@ export function StayRow({
     >
       {/* プールからドラッグ中の挿入位置 */}
       {showInsertBefore ? (
-        <span className="absolute -top-1 left-8 right-0 block h-0.5 rounded-full bg-cyan-500" />
+        <span className="absolute -top-1 left-8 right-0 block h-0.5 rounded-full bg-cyan-500 dark:bg-cyan-400" />
       ) : null}
       <span
-        className={`absolute left-0 top-4 inline-block h-3.5 w-3.5 rounded-full ring-2 ring-white ${color.dot}`}
+        className={`absolute left-0 top-4 inline-block h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-gray-900 ${color.dot}`}
       />
       <div
         className={`ml-4 rounded-xl border p-3 transition ${
           hasViolation
-            ? 'border-red-300 bg-red-50/50 ring-2 ring-red-300'
-            : 'border-gray-200 bg-white'
+            ? 'border-red-300 bg-red-50/50 ring-2 ring-red-300 dark:border-red-800 dark:bg-red-950/40 dark:ring-red-800'
+            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
         }`}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -105,20 +105,22 @@ export function StayRow({
             {index + 1}
           </span>
           <span className="min-w-0">
-            <span className="text-base font-semibold text-gray-900">
+            <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
               {cityLabel}
             </span>
-            <span className="ml-2 text-xs text-gray-500">{city?.country}</span>
+            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+              {city?.country}
+            </span>
             {continuedFromPrevious ? (
               <span
-                className="ml-2 inline-block rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+                className="ml-2 inline-block rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 title="直前の滞在と同じ都市なので、移動なしで続けて泊まります"
               >
                 続き
               </span>
             ) : revisitOrder > 1 ? (
               <span
-                className="ml-2 inline-block rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700"
+                className="ml-2 inline-block rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
                 title={`${cityLabel} は ${revisitOrder} 回目の滞在です`}
               >
                 再訪
@@ -137,9 +139,9 @@ export function StayRow({
             >
               <Minus size={16} />
             </button>
-            <span className="w-14 text-center text-lg font-bold tabular-nums text-gray-900">
+            <span className="w-14 text-center text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">
               {stay.nights}
-              <span className="ml-0.5 text-xs font-medium text-gray-500">
+              <span className="ml-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                 泊
               </span>
             </span>
@@ -181,7 +183,7 @@ export function StayRow({
             <button
               type="button"
               onClick={() => dispatch({ type: 'removeStay', stayId: stay.id })}
-              className={`${iconButtonClass} hover:border-red-300 hover:bg-red-50 hover:text-red-600`}
+              className={`${iconButtonClass} hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-300`}
               aria-label="日程から外す"
             >
               <X size={16} />
@@ -190,13 +192,13 @@ export function StayRow({
         </div>
 
         {stayWindow ? (
-          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
             <span>
               <DateLabel iso={stayWindow.arriveDate} />
               <span className="mx-1 text-gray-400">→</span>
               <DateLabel iso={stayWindow.departDate} />
             </span>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-200">
               実質観光 {formatDays(stayWindow.effectiveDays)}日
             </span>
           </p>
@@ -209,8 +211,8 @@ export function StayRow({
                 key={`${violation.constraintId}-${i}`}
                 className={`flex items-start gap-1.5 text-xs ${
                   violation.severity === 'must'
-                    ? 'text-red-700'
-                    : 'text-amber-700'
+                    ? 'text-red-700 dark:text-red-300'
+                    : 'text-amber-700 dark:text-amber-300'
                 }`}
                 title={violation.message}
               >
@@ -234,18 +236,22 @@ interface StayRowPreviewProps {
 export function StayRowPreview({ stay, color }: StayRowPreviewProps) {
   const city = getCity(stay.cityId)
   return (
-    <div className="flex cursor-grabbing items-center gap-3 rounded-xl border border-cyan-300 bg-white p-3 shadow-lg ring-2 ring-cyan-200">
-      <GripVertical size={16} className="text-gray-400" />
+    <div className="flex cursor-grabbing items-center gap-3 rounded-xl border border-cyan-300 bg-white p-3 shadow-lg ring-2 ring-cyan-200 dark:border-cyan-500 dark:bg-gray-800 dark:shadow-black/40 dark:ring-cyan-800">
+      <GripVertical size={16} className="text-gray-400 dark:text-gray-500" />
       <span
         className={`inline-block h-3.5 w-3.5 shrink-0 rounded-full ${color.dot}`}
       />
-      <span className="text-base font-semibold text-gray-900">
+      <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
         {city?.name ?? stay.cityId}
       </span>
-      <span className="text-xs text-gray-500">{city?.country}</span>
-      <span className="ml-auto text-lg font-bold tabular-nums text-gray-900">
+      <span className="text-xs text-gray-500 dark:text-gray-400">
+        {city?.country}
+      </span>
+      <span className="ml-auto text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">
         {stay.nights}
-        <span className="ml-0.5 text-xs font-medium text-gray-500">泊</span>
+        <span className="ml-0.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          泊
+        </span>
       </span>
     </div>
   )

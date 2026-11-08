@@ -20,16 +20,16 @@ export function NightsBudget({ derived }: NightsBudgetProps) {
   const pct = (value: number) => `${(value / denominator) * 100}%`
 
   const tone = over
-    ? 'border-red-300 bg-red-50'
+    ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950'
     : done
-      ? 'border-emerald-300 bg-emerald-50'
-      : 'border-cyan-200 bg-cyan-50'
+      ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950'
+      : 'border-cyan-200 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950'
 
   const numberTone = over
-    ? 'text-red-600'
+    ? 'text-red-600 dark:text-red-400'
     : done
-      ? 'text-emerald-600'
-      : 'text-cyan-700'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-cyan-700 dark:text-cyan-300'
 
   return (
     <section
@@ -38,21 +38,25 @@ export function NightsBudget({ derived }: NightsBudgetProps) {
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-end gap-3">
-          <span className="text-sm font-medium text-gray-600">残り</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            残り
+          </span>
           <span
             className={`text-5xl font-bold leading-none tabular-nums sm:text-6xl ${numberTone}`}
           >
             {Math.abs(unassignedNights)}
           </span>
-          <span className="text-lg font-semibold text-gray-700">泊</span>
+          <span className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            泊
+          </span>
         </div>
         <p
           className={`text-sm font-medium ${
             over
-              ? 'text-red-700'
+              ? 'text-red-700 dark:text-red-300'
               : done
-                ? 'text-emerald-700'
-                : 'text-cyan-800/80'
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-cyan-800/80 dark:text-cyan-200/90'
           }`}
         >
           {over
@@ -63,7 +67,7 @@ export function NightsBudget({ derived }: NightsBudgetProps) {
         </p>
       </div>
 
-      <div className="relative mt-4 h-5 w-full overflow-hidden rounded-full border border-white/60 bg-white">
+      <div className="relative mt-4 h-5 w-full overflow-hidden rounded-full border border-white/60 bg-white dark:border-white/10 dark:bg-gray-800">
         <div className="flex h-full w-full">
           <div
             className="h-full bg-cyan-500 transition-all"
@@ -76,7 +80,7 @@ export function NightsBudget({ derived }: NightsBudgetProps) {
             title={`夜行移動: ${overnightLegNights}泊`}
           />
           <div
-            className="h-full bg-gray-200 transition-all"
+            className="h-full bg-gray-200 transition-all dark:bg-gray-700"
             style={{ width: pct(Math.max(0, unassignedNights)) }}
             title={`未割り当て: ${Math.max(0, unassignedNights)}泊`}
           />
@@ -90,18 +94,18 @@ export function NightsBudget({ derived }: NightsBudgetProps) {
         ) : null}
       </div>
 
-      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
+      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-cyan-500" />
           滞在に配分 {assignedNights}泊
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500" />
-          <Moon size={12} className="text-indigo-500" />
+          <Moon size={12} className="text-indigo-500 dark:text-indigo-300" />
           夜行移動 {overnightLegNights}泊
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
           未割り当て {Math.max(0, unassignedNights)}泊
         </li>
         <li className="text-gray-400">全 {totalNights}泊</li>
