@@ -296,7 +296,7 @@ export function NowPanel({
               <h2 className={sectionTitleClass}>
                 <CircleDot
                   size={16}
-                  className="text-emerald-600"
+                  className="text-emerald-600 dark:text-emerald-300"
                   aria-hidden="true"
                 />
                 今
@@ -325,7 +325,7 @@ export function NowPanel({
               <h2 className={sectionTitleClass}>
                 <ArrowRightCircle
                   size={16}
-                  className="text-cyan-600"
+                  className="text-cyan-600 dark:text-cyan-300"
                   aria-hidden="true"
                 />
                 次の予定
@@ -395,14 +395,20 @@ function TzControl({
   const isPinned = state.pinnedTz !== null
 
   return (
-    <div className={`${cardClass} border-cyan-300 bg-cyan-50/50`}>
+    <div
+      className={`${cardClass} border-cyan-300 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/30`}
+    >
       <div className={sectionTitleClass}>
-        <Clock size={16} className="text-cyan-700" aria-hidden="true" />
+        <Clock
+          size={16}
+          className="text-cyan-700 dark:text-cyan-300"
+          aria-hidden="true"
+        />
         表示タイムゾーン
       </div>
 
       <div
-        className="mt-2 flex overflow-hidden rounded-full border border-gray-300 bg-white text-sm"
+        className="mt-2 flex overflow-hidden rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
         role="group"
         aria-label="タイムゾーンの決め方"
       >
@@ -412,8 +418,8 @@ function TzControl({
           aria-pressed={!isPinned}
           className={`min-h-11 flex-1 px-3 py-2 font-medium transition ${
             !isPinned
-              ? 'bg-cyan-600 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-cyan-600 dark:bg-cyan-400 text-white dark:text-gray-950'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
         >
           デバイスの時計に従う
@@ -426,8 +432,8 @@ function TzControl({
           aria-pressed={isPinned}
           className={`min-h-11 flex-1 px-3 py-2 font-medium transition ${
             isPinned
-              ? 'bg-cyan-600 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-cyan-600 dark:bg-cyan-400 text-white dark:text-gray-950'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
         >
           タイムゾーンを固定する
@@ -438,7 +444,7 @@ function TzControl({
         機内モードでデバイスの時計が出発地のままでも気付けるように、
         「今どちらのモードで、実際のtz名が何か」を色に頼らず常に文字で出す。
       */}
-      <p className="mt-2 text-xs text-gray-600">
+      <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">
         {isPinned ? '固定中: ' : 'デバイス依存: '}
         {tzLabel(displayTz)} ({displayTz})
       </p>
@@ -447,7 +453,7 @@ function TzControl({
         <div className="mt-2">
           <label
             htmlFor="now-panel-tz-select"
-            className="text-xs font-medium text-gray-600"
+            className="text-xs font-medium text-gray-600 dark:text-gray-300"
           >
             固定するタイムゾーン
           </label>
@@ -495,13 +501,13 @@ function BookingHero({
 }) {
   const accent =
     variant === 'current'
-      ? 'border-emerald-300 bg-emerald-50/40'
-      : 'border-cyan-300 bg-cyan-50/40'
+      ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/24'
+      : 'border-cyan-300 dark:border-cyan-800 bg-cyan-50/40 dark:bg-cyan-950/24'
 
   return (
     <article className={`${cardClass} ${accent}`}>
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
           <KindIcon kind={booking.kind} size={18} />
           {BOOKING_KIND_LABELS[booking.kind]}
         </div>
@@ -511,9 +517,11 @@ function BookingHero({
         </div>
       </div>
 
-      <h3 className="mt-2 text-xl font-bold text-gray-900">{booking.title}</h3>
+      <h3 className="mt-2 text-xl font-bold text-gray-900 dark:text-gray-100">
+        {booking.title}
+      </h3>
 
-      <p className="mt-1 text-lg font-semibold text-gray-800">
+      <p className="mt-1 text-lg font-semibold text-gray-800 dark:text-gray-100">
         {safeFormatDualTime(booking.start, displayTz)}
         {booking.end !== null && (
           <>
@@ -534,7 +542,7 @@ function BookingHero({
       <PlacesBlock booking={booking} />
 
       {booking.note && (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm break-words text-amber-900">
+        <p className="mt-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-2 text-sm break-words text-amber-900 dark:text-amber-200">
           {booking.note}
         </p>
       )}
@@ -614,7 +622,7 @@ function OpenStateChip({
   label: string
 }) {
   return (
-    <p className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-800">
+    <p className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
       <Icon size={16} className="shrink-0" aria-hidden="true" />
       {label}
     </p>
@@ -702,8 +710,8 @@ function EndingCountdown({ ending }: { ending: EndingCountdownInfo }) {
     <p
       className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-base ${
         soon
-          ? 'border-2 border-rose-400 bg-rose-50 text-rose-800'
-          : 'border border-gray-300 bg-white text-gray-700'
+          ? 'border-2 border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200'
+          : 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200'
       }`}
     >
       <Icon size={16} className="shrink-0" aria-hidden="true" />
@@ -740,12 +748,12 @@ function ConfirmationButton({ value }: { value: string }) {
         type="button"
         onClick={handleClick}
         aria-label={`確認番号 ${value} をタップしてコピー`}
-        className="block w-full rounded-xl border-2 border-cyan-300 bg-white px-3 py-4 text-center font-mono text-4xl font-bold tracking-wider break-all text-gray-900 shadow-sm transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 sm:text-5xl"
+        className="block w-full rounded-xl border-2 border-cyan-300 dark:border-cyan-800 bg-white dark:bg-gray-900 px-3 py-4 text-center font-mono text-4xl font-bold tracking-wider break-all text-gray-900 dark:text-gray-100 shadow-sm transition hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 sm:text-5xl"
       >
         {value}
       </button>
       <p
-        className="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-gray-500"
+        className="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400"
         role="status"
         aria-live="polite"
       >
@@ -788,22 +796,26 @@ function PlaceCard({ label, place }: { label: string; place: Place }) {
   })
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        {label}
+      </p>
       {hasLocalName ? (
         <>
-          <p className="text-2xl font-bold break-words text-gray-900">
+          <p className="text-2xl font-bold break-words text-gray-900 dark:text-gray-100">
             {place.localName}
           </p>
-          <p className="text-sm text-gray-600">{place.name}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {place.name}
+          </p>
         </>
       ) : (
-        <p className="text-xl font-bold break-words text-gray-900">
+        <p className="text-xl font-bold break-words text-gray-900 dark:text-gray-100">
           {place.name}
         </p>
       )}
       {place.address && (
-        <p className="mt-1 text-base break-words text-gray-700">
+        <p className="mt-1 text-base break-words text-gray-700 dark:text-gray-200">
           {place.address}
         </p>
       )}
@@ -811,7 +823,7 @@ function PlaceCard({ label, place }: { label: string; place: Place }) {
         href={mapHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-cyan-300 px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-cyan-300 dark:border-cyan-800 px-3 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300 transition hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
       >
         <MapPin size={16} aria-hidden="true" />
         地図で開く
@@ -847,7 +859,11 @@ function MilestoneSection({
   return (
     <section className="flex flex-col gap-3">
       <h2 className={sectionTitleClass}>
-        <Timer size={16} className="text-cyan-600" aria-hidden="true" />
+        <Timer
+          size={16}
+          className="text-cyan-600 dark:text-cyan-300"
+          aria-hidden="true"
+        />
         次に来る時刻
       </h2>
 
@@ -903,14 +919,16 @@ function MilestoneHero({
     <article
       className={`${cardClass} ${
         soon
-          ? 'border-2 border-rose-400 bg-rose-50/50'
-          : 'border-cyan-300 bg-cyan-50/40'
+          ? 'border-2 border-rose-400 bg-rose-50/50 dark:bg-rose-950/30'
+          : 'border-cyan-300 dark:border-cyan-800 bg-cyan-50/40 dark:bg-cyan-950/24'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <div
           className={`flex items-center gap-1.5 text-sm font-semibold ${
-            soon ? 'text-rose-800' : 'text-gray-700'
+            soon
+              ? 'text-rose-800 dark:text-rose-200'
+              : 'text-gray-700 dark:text-gray-200'
           }`}
         >
           <Icon size={18} className="shrink-0" aria-hidden="true" />
@@ -925,18 +943,20 @@ function MilestoneHero({
       */}
       <p
         className={`mt-1 text-4xl font-extrabold ${
-          soon ? 'text-rose-700' : 'text-cyan-700'
+          soon
+            ? 'text-rose-700 dark:text-rose-300'
+            : 'text-cyan-700 dark:text-cyan-300'
         }`}
         aria-live="polite"
       >
         {formatCountdown(milestone.atMs - nowMs)}
       </p>
 
-      <p className="mt-1 text-lg font-semibold text-gray-800">
+      <p className="mt-1 text-lg font-semibold text-gray-800 dark:text-gray-100">
         {safeFormatDualTime(milestone.at, displayTz)}
       </p>
 
-      <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
         <KindIcon
           kind={milestone.booking.kind}
           size={14}
@@ -970,15 +990,15 @@ function MilestoneRow({
 
   return (
     <li
-      className={`${cardClass} p-3 ${soon ? 'border-2 border-rose-400 bg-rose-50/40' : ''}`}
+      className={`${cardClass} p-3 ${soon ? 'border-2 border-rose-400 bg-rose-50/40 dark:bg-rose-950/24' : ''}`}
     >
       <div className="flex items-center gap-2">
         <Icon
           size={16}
-          className={`shrink-0 ${soon ? 'text-rose-600' : 'text-gray-500'}`}
+          className={`shrink-0 ${soon ? 'text-rose-600 dark:text-rose-300' : 'text-gray-500 dark:text-gray-400'}`}
           aria-hidden="true"
         />
-        <span className="text-sm font-medium text-gray-500">
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
           {safeFormatStamp(milestone.at, displayTz, {
             withDate: true,
             inDisplayTz: true,
@@ -986,7 +1006,9 @@ function MilestoneRow({
         </span>
         <span
           className={`${deadline ? 'font-bold' : 'font-semibold'} text-sm ${
-            soon ? 'text-rose-800' : 'text-gray-900'
+            soon
+              ? 'text-rose-800 dark:text-rose-200'
+              : 'text-gray-900 dark:text-gray-100'
           }`}
         >
           {MILESTONE_LABELS[milestone.kind]}
@@ -995,7 +1017,7 @@ function MilestoneRow({
           <BookingStatusBadge status={milestone.booking.status} size="sm" />
         </span>
       </div>
-      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-600">
+      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
         <KindIcon
           kind={milestone.booking.kind}
           size={12}
@@ -1027,7 +1049,11 @@ function UpcomingList({
   return (
     <section>
       <h2 className={sectionTitleClass}>
-        <ListChecks size={16} className="text-gray-500" aria-hidden="true" />
+        <ListChecks
+          size={16}
+          className="text-gray-500 dark:text-gray-400"
+          aria-hidden="true"
+        />
         このあとの終日の予定
       </h2>
       <ul className="mt-2 flex flex-col gap-2">
@@ -1037,9 +1063,9 @@ function UpcomingList({
               <KindIcon
                 kind={booking.kind}
                 size={16}
-                className="shrink-0 text-gray-500"
+                className="shrink-0 text-gray-500 dark:text-gray-400"
               />
-              <span className="text-sm font-medium text-gray-500">
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 {safeFormatStamp(booking.start, displayTz, {
                   withDate: true,
                   inDisplayTz: true,
@@ -1049,7 +1075,7 @@ function UpcomingList({
                 <BookingStatusBadge status={booking.status} size="sm" />
               </span>
             </div>
-            <p className="mt-1 truncate text-sm font-semibold text-gray-900">
+            <p className="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
               {booking.title}
             </p>
           </li>
@@ -1101,7 +1127,11 @@ function WishSection({
   return (
     <section className={cardClass}>
       <h2 className={sectionTitleClass}>
-        <Heart size={16} className="text-rose-500" aria-hidden="true" />
+        <Heart
+          size={16}
+          className="text-rose-500 dark:text-rose-400"
+          aria-hidden="true"
+        />
         やりたいこと
       </h2>
 
@@ -1112,9 +1142,12 @@ function WishSection({
           外れているときに利用者が「だから出ていないのか」と自力で辿り着ける。
           黙って並べ替えるだけだと、何を基準に選ばれた一覧なのか分からない
         */
-        <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+        <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
           <MapPin size={12} className="shrink-0" aria-hidden="true" />
-          いまは<span className="font-medium text-gray-700">{area}</span>
+          いまは
+          <span className="font-medium text-gray-700 dark:text-gray-200">
+            {area}
+          </span>
           とみて、この町の分を先に出しています
         </p>
       ) : null}
@@ -1176,8 +1209,8 @@ function WishDetails({
   const undone = wishes.filter((wish) => !wish.done).length
 
   return (
-    <details className="group mt-3 border-t border-gray-100 pt-3">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+    <details className="group mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200">
         <ChevronDown
           size={14}
           className="shrink-0 transition group-open:rotate-180"
@@ -1215,7 +1248,9 @@ function WishList({
 }) {
   if (wishes.length === 0) {
     return emptyText === undefined ? null : (
-      <p className="mt-2 text-sm text-gray-500">{emptyText}</p>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        {emptyText}
+      </p>
     )
   }
 
@@ -1253,32 +1288,34 @@ function WishRow({
   const area = wish.area?.trim() ?? ''
 
   return (
-    <li className="flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-gray-50">
+    <li className="flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800">
       <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
         <input
           type="checkbox"
           checked={wish.done}
           onChange={() => dispatch({ type: 'toggleWishDone', id: wish.id })}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-600 text-cyan-600 dark:text-cyan-300 focus:ring-cyan-500 dark:focus:ring-cyan-400"
         />
         <span className="min-w-0 flex-1">
           <span
             className={
               wish.done
-                ? 'text-sm text-gray-400 line-through'
-                : 'text-sm text-gray-800'
+                ? 'text-sm text-gray-400 line-through dark:text-gray-500'
+                : 'text-sm text-gray-800 dark:text-gray-100'
             }
           >
             {wish.title}
           </span>
           {showArea && area !== '' ? (
-            <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-gray-500">
+            <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400">
               <MapPin size={11} aria-hidden="true" />
               {area}
             </span>
           ) : null}
           {wish.note !== undefined && wish.note.length > 0 ? (
-            <span className="block text-xs text-gray-500">{wish.note}</span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {wish.note}
+            </span>
           ) : null}
         </span>
       </label>
@@ -1288,7 +1325,7 @@ function WishRow({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${wish.title} のリンクを開く`}
-          className="mt-0.5 shrink-0 rounded-lg p-1 text-gray-500 transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className="mt-0.5 shrink-0 rounded-lg p-1 text-gray-500 dark:text-gray-400 transition hover:bg-cyan-50 dark:hover:bg-cyan-950/60 hover:text-cyan-700 dark:hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <ExternalLink size={14} aria-hidden="true" />
         </a>
@@ -1372,7 +1409,7 @@ function QuickAddWish({
               type="button"
               onClick={() => setUseArea(false)}
               aria-label={`場所の指定「${presetArea}」を外す`}
-              className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="inline-flex items-center gap-1 rounded-full border border-cyan-200 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/40 px-2 py-0.5 text-xs font-medium text-cyan-800 dark:text-cyan-200 transition hover:bg-cyan-100 dark:hover:bg-cyan-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
             >
               <MapPin size={11} aria-hidden="true" />
               {presetArea}
@@ -1382,7 +1419,7 @@ function QuickAddWish({
             <button
               type="button"
               onClick={() => setUseArea(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+              className="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:focus-visible:outline-gray-500"
             >
               <MapPin size={11} aria-hidden="true" />
               場所を{presetArea}にする
@@ -1418,7 +1455,7 @@ function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
 
   return (
     <details className={`${cardClass} group`}>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200">
         <ChevronDown
           size={14}
           className="shrink-0 transition group-open:rotate-180"
@@ -1426,7 +1463,7 @@ function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
         />
         <IdCard
           size={16}
-          className="shrink-0 text-gray-500"
+          className="shrink-0 text-gray-500 dark:text-gray-400"
           aria-hidden="true"
         />
         手続きの控え
@@ -1436,28 +1473,31 @@ function TravelDocRecap({ docs }: { docs: Array<TravelDoc> }) {
       </summary>
       <ul className="mt-3 flex flex-col gap-2">
         {withReference.map((doc) => (
-          <li key={doc.id} className="rounded-lg border border-gray-200 p-2">
+          <li
+            key={doc.id}
+            className="rounded-lg border border-gray-200 dark:border-gray-800 p-2"
+          >
             <div className="flex items-center gap-1.5">
               <TravelDocIcon
                 kind={doc.kind}
                 size={14}
-                className="shrink-0 text-gray-500"
+                className="shrink-0 text-gray-500 dark:text-gray-400"
               />
-              <span className="text-sm font-medium text-gray-800">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
                 {doc.title}
                 {doc.region !== undefined && doc.region.length > 0 ? (
-                  <span className="ml-1 font-normal text-gray-500">
+                  <span className="ml-1 font-normal text-gray-500 dark:text-gray-400">
                     ({doc.region})
                   </span>
                 ) : null}
               </span>
             </div>
             {/* 選択してコピーしやすいよう等幅にし、select-all で1タップの範囲選択を促す */}
-            <p className="mt-0.5 font-mono text-sm text-gray-900 select-all">
+            <p className="mt-0.5 font-mono text-sm text-gray-900 dark:text-gray-100 select-all">
               {doc.referenceNumber}
             </p>
             {doc.validFrom !== undefined || doc.validUntil !== undefined ? (
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 有効期間: {doc.validFrom ?? '未定'} 〜{' '}
                 {doc.validUntil ?? '未定'}
               </p>
@@ -1512,7 +1552,7 @@ function CountryInfoRecap({
 
   return (
     <details className={`${cardClass} group`}>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200">
         <ChevronDown
           size={14}
           className="shrink-0 transition group-open:rotate-180"
@@ -1520,7 +1560,7 @@ function CountryInfoRecap({
         />
         <Globe
           size={16}
-          className="shrink-0 text-gray-500"
+          className="shrink-0 text-gray-500 dark:text-gray-400"
           aria-hidden="true"
         />
         国・地域の情報
@@ -1562,8 +1602,10 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
   if (hasText(info.tipping)) facts.push(`チップ ${info.tipping}`)
 
   return (
-    <li className="rounded-lg border border-gray-200 p-2">
-      <p className="text-sm font-medium text-gray-800">{info.name}</p>
+    <li className="rounded-lg border border-gray-200 dark:border-gray-800 p-2">
+      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+        {info.name}
+      </p>
       {numbers.length > 0 ? (
         <p className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           {numbers.map((number) => (
@@ -1571,9 +1613,11 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
               key={number.label}
               className="inline-flex items-baseline gap-1"
             >
-              <span className="text-xs text-gray-500">{number.label}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {number.label}
+              </span>
               {/* 参照番号と同じく、等幅 + select-all で1タップの範囲選択を促す */}
-              <span className="font-mono text-sm font-bold text-gray-900 select-all">
+              <span className="font-mono text-sm font-bold text-gray-900 dark:text-gray-100 select-all">
                 {number.value}
               </span>
             </span>
@@ -1581,7 +1625,9 @@ function CountryInfoRow({ info }: { info: CountryInfo }) {
         </p>
       ) : null}
       {facts.length > 0 ? (
-        <p className="mt-0.5 text-xs text-gray-600">{facts.join(' ・ ')}</p>
+        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+          {facts.join(' ・ ')}
+        </p>
       ) : null}
     </li>
   )
@@ -1594,11 +1640,15 @@ function EmptyState({ onGoToSchedule }: { onGoToSchedule: () => void }) {
     <div
       className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`}
     >
-      <CalendarPlus size={32} className="text-gray-300" aria-hidden="true" />
-      <p className="text-base font-semibold text-gray-700">
+      <CalendarPlus
+        size={32}
+        className="text-gray-300 dark:text-gray-600"
+        aria-hidden="true"
+      />
+      <p className="text-base font-semibold text-gray-700 dark:text-gray-200">
         予約がまだありません
       </p>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
         日程タブから予約を追加すると、ここに「今」と「次」が表示されます。
       </p>
       <button
@@ -1617,11 +1667,15 @@ function OutOfRangeState({ onGoToSchedule }: { onGoToSchedule: () => void }) {
     <div
       className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`}
     >
-      <CalendarX2 size={32} className="text-gray-300" aria-hidden="true" />
-      <p className="text-base font-semibold text-gray-700">
+      <CalendarX2
+        size={32}
+        className="text-gray-300 dark:text-gray-600"
+        aria-hidden="true"
+      />
+      <p className="text-base font-semibold text-gray-700 dark:text-gray-200">
         表示できる予定がありません
       </p>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
         旅行の期間外か、すべての予定が終了しています。日程タブで確認してください。
       </p>
       <button

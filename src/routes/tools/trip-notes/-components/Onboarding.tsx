@@ -42,10 +42,13 @@ export function Onboarding({
     <div className="mx-auto w-full max-w-3xl space-y-4">
       <section className={cardClass}>
         <h2 className={sectionTitleClass}>
-          <CalendarRange size={18} className="text-cyan-600" />
+          <CalendarRange
+            size={18}
+            className="text-cyan-600 dark:text-cyan-300"
+          />
           まず旅行の期間を決める
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+        <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
           期間が決まると「何泊ぶんの寝る場所が要るのか」が確定します。
           このツールはそこを基準に、予約の穴を見つけ続けます。
         </p>
@@ -87,14 +90,14 @@ export function Onboarding({
           </label>
         </div>
 
-        <p className="mt-3 text-sm text-gray-700">
+        <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
           {nights > 0 ? (
             <>
               この期間は <strong>{nights}泊</strong> です。まだ 1
               件も予約が登録されていません。
             </>
           ) : (
-            <span className="text-rose-700">
+            <span className="text-rose-700 dark:text-rose-300">
               帰宅日は出発日より後の日付にしてください。
             </span>
           )}
@@ -122,10 +125,10 @@ export function Onboarding({
             onClick={onOpenSettings}
             className={`${subtleButtonClass} h-auto justify-start px-4 py-3 text-left`}
           >
-            <Sparkles size={18} className="text-cyan-600" />
+            <Sparkles size={18} className="text-cyan-600 dark:text-cyan-300" />
             <span>
               <span className="block">AI にまとめて読ませる</span>
-              <span className="block text-xs font-normal text-gray-500">
+              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
                 予約確認メールを ChatGPT などに貼って一括で取り込みます
               </span>
             </span>

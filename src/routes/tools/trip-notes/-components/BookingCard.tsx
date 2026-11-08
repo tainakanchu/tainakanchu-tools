@@ -81,10 +81,10 @@ import type {
  * cancelled が idea/held の装飾を誤って引きずる心配もない。
  */
 const CARD_STATUS_CLASS: Record<BookingStatus, string> = {
-  idea: 'border-dashed border-slate-300 bg-slate-50',
-  held: 'border-amber-300 bg-amber-50',
-  confirmed: 'border-gray-200 bg-white',
-  cancelled: 'border-gray-200 bg-white',
+  idea: 'border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50',
+  held: 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40',
+  confirmed: 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900',
+  cancelled: 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900',
 }
 
 /**
@@ -427,7 +427,7 @@ export function BookingCard({
     >
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 ${isUnverified('kind')}`}
+          className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 ${isUnverified('kind')}`}
         >
           <KindIcon kind={booking.kind} size={16} />
         </span>
@@ -453,12 +453,12 @@ export function BookingCard({
               onClick={onToggleExpand}
               aria-expanded={expanded}
               aria-controls={detailsId}
-              className="flex w-full cursor-pointer items-start gap-2 rounded-lg text-left transition hover:bg-gray-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="flex w-full cursor-pointer items-start gap-2 rounded-lg text-left transition hover:bg-gray-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
             >
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
-                    className={`truncate text-sm font-semibold text-gray-900 ${
+                    className={`truncate text-sm font-semibold text-gray-900 dark:text-gray-100 ${
                       cancelled ? 'line-through' : ''
                     } ${isUnverified('title')}`}
                   >
@@ -466,7 +466,7 @@ export function BookingCard({
                   </span>
                   {unverified.length > 0 ? (
                     <span
-                      className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                      className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
                       title="AI が入力したまま未確認のフィールドがあります"
                     >
                       未確認 {unverified.length}件
@@ -475,7 +475,7 @@ export function BookingCard({
                 </span>
 
                 <span
-                  className={`mt-0.5 block text-xs text-gray-600 ${isUnverified('start', 'end')}`}
+                  className={`mt-0.5 block text-xs text-gray-600 dark:text-gray-300 ${isUnverified('start', 'end')}`}
                 >
                   {timeLabel}
                   {endLabel !== null ? `〜${endLabel}` : ''}
@@ -483,7 +483,7 @@ export function BookingCard({
 
                 {place !== null ? (
                   <span
-                    className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(...place.fields)}`}
+                    className={`mt-1 block truncate text-xs text-gray-500 dark:text-gray-400 ${isUnverified(...place.fields)}`}
                   >
                     {place.text}
                   </span>
@@ -491,7 +491,7 @@ export function BookingCard({
 
                 {timingSummary !== null && !expanded ? (
                   <span
-                    className={`mt-1 block truncate text-xs text-gray-500 ${isUnverified(
+                    className={`mt-1 block truncate text-xs text-gray-500 dark:text-gray-400 ${isUnverified(
                       'onlineCheckInOpensMinutesBefore',
                       'bagDropClosesMinutesBefore',
                       'checkInClosesMinutesBefore',
@@ -528,7 +528,7 @@ export function BookingCard({
                 type="button"
                 onClick={onVerifyAll}
                 aria-label={`${booking.title} の未確認 ${unverified.length}件をすべて確認済みにする`}
-                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                className="inline-flex items-center gap-1 rounded-full border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200 transition hover:bg-amber-100 dark:hover:bg-amber-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-400"
               >
                 <Check size={11} aria-hidden="true" />
                 確認済みにする
@@ -549,7 +549,7 @@ export function BookingCard({
           */}
           {booking.confirmationNumber !== undefined && !expanded ? (
             <p
-              className={`mt-1.5 font-mono text-[11px] text-gray-500 ${isUnverified('confirmationNumber')}`}
+              className={`mt-1.5 font-mono text-[11px] text-gray-500 dark:text-gray-400 ${isUnverified('confirmationNumber')}`}
             >
               確認番号: {booking.confirmationNumber}
             </p>
@@ -568,7 +568,7 @@ export function BookingCard({
           <button
             type="button"
             onClick={onDelete}
-            className={`${iconButtonClass} hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600`}
+            className={`${iconButtonClass} hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 hover:text-rose-600 dark:hover:text-rose-200`}
             aria-label={`${booking.title} を削除`}
           >
             <Trash2 size={15} />
@@ -621,7 +621,10 @@ function BookingDetails({
   const timingRows = transportTimingRows(booking, displayTz)
 
   return (
-    <div id={id} className="mt-3 space-y-3 border-t border-gray-200 pt-3">
+    <div
+      id={id}
+      className="mt-3 space-y-3 border-t border-gray-200 dark:border-gray-800 pt-3"
+    >
       {unverified.length > 0 ? (
         <UnverifiedChecklist
           booking={booking}
@@ -766,7 +769,7 @@ function CalendarAddLink({ booking }: { booking: Booking }) {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        className="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:text-gray-200 transition hover:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
       >
         <ExternalLink size={11} aria-hidden="true" />
         Googleカレンダーに追加
@@ -788,8 +791,12 @@ function DetailRow({
 }) {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-      <dt className="w-24 shrink-0 text-gray-500">{label}</dt>
-      <dd className={`min-w-0 flex-1 break-words text-gray-800 ${valueClass}`}>
+      <dt className="w-24 shrink-0 text-gray-500 dark:text-gray-400">
+        {label}
+      </dt>
+      <dd
+        className={`min-w-0 flex-1 break-words text-gray-800 dark:text-gray-100 ${valueClass}`}
+      >
         {children}
       </dd>
     </div>
@@ -812,18 +819,22 @@ function BaggageDetail({
 }) {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-      <dt className="w-24 shrink-0 text-gray-500">{FIELD_LABELS.baggage}</dt>
+      <dt className="w-24 shrink-0 text-gray-500 dark:text-gray-400">
+        {FIELD_LABELS.baggage}
+      </dt>
       <dd className={`min-w-0 flex-1 space-y-1.5 ${valueClass}`}>
         {slots.map((slot) => (
           <div key={slot.slot} className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="shrink-0 font-medium text-gray-700">
+              <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
                 {slot.label}
               </span>
-              <span className="text-gray-800">{slot.metrics}</span>
+              <span className="text-gray-800 dark:text-gray-100">
+                {slot.metrics}
+              </span>
             </div>
             {slot.note !== undefined ? (
-              <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
                 {slot.note}
               </p>
             ) : null}
@@ -850,10 +861,14 @@ function PlaceRow({
     <DetailRow label={label} valueClass={valueClass}>
       <span className="block">{place.name}</span>
       {place.localName !== undefined ? (
-        <span className="block text-gray-600">{place.localName}</span>
+        <span className="block text-gray-600 dark:text-gray-300">
+          {place.localName}
+        </span>
       ) : null}
       {place.address !== undefined ? (
-        <span className="block text-gray-500">{place.address}</span>
+        <span className="block text-gray-500 dark:text-gray-400">
+          {place.address}
+        </span>
       ) : null}
     </DetailRow>
   )
@@ -882,11 +897,11 @@ function UnverifiedChecklist({
   onVerifyField: (field: FieldKey) => void
 }) {
   return (
-    <section className="rounded-xl border border-amber-300 bg-amber-50/60 p-2.5">
-      <h5 className="text-[11px] font-semibold text-amber-800">
+    <section className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/36 p-2.5">
+      <h5 className="text-[11px] font-semibold text-amber-800 dark:text-amber-200">
         AI が入力したまま未確認の項目({unverified.length}件)
       </h5>
-      <p className="mt-0.5 text-[11px] text-amber-800/80">
+      <p className="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-200/80">
         引用と見比べて、合っていれば確認済みにしてください。
       </p>
 
@@ -897,13 +912,15 @@ function UnverifiedChecklist({
           return (
             <li
               key={field}
-              className="rounded-lg border border-amber-200 bg-white p-2"
+              className="rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 p-2"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="min-w-0 flex-1 text-xs">
-                  <span className="font-semibold text-gray-800">{label}</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">
+                    {label}
+                  </span>
                   <span className="mx-1 text-gray-400">:</span>
-                  <span className="break-words text-gray-800">
+                  <span className="break-words text-gray-800 dark:text-gray-100">
                     {fieldValueText(booking, field, displayTz)}
                   </span>
                 </p>
@@ -911,7 +928,7 @@ function UnverifiedChecklist({
                   type="button"
                   onClick={() => onVerifyField(field)}
                   aria-label={`${booking.title} の${label}を確認済みにする`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200 transition hover:bg-amber-100 dark:hover:bg-amber-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-400"
                 >
                   <Check size={11} aria-hidden="true" />
                   確認済みにする
@@ -923,7 +940,7 @@ function UnverifiedChecklist({
                 「メールにそう書いてあったか」を判断できなくなる
               */}
               {evidence !== undefined ? (
-                <p className="mt-1 border-l-2 border-amber-300 pl-2 text-[11px] leading-relaxed break-words whitespace-pre-wrap text-gray-600">
+                <p className="mt-1 border-l-2 border-amber-300 dark:border-amber-800 pl-2 text-[11px] leading-relaxed break-words whitespace-pre-wrap text-gray-600 dark:text-gray-300">
                   {evidence}
                 </p>
               ) : (
@@ -972,7 +989,7 @@ function ConfirmationNumberRow({
           })
         }}
         aria-label={`確認番号 ${value} をタップしてコピー`}
-        className={`inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-white px-2.5 py-1.5 font-mono text-xs font-bold tracking-wider break-all text-gray-900 transition hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${valueClass}`}
+        className={`inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 dark:border-cyan-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 font-mono text-xs font-bold tracking-wider break-all text-gray-900 dark:text-gray-100 transition hover:bg-cyan-50 dark:hover:bg-cyan-950/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 ${valueClass}`}
       >
         <Copy size={12} aria-hidden="true" />
         {value}
@@ -980,7 +997,7 @@ function ConfirmationNumberRow({
       <span
         role="status"
         aria-live="polite"
-        className="text-[11px] font-medium text-gray-500"
+        className="text-[11px] font-medium text-gray-500 dark:text-gray-400"
       >
         {copied ? 'コピーしました' : 'タップして確認番号をコピー'}
       </span>

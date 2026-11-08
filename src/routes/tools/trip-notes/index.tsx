@@ -362,7 +362,7 @@ function TripNotesPage() {
         max-w-6xl(1152px)ではわずか数px しか余らず崩れやすいため、
         余裕を持って max-w-7xl(1280px)まで広げる
       */}
-      <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 text-gray-900 sm:px-6 md:pb-10 print:hidden">
+      <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 text-gray-900 dark:text-gray-100 sm:px-6 md:pb-10 print:hidden">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             {/*
@@ -391,12 +391,12 @@ function TripNotesPage() {
                 <span className="hidden sm:inline">新規</span>
               </button>
             </div>
-            <p className="max-w-2xl text-sm leading-relaxed text-gray-600">
+            <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
               予約の抜けを旅行前に潰し、旅行中は必要な予約情報だけをすぐ出すためのツールです。
               行き先が決まる前は
               <a
                 href="/tools/trip-scheduler"
-                className="mx-1 text-cyan-700 underline underline-offset-2 hover:text-cyan-800"
+                className="mx-1 text-cyan-700 dark:text-cyan-300 underline underline-offset-2 hover:text-cyan-800 dark:hover:text-cyan-200"
               >
                 旅程パズル
               </a>
@@ -435,14 +435,14 @@ function TripNotesPage() {
         {importNotice !== null && (
           <div
             role="status"
-            className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-cyan-50 px-3 py-2 text-sm text-cyan-900"
+            className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 px-3 py-2 text-sm text-cyan-900 dark:text-cyan-200"
           >
             <p className="leading-relaxed">{importNotice}</p>
             <button
               type="button"
               onClick={() => setImportNotice(null)}
               aria-label="お知らせを閉じる"
-              className="rounded-lg px-2 py-1 font-semibold text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="rounded-lg px-2 py-1 font-semibold text-cyan-800 dark:text-cyan-200 transition hover:bg-cyan-100 dark:hover:bg-cyan-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
             >
               <X size={16} />
             </button>
@@ -453,7 +453,7 @@ function TripNotesPage() {
         <div
           role="tablist"
           aria-label="旅のしおりの表示切り替え"
-          className="mt-6 hidden gap-1 rounded-2xl border border-gray-200 bg-white p-1 shadow-sm md:flex"
+          className="mt-6 hidden gap-1 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1 shadow-sm md:flex"
         >
           {TABS.map((item) => (
             <button
@@ -462,17 +462,19 @@ function TripNotesPage() {
               role="tab"
               aria-selected={tab === item.id}
               onClick={() => selectTab(item.id)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 ${
                 tab === item.id
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-cyan-600 dark:bg-cyan-400 text-white dark:text-gray-950 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
               <item.icon size={16} />
               {item.label}
               <span
                 className={`text-xs font-normal ${
-                  tab === item.id ? 'text-cyan-100' : 'text-gray-400'
+                  tab === item.id
+                    ? 'text-cyan-100 dark:text-cyan-900'
+                    : 'text-gray-400'
                 }`}
               >
                 {item.hint}
@@ -536,7 +538,7 @@ function TripNotesPage() {
       {/* 旅行中はスマホの親指が届く下端に置く。デスクトップでは上部タブに任せて隠す */}
       <nav
         aria-label="旅のしおりの表示切り替え"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur md:hidden print:hidden"
       >
         {TABS.map((item) => (
           <button
@@ -544,8 +546,10 @@ function TripNotesPage() {
             type="button"
             aria-current={tab === item.id ? 'page' : undefined}
             onClick={() => selectTab(item.id)}
-            className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 ${
-              tab === item.id ? 'text-cyan-700' : 'text-gray-500'
+            className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 ${
+              tab === item.id
+                ? 'text-cyan-700 dark:text-cyan-300'
+                : 'text-gray-500 dark:text-gray-400'
             }`}
           >
             <item.icon size={20} />
@@ -668,7 +672,7 @@ function RenameTripDialog({ title, onSave, onCancel }: RenameTripDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center print:hidden">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 dark:bg-black/70 p-4 sm:items-center print:hidden">
       <form
         ref={panelRef}
         role="dialog"
@@ -676,9 +680,12 @@ function RenameTripDialog({ title, onSave, onCancel }: RenameTripDialogProps) {
         aria-labelledby={titleId}
         tabIndex={-1}
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-5 shadow-xl outline-none dark:border dark:border-gray-700"
       >
-        <h2 id={titleId} className="text-base font-semibold text-gray-900">
+        <h2
+          id={titleId}
+          className="text-base font-semibold text-gray-900 dark:text-gray-100"
+        >
           旅程の名前を変える
         </h2>
         <label htmlFor={inputId} className={`${labelClass} mt-3 block`}>

@@ -61,51 +61,59 @@ export function ImportChoiceDialog({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center print:hidden">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 dark:bg-black/70 p-4 sm:items-center print:hidden">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 p-5 shadow-xl outline-none dark:border dark:border-gray-700"
       >
         <h2
           id={titleId}
-          className="flex items-center gap-2 text-base font-semibold text-gray-900"
+          className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100"
         >
-          <Download size={18} className="text-cyan-600" />
+          <Download size={18} className="text-cyan-600 dark:text-cyan-300" />
           {title}
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-gray-600">
-          <strong className="text-gray-900">新しい旅程として追加</strong>
+        <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+          <strong className="text-gray-900 dark:text-gray-100">
+            新しい旅程として追加
+          </strong>
           すれば、いま開いている旅程はそのまま残ります。
-          <strong className="text-gray-900">置き換える</strong>
+          <strong className="text-gray-900 dark:text-gray-100">
+            置き換える
+          </strong>
           を選んだ場合に入れ替わるのは、いま開いている旅程の中身だけです(他の旅程はそのまま残ります)。
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          <strong className="text-gray-900">合流</strong>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+          <strong className="text-gray-900 dark:text-gray-100">合流</strong>
           は、いま開いている旅程に読み込む側の予約を混ぜ込みます。同じ予約とみなせるもの(確認番号が一致、または日付と名前が一致)は更新し、それ以外は追加します。いまの旅程の名前と期間は変わりません。「元に戻す」1
           回でまとめて取り消せます。
         </p>
-        <dl className="mt-4 space-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+        <dl className="mt-4 space-y-1 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-600">いまの旅程の予約</dt>
+            <dt className="text-gray-600 dark:text-gray-300">
+              いまの旅程の予約
+            </dt>
             <dd className="font-semibold">{current.bookings.length}件</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-600">{incomingLabel}</dt>
+            <dt className="text-gray-600 dark:text-gray-300">
+              {incomingLabel}
+            </dt>
             <dd className="font-semibold">{incoming.bookings.length}件</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-gray-600">合流した場合</dt>
+            <dt className="text-gray-600 dark:text-gray-300">合流した場合</dt>
             <dd className="font-semibold">
               {mergePlan.addedCount}件を追加・{mergePlan.updatedCount}件を更新
             </dd>
           </div>
           {incoming.tripTitle.length > 0 && (
             <div className="flex justify-between gap-3">
-              <dt className="text-gray-600">旅行の名前</dt>
+              <dt className="text-gray-600 dark:text-gray-300">旅行の名前</dt>
               <dd className="truncate font-semibold">{incoming.tripTitle}</dd>
             </div>
           )}

@@ -10,6 +10,7 @@
  */
 
 import { AlertTriangle, CheckCircle2, CircleDashed, Moon } from 'lucide-react'
+import { useTheme } from '@/components/theme/ThemeScope'
 import { formatDateJa } from '../../../../lib/trip-notes/datetime'
 import { countTentativeNights } from '../../../../lib/trip-notes/nights'
 import type { CSSProperties } from 'react'
@@ -92,27 +93,37 @@ const UNCOVERED_STRIPE = diagonalStripe(
   'rgba(255,255,255,0.55)',
   'rgba(159,18,57,0.85)',
 )
+// ダークでは白い縞が暗い面の上でぎらつくので、白を弱めて濃い rose(900)と組む。
+// 縞・アイコン・リングの 3 重で示す設計はライトと同じ
+const UNCOVERED_STRIPE_DARK = diagonalStripe(
+  'rgba(255,255,255,0.22)',
+  'rgba(136,19,55,0.9)',
+)
 
 function cellButtonClass(state: CellState, snapStart: boolean): string {
-  const base = `flex h-14 items-center justify-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${
+  const base = `flex h-14 items-center justify-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400 ${
     snapStart ? 'snap-start' : ''
   }`
   switch (state.kind) {
     case 'confirmed':
-      return `${base} border-l border-white/60 bg-emerald-500 first:border-l-0`
+      return `${base} border-l border-white/60 bg-emerald-500 first:border-l-0 dark:border-gray-900 dark:bg-emerald-600`
     case 'tentative':
       // 破線の太い枠自体が「まだ仮」の合図であり、隣セルとの区切りも兼ねる
-      return `${base} border-2 border-dashed border-amber-600 bg-amber-400`
+      return `${base} border-2 border-dashed border-amber-600 bg-amber-400 dark:border-amber-700 dark:bg-amber-500`
     case 'overnight':
-      return `${base} border-l border-white/60 bg-sky-400 first:border-l-0`
+      return `${base} border-l border-white/60 bg-sky-400 first:border-l-0 dark:border-gray-900 dark:bg-sky-600`
     case 'uncovered':
-      return `${base} border-l border-white/60 bg-rose-500 ring-2 ring-inset ring-rose-700 first:border-l-0`
+      return `${base} border-l border-white/60 dark:border-gray-900 bg-rose-500 dark:bg-rose-600 ring-2 ring-inset ring-rose-700 dark:ring-rose-400 first:border-l-0`
   }
 }
 
-function cellButtonStyle(state: CellState): CSSProperties | undefined {
+function cellButtonStyle(
+  state: CellState,
+  theme: 'light' | 'dark',
+): CSSProperties | undefined {
   if (state.kind === 'overnight') return OVERNIGHT_STRIPE
-  if (state.kind === 'uncovered') return UNCOVERED_STRIPE
+  if (state.kind === 'uncovered')
+    return theme === 'dark' ? UNCOVERED_STRIPE_DARK : UNCOVERED_STRIPE
   return undefined
 }
 
@@ -140,6 +151,7 @@ function NightRow({
   snapCells: boolean
   onSelectDate: (date: string) => void
 }) {
+  const { theme } = useTheme()
   const cells = nights.map((night) => ({
     night,
     state: resolveCellState(night, bookingMap),
@@ -155,7 +167,7 @@ function NightRow({
         {cells.map(({ night }) => (
           <span
             key={night.date}
-            className={`truncate px-0.5 text-center text-[11px] text-gray-500 ${hiddenClass}`}
+            className={`truncate px-0.5 text-center text-[11px] text-gray-500 dark:text-gray-400 ${hiddenClass}`}
           >
             {formatDateJa(night.date)}
           </span>
@@ -163,7 +175,7 @@ function NightRow({
       </div>
 
       <div
-        className="grid overflow-hidden rounded-lg ring-1 ring-black/5"
+        className="grid overflow-hidden rounded-lg ring-1 ring-black/5 dark:ring-white/5"
         style={gridStyle}
       >
         {cells.map(({ night, state }) => (
@@ -173,7 +185,7 @@ function NightRow({
             onClick={() => onSelectDate(night.date)}
             aria-label={cellAriaLabel(night, state)}
             className={cellButtonClass(state, snapCells)}
-            style={cellButtonStyle(state)}
+            style={cellButtonStyle(state, theme)}
           >
             {state.kind === 'overnight' ? (
               <Moon size={14} className="text-white" aria-hidden="true" />
@@ -197,8 +209,8 @@ function NightRow({
               key={night.date}
               className={`truncate px-0.5 text-center text-[10px] ${
                 uncovered
-                  ? 'font-medium text-rose-700'
-                  : `text-gray-500 ${hiddenClass}`
+                  ? 'font-medium text-rose-700 dark:text-rose-300'
+                  : `text-gray-500 dark:text-gray-400 ${hiddenClass}`
               }`}
             >
               {cellLabel(state)}
@@ -240,22 +252,22 @@ export function NightCoverageStrip({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <h3 className="text-sm font-semibold text-gray-800">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
           寝る場所カバレッジ
         </h3>
         {isEmpty ? null : allConfirmed ? (
-          <p className="flex items-center gap-1 text-sm font-medium text-emerald-700">
+          <p className="flex items-center gap-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 size={15} aria-hidden="true" />
             {nights.length}泊すべて寝る場所が確保できています
           </p>
         ) : allCovered ? (
-          <p className="flex items-center gap-1 text-sm font-medium text-amber-700">
+          <p className="flex items-center gap-1 text-sm font-medium text-amber-700 dark:text-amber-300">
             <CircleDashed size={15} aria-hidden="true" />
             {nights.length}泊中 {nights.length - tentativeCount}泊が確定、
             {tentativeCount}泊は仮
           </p>
         ) : (
-          <p className="flex items-center gap-1 text-sm font-medium text-rose-700">
+          <p className="flex items-center gap-1 text-sm font-medium text-rose-700 dark:text-rose-300">
             <AlertTriangle size={15} aria-hidden="true" />
             {nights.length}泊中 {uncoveredCount}泊が未確保
           </p>
@@ -263,7 +275,9 @@ export function NightCoverageStrip({
       </div>
 
       {isEmpty ? (
-        <p className="text-sm text-gray-500">旅行期間を設定してください</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          旅行期間を設定してください
+        </p>
       ) : weekMode ? (
         <div className="overflow-x-auto pb-1">
           <div className="flex snap-x gap-4">
@@ -271,10 +285,12 @@ export function NightCoverageStrip({
               <div
                 key={week[0]?.date ?? index}
                 className={`w-64 shrink-0 ${
-                  index > 0 ? 'border-l border-gray-200 pl-4' : ''
+                  index > 0
+                    ? 'border-l border-gray-200 dark:border-gray-800 pl-4'
+                    : ''
                 }`}
               >
-                <p className="mb-1 truncate text-[11px] font-medium text-gray-500">
+                <p className="mb-1 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
                   {formatDateJa(week[0].date)}〜
                   {formatDateJa(week[week.length - 1].date)}
                 </p>
@@ -300,23 +316,27 @@ export function NightCoverageStrip({
       )}
 
       {isEmpty ? null : (
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
           <li className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-500" />
+            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-500 dark:bg-emerald-600" />
             宿泊確定
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-amber-600 bg-amber-400" />
+            <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-amber-600 bg-amber-400 dark:border-amber-700 dark:bg-amber-500" />
             宿泊仮
           </li>
           <li className="flex items-center gap-1.5">
-            <Moon size={12} className="text-sky-500" aria-hidden="true" />
+            <Moon
+              size={12}
+              className="text-sky-500 dark:text-sky-400"
+              aria-hidden="true"
+            />
             夜行移動
           </li>
           <li className="flex items-center gap-1.5">
             <AlertTriangle
               size={12}
-              className="text-rose-600"
+              className="text-rose-600 dark:text-rose-300"
               aria-hidden="true"
             />
             未確保

@@ -622,7 +622,7 @@ export function BookingForm({
     // 「欄を直せば下線が消える」に委ねる
     const canVerify = bookingId !== undefined && aiUnverified === null
     return (
-      <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
+      <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
         <span>AI が入力した値です。内容を確認してください。</span>
         {canVerify ? (
           <button
@@ -630,7 +630,7 @@ export function BookingForm({
             onClick={() =>
               dispatch({ type: 'verifyField', id: bookingId, field })
             }
-            className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-800 transition hover:bg-amber-100"
+            className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200 transition hover:bg-amber-100 dark:hover:bg-amber-900/50"
           >
             確認済みにする
           </button>
@@ -864,15 +864,19 @@ export function BookingForm({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 p-5 shadow-xl outline-none dark:border dark:border-gray-700"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <header className="flex items-center justify-between gap-2">
             <h2
               id={titleId}
-              className="flex items-center gap-2 text-lg font-bold text-gray-900"
+              className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100"
             >
-              <KindIcon kind={form.kind} size={18} className="text-cyan-600" />
+              <KindIcon
+                kind={form.kind}
+                size={18}
+                className="text-cyan-600 dark:text-cyan-300"
+              />
               {booking === null ? '予約を追加' : '予約を編集'}
             </h2>
             <button
@@ -888,7 +892,7 @@ export function BookingForm({
           {error !== null ? (
             <p
               role="alert"
-              className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+              className="rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300"
             >
               {error}
             </p>
@@ -899,8 +903,8 @@ export function BookingForm({
             手で 1 件足したいだけの人にとっては通り道でしかないので、
             開かない限りフォームの見た目をほとんど変えない大きさに留める
           */}
-          <details className="group rounded-xl border border-cyan-200 bg-cyan-50/50 p-3">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-cyan-800">
+          <details className="group rounded-xl border border-cyan-200 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/30 p-3">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-cyan-800 dark:text-cyan-200">
               <ChevronDown
                 size={14}
                 className="transition group-open:rotate-180"
@@ -912,9 +916,9 @@ export function BookingForm({
             <div className="mt-3 space-y-3">
               <PromptCopyBlock prompt={prompt} copyLabel="プロンプトをコピー" />
               <AiServiceLinks compact />
-              <p className="text-xs leading-relaxed text-gray-600">
+              <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
                 コピーしたプロンプトを AI に貼り、
-                <strong className="font-semibold text-gray-800">
+                <strong className="font-semibold text-gray-800 dark:text-gray-100">
                   予約確認メールや PDF を添付して実行
                 </strong>
                 してください。出てきた JSON をそのまま下に貼り付けます。
@@ -926,7 +930,7 @@ export function BookingForm({
                 rows={4}
                 placeholder="AI の出力をそのまま貼り付け"
                 aria-label="AI が返した JSON を貼り付ける"
-                className={`${fieldClass} resize-y bg-white font-mono text-xs leading-relaxed`}
+                className={`${fieldClass} resize-y bg-white dark:bg-gray-900 font-mono text-xs leading-relaxed`}
               />
               <button
                 type="button"
@@ -941,7 +945,7 @@ export function BookingForm({
                   {parsedCount === 0 ? (
                     <p
                       role="status"
-                      className="text-sm font-medium text-rose-700"
+                      className="text-sm font-medium text-rose-700 dark:text-rose-300"
                     >
                       予約を読み取れませんでした。下の「問題の詳細」を確認してください
                     </p>
@@ -950,7 +954,7 @@ export function BookingForm({
                   {parsedCount === 1 && pendingOverwrite === null ? (
                     <p
                       role="status"
-                      className="text-sm font-medium text-emerald-700"
+                      className="text-sm font-medium text-emerald-700 dark:text-emerald-300"
                     >
                       1件を読み取って、下のフォームに反映しました
                     </p>
@@ -960,7 +964,7 @@ export function BookingForm({
                   {pendingOverwrite !== null ? (
                     <div
                       role="alert"
-                      className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                      className="space-y-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
                     >
                       <p>
                         1件を読み取りました。反映すると、いま入力されている内容は
@@ -990,11 +994,11 @@ export function BookingForm({
                     複数件は既存の一括取り込み(日時とタイムゾーンのレビュー付き)へ流す
                   */}
                   {parsedCount > 1 ? (
-                    <div className="space-y-2 rounded-xl border border-cyan-300 bg-white px-3 py-2 text-sm text-gray-700">
-                      <p className="font-medium text-gray-800">
+                    <div className="space-y-2 rounded-xl border border-cyan-300 dark:border-cyan-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-200">
+                      <p className="font-medium text-gray-800 dark:text-gray-100">
                         {parsedCount}件見つかりました。まとめて取り込みますか?
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         このフォームには1件しか入りません。日時とタイムゾーンを確認したうえで、まとめて取り込めます。
                       </p>
                       <button
@@ -1051,8 +1055,8 @@ export function BookingForm({
 
           {/* start は Booking 型上必須なので折りたためない。ただし time/tz には
             既定値(displayTz・10:00)を入れておき、開かなくても保存はできる */}
-          <fieldset className="space-y-2 rounded-xl border border-gray-200 p-3">
-            <legend className="px-1 text-sm font-semibold text-gray-700">
+          <fieldset className="space-y-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+            <legend className="px-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
               開始日時
             </legend>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1093,25 +1097,25 @@ export function BookingForm({
                 </select>
               </label>
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
               <input
                 type="checkbox"
                 checked={form.allDay}
                 onChange={(event) => set('allDay', event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 dark:text-cyan-300 focus:ring-cyan-500 dark:focus:ring-cyan-400"
               />
               終日の予定にする
             </label>
             {unverifiedNote('start')}
           </fieldset>
 
-          <fieldset className="space-y-2 rounded-xl border border-gray-200 p-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <fieldset className="space-y-2 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
               <input
                 type="checkbox"
                 checked={form.hasEnd}
                 onChange={(event) => set('hasEnd', event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 dark:text-cyan-300 focus:ring-cyan-500 dark:focus:ring-cyan-400"
               />
               {endLabelFor(form.kind)}を設定する
             </label>
@@ -1156,8 +1160,8 @@ export function BookingForm({
             {unverifiedNote('end')}
           </fieldset>
 
-          <details className="group rounded-xl border border-gray-200 p-3">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700">
+          <details className="group rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200">
               <ChevronDown
                 size={14}
                 className="transition group-open:rotate-180"
@@ -1277,8 +1281,8 @@ export function BookingForm({
               </label>
 
               {showCheckInTimes && (
-                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
+                <fieldset className="space-y-3 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <legend className="px-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                     オンラインチェックイン・搭乗手続きの時刻(出発の何分前か)
                   </legend>
                   {/*
@@ -1290,7 +1294,7 @@ export function BookingForm({
                     並びは時系列にする。オンラインチェックインが開くのがいちばん早く、
                     次に手荷物、最後に搭乗手続きが締まる。人が動く順に読める
                   */}
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     どれも空港・航空会社・路線(国内線/国際線)によって違います。
                     オンラインチェックインが開く時刻は運賃や会員資格でも変わります。
                     予約確認書やマイページに書かれていれば、その値を優先してください。
@@ -1326,11 +1330,11 @@ export function BookingForm({
               )}
 
               {showCheckInTimes && (
-                <fieldset className="space-y-3 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
+                <fieldset className="space-y-3 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <legend className="px-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                     荷物枠(許容量)
                   </legend>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     予約確認書に書いてある持込・受託の枠です。預け締切とは別です。
                     無料枠なしは個数に 0。分からない欄は空のままにしてください。
                   </p>
@@ -1380,8 +1384,8 @@ export function BookingForm({
               </label>
 
               {showPlace ? (
-                <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">
+                <fieldset className="space-y-2 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <legend className="px-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                     場所
                   </legend>
                   <label className="block space-y-1">
@@ -1423,8 +1427,8 @@ export function BookingForm({
                 </fieldset>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                    <legend className="px-1 text-xs font-semibold text-gray-500">
+                  <fieldset className="space-y-2 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                    <legend className="px-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       出発地
                     </legend>
                     <label className="block space-y-1">
@@ -1456,8 +1460,8 @@ export function BookingForm({
                     {unverifiedNote('from')}
                   </fieldset>
 
-                  <fieldset className="space-y-2 rounded-lg border border-gray-100 p-3">
-                    <legend className="px-1 text-xs font-semibold text-gray-500">
+                  <fieldset className="space-y-2 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                    <legend className="px-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       到着地
                     </legend>
                     <label className="block space-y-1">
@@ -1556,7 +1560,7 @@ function LatinNameField({
         onChange={(event) => onChange(event.target.value)}
         className={fieldClass}
       />
-      <span className="block text-xs font-normal text-gray-500">
+      <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
         Rome2Rio や Google
         マップなど外部の検索サイトに渡す用。日本語の地名のままだと検索が空振りします。
         空港などを除けば、施設名より都市名のほうが当たります。
@@ -1626,9 +1630,13 @@ function MinutesBeforeField({
             onChange={(event) => onChange(event.target.value)}
             className={`${fieldClass} max-w-28 ${unverifiedClass}`}
           />
-          <span className="shrink-0 text-sm text-gray-600">分前</span>
+          <span className="shrink-0 text-sm text-gray-600 dark:text-gray-300">
+            分前
+          </span>
           {hours !== null ? (
-            <span className="shrink-0 text-xs text-gray-500">= {hours}</span>
+            <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+              = {hours}
+            </span>
           ) : null}
         </span>
       </label>
@@ -1643,8 +1651,8 @@ function MinutesBeforeField({
               aria-pressed={selected}
               className={`min-h-9 rounded-full border px-3 py-1 text-xs font-medium transition ${
                 selected
-                  ? 'border-cyan-600 bg-cyan-600 text-white'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                  ? 'border-cyan-600 bg-cyan-600 text-white dark:border-cyan-400 dark:bg-cyan-400 dark:text-gray-950'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
               {preset.label}
@@ -1655,7 +1663,7 @@ function MinutesBeforeField({
           <button
             type="button"
             onClick={() => onChange('')}
-            className="min-h-9 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+            className="min-h-9 rounded-full border border-gray-300 dark:border-gray-600 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 transition hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             クリア
           </button>
@@ -1694,7 +1702,9 @@ function BaggageSlotFields({
       <span className={labelClass}>{label}</span>
       <div className="grid grid-cols-3 gap-2">
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">個数</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            個数
+          </span>
           <input
             type="number"
             inputMode="numeric"
@@ -1708,7 +1718,9 @@ function BaggageSlotFields({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">重量(kg)</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            重量(kg)
+          </span>
           <input
             type="number"
             inputMode="decimal"
@@ -1721,7 +1733,9 @@ function BaggageSlotFields({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-[11px] text-gray-500">寸法</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            寸法
+          </span>
           <input
             type="text"
             value={dimensions}

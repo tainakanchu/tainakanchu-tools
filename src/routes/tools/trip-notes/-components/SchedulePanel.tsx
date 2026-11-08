@@ -187,8 +187,8 @@ function OngoingRow({
   */
   const rowClass =
     status.tone === 'event'
-      ? 'border-slate-300 border-l-4 border-l-slate-500 bg-slate-50 text-gray-700 hover:bg-slate-100'
-      : 'border-dashed border-gray-200 bg-gray-50/60 text-gray-500 hover:bg-gray-100'
+      ? 'border-slate-300 dark:border-slate-600 border-l-4 border-l-slate-500 bg-slate-50 dark:bg-slate-800/50 text-gray-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+      : 'border-dashed border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/42 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
 
   return (
     <button
@@ -210,7 +210,7 @@ function OngoingRow({
       {status.tone === 'event' ? (
         <status.icon
           size={13}
-          className="shrink-0 text-slate-600"
+          className="shrink-0 text-slate-600 dark:text-slate-300"
           aria-hidden="true"
         />
       ) : (
@@ -230,7 +230,7 @@ function OngoingRow({
       <span
         className={
           status.tone === 'event'
-            ? 'shrink-0 font-bold text-gray-900'
+            ? 'shrink-0 font-bold text-gray-900 dark:text-gray-100'
             : 'shrink-0 text-gray-400'
         }
       >
@@ -332,7 +332,10 @@ export function SchedulePanel({
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className={sectionTitleClass}>
-          <CalendarDays size={18} className="text-cyan-600" />
+          <CalendarDays
+            size={18}
+            className="text-cyan-600 dark:text-cyan-300"
+          />
           日程タイムライン
         </h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -370,13 +373,13 @@ export function SchedulePanel({
         >
           <CalendarDays
             size={32}
-            className="text-gray-300"
+            className="text-gray-300 dark:text-gray-600"
             aria-hidden="true"
           />
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
             まだ予約がありません
           </p>
-          <p className="max-w-sm text-xs text-gray-500">
+          <p className="max-w-sm text-xs text-gray-500 dark:text-gray-400">
             宿泊・移動・アクティビティの予約を追加すると、ここに日ごとのタイムラインが並びます。
           </p>
           <button
@@ -402,11 +405,13 @@ export function SchedulePanel({
                   else dayRefs.current.delete(day.date)
                 }}
                 className={`scroll-mt-20 rounded-2xl transition ${
-                  highlighted ? 'ring-2 ring-cyan-400 ring-offset-2' : ''
+                  highlighted
+                    ? 'ring-2 ring-cyan-400 ring-offset-2 dark:ring-offset-gray-950'
+                    : ''
                 }`}
               >
-                <div className="sticky top-16 z-10 flex items-center justify-between gap-2 bg-white/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-                  <h3 className="text-sm font-bold text-gray-800">
+                <div className="sticky top-16 z-10 flex items-center justify-between gap-2 bg-white/95 dark:bg-gray-950/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-950/80">
+                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
                     {formatDateJa(day.date)}
                   </h3>
                   <button
@@ -424,7 +429,7 @@ export function SchedulePanel({
 
                 <div className="mt-2 space-y-2">
                   {timeline.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-400">
+                    <p className="rounded-xl border border-dashed border-gray-200 dark:border-gray-800 px-3 py-3 text-xs text-gray-400">
                       この日の予定はまだありません
                     </p>
                   ) : (
@@ -503,7 +508,7 @@ export function SchedulePanel({
 
       {modalState.mode !== 'closed' ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) closeModal()
           }}

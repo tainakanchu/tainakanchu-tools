@@ -60,18 +60,19 @@ const SEVERITY_CLASSES: Record<
   { box: string; icon: string; title: string; body: string; badge: string }
 > = {
   warning: {
-    box: 'border-amber-200 bg-amber-50',
-    icon: 'text-amber-600',
-    title: 'text-amber-900',
-    body: 'text-amber-800',
-    badge: 'border-amber-300 text-amber-700',
+    box: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40',
+    icon: 'text-amber-600 dark:text-amber-300',
+    title: 'text-amber-900 dark:text-amber-200',
+    body: 'text-amber-800 dark:text-amber-200',
+    badge:
+      'border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300',
   },
   info: {
-    box: 'border-sky-200 bg-sky-50',
-    icon: 'text-sky-600',
-    title: 'text-sky-900',
-    body: 'text-sky-800',
-    badge: 'border-sky-300 text-sky-700',
+    box: 'border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40',
+    icon: 'text-sky-600 dark:text-sky-300',
+    title: 'text-sky-900 dark:text-sky-200',
+    body: 'text-sky-800 dark:text-sky-200',
+    badge: 'border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300',
   },
 }
 
@@ -94,7 +95,7 @@ function IssueSection({
 
   return (
     <div className="mt-4">
-      <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500">
+      <p className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400">
         <HeadingIcon size={13} aria-hidden="true" />
         {title}
         <span className="tabular-nums">{issues.length}件</span>
@@ -122,7 +123,7 @@ function IssueSection({
                   >
                     {style.label}
                     <span
-                      className={`rounded-full border bg-white px-1.5 py-0.5 text-[10px] font-semibold ${tone.badge}`}
+                      className={`rounded-full border bg-white dark:bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold ${tone.badge}`}
                     >
                       {formatDateJa(issue.date)}
                     </span>
@@ -145,7 +146,7 @@ function IssueSection({
                     onClick={() =>
                       onTreatAsSamePlace([issue.fromLabel, issue.toLabel])
                     }
-                    className={`${subtleButtonClass} bg-white`}
+                    className={`${subtleButtonClass} bg-white dark:bg-gray-900`}
                     aria-label={`${issue.fromLabel} と ${issue.toLabel} を同じ場所として扱う`}
                   >
                     <MapPinCheck size={14} aria-hidden="true" />
@@ -155,7 +156,7 @@ function IssueSection({
                 <button
                   type="button"
                   onClick={() => onSelectDate(issue.date)}
-                  className={`${subtleButtonClass} bg-white`}
+                  className={`${subtleButtonClass} bg-white dark:bg-gray-900`}
                   aria-label={`${formatDateJa(issue.date)}の日程を開く`}
                 >
                   {/* 情報の指摘は直すものではないので、行き先だけ示す */}

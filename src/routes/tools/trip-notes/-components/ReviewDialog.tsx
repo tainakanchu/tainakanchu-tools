@@ -274,7 +274,7 @@ export function ReviewDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4"
       onClick={onCancel}
     >
       <div
@@ -283,15 +283,18 @@ export function ReviewDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl outline-none"
+        className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-xl outline-none dark:border dark:border-gray-700"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2 border-b border-gray-200 p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-2 border-b border-gray-200 dark:border-gray-800 p-4 sm:p-5">
           <div>
-            <h2 id={titleId} className="text-base font-semibold text-gray-800">
+            <h2
+              id={titleId}
+              className="text-base font-semibold text-gray-800 dark:text-gray-100"
+            >
               日時とタイムゾーンの確認
             </h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
               下の一覧が、そのまま取り込まれる日時とタイムゾーンです。目を通して問題なければ
               まとめて取り込めます。直したい予約だけ「日時を直す」を開いてください。
               それ以外の項目は取り込んだあと、黄色い下線が付いた状態で確認できます。
@@ -300,7 +303,7 @@ export function ReviewDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-200"
             aria-label="閉じる"
           >
             <X size={18} aria-hidden="true" />
@@ -311,7 +314,7 @@ export function ReviewDialog({
           {attentionCount > 0 && (
             <p
               role="status"
-              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+              className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
             >
               {bookings.length}件のうち{attentionCount}
               件は特に確認してください。一覧の先頭にまとめ、理由のラベルを付けています。
@@ -338,10 +341,10 @@ export function ReviewDialog({
               return (
                 <li
                   key={booking.id}
-                  className={`rounded-2xl border bg-white p-3 shadow-sm sm:p-4 ${
+                  className={`rounded-2xl border bg-white dark:bg-gray-900 p-3 shadow-sm sm:p-4 ${
                     reasons.length > 0
-                      ? 'border-amber-300 bg-amber-50/40'
-                      : 'border-gray-200'
+                      ? 'border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/24'
+                      : 'border-gray-200 dark:border-gray-800'
                   } ${edit.excluded ? 'opacity-50' : ''}`}
                 >
                   <datalist id={tzListId}>
@@ -356,13 +359,13 @@ export function ReviewDialog({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <KindIcon kind={booking.kind} />
-                        <span className="truncate font-semibold text-gray-800">
+                        <span className="truncate font-semibold text-gray-800 dark:text-gray-100">
                           {booking.title}
                         </span>
                         {reasons.map((reason) => (
                           <span
                             key={reason}
-                            className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                            className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
                           >
                             {ATTENTION_LABELS[reason]}
                           </span>
@@ -371,15 +374,19 @@ export function ReviewDialog({
 
                       <dl className="mt-1.5 space-y-0.5 text-xs">
                         <div className="flex gap-2">
-                          <dt className="w-8 shrink-0 text-gray-500">開始</dt>
-                          <dd className="font-mono text-gray-800">
+                          <dt className="w-8 shrink-0 text-gray-500 dark:text-gray-400">
+                            開始
+                          </dt>
+                          <dd className="font-mono text-gray-800 dark:text-gray-100">
                             {describeField(edit.start)}
                           </dd>
                         </div>
                         {edit.end !== null && (
                           <div className="flex gap-2">
-                            <dt className="w-8 shrink-0 text-gray-500">終了</dt>
-                            <dd className="font-mono text-gray-800">
+                            <dt className="w-8 shrink-0 text-gray-500 dark:text-gray-400">
+                              終了
+                            </dt>
+                            <dd className="font-mono text-gray-800 dark:text-gray-100">
                               {describeField(edit.end)}
                             </dd>
                           </div>
@@ -394,7 +401,7 @@ export function ReviewDialog({
                         aria-expanded={open}
                         aria-controls={detailId}
                         aria-label={`${booking.title} の日時を直す`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
                       >
                         {open ? (
                           <ChevronUp size={13} aria-hidden="true" />
@@ -403,7 +410,7 @@ export function ReviewDialog({
                         )}
                         日時を直す
                       </button>
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
                         <input
                           type="checkbox"
                           checked={edit.excluded}
@@ -459,7 +466,7 @@ export function ReviewDialog({
                               placeholder="IANAタイムゾーン名"
                               aria-label={`${booking.title} の開始タイムゾーン`}
                             />
-                            <label className="flex items-center gap-1.5 text-sm text-gray-600">
+                            <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
                               <input
                                 type="checkbox"
                                 checked={edit.start.allDay}
@@ -475,13 +482,13 @@ export function ReviewDialog({
                           {startInvalid && (
                             <p
                               role="alert"
-                              className="text-xs font-medium text-rose-600"
+                              className="text-xs font-medium text-rose-600 dark:text-rose-300"
                             >
                               開始日時を解釈できません。日付・時刻・タイムゾーンを見直してください
                             </p>
                           )}
                           {booking.evidence?.start !== undefined && (
-                            <blockquote className="border-l-4 border-gray-300 pl-2 text-xs text-gray-600">
+                            <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-2 text-xs text-gray-600 dark:text-gray-300">
                               {booking.evidence.start}
                             </blockquote>
                           )}
@@ -524,7 +531,7 @@ export function ReviewDialog({
                                 placeholder="IANAタイムゾーン名"
                                 aria-label={`${booking.title} の終了タイムゾーン`}
                               />
-                              <label className="flex items-center gap-1.5 text-sm text-gray-600">
+                              <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
                                 <input
                                   type="checkbox"
                                   checked={edit.end.allDay}
@@ -540,13 +547,13 @@ export function ReviewDialog({
                             {endInvalid && (
                               <p
                                 role="alert"
-                                className="text-xs font-medium text-rose-600"
+                                className="text-xs font-medium text-rose-600 dark:text-rose-300"
                               >
                                 終了日時を解釈できません。日付・時刻・タイムゾーンを見直してください
                               </p>
                             )}
                             {booking.evidence?.end !== undefined && (
-                              <blockquote className="border-l-4 border-gray-300 pl-2 text-xs text-gray-600">
+                              <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-2 text-xs text-gray-600 dark:text-gray-300">
                                 {booking.evidence.end}
                               </blockquote>
                             )}
@@ -561,7 +568,7 @@ export function ReviewDialog({
           </ul>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 dark:border-gray-800 p-4 sm:p-5">
           <button
             type="button"
             className={subtleButtonClass}
