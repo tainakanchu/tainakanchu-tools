@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CATEGORY_COLORS } from './categoryColors'
+import { CATEGORY_COLORS, CATEGORY_COLORS_DARK } from './categoryColors'
 import {
   LOCAL_NAME_TEXT_FIELD,
   coreBounds,
@@ -43,6 +43,11 @@ describe('spotsToFeatureCollection', () => {
   it('絞り込み中のジャンルを持っていれば、その色で塗る', () => {
     const fc = spotsToFeatureCollection([spot({})], 'drink')
     expect(fc.features[0].properties.color).toBe(CATEGORY_COLORS.drink)
+  })
+
+  it('ダークでは一段明るいジャンル色で塗る', () => {
+    const fc = spotsToFeatureCollection([spot({})], 'drink', 'dark')
+    expect(fc.features[0].properties.color).toBe(CATEGORY_COLORS_DARK.drink)
   })
 
   it('未訪問は visited=false で、行った場所より下に重ねる', () => {

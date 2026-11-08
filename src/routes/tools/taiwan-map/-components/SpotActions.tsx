@@ -269,8 +269,8 @@ export function SpotComment({
     <blockquote
       className={`border-l-[3px] pl-2.5 leading-relaxed whitespace-pre-line ${
         wantToGo
-          ? 'border-dashed border-slate-300 text-slate-600'
-          : 'border-gray-300 text-gray-800'
+          ? 'border-dashed border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
+          : 'border-gray-300 text-gray-800 dark:border-gray-600 dark:text-gray-200'
       } ${clampClass} ${className ?? ''}`}
     >
       <span className="sr-only">かんちゅのコメント: </span>

@@ -119,27 +119,27 @@ export const SpotCard = memo(function SpotCard({
       // 貼り付く一覧 / 地図の切り替え（index.tsx）の下に隠れないように
       className={`scroll-mt-36 rounded-2xl border p-3.5 shadow-sm transition focus:outline-none sm:p-4 lg:scroll-mt-20 ${
         wantToGo
-          ? 'border-dashed border-slate-300 bg-slate-50/70'
-          : 'border-gray-200 bg-white'
-      } ${selected ? 'ring-2 ring-cyan-500 ring-offset-2' : ''}`}
+          ? 'border-dashed border-slate-300 bg-slate-50/70 dark:border-slate-600 dark:bg-slate-900/40'
+          : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900'
+      } ${selected ? 'ring-2 ring-cyan-500 ring-offset-2 dark:ring-cyan-400 dark:ring-offset-gray-950' : ''} dark:shadow-none`}
     >
       <header>
         <div className="flex items-start gap-2">
           <h3
             id={`${detailId}-name`}
-            className="min-w-0 flex-1 text-base leading-snug font-bold text-gray-900 sm:text-lg"
+            className="min-w-0 flex-1 text-base leading-snug font-bold text-gray-900 sm:text-lg dark:text-gray-100"
           >
             <button
               type="button"
               onClick={() => onSelect(spot.id)}
-              className="text-left hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+              className="text-left hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:hover:text-cyan-300 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
             >
               {spot.name}
             </button>
             {nameZh && (
               <span
                 lang="zh-Hant-TW"
-                className="ml-2 text-sm font-normal text-gray-500"
+                className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400"
               >
                 {nameZh}
               </span>
@@ -148,7 +148,7 @@ export const SpotCard = memo(function SpotCard({
           <SpotLinkIcons spot={spot} />
         </div>
         {subtitle && (
-          <p className="mt-0.5 text-sm text-gray-600">
+          <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
             <span className="sr-only">どんな場所か: </span>
             {subtitle}
           </p>
@@ -162,7 +162,7 @@ export const SpotCard = memo(function SpotCard({
             <CategoryChip key={c} category={c} />
           ))}
           {(showCity || area) && (
-            <span className="inline-flex items-center gap-0.5 text-xs text-gray-500">
+            <span className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400">
               <MapPin size={12} aria-hidden />
               {[showCity ? getCity(spot.city).name : null, area?.name]
                 .filter(Boolean)
@@ -170,7 +170,7 @@ export const SpotCard = memo(function SpotCard({
             </span>
           )}
           {distance !== undefined && (
-            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700">
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
               <Navigation size={11} aria-hidden />
               現在地から{formatDistance(distance)}
             </span>
@@ -187,14 +187,14 @@ export const SpotCard = memo(function SpotCard({
       )}
 
       {note && (
-        <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-line text-gray-600">
+        <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-line text-gray-600 dark:text-gray-300">
           {note}
         </p>
       )}
 
       {spot.tried && spot.tried.length > 0 && (
-        <p className="mt-1.5 text-sm text-gray-700">
-          <span className="text-xs font-semibold text-gray-500">
+        <p className="mt-1.5 text-sm text-gray-700 dark:text-gray-200">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
             食べたもの・飲んだもの：
           </span>
           {spot.tried.join('、')}
@@ -202,7 +202,7 @@ export const SpotCard = memo(function SpotCard({
       )}
 
       {spot.visitedAt && (
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           訪問：{formatVisitedAt(spot.visitedAt)}
         </p>
       )}

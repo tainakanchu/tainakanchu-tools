@@ -225,7 +225,7 @@ function TaiwanMapPage() {
   if (data.mode === 'landing') {
     // トップは地図を出さない読み物なので、行が長くなりすぎない幅に収める
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8 text-gray-900">
+      <main className="mx-auto max-w-4xl px-4 py-8 text-gray-900 dark:text-gray-100">
         <h1 className="mb-6 text-2xl font-bold sm:text-3xl">{tool.name}</h1>
         <Landing
           manifest={data.manifest}
@@ -238,7 +238,7 @@ function TaiwanMapPage() {
 
   // 一覧・地図の画面は、地図を大きく見せるため画面幅いっぱいを使う
   return (
-    <main className="text-gray-900">
+    <main className="text-gray-900 dark:text-gray-100">
       <Results
         search={search}
         data={data.data}
@@ -519,7 +519,7 @@ function Results({
   const conditions = describeConditions(search, selectedArea?.name)
 
   const emptyResult = (
-    <div className="space-y-3 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-600">
+    <div className="space-y-3 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-600 dark:border-gray-600 dark:text-gray-300">
       <p>この条件に合う場所はありません。</p>
       {clearButton}
     </div>
@@ -534,7 +534,7 @@ function Results({
       {/* 絞り込み中はタイトルをトップへの戻り口にする */}
       <Link
         to="/tools/taiwan-map"
-        className="hover:text-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        className="hover:text-cyan-700 dark:hover:text-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
       >
         {tool.name}
       </Link>
@@ -545,11 +545,11 @@ function Results({
     // スマホだけの切り替え。既定は一覧で、地図を最初の画面にはしない。
     // 一覧をどこまでスクロールしても地図へ切り替えられるよう、サイトの
     // ヘッダー（h-16）の下に貼り付ける
-    <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-2 backdrop-blur lg:hidden">
+    <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-2 backdrop-blur lg:hidden dark:bg-gray-950/95">
       <div
         role="group"
         aria-label="表示の切り替え"
-        className="flex rounded-xl bg-gray-100 p-1"
+        className="flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800"
       >
         <button
           type="button"
@@ -561,7 +561,9 @@ function Results({
             <List size={14} aria-hidden />
             一覧
             {data && (
-              <span className="text-xs text-gray-500">{spots.length}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {spots.length}
+              </span>
             )}
           </span>
         </button>
@@ -586,7 +588,7 @@ function Results({
     // スマホ: 一覧 / 地図を切り替え。地図は画面の高さいっぱい近くに出す
     <div className="lg:grid lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[460px_minmax(0,1fr)]">
       <div
-        className={`min-w-0 space-y-4 px-4 lg:border-r lg:border-gray-200 lg:px-5 lg:py-6 ${
+        className={`min-w-0 space-y-4 px-4 lg:border-r lg:border-gray-200 lg:px-5 dark:lg:border-gray-800 lg:py-6 ${
           showList ? 'pt-5 pb-8' : ''
         }`}
       >
@@ -611,16 +613,19 @@ function Results({
         )}
 
         {showList && (
-          <div className="space-y-2 border-t border-gray-200 pt-3">
+          <div className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-800">
             <SearchBox value={search.q} onChange={handleQueryChange} />
             {/* 「台北 大稻埕・迪化街 食べる 12 件」。条件は区切り記号でつながず、
                 1 つずつ別の語として並べる */}
             <p
-              className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-600"
+              className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-600 dark:text-gray-300"
               aria-live="polite"
             >
               {conditions.map((c) => (
-                <span key={c} className="font-medium text-gray-800">
+                <span
+                  key={c}
+                  className="font-medium text-gray-800 dark:text-gray-100"
+                >
                   {c}{' '}
                 </span>
               ))}
@@ -655,7 +660,7 @@ function Results({
                 <div
                   role="group"
                   aria-label="並び順"
-                  className="flex shrink-0 rounded-xl bg-gray-100 p-1"
+                  className="flex shrink-0 rounded-xl bg-gray-100 p-1 dark:bg-gray-800"
                 >
                   <button
                     type="button"
@@ -678,7 +683,10 @@ function Results({
                   </button>
                 </div>
                 {/* 位置情報の案内。「近い順」を押すまでは何も出さない */}
-                <p className="text-xs text-gray-500" aria-live="polite">
+                <p
+                  className="text-xs text-gray-500 dark:text-gray-400"
+                  aria-live="polite"
+                >
                   {order !== 'distance'
                     ? null
                     : geo.status === 'locating'
@@ -702,7 +710,7 @@ function Results({
         {error && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
           >
             <p>データを読み込めませんでした: {error}</p>
             <button
@@ -719,7 +727,7 @@ function Results({
         {spotStatus === 'missing' && (
           <p
             role="status"
-            className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
           >
             リンクのスポットが見つかりませんでした。削除されたか、id
             が変わった可能性があります。
@@ -728,7 +736,7 @@ function Results({
         {spotStatus === 'elsewhere' && spotCity && search.spot && (
           <div
             role="status"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
           >
             <p>リンクの場所は{getCity(spotCity).name}にあります。</p>
             <button
@@ -752,7 +760,7 @@ function Results({
         {spotStatus === 'filtered' && (
           <div
             role="status"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
           >
             <p>リンクのスポットは、今の絞り込み条件には含まれていません。</p>
             {hasSecondaryFilter && (
@@ -769,13 +777,13 @@ function Results({
 
         {showList && selectedArea && (
           // cyan は押せるものの色なので、読むだけのエリア紹介には使わない
-          <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <h2 className="font-semibold text-gray-900">
+          <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
               {selectedArea.name}
               {selectedArea.nameZh && (
                 <span
                   lang="zh-Hant-TW"
-                  className="ml-2 text-sm font-normal text-gray-500"
+                  className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400"
                 >
                   {selectedArea.nameZh}
                 </span>
@@ -788,7 +796,7 @@ function Results({
               <blockquote
                 ref={areaSummaryRef}
                 id="tw-area-summary"
-                className={`mt-1.5 border-l-[3px] border-gray-300 pl-2.5 text-sm leading-relaxed whitespace-pre-line text-gray-800 ${
+                className={`mt-1.5 border-l-[3px] border-gray-300 pl-2.5 text-sm leading-relaxed whitespace-pre-line text-gray-800 dark:border-gray-600 dark:text-gray-200 ${
                   areaClamped ? 'line-clamp-2' : ''
                 }`}
               >
@@ -797,7 +805,7 @@ function Results({
               </blockquote>
             )}
             {areaNote && (isDesktop || areaExpanded) && (
-              <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600">
+              <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600 dark:text-gray-300">
                 {areaNote}
               </p>
             )}
@@ -806,7 +814,7 @@ function Results({
                 type="button"
                 aria-expanded={areaExpanded}
                 aria-controls="tw-area-summary"
-                className="mt-1 text-sm font-medium text-cyan-700 hover:text-cyan-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                className="mt-1 text-sm font-medium text-cyan-700 hover:text-cyan-900 dark:text-cyan-300 dark:hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
                 onClick={() => setAreaExpanded((v) => !v)}
               >
                 {areaExpanded ? '閉じる' : '続きを読む'}
@@ -851,7 +859,7 @@ function Results({
       {/* 読み込むまでは地図の代わりに状態だけ出す（デスクトップ） */}
       {showMap && isDesktop && !data && (
         <aside
-          className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50 px-4 text-center text-sm text-gray-500"
+          className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center justify-center bg-gray-50 px-4 text-center text-sm text-gray-500 dark:bg-gray-900 dark:text-gray-400"
           aria-label="地図"
         >
           {error ? '地図を出せませんでした。' : '地図を読み込み中…'}
@@ -864,12 +872,12 @@ function Results({
         <aside
           aria-label="地図"
           // スマホ: サイトのヘッダー（4rem）と切り替え（3.25rem）を除いた高さ
-          className="relative h-[calc(100dvh-7.25rem)] bg-gray-100 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)]"
+          className="relative h-[calc(100dvh-7.25rem)] bg-gray-100 lg:sticky dark:bg-gray-900 lg:top-16 lg:h-[calc(100dvh-4rem)]"
         >
           <MapErrorBoundary>
             <Suspense
               fallback={
-                <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                <p className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                   地図を読み込み中…
                 </p>
               }
@@ -981,7 +989,7 @@ function SearchBox({
       <Search
         size={16}
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
+        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400 dark:text-gray-500"
       />
       <input
         type="search"
@@ -992,7 +1000,7 @@ function SearchBox({
         aria-label="店名・タグ・エリア・コメントで探す"
         enterKeyHint="search"
         // スマホで 16px 未満だと iOS が入力時に拡大するので text-base
-        className="w-full rounded-xl border border-gray-300 bg-white py-2 pr-10 pl-9 text-base text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 focus:outline-none lg:text-sm [&::-webkit-search-cancel-button]:hidden"
+        className="w-full rounded-xl border border-gray-300 bg-white py-2 pr-10 pl-9 text-base text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 focus:outline-none lg:text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30 [&::-webkit-search-cancel-button]:hidden"
       />
       {text !== '' && (
         <button
@@ -1002,7 +1010,7 @@ function SearchBox({
             setText('')
             commit('')
           }}
-          className="absolute top-1/2 right-1 -translate-y-1/2 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          className="absolute top-1/2 right-1 -translate-y-1/2 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <X size={16} aria-hidden />
         </button>
@@ -1033,13 +1041,15 @@ function SelectedSpotCard({
     <div className={`${cardClass} space-y-2 !p-3 shadow-lg`}>
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <p className="font-semibold text-gray-900">{spot.name}</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">
+            {spot.name}
+          </p>
           <StatusBadge status={spot.status} />
           {spot.categories.map((c) => (
             <CategoryChip key={c} category={c} />
           ))}
           {distance !== undefined && (
-            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700">
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
               <Navigation size={11} aria-hidden />
               現在地から{formatDistance(distance)}
             </span>
@@ -1051,7 +1061,7 @@ function SelectedSpotCard({
           aria-label="閉じる"
           onClick={onClose}
           // 指で押すので 44px 四方（見た目の位置は余白に食い込ませて保つ）
-          className="-mt-2 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          className="-mt-2 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <X size={18} aria-hidden />
         </button>
@@ -1085,7 +1095,7 @@ function SelectedSpotCard({
 function MapEmptyNotice({ clearButton }: { clearButton: ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-x-4 top-1/2 z-10 flex -translate-y-1/2 justify-center">
-      <div className="pointer-events-auto space-y-2 rounded-xl bg-white/95 px-4 py-3 text-center text-sm text-gray-600 shadow-md">
+      <div className="pointer-events-auto space-y-2 rounded-xl bg-white/95 px-4 py-3 text-center text-sm text-gray-600 shadow-md dark:bg-gray-900/95 dark:text-gray-300 dark:ring-1 dark:ring-gray-700">
         <p>この条件に合う場所はありません。</p>
         {clearButton}
       </div>
@@ -1100,19 +1110,19 @@ function MapEmptyNotice({ clearButton }: { clearButton: ReactNode }) {
  */
 function MapLegend() {
   return (
-    <div className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-lg bg-white/90 px-2.5 py-1.5 text-[0.7rem] leading-relaxed text-gray-600 shadow-sm backdrop-blur">
+    <div className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-lg bg-white/90 px-2.5 py-1.5 text-[0.7rem] leading-relaxed text-gray-600 shadow-sm backdrop-blur dark:bg-gray-900/90 dark:text-gray-300 dark:shadow-none">
       <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
-            className="inline-block h-3 w-3 rounded-full border-2 border-white bg-gray-500 shadow"
+            className="inline-block h-3 w-3 rounded-full border-2 border-white bg-gray-500 shadow dark:border-slate-900 dark:bg-gray-400"
           />
           行った
         </li>
         <li className="inline-flex items-center gap-1">
           <span
             aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full border-2 border-gray-500 bg-white"
+            className="inline-block h-2.5 w-2.5 rounded-full border-2 border-gray-500 bg-white dark:border-gray-400 dark:bg-slate-900"
           />
           未訪問・気になる
         </li>

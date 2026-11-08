@@ -54,7 +54,7 @@ export function SpotPopup({
       // 最初の位置が決まるまでは見せない（左上に一瞬出るのを防ぐ）
       style={{ visibility: 'hidden' }}
       tabIndex={-1}
-      className="absolute top-0 left-0 z-20 w-80 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-lg focus:outline-none"
+      className="absolute top-0 left-0 z-20 w-80 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:shadow-black/50"
     >
       <div className="flex items-start gap-2">
         <h3 id={titleId} className="min-w-0 flex-1 leading-snug font-bold">
@@ -62,7 +62,7 @@ export function SpotPopup({
           {nameZh && (
             <span
               lang="zh-Hant-TW"
-              className="ml-1.5 text-xs font-normal text-gray-500"
+              className="ml-1.5 text-xs font-normal text-gray-500 dark:text-gray-400"
             >
               {nameZh}
             </span>
@@ -73,7 +73,7 @@ export function SpotPopup({
           type="button"
           onClick={onClose}
           aria-label="閉じる"
-          className="-mt-1 -mr-1 shrink-0 rounded-lg p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          className="-mt-1 -mr-1 shrink-0 rounded-lg p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline focus-visible:outline-2 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
         >
           <X size={16} aria-hidden />
         </button>
@@ -84,13 +84,13 @@ export function SpotPopup({
           <CategoryChip key={c} category={c} />
         ))}
         {areaName && (
-          <span className="inline-flex items-center gap-0.5 text-xs text-gray-500">
+          <span className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400">
             <MapPin size={12} aria-hidden />
             {areaName}
           </span>
         )}
         {distance !== undefined && (
-          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700">
+          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
             <Navigation size={11} aria-hidden />
             現在地から{formatDistance(distance)}
           </span>
@@ -105,7 +105,7 @@ export function SpotPopup({
         />
       )}
       {spot.visitedAt && (
-        <p className="mt-1.5 text-xs text-gray-500">
+        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
           訪問：{formatVisitedAt(spot.visitedAt)}
         </p>
       )}
@@ -116,7 +116,7 @@ export function SpotPopup({
       <span
         aria-hidden
         data-popup-arrow
-        className="absolute h-3 w-3 -translate-x-1/2 rotate-45 border-gray-200 bg-white"
+        className="absolute h-3 w-3 -translate-x-1/2 rotate-45 border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
       />
     </div>
   )

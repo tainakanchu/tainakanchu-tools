@@ -13,6 +13,7 @@
 import { SPOT_CATEGORIES } from '../../../../lib/taiwan-map/types'
 import { categoryColor } from '../-lib/categoryColors'
 import { chipCountClass, mapChipClass } from '../-lib/styles'
+import { useTheme } from '../../../../components/theme/ThemeScope'
 import type { SpotCategory } from '../../../../lib/taiwan-map/types'
 
 type Props = {
@@ -22,6 +23,8 @@ type Props = {
 }
 
 export function MapCategoryChips({ active, counts, onChange }: Props) {
+  // ドットはピンと同じ色（ダークの地図では一段明るいジャンル色）
+  const { theme } = useTheme()
   // 0 件のジャンルは押しても何も出ないので出さない（選択中のものは解除できるよう残す）
   const visible = SPOT_CATEGORIES.filter(
     (c) => (counts.get(c.id) ?? 0) > 0 || c.id === active,
@@ -59,8 +62,8 @@ export function MapCategoryChips({ active, counts, onChange }: Props) {
             >
               <span
                 aria-hidden
-                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white"
-                style={{ background: categoryColor(cat.id) }}
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white dark:ring-slate-900"
+                style={{ background: categoryColor(cat.id, theme) }}
               />
               {cat.name}
               <span className={chipCountClass}>{counts.get(cat.id) ?? 0}</span>

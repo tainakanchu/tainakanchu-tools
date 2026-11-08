@@ -313,7 +313,7 @@ export function FilterBar({
                 <SlidersHorizontal size={14} aria-hidden />
                 絞り込み
                 {activeCount > 0 && (
-                  <span className="rounded-full bg-cyan-600 px-1.5 text-xs leading-5 font-semibold text-white tabular-nums">
+                  <span className="rounded-full bg-cyan-600 px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:bg-cyan-400 dark:text-gray-950">
                     {activeCount}
                     <span className="sr-only"> 件の条件</span>
                   </span>
@@ -330,7 +330,7 @@ export function FilterBar({
                     key={c.key}
                     type="button"
                     // かかっている条件 = 選んでいる絞り込みなので塗り（styles.ts のチップの約束）
-                    className="inline-flex min-h-8 items-center gap-1 rounded-full border border-cyan-600 bg-cyan-600 py-1 pr-2 pl-3 text-sm font-semibold text-white transition hover:border-cyan-700 hover:bg-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                    className="inline-flex min-h-8 items-center gap-1 rounded-full border border-cyan-600 bg-cyan-600 py-1 pr-2 pl-3 text-sm font-semibold text-white transition hover:border-cyan-700 hover:bg-cyan-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-cyan-400 dark:bg-cyan-400 dark:text-gray-950 dark:hover:border-cyan-300 dark:hover:bg-cyan-300 focus-visible:outline-cyan-500 dark:focus-visible:outline-cyan-400"
                     aria-label={`「${c.label}」の条件を外す`}
                     onClick={() => onChange(c.clear)}
                   >

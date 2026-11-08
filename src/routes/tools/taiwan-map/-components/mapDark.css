@@ -1,0 +1,53 @@
+/*
+ * 地図の上の maplibre の部品（ズームボタン・帰属表示）のダーク。
+ * maplibre-gl.css は白地・濃い灰のアイコン固定なので、サイトがダークのときだけ
+ * 上書きする（MapView の外枠 .tw-map の中だけ）。色は styles.css 冒頭の約束どおり
+ * 面 gray-900・罫線 gray-700・文字 gray-300（Tailwind の CSS 変数は使われて
+ * いないと出力されないので、同じ色の値を直に書く）。アイコンは SVG の背景画像なので
+ * 色を指定できず、invert で明るくする。印刷では効かせない（印刷は常にライト）。
+ * MapView と一緒に遅延読み込みされる。
+ */
+
+@media not print {
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-group {
+    background: #111827;
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-group:not(:empty) {
+    box-shadow: 0 0 0 1px #4b5563;
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-group button + button {
+    border-top-color: #374151;
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl button .maplibregl-ctrl-icon {
+    filter: invert(1) brightness(0.9);
+  }
+
+  @media (hover: hover) {
+    [data-theme='dark'] .tw-map .maplibregl-ctrl button:not(:disabled):hover {
+      background-color: #1f2937;
+    }
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl.maplibregl-ctrl-attrib {
+    background-color: rgb(17 24 39 / 0.85);
+    color: #d1d5db;
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-attrib.maplibregl-compact {
+    background-color: #111827;
+    color: #d1d5db;
+    box-shadow: 0 0 0 1px #4b5563;
+  }
+
+  /* (i) ボタン。白っぽい地に黒い i の画像なので、地ごと反転させる */
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-attrib-button {
+    filter: invert(1) brightness(0.9);
+  }
+
+  [data-theme='dark'] .tw-map .maplibregl-ctrl-attrib a {
+    color: #d1d5db;
+  }
+}
