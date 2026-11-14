@@ -45,7 +45,7 @@ interface TimetableViewProps {
   dayId: string | undefined
   onChangeView: (view: ViewId) => void
   onChangeDay: (dayId: string) => void
-  onUpdateDoc: (doc: TimetableDoc) => void
+  onUpdateDoc: (doc: TimetableDoc) => boolean
   onDelete: () => void
   onBack: () => void
 }
@@ -107,7 +107,9 @@ export function TimetableView({
 
   const commitFavorites = (next: Set<string>) => {
     setFavorites(next)
-    setSaveFailed(!saveFavorites(entry.id, [...next]))
+    const saved = saveFavorites(entry.id, [...next])
+    setSaveFailed(!saved)
+    return saved
   }
 
   const toggle = (actId: string) => {
@@ -125,19 +127,23 @@ export function TimetableView({
 
   const handleFriendsChange = (next: Array<FriendPick>) => {
     setFriends(next)
-    saveFriends(entry.id, next)
+    const saved = saveFriends(entry.id, next)
+    setSaveFailed(!saved)
+    return saved
   }
 
   const handleUpdate = (next: TimetableDoc) => {
     const remapped = remapActIds(doc, next, [...favorites])
-    commitFavorites(new Set(remapped.ids))
-    handleFriendsChange(
+    const favoritesSaved = commitFavorites(new Set(remapped.ids))
+    const friendsSaved = handleFriendsChange(
       friends.map((f) => ({
         ...f,
         actIds: remapActIds(doc, next, f.actIds).ids,
       })),
     )
-    onUpdateDoc(next)
+    const docSaved = onUpdateDoc(next)
+    setSaveFailed(!favoritesSaved || !friendsSaved)
+    if (!favoritesSaved || !friendsSaved || !docSaved) return
     setPanel('none')
     setNotice(
       remapped.lost.length > 0
@@ -289,7 +295,7 @@ export function TimetableView({
 
       {saveFailed && (
         <p className="shrink-0 border-l-4 border-rose-600 bg-rose-50 px-3 py-1 text-sm text-rose-800 dark:bg-rose-950/60 dark:text-rose-200">
-          お気に入りを端末に保存できませんでした。プライベートブラウズを使っている場合は通常のタブで開いてください。
+          端末に保存できませんでした。プライベートブラウズを使っている場合は通常のタブで開いてください。
         </p>
       )}
       {notice && (
