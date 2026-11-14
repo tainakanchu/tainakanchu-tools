@@ -45,9 +45,11 @@ function applyFavorites(
   friendName: string,
 ) {
   if (use === 'own') {
-    saveFavorites(entryId, [...new Set([...loadFavorites(entryId), ...ids])])
+    return saveFavorites(entryId, [
+      ...new Set([...loadFavorites(entryId), ...ids]),
+    ])
   } else {
-    saveFriends(entryId, [
+    return saveFriends(entryId, [
       ...loadFriends(entryId),
       { id: newLocalId('f'), name: friendName, actIds: ids },
     ])
@@ -98,6 +100,12 @@ function TimetablePage() {
   )
   const [shared, setShared] = useState<SharedTimetable | null>(null)
   const [shareBroken, setShareBroken] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
+  const saveFeedback = saveFailed && (
+    <p className="shrink-0 border-l-4 border-rose-600 bg-rose-50 px-3 py-1 text-sm text-rose-800 dark:bg-rose-950/60 dark:text-rose-200">
+      端末に保存できませんでした。プライベートブラウズを使っている場合は通常のタブで開いてください。
+    </p>
+  )
 
   // 共有URLで開かれたら、まず中身を見せる。保存するかは利用者が選ぶ
   useEffect(() => {
@@ -119,17 +127,23 @@ function TimetablePage() {
   }, [])
 
   const commitLibrary = (next: Array<SavedTimetable>) => {
-    setLibrary(next)
-    saveLibrary(next)
+    const saved = saveLibrary(next)
+    setSaveFailed(!saved)
+    if (saved) setLibrary(next)
+    return saved
   }
 
   const open = (id: string, view: ViewId = 'grid') =>
     void navigate({ search: { t: id, v: view } })
 
-  const addDoc = (doc: TimetableDoc): string => {
+  const addDoc = (doc: TimetableDoc): string | null => {
     const id = newLocalId()
-    commitLibrary([{ id, doc, savedAt: new Date().toISOString() }, ...library])
-    return id
+    return commitLibrary([
+      { id, doc, savedAt: new Date().toISOString() },
+      ...library,
+    ])
+      ? id
+      : null
   }
 
   const finishShare = () => {
@@ -139,54 +153,83 @@ function TimetablePage() {
 
   if (shared !== null) {
     return (
-      <IncomingShare
-        shared={shared}
-        library={library}
-        onSaveNew={({ use, friendName }) => {
-          const id = addDoc(shared.doc)
-          if (shared.favorites) {
-            applyFavorites(id, shared.favorites.actIds, use, friendName)
-          }
-          finishShare()
-          open(id)
-        }}
-        onMergeInto={(entryId, { use, friendName }) => {
-          const entry = library.find((e) => e.id === entryId)
-          if (entry === undefined) return
-          if (shared.favorites) {
-            const { ids } = remapActIds(
-              shared.doc,
-              entry.doc,
-              shared.favorites.actIds,
+      <>
+        {saveFeedback}
+        <IncomingShare
+          shared={shared}
+          library={library}
+          onSaveNew={({ use, friendName }) => {
+            const id = newLocalId()
+            if (
+              shared.favorites &&
+              !applyFavorites(id, shared.favorites.actIds, use, friendName)
+            ) {
+              setSaveFailed(true)
+              return
+            }
+            if (
+              !commitLibrary([
+                { id, doc: shared.doc, savedAt: new Date().toISOString() },
+                ...library,
+              ])
             )
-            applyFavorites(entryId, ids, use, friendName)
-          } else {
-            const { ids } = remapActIds(
-              entry.doc,
-              shared.doc,
-              loadFavorites(entryId),
-            )
-            saveFavorites(entryId, ids)
-            saveFriends(
-              entryId,
-              loadFriends(entryId).map((f) => ({
-                ...f,
-                actIds: remapActIds(entry.doc, shared.doc, f.actIds).ids,
-              })),
-            )
-            commitLibrary(
-              library.map((e) =>
-                e.id === entryId
-                  ? { ...e, doc: shared.doc, savedAt: new Date().toISOString() }
-                  : e,
-              ),
-            )
-          }
-          finishShare()
-          open(entryId)
-        }}
-        onDismiss={finishShare}
-      />
+              return
+            finishShare()
+            open(id)
+          }}
+          onMergeInto={(entryId, { use, friendName }) => {
+            const entry = library.find((e) => e.id === entryId)
+            if (entry === undefined) return
+            if (shared.favorites) {
+              const { ids } = remapActIds(
+                shared.doc,
+                entry.doc,
+                shared.favorites.actIds,
+              )
+              if (!applyFavorites(entryId, ids, use, friendName)) {
+                setSaveFailed(true)
+                return
+              }
+            } else {
+              const { ids } = remapActIds(
+                entry.doc,
+                shared.doc,
+                loadFavorites(entryId),
+              )
+              const favoritesSaved = saveFavorites(entryId, ids)
+              const friendsSaved = saveFriends(
+                entryId,
+                loadFriends(entryId).map((f) => ({
+                  ...f,
+                  actIds: remapActIds(entry.doc, shared.doc, f.actIds).ids,
+                })),
+              )
+              if (!favoritesSaved || !friendsSaved) {
+                setSaveFailed(true)
+                return
+              }
+              if (
+                !commitLibrary(
+                  library.map((e) =>
+                    e.id === entryId
+                      ? {
+                          ...e,
+                          doc: shared.doc,
+                          savedAt: new Date().toISOString(),
+                        }
+                      : e,
+                  ),
+                )
+              )
+                return
+            }
+            setSaveFailed(false)
+            finishShare()
+            open(entryId)
+          }}
+          onDismiss={finishShare}
+        />
+      </>
     )
   }
 
@@ -195,37 +238,41 @@ function TimetablePage() {
 
   if (entry !== undefined) {
     return (
-      <TimetableView
-        entry={entry}
-        view={search.v ?? 'grid'}
-        dayId={search.d}
-        onChangeView={(v) =>
-          void navigate({ search: { ...search, v }, replace: true })
-        }
-        onChangeDay={(d) =>
-          void navigate({ search: { ...search, d }, replace: true })
-        }
-        onUpdateDoc={(doc) =>
-          commitLibrary(
-            library.map((e) =>
-              e.id === entry.id
-                ? { ...e, doc, savedAt: new Date().toISOString() }
-                : e,
-            ),
-          )
-        }
-        onDelete={() => {
-          removeTimetableData(entry.id)
-          commitLibrary(library.filter((e) => e.id !== entry.id))
-          void navigate({ search: {} })
-        }}
-        onBack={() => void navigate({ search: {} })}
-      />
+      <>
+        {saveFeedback}
+        <TimetableView
+          entry={entry}
+          view={search.v ?? 'grid'}
+          dayId={search.d}
+          onChangeView={(v) =>
+            void navigate({ search: { ...search, v }, replace: true })
+          }
+          onChangeDay={(d) =>
+            void navigate({ search: { ...search, d }, replace: true })
+          }
+          onUpdateDoc={(doc) =>
+            commitLibrary(
+              library.map((e) =>
+                e.id === entry.id
+                  ? { ...e, doc, savedAt: new Date().toISOString() }
+                  : e,
+              ),
+            )
+          }
+          onDelete={() => {
+            if (!commitLibrary(library.filter((e) => e.id !== entry.id))) return
+            removeTimetableData(entry.id)
+            void navigate({ search: {} })
+          }}
+          onBack={() => void navigate({ search: {} })}
+        />
+      </>
     )
   }
 
   return (
     <>
+      {saveFeedback}
       {shareBroken && (
         <p className="mx-auto mt-3 max-w-3xl border-l-4 border-rose-600 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/60 dark:text-rose-200">
           共有 URL を読み取れませんでした。URL
@@ -240,10 +287,13 @@ function TimetablePage() {
       <LibraryView
         library={library}
         onOpen={(id) => open(id)}
-        onImport={(doc) => open(addDoc(doc))}
+        onImport={(doc) => {
+          const id = addDoc(doc)
+          if (id !== null) open(id)
+        }}
         onDelete={(id) => {
-          removeTimetableData(id)
-          commitLibrary(library.filter((e) => e.id !== id))
+          if (commitLibrary(library.filter((e) => e.id !== id)))
+            removeTimetableData(id)
         }}
       />
     </>
