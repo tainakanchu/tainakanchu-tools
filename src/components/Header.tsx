@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
   CalendarClock,
@@ -56,8 +56,28 @@ function toolIcon(slug: string) {
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const openerRef = useRef<HTMLButtonElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const categories = useMemo(() => getCatalogByCategory(), [])
   const isToolApp = useIsToolApp()
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const opener = openerRef.current
+    closeButtonRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      opener?.focus()
+    }
+  }, [isOpen])
 
   return (
     <>
@@ -65,10 +85,13 @@ export default function Header() {
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 text-white">
           <div className="flex min-w-0 items-center gap-3">
             {/* ツール単体アプリではツール一覧を開くボタンを出さない（そのツール専用の
-                アプリなので）。ドロワーはボタンが無ければ開かないので触らない。
+                アプリなので）。
                 ロゴのトップへのリンクは残し、他のツールへはそこから行ける。 */}
             {isToolApp ? null : (
               <button
+                ref={openerRef}
+                aria-expanded={isOpen}
+                aria-controls="header-drawer"
                 onClick={() => setIsOpen(true)}
                 className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-cyan-400/60 hover:bg-cyan-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
                 aria-label="メニューを開く"
@@ -107,6 +130,8 @@ export default function Header() {
       {/* 影は開いているときだけ。閉じて画面の左外に退けていても、影が画面の
           左端に薄くはみ出して見えるため */}
       <aside
+        id="header-drawer"
+        inert={!isOpen}
         className={`fixed inset-y-0 left-0 z-50 flex h-full w-[320px] flex-col border-r border-white/10 bg-gray-950 text-white transition-transform duration-300 ease-in-out print:hidden ${
           isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
@@ -120,6 +145,7 @@ export default function Header() {
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={() => setIsOpen(false)}
             className="rounded-xl border border-white/10 bg-white/5 p-2 transition hover:border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
             aria-label="メニューを閉じる"
