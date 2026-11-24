@@ -19,10 +19,7 @@
  *   穴として数えるのは「countryInfos に登録済みだが欄が空」のものだけ。
  */
 
-import {
-  AIRLINE_TIMING_FILL_RULE,
-  LATIN_NAME_FILL_RULE,
-} from './promptRules'
+import { AIRLINE_TIMING_FILL_RULE, LATIN_NAME_FILL_RULE } from './promptRules'
 import { tryParseStamp } from './datetime'
 import { isTransportKind } from './nights'
 import type { Booking, CountryInfo, TripNotesState } from './types'
