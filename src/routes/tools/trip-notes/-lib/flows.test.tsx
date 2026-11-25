@@ -257,9 +257,13 @@ describe('保存待ちの編集', () => {
       await act(() => vi.advanceTimersByTime(300))
       fireEvent.change(title, { target: { value: '保存する名前' } })
       await act(() => vi.advanceTimersByTime(300))
-      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('テスト旅行')
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe(
+        'テスト旅行',
+      )
       view.unmount()
-      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe('保存する名前')
+      expect(activeStateOf(loadLibrary('2030-06-12')).tripTitle).toBe(
+        '保存する名前',
+      )
     } finally {
       vi.useRealTimers()
     }
