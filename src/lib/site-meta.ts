@@ -162,6 +162,15 @@ export const TOOL_META: ReadonlyArray<ToolMeta> = [
     category: 'event',
   },
   {
+    slug: 'sine-wave',
+    name: 'サイン波ジェネレーター',
+    description:
+      '指定した周波数のサイン波をブラウザで鳴らす。スピーカーチェックや音響調整に。',
+    path: '/tools/sine-wave',
+    ogImagePath: '/assets/og/sine-wave.png',
+    category: 'event',
+  },
+  {
     slug: 'setlist-card',
     name: 'セトリ画像メーカー',
     description:
@@ -208,7 +217,13 @@ const ORDER_BY_CATEGORY: Record<ToolCategoryId, ReadonlyArray<string>> = {
     'meeting-recorder',
     'magnify-image',
   ],
-  event: ['timetable', 'drum-roll', 'setlist-card', 'online-roulette'],
+  event: [
+    'timetable',
+    'drum-roll',
+    'sine-wave',
+    'setlist-card',
+    'online-roulette',
+  ],
 }
 
 function sortByCategoryOrder(

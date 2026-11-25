@@ -8,7 +8,7 @@
 
 // ---------------------------------------------------------------------------
 // Lucide path data（静的データ）
-// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,map-pinned,coffee,heart,calendar-clock,music,mic,headphones,audio-lines,disc-3,list-music,image}.
+// extracted from lucide-react icons/{printer,id-card,ruler,map,train-front,puzzle,notebook-pen,ticket,clock,sparkles,drum,plane-landing,stamp,layers,palette,map-pinned,coffee,heart,calendar-clock,music,mic,headphones,audio-lines,disc-3,list-music,image,audio-waveform,volume-2,activity}.
 // viewBox 0 0 24 24、stroke ベース。シーンがパーツ単位で再色できるよう
 // shapes を part ごとに分けている（例: sparkles の小ドット）。
 // ---------------------------------------------------------------------------
@@ -324,6 +324,38 @@ export const ICONS = {
       ['rect', { width: '18', height: '18', x: '3', y: '3', rx: '2', ry: '2' }],
       ['circle', { cx: '9', cy: '9', r: '2' }],
       ['path', { d: 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21' }],
+    ],
+  },
+  'audio-waveform': {
+    all: [
+      [
+        'path',
+        {
+          d: 'M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2',
+        },
+      ],
+    ],
+  },
+  'volume-2': {
+    all: [
+      [
+        'path',
+        {
+          d: 'M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z',
+        },
+      ],
+      ['path', { d: 'M16 9a5 5 0 0 1 0 6' }],
+      ['path', { d: 'M19.364 18.364a9 9 0 0 0 0-12.728' }],
+    ],
+  },
+  activity: {
+    all: [
+      [
+        'path',
+        {
+          d: 'M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2',
+        },
+      ],
     ],
   },
 } as const satisfies Record<string, IconParts>

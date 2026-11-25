@@ -16,6 +16,7 @@ import { Route as ToolsLicenseLayoutIndexRouteImport } from './routes/tools/lice
 import { Route as ToolsMeetingRecorderIndexRouteImport } from './routes/tools/meeting-recorder/index'
 import { Route as ToolsRisographIndexRouteImport } from './routes/tools/risograph/index'
 import { Route as ToolsSetlistCardIndexRouteImport } from './routes/tools/setlist-card/index'
+import { Route as ToolsSineWaveIndexRouteImport } from './routes/tools/sine-wave/index'
 import { Route as ToolsTaiwanArrivalCardIndexRouteImport } from './routes/tools/taiwan-arrival-card/index'
 import { Route as ToolsTaiwanMapIndexRouteImport } from './routes/tools/taiwan-map/index'
 import { Route as ToolsTimetableIndexRouteImport } from './routes/tools/timetable/index'
@@ -59,6 +60,11 @@ const ToolsSetlistCardIndexRoute = ToolsSetlistCardIndexRouteImport.update({
   path: '/tools/setlist-card/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsSineWaveIndexRoute = ToolsSineWaveIndexRouteImport.update({
+  id: '/tools/sine-wave/',
+  path: '/tools/sine-wave/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsTaiwanArrivalCardIndexRoute =
   ToolsTaiwanArrivalCardIndexRouteImport.update({
     id: '/tools/taiwan-arrival-card/',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
   '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
+  '/tools/sine-wave/': typeof ToolsSineWaveIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map/': typeof ToolsTaiwanMapIndexRoute
   '/tools/timetable/': typeof ToolsTimetableIndexRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/tools/meeting-recorder': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph': typeof ToolsRisographIndexRoute
   '/tools/setlist-card': typeof ToolsSetlistCardIndexRoute
+  '/tools/sine-wave': typeof ToolsSineWaveIndexRoute
   '/tools/taiwan-arrival-card': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map': typeof ToolsTaiwanMapIndexRoute
   '/tools/timetable': typeof ToolsTimetableIndexRoute
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/tools/meeting-recorder/': typeof ToolsMeetingRecorderIndexRoute
   '/tools/risograph/': typeof ToolsRisographIndexRoute
   '/tools/setlist-card/': typeof ToolsSetlistCardIndexRoute
+  '/tools/sine-wave/': typeof ToolsSineWaveIndexRoute
   '/tools/taiwan-arrival-card/': typeof ToolsTaiwanArrivalCardIndexRoute
   '/tools/taiwan-map/': typeof ToolsTaiwanMapIndexRoute
   '/tools/timetable/': typeof ToolsTimetableIndexRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/tools/meeting-recorder/'
     | '/tools/risograph/'
     | '/tools/setlist-card/'
+    | '/tools/sine-wave/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/taiwan-map/'
     | '/tools/timetable/'
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/tools/meeting-recorder'
     | '/tools/risograph'
     | '/tools/setlist-card'
+    | '/tools/sine-wave'
     | '/tools/taiwan-arrival-card'
     | '/tools/taiwan-map'
     | '/tools/timetable'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/tools/meeting-recorder/'
     | '/tools/risograph/'
     | '/tools/setlist-card/'
+    | '/tools/sine-wave/'
     | '/tools/taiwan-arrival-card/'
     | '/tools/taiwan-map/'
     | '/tools/timetable/'
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   ToolsMeetingRecorderIndexRoute: typeof ToolsMeetingRecorderIndexRoute
   ToolsRisographIndexRoute: typeof ToolsRisographIndexRoute
   ToolsSetlistCardIndexRoute: typeof ToolsSetlistCardIndexRoute
+  ToolsSineWaveIndexRoute: typeof ToolsSineWaveIndexRoute
   ToolsTaiwanArrivalCardIndexRoute: typeof ToolsTaiwanArrivalCardIndexRoute
   ToolsTaiwanMapIndexRoute: typeof ToolsTaiwanMapIndexRoute
   ToolsTimetableIndexRoute: typeof ToolsTimetableIndexRoute
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsSetlistCardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools/sine-wave/': {
+      id: '/tools/sine-wave/'
+      path: '/tools/sine-wave'
+      fullPath: '/tools/sine-wave/'
+      preLoaderRoute: typeof ToolsSineWaveIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools/taiwan-arrival-card/': {
       id: '/tools/taiwan-arrival-card/'
       path: '/tools/taiwan-arrival-card'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsMeetingRecorderIndexRoute: ToolsMeetingRecorderIndexRoute,
   ToolsRisographIndexRoute: ToolsRisographIndexRoute,
   ToolsSetlistCardIndexRoute: ToolsSetlistCardIndexRoute,
+  ToolsSineWaveIndexRoute: ToolsSineWaveIndexRoute,
   ToolsTaiwanArrivalCardIndexRoute: ToolsTaiwanArrivalCardIndexRoute,
   ToolsTaiwanMapIndexRoute: ToolsTaiwanMapIndexRoute,
   ToolsTimetableIndexRoute: ToolsTimetableIndexRoute,

@@ -2,6 +2,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
+  AudioWaveform,
   CalendarClock,
   Dices,
   Disc3,
@@ -42,6 +43,7 @@ const TOOL_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   'trip-scheduler': Map,
   'trip-notes': Luggage,
   'drum-roll': Drum,
+  'sine-wave': AudioWaveform,
   'setlist-card': Disc3,
   timetable: CalendarClock,
   'taiwan-arrival-card': PlaneLanding,
