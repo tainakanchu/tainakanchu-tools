@@ -295,6 +295,43 @@ const CARDS: ReadonlyArray<CardDef> = [
     ],
   },
   {
+    slug: 'sine-wave',
+    titleFontSize: 84,
+    titleLines: [
+      { text: 'サイン波', y: 300 },
+      { text: 'ジェネレーター', y: 408 },
+    ],
+    scene: [
+      {
+        icon: 'audio-waveform',
+        part: 'all',
+        cx: 940,
+        cy: 300,
+        size: 195,
+        rotate: 0,
+        color: 'main',
+      },
+      {
+        icon: 'volume-2',
+        part: 'all',
+        cx: 1030,
+        cy: 420,
+        size: 100,
+        rotate: -10,
+        color: 'sub',
+      },
+      {
+        icon: 'activity',
+        part: 'all',
+        cx: 828,
+        cy: 195,
+        size: 72,
+        rotate: 0,
+        color: 'accent',
+      },
+    ],
+  },
+  {
     slug: 'setlist-card',
     titleFontSize: 84,
     titleLines: [
